@@ -1,0 +1,5 @@
+*.txt
+*.npz
+*.pyc
+*.pyf
+*.o
