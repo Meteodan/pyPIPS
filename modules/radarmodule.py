@@ -17,8 +17,8 @@ import ctablesfrompyesviewer as ctables
 from datetime import datetime,timedelta
 import pytz as pytz
 from scipy import special
-import thermolib as thermo
-import obanmodule as oban
+from . import thermolib as thermo
+from . import obanmodule as oban
 import math as M
 from scipy.interpolate import interp2d
 from scipy.interpolate import Rbf

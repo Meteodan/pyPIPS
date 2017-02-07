@@ -7,7 +7,7 @@ import numpy as N
 from netcdftime import utime
 import sys
 import os
-import markup
+from . import markup
 from datetime import datetime,timedelta
 from scipy.interpolate import interp1d
 from scipy import ndimage

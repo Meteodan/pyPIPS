@@ -13,8 +13,8 @@ import os
 import shlex
 import matplotlib.pyplot as plt
 from matplotlib.ticker import *
-import obanmodule as oban
-import radarmodule as radar
+from . import obanmodule as oban
+from . import radarmodule as radar
 from scipy import special
 import pdb
 import pandas as pd
@@ -61,10 +61,10 @@ use_DD_QC = False   # Use my QC methods (see below)
 use_measured_fs = True     # If True, use the raw measured fall speeds to compute number concentration
                             # If False, use the fall speed curve of Terry Schuur
 
-use_strongwindQC = True      # Remove time records that are contaminated by strong wind?
-use_splashingQC = True      # Remove drops that result from splashing?
-use_marginQC = True         # Remove drops that result from margin falls?
-use_rainonlyQC = True       # Remove all particles that are probably not rain?
+use_strongwindQC = False      # Remove time records that are contaminated by strong wind?
+use_splashingQC = False      # Remove drops that result from splashing?
+use_marginQC = False         # Remove drops that result from margin falls?
+use_rainonlyQC = False       # Remove all particles that are probably not rain?
 use_hailonlyQC = False      # Remove all particles that are probably not hail?
 use_graupelonlyQC = False   # Remove all particles that are probably not graupel?
 
@@ -80,7 +80,7 @@ masklowdiam  = False    # True to mask out low diameter particles (given by thre
 highdiamthresh = 9.0
 lowdiamthresh = 1.0
 
-plot_QC = True        # True to plot fallspeed vs. diameter plot with QC information for each DSD
+plot_QC = False        # True to plot fallspeed vs. diameter plot with QC information for each DSD
 plot_splashingQC = False
 plot_marginQC = False
 plot_strongwindQC = False
@@ -635,38 +635,40 @@ def readPIPS(filename,fixGPS=True,basicqc=False,rainfallqc=False,rainonlyqc=Fals
     sec_offset = pdatetimes_corrected[0].second
     intervalstr = '{:d}S'.format(int(DSD_interval))
     
+    concentrations_df = pd.DataFrame(data=concentrations,index=pdatetimes_corrected,columns=avg_diameter)
+    onedrop_concentrations_df = pd.DataFrame(data=onedrop_concentrations,index=pdatetimes_corrected,columns=avg_diameter)
+    intensities_df = pd.Series(intensities,index=pdatetimes_corrected)
+    preciptots_df = pd.Series(preciptots,index=pdatetimes_corrected)
+    reflectivities_df = pd.Series(reflectivities,index=pdatetimes_corrected)
+    pcounts_df = pd.Series(pcounts,index=pdatetimes_corrected)
+    pcounts2_df = pd.Series(pcounts2,index=pdatetimes_corrected) # STOPPED HERE!
+
+    
     if(DSD_interval > 10.0):
         # Create a dataframe of the concentrations in each diameter bin and then resample at the new interval,
         # filling in missing values with zeros
     
-        concentrations_df = pd.DataFrame(data=concentrations,index=pdatetimes_corrected,columns=avg_diameter)
         concentrations_df = concentrations_df.resample(intervalstr,label='right',closed='right',base=sec_offset).mean().fillna(0)
-        onedrop_concentrations_df = pd.DataFrame(data=onedrop_concentrations,index=pdatetimes_corrected,columns=avg_diameter)
         onedrop_concentrations_df = onedrop_concentrations_df.resample(intervalstr,label='right',closed='right',base=sec_offset).mean().fillna(0)
-        intensities_df = pd.Series(intensities,index=pdatetimes_corrected)
         intensities_df = intensities_df.resample(intervalstr,label='right',closed='right',base=sec_offset).mean().fillna(0)
-        preciptots_df = pd.Series(preciptots,index=pdatetimes_corrected)
         preciptots_df = preciptots_df.resample(intervalstr,label='right',closed='right',base=sec_offset).sum()
-        reflectivities_df = pd.Series(reflectivities,index=pdatetimes_corrected)
         reflectivities_df = reflectivities_df.resample(intervalstr,label='right',closed='right',base=sec_offset).mean().fillna(0)
-        pcounts_df = pd.Series(pcounts,index=pdatetimes_corrected)
         pcounts_df = pcounts_df.resample(intervalstr,label='right',closed='right',base=sec_offset).sum()
-        pcounts2_df = pd.Series(pcounts2,index=pdatetimes_corrected) # STOPPED HERE!
         pcounts2_df = pcounts2_df.resample(intervalstr,label='right',closed='right',base=sec_offset).sum()
 
-        concentrations = concentrations_df.values
-        onedrop_concentrations = onedrop_concentrations_df.values
-        #print len(pdatetimes_corrected),pdatetimes_corrected
-        # Argh, have to convert back to datetime objects.  This one from http://stackoverflow.com/questions/13703720/converting-between-datetime-timestamp-and-datetime64
-        pdatetimes_corrected = concentrations_df.index.to_pydatetime()
-        DSD_index = concentrations_df.index
-        #print len(pdatetimes_corrected),pdatetimes_corrected
-        onedrop_concentrations = onedrop_concentrations/DSD_interval # Concentration in each bin assuming only one drop over the new interval
-        intensities = intensities_df.values
-        preciptots = preciptots_df.values
-        reflectivities = reflectivities_df.values
-        pcounts = pcounts_df.values
-        pcounts2 = pcounts2_df.values
+    concentrations = concentrations_df.values
+    onedrop_concentrations = onedrop_concentrations_df.values
+    #print len(pdatetimes_corrected),pdatetimes_corrected
+    # Argh, have to convert back to datetime objects.  This one from http://stackoverflow.com/questions/13703720/converting-between-datetime-timestamp-and-datetime64
+    pdatetimes_corrected = concentrations_df.index.to_pydatetime()
+    DSD_index = concentrations_df.index
+    #print len(pdatetimes_corrected),pdatetimes_corrected
+    onedrop_concentrations = 10.0*onedrop_concentrations/DSD_interval # Concentration in each bin assuming only one drop over the new interval
+    intensities = intensities_df.values
+    preciptots = preciptots_df.values
+    reflectivities = reflectivities_df.values
+    pcounts = pcounts_df.values
+    pcounts2 = pcounts2_df.values
     
     return datetimes_corrected,pdatetimes_corrected,flaggedtimes,intensities,preciptots,reflectivities,pcounts,pcounts2, \
             sensortemps,concentrations,onedrop_concentrations,countsMatrix,windspds,winddirrels,winddirabss, \

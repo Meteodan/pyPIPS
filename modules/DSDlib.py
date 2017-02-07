@@ -3,7 +3,7 @@
 
 import numpy as N
 from scipy.special import gamma as gamma_
-import thermolib as thermo
+from . import thermolib as thermo
 
 def cal_Mp(p,lamda,Nt,alpha):
     """Given lamda, Nt, and alpha, computes the pth moment of the gamma distribution"""
