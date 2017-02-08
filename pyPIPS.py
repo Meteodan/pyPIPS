@@ -18,28 +18,27 @@ import pytz as pytz
 from scipy import special
 from scipy import signal
 from scipy import ndimage
-import thermolib as thermo
+import modules.thermolib as thermo
 import math as M
 import imp
 import glob
 import os
-import obanmodule as oban
+import modules.obanmodule as oban
 from mpl_toolkits.axes_grid1 import make_axes_locatable,host_subplot
 from matplotlib import colorbar
-import disdrometer_module as dis
+import modules.disdrometer_module as dis
 from matplotlib.font_manager import FontProperties
-import raymond_lowpass as raymond
-import DSDlib as dsd
+import modules.raymond_lowpass as raymond
+import modules.DSDlib as dsd
 import pickle
 #import cressman as cress
 import pdb
 import sys
-import ctablesfrompyesviewer as ctables
-import radarmodule as radar
-import obanmodule as oban
+import modules.ctablesfrompyesviewer as ctables
+import modules.radarmodule as radar
 import pandas as pd
-import plotmodule as pm
-from utils import log,warning,fatal
+import modules.plotmodule as pm
+from modules.utils import log,warning,fatal
 
 clevels_ref = N.arange(5.0,85.0,5.0)          # Contour levels for reflectivity (dBZ)
 clevels_zdr = N.arange(0.0,6.25,0.25)         # Contour levels for Zdr (dB)
