@@ -438,6 +438,13 @@ for index,dis_filename,dis_name,starttime,stoptime,centertime,dloc in \
     if (not os.path.exists(image_dir)):
         os.makedirs(image_dir)
     
+    if(pc.plot_conv_meteo or pc.plot_DSD_meteo):
+        # Create the directory for the plots if it doesn't exist
+        meteogram_image_dir = image_dir+'meteograms/'
+        if (not os.path.exists(meteogram_image_dir)):
+            os.makedirs(meteogram_image_dir)
+
+    
     # Read in the disdrometer data file
     filepath = dis_dir+dis_filename
     datetimesUTC,pdatetimesUTC,flaggedtimes,intensities,preciptots,reflectivities,pcounts,pcounts2, \
@@ -596,15 +603,9 @@ for index,dis_filename,dis_name,starttime,stoptime,centertime,dloc in \
     RHs_tDSD = pd.Series(data=RHs,index=datetimesUTC).resample(DSD_intervalstr,label='right',closed='right',base=sec_offset).mean().loc[DSD_index].values
     pressures_tDSD = pd.Series(data=pressures,index=datetimesUTC).resample(DSD_intervalstr,label='right',closed='right',base=sec_offset).mean().loc[DSD_index].values
     rho_tDSD = pd.Series(data=rho,index=datetimesUTC).resample(DSD_intervalstr,label='right',closed='right',base=sec_offset).mean().loc[DSD_index].values
-        
-    # Conventional data meteogram plotting
-    if(pc.plot_conv_meteo):
-        
-        # Create the directory for the plots if it doesn't exist
-        meteogram_image_dir = image_dir+'meteograms/'
-        if (not os.path.exists(meteogram_image_dir)):
-            os.makedirs(meteogram_image_dir)
     
+    # Conventional data meteogram plotting
+    if(pc.plot_conv_meteo):    
         # Interval for plotting in seconds.  Setting to larger intervals is useful to avoid
         # plot clutter for long datasets, but information will be lost.
         plotinterval = 10
@@ -740,7 +741,6 @@ for index,dis_filename,dis_name,starttime,stoptime,centertime,dloc in \
         N_expDSD,N0_exp,lamda_exp,mu_exp,qr_exp,Ntr_exp,refl_DSD_exp,D_med_exp,D_m_exp = exp_DSD
         N_gamDSD,N0_gam,lamda_gam,mu_gam,qr_gam,Ntr_gam,refl_DSD_gam,D_med_gam,D_m_gam = gam_DSD
         Nc_bin,logNc_bin,D_med_disd,D_m_disd,D_mv_disd,D_ref_disd,QR_disd,refl_disd = dis_DSD
-        #N.savetxt('Nc_bin.txt', Nc_bin) # Commented out for now, may add a debug option to dump this info        
         N_gamDSD = N_gamDSD.T
         logN_gamDSD = N.ma.log10(N_gamDSD/1000.) # Get to log(m^-3 mm^-1)
     	logN_gamDSD = N.ma.masked_where(N_gamDSD < dropperbin, logN_gamDSD)
@@ -784,12 +784,12 @@ for index,dis_filename,dis_name,starttime,stoptime,centertime,dloc in \
             disvars['D_0_dis'] = D_0_dis_avg[pstartindex:pstopindex+1]
             disvars['dBZ_ray'] = dBZ_ray_dis_avg[pstartindex:pstopindex+1]
             
-        if(pc.calc_dualpol):
-            # Computed centered running averages of dualpol variables
-            for varname,var in zip(['dBZ','ZDR','KDP','RHV'],[dBZ,ZDR,KDP,RHV]):
-                if(var.size):
-                    var_avg = pd.Series(var).rolling(window=3,center=True,win_type='triang',min_periods=1).mean().values        
-                    disvars[varname] = var_avg[pstartindex:pstopindex+1]
+            if(pc.calc_dualpol):
+                # Computed centered running averages of dualpol variables
+                for varname,var in zip(['dBZ','ZDR','KDP','RHV'],[dBZ,ZDR,KDP,RHV]):
+                    if(var.size):
+                        var_avg = pd.Series(var).rolling(window=window,center=True,win_type='triang',min_periods=1).mean().values        
+                        disvars[varname] = var_avg[pstartindex:pstopindex+1]
 
 
         # Get radar variables together for comparison, if desired
@@ -845,7 +845,7 @@ for index,dis_filename,dis_name,starttime,stoptime,centertime,dloc in \
 				ax1.text(0.50,0.6,'Intensity =%2.2f'%intensities[t]+'mm/hr',transform=ax1.transAxes)
 				ax1.text(0.50,0.55,'Particle count (QC) = '+str(pcounts2[t]),transform=ax1.transAxes)
 				plt.savefig(image_dir+'DSDs/'+dis_name+'/'+dis_name+'_t'+str(t)+'DSD_plot.png',dpi=200,bbox_inches='tight')
-				plt.close(fig)
+				plt.close(fig1)
 
 	
 	Zh_Cao = N.arange(20,61,1)
