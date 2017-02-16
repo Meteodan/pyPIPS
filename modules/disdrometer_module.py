@@ -656,8 +656,16 @@ def readPIPS(filename,fixGPS=True,basicqc=False,rainfallqc=False,rainonlyqc=Fals
         pcounts_df = pcounts_df.resample(intervalstr,label='right',closed='right',base=sec_offset).sum()
         pcounts2_df = pcounts2_df.resample(intervalstr,label='right',closed='right',base=sec_offset).sum()
 
+    # Pandas apparently (gotcha!) converts missing values to NaN when extracting the numpy array representation using .values
+    # Since I want the original masked array functionality for now for further computations, I need to remask the array here.
+    # Otherwise, the NaN's propagate in further computations...
+    # In the future, another solution that uses Pandas more natively should be pursued, but this will work for now
     concentrations = concentrations_df.values
+    mask = concentrations_df.isnull()
+    concentrations = ma.array(concentrations,mask=mask)
     onedrop_concentrations = onedrop_concentrations_df.values
+    mask = onedrop_concentrations_df.isnull()
+    onedrop_concentrations = ma.array(onedrop_concentrations,mask=mask)
     #print len(pdatetimes_corrected),pdatetimes_corrected
     # Argh, have to convert back to datetime objects.  This one from http://stackoverflow.com/questions/13703720/converting-between-datetime-timestamp-and-datetime64
     pdatetimes_corrected = concentrations_df.index.to_pydatetime()
@@ -669,7 +677,7 @@ def readPIPS(filename,fixGPS=True,basicqc=False,rainfallqc=False,rainonlyqc=Fals
     reflectivities = reflectivities_df.values
     pcounts = pcounts_df.values
     pcounts2 = pcounts2_df.values
-    
+        
     return datetimes_corrected,pdatetimes_corrected,flaggedtimes,intensities,preciptots,reflectivities,pcounts,pcounts2, \
             sensortemps,concentrations,onedrop_concentrations,countsMatrix,windspds,winddirrels,winddirabss, \
             winddiags,fasttemps,slowtemps,dewpoints,RHs_derived,RHs,pressures,compass_dirs,    \
@@ -768,7 +776,7 @@ def readtmatrix(filename):
     fbr_b = data[:,3]+1j*data[:,4]
     far_f = data[:,5]+1j*data[:,6]
     fbr_f = data[:,7]+1j*data[:,8]
-    
+        
     return d,far_b,fbr_b,far_f,fbr_f
     
 def calbackscatterrain(far_b,fbr_b,far_f,fbr_f):
@@ -814,7 +822,7 @@ def calpolrain(wavelength,filename,Nd,intv):
     ZDR = 10.*N.log10(N.maximum(1.0,temp))
     temp = Zh*Zv
     rhv = N.where(Zh != Zv ,Zhv/(N.sqrt(temp)),0.0) # Added by Jessie (was temp > 0).  Find out why...
-    N.savetxt('temp.txt', temp)
+    #N.savetxt('temp.txt', temp)
 
 
     return Zh,Zv,Zhv,dBZ,ZDR,Kdp,rhv
@@ -899,7 +907,7 @@ def calc_DSD(min_size,avg_size,max_size,bin_width,Nc_bin,logNc_bin,rho,qrQC,qr_t
         M6.append(temp_M6)
         M7.append(temp_M7)
         D_med_disd.append(temp_D_med)
-    
+            
     M0 = ma.array(M0,dtype=N.float64)
     M1 = ma.array(M1,dtype=N.float64)
     M2 = ma.array(M2,dtype=N.float64)
@@ -1064,7 +1072,7 @@ def calc_DSD(min_size,avg_size,max_size,bin_width,Nc_bin,logNc_bin,rho,qrQC,qr_t
     exp_DSD = (N_expDSD,N0_exp,lamda_exp,mu_exp,qr_exp,Ntr_exp,refl_DSD_exp,D_med_exp,D_m_exp)
     gam_DSD = (N_gamDSD,N0_gam,lamda_gam,mu_gam,qr_gam,Ntr_gam,refl_DSD_gam,D_med_gam,D_m_gam)
     dis_DSD = (Nc_bin,logNc_bin,D_med_disd,D_m_disd,D_mv_disd,D_ref_disd,QR_disd,refl_disd)
-            
+    
     return synthbins,exp_DSD,gam_DSD,dis_DSD
 
     
