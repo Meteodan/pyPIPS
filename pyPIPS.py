@@ -590,7 +590,7 @@ for index,dis_filename,dis_name,starttime,stoptime,centertime,dloc in \
 #     print len(rho_tDSD)
     #print len(tempdatetime),tempdatetime
 
-    dummy,windspds_tDSD,winddirs_tDSD,dummy,dummy = dis.resamplewind(datetimesUTC,sec_offset,winddirabss,
+    dummy,windspds_tDSD,winddirs_tDSD,dummy,dummy,dummy,dummy,dummy,dummy,dummy = dis.resamplewind(datetimesUTC,sec_offset,winddirabss,
                     windspds,DSD_intervalstr,gusts=False,gustintvstr='3S',center=False)
     
     windspds_tDSD = windspds_tDSD.loc[DSD_index].values

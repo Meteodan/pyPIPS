@@ -1394,8 +1394,15 @@ def resamplewind(datetimes,offset,winddirs,windspds,DSD_intervalstr,gusts=True,g
     vsavg = pd.Series(data=vs,index=datetimes).resample(DSD_intervalstr,label='right',closed='right',base=offset).mean()
     windspdsavgvec = N.sqrt(usavg**2.+vsavg**2.)
     winddirsavgvec = (270.0-(180./N.pi)*N.arctan2(vsavg,usavg))%360. # Need to use %360 to keep wind dir between 0 and 360 degrees
+    
+    #unit average wind direction
+    unit_us = us/windspds
+    unit_vs = vs/windspds
+    unit_usavg = pd.Series(data=unit_us,index=datetimes).resample(DSD_intervalstr,label='right',closed='right',base=offset).mean()
+    unit_vsavg = pd.Series(data=unit_vs,index=datetimes).resample(DSD_intervalstr,label='right',closed='right',base=offset).mean()
+    winddirsunitavgvec = (270.0-(180./N.pi)*N.arctan2(unit_vsavg,unit_usavg))%360. # Need to use %360 to keep wind dir between 0 and 360 degrees
 
-    return windspdsavg,windspdsavgvec,winddirsavgvec,windgusts,windgustsavg
+    return windspdsavg,windspdsavgvec,winddirsavgvec,winddirsunitavgvec,windgusts,windgustsavg,usavg,vsavg,unit_usavg,unit_vsavg
     
 #-----------------------------------------------------------------------------------------
 #
