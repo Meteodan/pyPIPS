@@ -994,7 +994,7 @@ def readPIPSdf(filename,fixGPS=True,basicqc=False,rainfallqc=False,rainonlyqc=Fa
                       'GPS lon':GPS_lons,'GPS status':GPS_stats,'GPS altitude':GPS_alts,
                       'voltage':voltages}
 
-    conv_data_df = pd.DataFrame(conv_data_dict,index=datetimes_corrected)
+    conv_data_df = pd.DataFrame(conv_data_dict,index=pd.Index(datetimes_corrected,name='Time'))
     
     # Average and thin the DSD data with the desired interval
     DSD_index_interval = int(DSD_interval/10.0)    
@@ -1012,9 +1012,9 @@ def readPIPSdf(filename,fixGPS=True,basicqc=False,rainfallqc=False,rainonlyqc=Fa
                         'Radar reflectivity':reflectivities,'Particle counts':pcounts,
                         'Derived particle counts':pcounts2,'Bad wind flagged times':flaggedtimes}
     
-    concentrations_df = pd.DataFrame(data=concentrations,index=pdatetimes_corrected,columns=avg_diameter)
-    onedrop_concentrations_df = pd.DataFrame(data=onedrop_concentrations,index=pdatetimes_corrected,columns=avg_diameter)
-    derived_DSD_df = pd.DataFrame(derived_DSD_dict,index=pdatetimes_corrected)
+    concentrations_df = pd.DataFrame(data=concentrations,index=pd.Index(pdatetimes_corrected,name='Time'),columns=avg_diameter)
+    onedrop_concentrations_df = pd.DataFrame(data=onedrop_concentrations,index=pd.Index(pdatetimes_corrected,name='Time'),columns=avg_diameter)
+    derived_DSD_df = pd.DataFrame(derived_DSD_dict,index=pd.Index(pdatetimes_corrected,name='Time'))
     
     if(DSD_interval > 10.0):
         # Resample at the new interval filling in missing values with zeros
