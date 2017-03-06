@@ -360,7 +360,7 @@ def plotmeteogram(ax,xvals,zvals,plotparamdicts,yvals=None):
         elif(type == 'pcolor'):
             divider = make_axes_locatable(ax)
             C = ax.pcolor(xval,yvals[idx],zval,vmin=vlimits[0],vmax=vlimits[1])
-            cax = divider.append_axes("bottom", size="5%", pad=0.35)
+            cax = divider.append_axes("bottom", size="5%", pad=0.40)
             cb = ax.get_figure().colorbar(C, cax=cax,orientation='horizontal')
             if(clabel):
                 cb.set_label(clabel)

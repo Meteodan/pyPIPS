@@ -161,9 +161,9 @@ with open(sys.argv[argindex],'r') as inputfile:
         line = inputfile.readline().strip().split(',')
         dname = line[0] # Disdrometer name
         dfile = line[1] # Disdrometer filename
-        starttime = N.int(line[2])
-        stoptime = N.int(line[3])
-        centertime = N.int(line[4])
+        starttime = line[2] # N.int(line[2])
+        stoptime = line[3] # N.int(line[3])
+        centertime = line[4] # N.int(line[4])
         lat = N.float(line[5])
         lon = N.float(line[6])
         alt = N.float(line[7])
@@ -490,11 +490,13 @@ for index,dis_filename,dis_name,starttime,stoptime,centertime,dloc in \
         pstartindex = 0
         starttime = datetimesUTCnums[startindex]
         pstarttime = pdatetimesUTCnums[startindex]
+        plotstarttime = starttime
     else:
-        try:
-            starttime = date2num(datetime(N.int(starttime[:4]),N.int(starttime[4:6]),
+        starttime = date2num(datetime(N.int(starttime[:4]),N.int(starttime[4:6]),
                         N.int(starttime[6:8]),N.int(starttime[8:10]),N.int(starttime[10:12])))
-            pstarttime = starttime
+        pstarttime = starttime
+        plotstarttime = starttime
+        try:
             startindex = next(i for i,t in enumerate(datetimesUTCnums) if t >= starttime)
             pstartindex = next(i for i,t in enumerate(pdatetimesUTCnums) if t >= starttime)
         except:
@@ -508,11 +510,13 @@ for index,dis_filename,dis_name,starttime,stoptime,centertime,dloc in \
         pstopindex = N.size(pdatetimesUTCnums)-1
         stoptime = datetimesUTCnums[stopindex]
         pstoptime = pdatetimesUTCnums[pstopindex]
+        plotstoptime = stoptime
     else:
-        try:
-            stoptime = date2num(datetime(N.int(stoptime[:4]),N.int(stoptime[4:6]),
+        stoptime = date2num(datetime(N.int(stoptime[:4]),N.int(stoptime[4:6]),
                         N.int(stoptime[6:8]),N.int(stoptime[8:10]),N.int(stoptime[10:12])))
-            pstoptime = stoptime
+        pstoptime = stoptime
+        plotstoptime = stoptime
+        try:
             stopindex = next(i for i,t in enumerate(datetimesUTCnums) if t >= stoptime)
             pstopindex = next(i for i,t in enumerate(pdatetimesUTCnums) if t >= stoptime)
         except:
@@ -640,7 +644,7 @@ for index,dis_filename,dis_name,starttime,stoptime,centertime,dloc in \
         ax2 = pm.plotmeteogram(ax2,xvals,fields,fieldparamdicts)
         
         axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,
-                        'minorxlocator':pc.minorlocator,'axeslimits':[[starttime,stoptime],[0.0,15.0]],
+                        'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[0.0,15.0]],
                         'axeslabels':[pc.timelabel,r'wind speed (m s$^{-1}$)']}
         axparamdict2 = {'majorylocator':MultipleLocator(45.),'axeslimits':[None,[0.0,360.0]],
                         'axeslabels':[None,r'Wind direction ($^{\circ}$C)']}
@@ -666,7 +670,7 @@ for index,dis_filename,dis_name,starttime,stoptime,centertime,dloc in \
         ax1.axhline(0.0,ls=':',color='k')
         
         axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,
-                        'minorxlocator':pc.minorlocator,'axeslimits':[[starttime,stoptime],[-10.,40.0]],
+                        'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[-10.,40.0]],
                         'axeslabels':[pc.timelabel,r'Temperature ($^{\circ}$C)']}
         axparamdicts = [axparamdict1]
         ax1, = pm.set_meteogram_axes([ax1],axparamdicts)
@@ -686,7 +690,7 @@ for index,dis_filename,dis_name,starttime,stoptime,centertime,dloc in \
         ax1 = pm.plotmeteogram(ax1,xvals,fields,fieldparamdicts)
         
         axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,
-                        'minorxlocator':pc.minorlocator,'axeslimits':[[starttime,stoptime],[0.,100.]],
+                        'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[0.,100.]],
                         'axeslabels':[pc.timelabel,'Relative Humidity (%)']}
 
         axparamdicts = [axparamdict1]
@@ -707,18 +711,10 @@ for index,dis_filename,dis_name,starttime,stoptime,centertime,dloc in \
         ax1 = pm.plotmeteogram(ax1,xvals,fields,fieldparamdicts)
         
         axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,
-                        'minorxlocator':pc.minorlocator,'axeslimits':[[starttime,stoptime],[0.,100.]],
-                        'axeslabels':[pc.timelabel,'Relative Humidity (%)']}
+                        'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[950.,1000.]],
+                        'axeslabels':[pc.timelabel,'Station pressure (hPa)']}
         axparamdicts = [axparamdict1]
         ax1, = pm.set_meteogram_axes([ax1],axparamdicts)
-        ax1.xaxis.set_major_locator(pc.locator)
-        ax1.xaxis.set_major_formatter(pc.formatter)
-        ax1.xaxis.set_minor_locator(pc.minorlocator)
-        ax1.set_xlim(starttime,stoptime)
-        ax1.set_xlabel(pc.timelabel)
-        ax1.set_ylim(950.,1000.)
-        ax1.set_ylabel('Station pressure (hPa)')
-        fig.autofmt_xdate()
         plt.savefig(image_dir+'meteograms/'+dis_name+'_pres.png',dpi=300)
         
 
@@ -809,7 +805,7 @@ for index,dis_filename,dis_name,starttime,stoptime,centertime,dloc in \
 
 
         # Prepare axis parameters
-        timelimits = [starttime,stoptime]
+        timelimits = [plotstarttime,plotstoptime]
         diamlimits = [0.0,9.0]
         
         axparams = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,
