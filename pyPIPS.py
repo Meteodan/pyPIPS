@@ -485,7 +485,7 @@ for index,dis_filename,dis_name,starttime,stoptime,centertime,dloc in \
     datetimesUTCnums = date2num(datetimesUTC)
     pdatetimesUTCnums = date2num(pdatetimesUTC)
     
-    if(starttime == -1):
+    if(N.int(starttime) == -1):
         startindex = 0
         pstartindex = 0
         starttime = datetimesUTCnums[startindex]
@@ -505,7 +505,7 @@ for index,dis_filename,dis_name,starttime,stoptime,centertime,dloc in \
             starttime = datetimesUTCnums[startindex]
             pstarttime = pdatetimesUTCnums[startindex]
     
-    if(stoptime == -1):
+    if(N.int(stoptime) == -1):
         stopindex = N.size(datetimesUTCnums)-1
         pstopindex = N.size(pdatetimesUTCnums)-1
         stoptime = datetimesUTCnums[stopindex]
@@ -789,6 +789,7 @@ for index,dis_filename,dis_name,starttime,stoptime,centertime,dloc in \
 
 
         # Get radar variables together for comparison, if desired
+        radvars = {}
         if(pc.comp_radar):
             # At least add the reflectivity
             indexrad = outfieldnames.index('dBZ')
