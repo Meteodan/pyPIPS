@@ -227,6 +227,8 @@ def plotDSDmeteograms(dis_name,image_dir,axparams,disvars,radvars):
     D_0_rad = radvars.pop('D_0_rad',N.empty((0)))
     radmidtimes = radvars.pop('radmidtimes',N.empty((0)))
     dBZ_ray_dis = disvars.pop('dBZ_ray',N.empty((0)))
+    flaggedtimes = disvars.pop('flaggedtimes',N.empty((0)))
+    hailflag = disvars.pop('hailflag',N.empty((0)))
     
     # Try to find the desired dualpol variables for plotting in the provided dictionary
     
@@ -260,12 +262,28 @@ def plotDSDmeteograms(dis_name,image_dir,axparams,disvars,radvars):
         plotvars = [logNc_bin]
         plotparamdict1 = {'type':'pcolor','vlimits':[-1.0,3.0],'clabel':r'log[N ($m^{-3} mm^{-1}$)]'}
         plotparamdicts = [plotparamdict1]
-
+        
+        # Median volume diameter
         if(D_0_dis.size):
             xvals.append(DSDmidtimes)
             plotvars.append(D_0_dis)
             plotparamdict2 = {'type':'line','linestyle':':','color':'b','linewidth':0.5,'label':r'$D_{0,dis} (mm)$'}
             plotparamdicts.append(plotparamdict2)
+        
+        # Vertical lines for flagged times (such as from wind contamination).
+        if(flaggedtimes.size):
+            xvals.append(DSDmidtimes)
+            plotvars.append(flaggedtimes)
+            print "flagged times",flaggedtimes
+            plotparamdict = {'type':'vertical line','linestyle':'-','color':'r','linewidth':0.5}
+            plotparamdicts.append(plotparamdict)
+        
+        # Mark times with hail detected with a vertical purple line
+        if(hailflag.size):
+            xvals.append(DSDmidtimes)
+            plotvars.append(hailflag)
+            plotparamdict = {'type':'vertical line','linestyle':'-','color':'purple','linewidth':0.5}
+            plotparamdicts.append(plotparamdict)
 
         ax1 = plotmeteogram(ax1,xvals,plotvars,plotparamdicts,yvals=[min_diameter]*len(plotvars))
 
@@ -328,7 +346,7 @@ def plotDSDmeteograms(dis_name,image_dir,axparams,disvars,radvars):
             axparamdicts.append(axparamdict2)
             ax2.legend(bbox_to_anchor=(1.,1.), loc='upper right',
                                     ncol=1, fancybox=True, shadow=False, prop = fontP)
-        
+                
         axes = set_meteogram_axes(axes,axparamdicts)
         if(dualpol_dis_varname):
             plt.savefig(image_dir+dis_name+'_'+dualpol_dis_varname+'_logNc.png',dpi=300)
@@ -364,6 +382,9 @@ def plotmeteogram(ax,xvals,zvals,plotparamdicts,yvals=None):
             cb = ax.get_figure().colorbar(C, cax=cax,orientation='horizontal')
             if(clabel):
                 cb.set_label(clabel)
+        elif(type == 'vertical line'):  # For flagging times with bad data, etc. zval is interpreted as a list of x-indices
+            for x in zval:
+                ax.axvline(x=x,ls=linestyle,lw=linewidth,color=color)
         else:
             ax.plot_date(xval,zval,ls=linestyle,lw=linewidth,marker=marker,color=color,
                          markeredgecolor=markeredgecolor,ms=ms,label=plotlabel)
