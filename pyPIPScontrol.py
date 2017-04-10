@@ -24,6 +24,7 @@ plot_opt = True        # Plot or not?
 plot_DSD_meteo = True   # Plot meteograms of DSDs?
 plot_DSDs = True      # Plot individual DSDs and fits?
 DSD_interval = 10.0     # Interval of DSD (Minimum 10 s, multiple of 10 s)
+plot_DSDderived = True  # Plot some internal derived quantities from the Parsivel?
 plot_conv_meteo = True     # Plot meteograms of conventional fields?
 plot_radar = True       # Plot radar base scan with disdrometer locations?
 plot_scat = True        # Plot scattergrams of Zdr vs Z
