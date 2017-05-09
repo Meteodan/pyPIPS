@@ -134,6 +134,12 @@ top=[0,8,14,17,20,21,22,23,24,25,26,26,27,27,28,28,29,29,29,30,30,30,30,0,0,0,0,
 rainonlymask = [[False if bottom[j] <= i <= top[j] else True for i in range(32)] for j in range(32)]
 rainonlymask = N.array(rainonlymask).T
 
+# Create mask for non-hail
+bottom=[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,15,15,16,16,17,17,18,19,19,20,20,20]
+top=[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,24,25,25,31,31,31,31,31,31,31,31,31]
+hailonlymask = [[False if bottom[j] <= i <= top[j] else True for i in range(32)] for j in range(32)]
+hailonlymask = N.array(hailonlymask).T
+
 # Create mask for all particles with fall speeds outside of fractional tolerance
 rainvd = assignfallspeed(avg_diameter)
 X,Y = N.meshgrid(rainvd,fall_bins)
@@ -176,9 +182,11 @@ def strongwindQC(countsMatrix):
             print "Severe Wind contamination, masking entire PSD!"
             countsMatrix[t,:] = -999.
             flaggedtimes.append(True)
-        else: # Let the PSD through QC, but mask the offending drops
+        elif(baddrops > 0): # Let the PSD through QC, but mask the offending drops
             print "Wind contamination!"
             countsMatrix[t,0:11,20:32] = -999.
+            flaggedtimes.append(False)
+        else:
             flaggedtimes.append(False)
     
     countsMatrix = ma.masked_array(countsMatrix,mask=N.where(countsMatrix == -999.,True,False))
@@ -224,6 +232,23 @@ def rainonlyQC(countsMatrix):
     countsMatrix = ma.masked_array(countsMatrix,mask=masktimes)
     
     return countsMatrix
+    
+def hailonlyQC(countsMatrix,returnmasked=True,count=True):
+    """Based on Katja Friedrich's IDL QC subroutine. Removes particles that are probably
+       not hail. Also returns number of particles remaining"""
+
+    numtimes = N.size(countsMatrix,axis=0)
+    masktimes = N.zeros((numtimes,32,32),dtype=bool)
+
+    # Remove particles that are probably not hail
+    for t in range(numtimes):
+        masktimes[t,:] = hailonlymask
+    
+    masked = ma.masked_array(countsMatrix,mask=masktimes)
+    if(returnmasked):
+        countsMatrix = masked
+    total = masked.sum(axis=2).sum(axis=1)
+    return countsMatrix,total
     
 def rainfallspeedQC(countsMatrix,rainvd,falltol,maskhigh,masklow):
     """Removes all drops fall speeds +/- tolerance relative to rain fall speed relation."""
@@ -326,7 +351,7 @@ def correctPIPS(serialnum,infile,outfile):
     for line in sorted_lines_out:
         outdisfile.write(line+'\n')
 
-def readPIPS(filename,fixGPS=True,basicqc=False,rainfallqc=False,rainonlyqc=False,strongwindqc=False,DSD_interval=10.0):
+def readPIPS(filename,fixGPS=True,basicqc=False,rainfallqc=False,rainonlyqc=False,strongwindqc=False,detecthail=True,DSD_interval=10.0):
     """Reads data from Purdue-OU PIPS"""
     
     pdatetimes=[]
@@ -556,6 +581,11 @@ def readPIPS(filename,fixGPS=True,basicqc=False,rainfallqc=False,rainonlyqc=Fals
 
     if(masklowdiam):
         countsMatrix = masklowdiamQC(countsMatrix)
+    
+    if(detecthail):
+        countsMatrix,hailcounts = hailonlyQC(countsMatrix,returnmasked=False)
+        hailflag = N.where(hailcounts > 0,True,False)
+    
     # Find total number of non-masked particles
     
     pcount2 = countsMatrix.sum(axis=2)
@@ -617,9 +647,15 @@ def readPIPS(filename,fixGPS=True,basicqc=False,rainfallqc=False,rainonlyqc=Fals
     #print "concentrations: ",concentrations
     pcounts = N.array(pcounts)
     #pcounts2 = ma.array(pcounts2)
+    amplitudes = N.array(amplitudes)
     
     # Correct the logger time and date using the GPS time
     
+    # Sometimes the GPS has major issues for the whole deployment.
+    # In this case, set the offset to 0
+    if(not firstgoodGPS): 
+        GPS_offset = timedelta(seconds=0)
+        
     datetimes_corrected = []
     pdatetimes_corrected = []
     for datetimelogger in datetimes:
@@ -641,12 +677,14 @@ def readPIPS(filename,fixGPS=True,basicqc=False,rainfallqc=False,rainonlyqc=Fals
     preciptots_df = pd.Series(preciptots,index=pdatetimes_corrected)
     reflectivities_df = pd.Series(reflectivities,index=pdatetimes_corrected)
     pcounts_df = pd.Series(pcounts,index=pdatetimes_corrected)
-    pcounts2_df = pd.Series(pcounts2,index=pdatetimes_corrected) # STOPPED HERE!
+    pcounts2_df = pd.Series(pcounts2,index=pdatetimes_corrected)
+    amplitudes_df = pd.Series(amplitudes,index=pdatetimes_corrected)
+    flaggedtimes_df = pd.Series(data=flaggedtimes,index=pdatetimes_corrected)
+    hailflag_df = pd.Series(data=hailflag,index=pdatetimes_corrected)
 
-    
     if(DSD_interval > 10.0):
         # Create a dataframe of the concentrations in each diameter bin and then resample at the new interval,
-        # filling in missing values with zeros
+        # filling in missing values with zeros: TEMPORARY FIX. later will deal with missing values differently
     
         concentrations_df = concentrations_df.resample(intervalstr,label='right',closed='right',base=sec_offset).mean().fillna(0)
         onedrop_concentrations_df = onedrop_concentrations_df.resample(intervalstr,label='right',closed='right',base=sec_offset).mean().fillna(0)
@@ -655,6 +693,9 @@ def readPIPS(filename,fixGPS=True,basicqc=False,rainfallqc=False,rainonlyqc=Fals
         reflectivities_df = reflectivities_df.resample(intervalstr,label='right',closed='right',base=sec_offset).mean().fillna(0)
         pcounts_df = pcounts_df.resample(intervalstr,label='right',closed='right',base=sec_offset).sum()
         pcounts2_df = pcounts2_df.resample(intervalstr,label='right',closed='right',base=sec_offset).sum()
+        amplitudes_df = amplitudes_df.resample(intervalstr,label='right',closed='right',base=sec_offset).mean().fillna(0)
+        flaggedtimes_df = flaggedtimes_df.resample(intervalstr,label='right',closed='right',base=sec_offset,how=lambda x: x.values.max())
+        hailflag_df = hailflag_df.resample(intervalstr,label='right',closed='right',base=sec_offset,how=lambda x: x.values.max())
 
     # Pandas apparently (gotcha!) converts missing values to NaN when extracting the numpy array representation using .values
     # Since I want the original masked array functionality for now for further computations, I need to remask the array here.
@@ -677,9 +718,12 @@ def readPIPS(filename,fixGPS=True,basicqc=False,rainfallqc=False,rainonlyqc=Fals
     reflectivities = reflectivities_df.values
     pcounts = pcounts_df.values
     pcounts2 = pcounts2_df.values
+    amplitudes = amplitudes_df.values
+    flaggedtimes = flaggedtimes_df.values
+    hailflag = hailflag_df.values
         
-    return datetimes_corrected,pdatetimes_corrected,flaggedtimes,intensities,preciptots,reflectivities,pcounts,pcounts2, \
-            sensortemps,concentrations,onedrop_concentrations,countsMatrix,windspds,winddirrels,winddirabss, \
+    return datetimes_corrected,pdatetimes_corrected,flaggedtimes,hailflag,intensities,preciptots,reflectivities,pcounts,pcounts2, \
+            sensortemps,concentrations,onedrop_concentrations,countsMatrix,amplitudes,windspds,winddirrels,winddirabss, \
             winddiags,fasttemps,slowtemps,dewpoints,RHs_derived,RHs,pressures,compass_dirs,    \
             GPS_lats,GPS_lons,GPS_stats,GPS_alts,voltages,DSD_interval,intervalstr,DSD_index
 
@@ -1396,8 +1440,15 @@ def resamplewind(datetimes,offset,winddirs,windspds,DSD_intervalstr,gusts=True,g
     vsavg = pd.Series(data=vs,index=datetimes).resample(DSD_intervalstr,label='right',closed='right',base=offset).mean()
     windspdsavgvec = N.sqrt(usavg**2.+vsavg**2.)
     winddirsavgvec = (270.0-(180./N.pi)*N.arctan2(vsavg,usavg))%360. # Need to use %360 to keep wind dir between 0 and 360 degrees
+    
+    #unit average wind direction
+    unit_us = us/windspds
+    unit_vs = vs/windspds
+    unit_usavg = pd.Series(data=unit_us,index=datetimes).resample(DSD_intervalstr,label='right',closed='right',base=offset).mean()
+    unit_vsavg = pd.Series(data=unit_vs,index=datetimes).resample(DSD_intervalstr,label='right',closed='right',base=offset).mean()
+    winddirsunitavgvec = (270.0-(180./N.pi)*N.arctan2(unit_vsavg,unit_usavg))%360. # Need to use %360 to keep wind dir between 0 and 360 degrees
 
-    return windspdsavg,windspdsavgvec,winddirsavgvec,windgusts,windgustsavg
+    return windspdsavg,windspdsavgvec,winddirsavgvec,winddirsunitavgvec,windgusts,windgustsavg,usavg,vsavg,unit_usavg,unit_vsavg
     
 #-----------------------------------------------------------------------------------------
 #

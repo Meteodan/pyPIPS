@@ -67,6 +67,9 @@ deg2rad = N.pi/180.
 font = {'size':10}
 matplotlib.rc('font',**font)
 
+fontP = FontProperties()
+fontP.set_size('small')
+
 # Thermodynamic constants
 
 Rd=287.0		#Gas constant for dry air (J/kg/K)
@@ -161,9 +164,9 @@ with open(sys.argv[argindex],'r') as inputfile:
         line = inputfile.readline().strip().split(',')
         dname = line[0] # Disdrometer name
         dfile = line[1] # Disdrometer filename
-        starttime = N.int(line[2])
-        stoptime = N.int(line[3])
-        centertime = N.int(line[4])
+        starttime = line[2] # N.int(line[2])
+        stoptime = line[3] # N.int(line[3])
+        centertime = line[4] # N.int(line[4])
         lat = N.float(line[5])
         lon = N.float(line[6])
         alt = N.float(line[7])
@@ -447,10 +450,12 @@ for index,dis_filename,dis_name,starttime,stoptime,centertime,dloc in \
     
     # Read in the disdrometer data file
     filepath = dis_dir+dis_filename
-    datetimesUTC,pdatetimesUTC,flaggedtimes,intensities,preciptots,reflectivities,pcounts,pcounts2, \
-               sensortemps,concentrations,onedrop_concentrations,countsMatrix,windspds,winddirrels,winddirabss, \
+    datetimesUTC,pdatetimesUTC,flaggedtimes,hailflag,intensities,preciptots,reflectivities,pcounts,pcounts2, \
+               sensortemps,concentrations,onedrop_concentrations,countsMatrix,amplitudes,windspds,winddirrels,winddirabss, \
             winddiags,fasttemps,slowtemps,dewpoints,RHs_derived,RHs,pressures,compass_dirs,    \
-            GPS_lats,GPS_lons,GPS_stats,GPS_alts,voltages,DSD_interval,DSD_intervalstr,DSD_index = dis.readPIPS(filepath,rainonlyqc=True,DSD_interval=pc.DSD_interval)
+            GPS_lats,GPS_lons,GPS_stats,GPS_alts,voltages,DSD_interval,DSD_intervalstr,DSD_index = \
+            dis.readPIPS(filepath,basicqc=pc.basicQC,rainfallqc=pc.rainfallQC,rainonlyqc=pc.rainonlyQC,
+            strongwindqc=pc.strongwindQC,DSD_interval=pc.DSD_interval)
 
     DSD_interval_td = timedelta(seconds=DSD_interval)
     DSD_halfinterval_td = timedelta(seconds=DSD_interval/2.)
@@ -459,6 +464,7 @@ for index,dis_filename,dis_name,starttime,stoptime,centertime,dloc in \
     windspds = N.array(windspds)
     winddirrels = N.array(winddirrels)
     winddirabss = N.array(winddirabss)
+    winddiags = N.array(winddiags)
     fasttemps = N.array(fasttemps)
     slowtemps = N.array(slowtemps)
     dewpoints = N.array(dewpoints)
@@ -468,6 +474,8 @@ for index,dis_filename,dis_name,starttime,stoptime,centertime,dloc in \
     pcounts = N.array(pcounts)
     pcounts2 = N.array(pcounts2)
     intensities = N.array(intensities)
+    voltages = N.array(voltages)
+    amplitudes = N.array(amplitudes)
 
     Nc_bin = concentrations.T
     dropperbin = onedrop_concentrations.T
@@ -485,16 +493,18 @@ for index,dis_filename,dis_name,starttime,stoptime,centertime,dloc in \
     datetimesUTCnums = date2num(datetimesUTC)
     pdatetimesUTCnums = date2num(pdatetimesUTC)
     
-    if(starttime == -1):
+    if(N.int(starttime) == -1):
         startindex = 0
         pstartindex = 0
         starttime = datetimesUTCnums[startindex]
         pstarttime = pdatetimesUTCnums[startindex]
+        plotstarttime = starttime
     else:
-        try:
-            starttime = date2num(datetime(N.int(starttime[:4]),N.int(starttime[4:6]),
+        starttime = date2num(datetime(N.int(starttime[:4]),N.int(starttime[4:6]),
                         N.int(starttime[6:8]),N.int(starttime[8:10]),N.int(starttime[10:12])))
-            pstarttime = starttime
+        pstarttime = starttime
+        plotstarttime = starttime
+        try:
             startindex = next(i for i,t in enumerate(datetimesUTCnums) if t >= starttime)
             pstartindex = next(i for i,t in enumerate(pdatetimesUTCnums) if t >= starttime)
         except:
@@ -503,16 +513,18 @@ for index,dis_filename,dis_name,starttime,stoptime,centertime,dloc in \
             starttime = datetimesUTCnums[startindex]
             pstarttime = pdatetimesUTCnums[startindex]
     
-    if(stoptime == -1):
+    if(N.int(stoptime) == -1):
         stopindex = N.size(datetimesUTCnums)-1
         pstopindex = N.size(pdatetimesUTCnums)-1
         stoptime = datetimesUTCnums[stopindex]
         pstoptime = pdatetimesUTCnums[pstopindex]
+        plotstoptime = stoptime
     else:
-        try:
-            stoptime = date2num(datetime(N.int(stoptime[:4]),N.int(stoptime[4:6]),
+        stoptime = date2num(datetime(N.int(stoptime[:4]),N.int(stoptime[4:6]),
                         N.int(stoptime[6:8]),N.int(stoptime[8:10]),N.int(stoptime[10:12])))
-            pstoptime = stoptime
+        pstoptime = stoptime
+        plotstoptime = stoptime
+        try:
             stopindex = next(i for i,t in enumerate(datetimesUTCnums) if t >= stoptime)
             pstopindex = next(i for i,t in enumerate(pdatetimesUTCnums) if t >= stoptime)
         except:
@@ -570,27 +582,9 @@ for index,dis_filename,dis_name,starttime,stoptime,centertime,dloc in \
 
     
     # Resample the 1-s data corresponding to each integrated DSD (for the given DSD interval)
-#     pindex1s = [i for i,x in enumerate(datetimesUTCnums) if x in pdatetimesUTCnums]
-#     pstartindex1s = pindex1s[0]
-#     pstopindex1s = len(datetimesUTC) # pindex1s[-1]
     sec_offset = pdatetimesUTC[0].second
-    #print "startindex1,datetimesUTC[startindex1],startindex2,pdatetimesUTC[startindex2]",pstartindex1s,datetimesUTC[pstartindex1s],0,pdatetimesUTC[0]
-#     dummy,windspds_tDSD,winddirs_tDSD,dummy,dummy = dis.resamplewind(datetimesUTC[pstartindex1s:pstopindex1s+1],winddirabss[pstartindex1s:pstopindex1s+1],
-#                     windspds[pstartindex1s:pstopindex1s+1],DSD_intervalstr,gusts=False,gustintvstr='3S',center=False)
-#     
-#     fasttemps_tDSD = pd.Series(data=fasttemps[pstartindex1s:pstopindex1s+1],index=datetimesUTC[pstartindex1s:pstopindex1s+1]).resample(DSD_intervalstr,label='right',closed='right',base=sec_offset).mean().values
-#     slowtemps_tDSD = pd.Series(data=slowtemps[pstartindex1s:pstopindex1s+1],index=datetimesUTC[pstartindex1s:pstopindex1s+1]).resample(DSD_intervalstr,label='right',closed='right',base=sec_offset).mean().values
-#     dewpoints_tDSD = pd.Series(data=dewpoints[pstartindex1s:pstopindex1s+1],index=datetimesUTC[pstartindex1s:pstopindex1s+1]).resample(DSD_intervalstr,label='right',closed='right',base=sec_offset).mean().values
-#     RHs_derived_tDSD = pd.Series(data=RHs_derived[pstartindex1s:pstopindex1s+1],index=datetimesUTC[pstartindex1s:pstopindex1s+1]).resample(DSD_intervalstr,label='right',closed='right',base=sec_offset).mean().values
-#     RHs_tDSD = pd.Series(data=RHs[pstartindex1s:pstopindex1s+1],index=datetimesUTC[pstartindex1s:pstopindex1s+1]).resample(DSD_intervalstr,label='right',closed='right',base=sec_offset).mean().values
-#     pressures_tDSD = pd.Series(data=pressures[pstartindex1s:pstopindex1s+1],index=datetimesUTC[pstartindex1s:pstopindex1s+1]).resample(DSD_intervalstr,label='right',closed='right',base=sec_offset).mean().values
-#     rho_tDSD = pd.Series(data=rho[pstartindex1s:pstopindex1s+1],index=datetimesUTC[pstartindex1s:pstopindex1s+1]).resample(DSD_intervalstr,label='right',closed='right',base=sec_offset).mean()
-#     tempdatetime = rho_tDSD.index.to_pydatetime()
-#     rho_tDSD = rho_tDSD.loc[DSD_index].values
-#     print len(rho_tDSD)
-    #print len(tempdatetime),tempdatetime
 
-    dummy,windspds_tDSD,winddirs_tDSD,dummy,dummy = dis.resamplewind(datetimesUTC,sec_offset,winddirabss,
+    dummy,windspds_tDSD,winddirs_tDSD,dummy,dummy,dummy,dummy,dummy,dummy,dummy = dis.resamplewind(datetimesUTC,sec_offset,winddirabss,
                     windspds,DSD_intervalstr,gusts=False,gustintvstr='3S',center=False)
     
     windspds_tDSD = windspds_tDSD.loc[DSD_index].values
@@ -608,13 +602,16 @@ for index,dis_filename,dis_name,starttime,stoptime,centertime,dloc in \
     if(pc.plot_conv_meteo):    
         # Interval for plotting in seconds.  Setting to larger intervals is useful to avoid
         # plot clutter for long datasets, but information will be lost.
-        plotinterval = 10
-    
+        plotinterval = 1
+        plotintervalstr = '{:d}S'.format(int(plotinterval))
+        sec_offset = datetimesUTC[0].second
+
         # Plot wind meteogram
         windavgintv = 60
         windgustintv = 3
         
-        times = datetimesUTCnums[startindex:stopindex+1:plotinterval]
+        plottimes = datetimesUTCnums[startindex:stopindex+1:plotinterval]
+        plottimeindex = pd.DatetimeIndex(datetimesUTC[startindex:stopindex+1:plotinterval])
         
         # Compute wind speed and direction, and wind gusts
         windspdsavg,windspdsavgvec,winddirsavgvec,windgusts,windgustsavg = dis.avgwind(winddirabss,
@@ -630,17 +627,29 @@ for index,dis_filename,dis_name,starttime,stoptime,centertime,dloc in \
         fieldparamdict1 = {'type':'fill_between','linestyle':'-','color':'b','alpha':0.5,'plotmin':0}
         fieldparamdict2 = {'type':'line','linestyle':'none','marker':'o','color':'r','ms':2}
         fieldparamdicts = [fieldparamdict1,fieldparamdict2]
-        xvals = [times] * len(fields) # Should really do this inside call to plotmeteogram
+        
+        if(pc.plot_diagnostics):    # Add vertical lines to indicate bad wind values if desired
+            # Resample wind diagnostics array to flag as bad any time in the interval given by plotinterval
+            # Note, have to use numpy max() as a lambda function because the pandas resample.max() does not propagate NaN's!
+            winddiags_rs = pd.Series(data=winddiags,index=datetimesUTC).resample(plotintervalstr,
+                                     label='right',closed='right',base=sec_offset,how=lambda x: x.values.max()).loc[plottimeindex].values
+            winddiags_index = N.where(N.any([winddiags_rs > 0,N.isnan(winddiags_rs)],axis=0))[0] # Extract indices for "bad" wind data
+            winddiags_plot = plottimes[winddiags_index] # these are the times with bad wind data
+            fields.append(winddiags_plot)
+            fieldparamdict = {'type':'vertical line','linestyle':'-','color':'g','linewidth':0.5}
+            fieldparamdicts.append(fieldparamdict)
+        
+        xvals = [plottimes] * len(fields) # Should really do this inside call to plotmeteogram
         ax1 = pm.plotmeteogram(ax1,xvals,fields,fieldparamdicts)
         
         fields = [winddirsavgvec[startindex:stopindex+1:plotinterval]]
         fieldparamdict1 = {'type':'line','linestyle':'none','marker':'o','color':'k','ms':2}
         fieldparamdicts = [fieldparamdict1]
-        xvals = [times] * len(fields)
+        xvals = [plottimes] * len(fields)
         ax2 = pm.plotmeteogram(ax2,xvals,fields,fieldparamdicts)
         
         axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,
-                        'minorxlocator':pc.minorlocator,'axeslimits':[[starttime,stoptime],[0.0,15.0]],
+                        'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[0.0,15.0]],
                         'axeslabels':[pc.timelabel,r'wind speed (m s$^{-1}$)']}
         axparamdict2 = {'majorylocator':MultipleLocator(45.),'axeslimits':[None,[0.0,360.0]],
                         'axeslabels':[None,r'Wind direction ($^{\circ}$C)']}
@@ -648,6 +657,7 @@ for index,dis_filename,dis_name,starttime,stoptime,centertime,dloc in \
         ax1,ax2 = pm.set_meteogram_axes([ax1,ax2],axparamdicts)
         
         plt.savefig(image_dir+'meteograms/'+dis_name+'_wind.png',dpi=300)
+        plt.close(fig)
         
         # Plot temperature and dewpoint
         tavgintv = 10 # Currently not used
@@ -660,18 +670,19 @@ for index,dis_filename,dis_name,starttime,stoptime,centertime,dloc in \
         fieldparamdict1 = {'type':'fill_between','linestyle':'-','color':'r','alpha':0.5,'plotmin':-10}
         fieldparamdict2 = {'type':'fill_between','linestyle':'-','color':'g','alpha':0.5,'plotmin':-10}
         fieldparamdicts = [fieldparamdict1,fieldparamdict2]
-        xvals = [times] * len(fields)
+        xvals = [plottimes] * len(fields)
         ax1 = pm.plotmeteogram(ax1,xvals,fields,fieldparamdicts)
         
         ax1.axhline(0.0,ls=':',color='k')
         
         axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,
-                        'minorxlocator':pc.minorlocator,'axeslimits':[[starttime,stoptime],[-10.,40.0]],
+                        'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[-10.,40.0]],
                         'axeslabels':[pc.timelabel,r'Temperature ($^{\circ}$C)']}
         axparamdicts = [axparamdict1]
         ax1, = pm.set_meteogram_axes([ax1],axparamdicts)
         
         plt.savefig(image_dir+'meteograms/'+dis_name+'_T_Td.png',dpi=300)
+        plt.close(fig)
         
         # Plot relative humidity
         avgintv = 10 # Currently not used
@@ -682,17 +693,18 @@ for index,dis_filename,dis_name,starttime,stoptime,centertime,dloc in \
         fields = [RHs[startindex:stopindex+1:plotinterval]]
         fieldparamdict1 = {'type':'fill_between','linestyle':'-','color':'g','alpha':0.5,'plotmin':0}
         fieldparamdicts = [fieldparamdict1]
-        xvals = [times] * len(fields)
+        xvals = [plottimes] * len(fields)
         ax1 = pm.plotmeteogram(ax1,xvals,fields,fieldparamdicts)
         
         axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,
-                        'minorxlocator':pc.minorlocator,'axeslimits':[[starttime,stoptime],[0.,100.]],
+                        'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[0.,100.]],
                         'axeslabels':[pc.timelabel,'Relative Humidity (%)']}
 
         axparamdicts = [axparamdict1]
         ax1, = pm.set_meteogram_axes([ax1],axparamdicts)
         
         plt.savefig(image_dir+'meteograms/'+dis_name+'_RH.png',dpi=300)
+        plt.close(fig)
         
         # Plot station pressure
         avgintv = 1 # Currently not used
@@ -703,23 +715,16 @@ for index,dis_filename,dis_name,starttime,stoptime,centertime,dloc in \
         fields = [pressures[startindex:stopindex+1:plotinterval]]
         fieldparamdict1 = {'type':'fill_between','linestyle':'-','color':'purple','alpha':0.5,'plotmin':0}
         fieldparamdicts = [fieldparamdict1]
-        xvals = [times] * len(fields)
+        xvals = [plottimes] * len(fields)
         ax1 = pm.plotmeteogram(ax1,xvals,fields,fieldparamdicts)
         
         axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,
-                        'minorxlocator':pc.minorlocator,'axeslimits':[[starttime,stoptime],[0.,100.]],
-                        'axeslabels':[pc.timelabel,'Relative Humidity (%)']}
+                        'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[980.,1000.]],
+                        'axeslabels':[pc.timelabel,'Station pressure (hPa)']}
         axparamdicts = [axparamdict1]
         ax1, = pm.set_meteogram_axes([ax1],axparamdicts)
-        ax1.xaxis.set_major_locator(pc.locator)
-        ax1.xaxis.set_major_formatter(pc.formatter)
-        ax1.xaxis.set_minor_locator(pc.minorlocator)
-        ax1.set_xlim(starttime,stoptime)
-        ax1.set_xlabel(pc.timelabel)
-        ax1.set_ylim(950.,1000.)
-        ax1.set_ylabel('Station pressure (hPa)')
-        fig.autofmt_xdate()
         plt.savefig(image_dir+'meteograms/'+dis_name+'_pres.png',dpi=300)
+        plt.close(fig)
         
 
     #N.savetxt('Nc_bin1minavg.txt', Nc_bin1minavg) # Commented out for now
@@ -756,23 +761,22 @@ for index,dis_filename,dis_name,starttime,stoptime,centertime,dloc in \
             Zh,Zv,Zhv,dBZ,ZDR,KDP,RHV = dualpol_dis
         
     if(pc.plot_DSD_meteo):
- 
         # Prepare arrays for plotting
         DSDstarttimes = date2num(disdates_start[pstartindex:pstopindex+1])
         DSDmidtimes = date2num(disdates_avg[pstartindex:pstopindex+1])
 
         logNc_bin_plot = logNc_bin[:,pstartindex:pstopindex+1] # use for raw distribution
-#        logNc_bin_plot = logN_gamDSD[:,pstartindex:pstopindex+1] # use for gamma fit
+        #        logNc_bin_plot = logN_gamDSD[:,pstartindex:pstopindex+1] # use for gamma fit
 
         disvars = {'min_diameter':min_diameter,'DSDstarttimes':DSDstarttimes,
                    'DSDmidtimes':DSDmidtimes,'logNc_bin':logNc_bin_plot}
-        
+
         # Plot one meteogram for each dualpol variable, otherwise just plot a meteogram for reflectivity
         # based on 6th moment of disdrometer DSD (Rayleigh approximation).
         # Important! Currently the dualpol calculation for the disdrometer data assumes rain only
         # and otherwise ignores data in all bins larger than 9 mm.  For this reason it is recommended
         # to first set the "rain_only_QC" flag to True in disdrometer_module.py
-        
+
         if(pc.calc_DSD):
             # 3-min average of median volume diameter and radar reflectivity (Rayleigh approx.) from disdrometer
 
@@ -784,16 +788,26 @@ for index,dis_filename,dis_name,starttime,stoptime,centertime,dloc in \
             disvars['D_0_dis'] = D_0_dis_avg[pstartindex:pstopindex+1]
             disvars['dBZ_ray'] = dBZ_ray_dis_avg[pstartindex:pstopindex+1]
 
-            
+
             if(pc.calc_dualpol):
                 # Computed centered running averages of dualpol variables
                 for varname,var in zip(['dBZ','ZDR','KDP','RHV'],[dBZ,ZDR,KDP,RHV]):
                     if(var.size):
                         var_avg = pd.Series(var).rolling(window=window,center=True,win_type='triang',min_periods=1).mean().values        
                         disvars[varname] = var_avg[pstartindex:pstopindex+1]
+        
+        # Mark flagged times with vertical lines, if desired
+        if(pc.plot_diagnostics):
+            flaggedtimes_index = N.where(flaggedtimes)[0] # Extract indices for flagged times
+            flaggedtimes_plot = DSDmidtimes[flaggedtimes_index] # these are the times with wind contamination
+            disvars['flaggedtimes']=flaggedtimes_plot[pstartindex:pstopindex+1]
 
+            hailflag_index = N.where(hailflag)[0]
+            hailflag_plot = DSDmidtimes[hailflag_index] # these are the times with hail detected
+            disvars['hailflag']=hailflag_plot[pstartindex:pstopindex+1]
 
         # Get radar variables together for comparison, if desired
+        radvars = {}
         if(pc.comp_radar):
             # At least add the reflectivity
             indexrad = outfieldnames.index('dBZ')
@@ -810,17 +824,121 @@ for index,dis_filename,dis_name,starttime,stoptime,centertime,dloc in \
 
 
         # Prepare axis parameters
-        timelimits = [starttime,stoptime]
+        timelimits = [plotstarttime,plotstoptime]
         diamlimits = [0.0,9.0]
+        
         axparams = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,
                     'minorxlocator':pc.minorlocator,'axeslimits':[timelimits,diamlimits],
                     'majorylocator':MultipleLocator(base=1.0),'axeslabels':[None,'D (mm)']}
-                    
+        
         # Ok, now we should have everything ready to go to plot the meteograms.  Let'er rip!
-                
+    
         pm.plotDSDmeteograms(dis_name,meteogram_image_dir,axparams,disvars,radvars.copy())
+        
+        # Plot some derived quantities from the Parsivel
+        if(pc.plot_DSDderived):
+            #Rain rates (intensities)
+            fig = plt.figure(figsize=(5,3))
+            ax1 = fig.add_subplot(111)
+        
+            fields = [intensities[pstartindex:pstopindex+1]]
+            fieldparamdict1 = {'type':'fill_between','linestyle':'-','color':'g','alpha':1.0,'plotmin':0}
+            fieldparamdicts = [fieldparamdict1]
+            xvals = [DSDmidtimes] * len(fields)
+            ax1 = pm.plotmeteogram(ax1,xvals,fields,fieldparamdicts)
+                
+            axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,
+                            'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[0.0,150.0]],
+                            'axeslabels':[pc.timelabel,r'Rain rate (mm hr$^{-1}$)']}
+            axparamdicts = [axparamdict1]
+            ax1, = pm.set_meteogram_axes([ax1],axparamdicts)
+        
+            plt.savefig(image_dir+'meteograms/'+dis_name+'_rainrate.png',dpi=300)
+            plt.close(fig)
+            
+            #Reflectivities
+            fig = plt.figure(figsize=(5,3))
+            ax1 = fig.add_subplot(111)
+        
+            fields = [reflectivities[pstartindex:pstopindex+1]]
+            fieldparamdict1 = {'type':'fill_between','linestyle':'-','color':'b','alpha':1.0,'plotmin':0}
+            fieldparamdicts = [fieldparamdict1]
+            xvals = [DSDmidtimes] * len(fields)
+            ax1 = pm.plotmeteogram(ax1,xvals,fields,fieldparamdicts)
+                
+            axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,
+                            'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[0.0,80.0]],
+                            'axeslabels':[pc.timelabel,r'Radar reflectivity (dBZ)']}
+            axparamdicts = [axparamdict1]
+            ax1, = pm.set_meteogram_axes([ax1],axparamdicts)
+        
+            plt.savefig(image_dir+'meteograms/'+dis_name+'_reflectivity.png',dpi=300)
+            plt.close(fig)
+            
+            #Particle counts
+            fig = plt.figure(figsize=(5,3))
+            ax1 = fig.add_subplot(111)
+        
+            fields = [pcounts[pstartindex:pstopindex+1],pcounts2[pstartindex:pstopindex+1]]
+            fieldparamdict1 = {'type':'fill_between','linestyle':'-','color':'r','alpha':0.5,'plotmin':0,
+                               'label':r'Particle count (internal)'}
+            fieldparamdict2 = {'type':'fill_between','linestyle':'-','color':'b','alpha':0.5,'plotmin':0,
+                               'label':r'Particle count (calculated)'}
+            fieldparamdicts = [fieldparamdict1,fieldparamdict2]
+            xvals = [DSDmidtimes] * len(fields)
+            ax1 = pm.plotmeteogram(ax1,xvals,fields,fieldparamdicts)
+                
+            axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,
+                            'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[0.0,1000.0]],
+                            'axeslabels':[pc.timelabel,r'Particle count']}
+            axparamdicts = [axparamdict1]
+            ax1, = pm.set_meteogram_axes([ax1],axparamdicts)
+            ax1.legend(bbox_to_anchor=(1.,1.), loc='upper right',
+                                    ncol=1, fancybox=True, shadow=False, prop = fontP)
+            plt.savefig(image_dir+'meteograms/'+dis_name+'_pcounts.png',dpi=300)
+            plt.close(fig)
+            
+            #Signal amplitude
+            fig = plt.figure(figsize=(5,3))
+            ax1 = fig.add_subplot(111)
+        
+            fields = [amplitudes[pstartindex:pstopindex+1]]
+            fieldparamdict1 = {'type':'fill_between','linestyle':'-','color':'b','alpha':1.0,'plotmin':0}
+            fieldparamdicts = [fieldparamdict1]
+            xvals = [DSDmidtimes] * len(fields)
+            ax1 = pm.plotmeteogram(ax1,xvals,fields,fieldparamdicts)
+                
+            axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,
+                            'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[0.0,30000.0]],
+                            'axeslabels':[pc.timelabel,r'Signal amplitude']}
+            axparamdicts = [axparamdict1]
+            ax1, = pm.set_meteogram_axes([ax1],axparamdicts)
+        
+            plt.savefig(image_dir+'meteograms/'+dis_name+'_amplitude.png',dpi=300)
+            plt.close(fig)
+   
+    # Plot some additional diagnostic time series
+    if(pc.plot_diagnostics):
+        #Battery voltages
+        fig = plt.figure(figsize=(5,3))
+        ax1 = fig.add_subplot(111)
+        
+        fields = [voltages[startindex:stopindex+1:plotinterval]]
+        fieldparamdict1 = {'type':'fill_between','linestyle':'-','color':'brown','alpha':1.0,'plotmin':8}
+        fieldparamdicts = [fieldparamdict1]
+        xvals = [plottimes] * len(fields)
+        ax1 = pm.plotmeteogram(ax1,xvals,fields,fieldparamdicts)
+                
+        axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,
+                        'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[8.0,16.0]],
+                        'axeslabels':[pc.timelabel,r'Battery Voltage (V)']}
+        axparamdicts = [axparamdict1]
+        ax1, = pm.set_meteogram_axes([ax1],axparamdicts)
+        
+        plt.savefig(image_dir+'meteograms/'+dis_name+'_voltage.png',dpi=300)
 
-	if(pc.plot_DSDs):
+        
+    if(pc.plot_DSDs):
 		if (not os.path.exists(image_dir+'DSDs/'+dis_name)):
 			os.makedirs(image_dir+'DSDs/'+dis_name)
 		for t in range(N.size(Nc_bin,axis=1)):
@@ -847,11 +965,10 @@ for index,dis_filename,dis_name,starttime,stoptime,centertime,dloc in \
 				plt.savefig(image_dir+'DSDs/'+dis_name+'/'+dis_name+'_t'+str(t)+'DSD_plot.png',dpi=200,bbox_inches='tight')
 			    plt.close(fig1)	
 
+    Zh_Cao = N.arange(20,61,1)
+    Zdr_Cao = 10**((-2.6857*10**-4*Zh_Cao**2)+0.04892*Zh_Cao-1.4287)
 	
-	Zh_Cao = N.arange(20,61,1)
-	Zdr_Cao = 10**((-2.6857*10**-4*Zh_Cao**2)+0.04892*Zh_Cao-1.4287)
-	
-	if(pc.plot_scat):
+    if(pc.plot_scat):
 		if (not os.path.exists(image_dir+'scattergrams/')):
 			os.makedirs(image_dir+'scattergrams/')
 		fig1=plt.figure(figsize=(8,8))
