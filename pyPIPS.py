@@ -60,6 +60,14 @@ def interpnan1D(a):
     ind = N.where(~N.isnan(a))[0] # indices of valid values
     return N.interp(range(len(a)),ind,a[ind]) # Use valid values to interpolate to invalid values
 
+def trymax(a,default=0):
+    """Tries to take a maximum of an array and returns 0 if the array is empty"""
+    try:
+        return a.max()
+    except:
+        return default
+
+
 deg2rad = N.pi/180.
 
 # Set global font size for axes and colorbar labels, etc.
@@ -632,7 +640,7 @@ for index,dis_filename,dis_name,starttime,stoptime,centertime,dloc in \
             # Resample wind diagnostics array to flag as bad any time in the interval given by plotinterval
             # Note, have to use numpy max() as a lambda function because the pandas resample.max() does not propagate NaN's!
             winddiags_rs = pd.Series(data=winddiags,index=datetimesUTC).resample(plotintervalstr,
-                                     label='right',closed='right',base=sec_offset,how=lambda x: x.values.max()).loc[plottimeindex].values
+                                     label='right',closed='right',base=sec_offset,how=lambda x: trymax(x.values).loc[plottimeindex].values
             winddiags_index = N.where(N.any([winddiags_rs > 0,N.isnan(winddiags_rs)],axis=0))[0] # Extract indices for "bad" wind data
             winddiags_plot = plottimes[winddiags_index] # these are the times with bad wind data
             fields.append(winddiags_plot)
