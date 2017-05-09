@@ -1101,16 +1101,18 @@ def calc_DSD(min_size,avg_size,max_size,bin_width,Nc_bin,logNc_bin,rho,qrQC,qr_t
     
     qr_gam = (cmr/rho)*N0_gam*GR2/lamda_gam**(mu_gam+4.)
     Ntr_gam = N0_gam*GR1/lamda_gam**(mu_gam+1.)
+
     # Compute reflectivity for DSD fit
     Gr_gam = ((6.+mu_gam)*(5.+mu_gam)*(4.+mu_gam))/((3.+mu_gam)*(2.+mu_gam)*(1.+mu_gam))
     Zr_gam = ((1./cmr)**2.)*Gr_gam*((rho*qr_gam)**2.)/Ntr_gam
     refl_DSD_gam = 10.0*ma.log10(1.e18*Zr_gam)
+
     #print 'reflectivity (exp DSD) = ',refl_DSD
     #print 'reflectivity (gam DSD) = ',refl_gamDSD
     
     D_med_gam = N.where(lamda_gam == 0., N.nan, ((3.67+mu_gam)/lamda_gam)*1000.0)    # Median volume diameter for gamma distribution
     D_m_gam = N.where(lamda_gam == 0., N.nan, ((4.+mu_gam)/lamda_gam)*1000.0) # Mass-weighted mean diameter for gam. dist.
-                
+
     # Create several tuples to pack the data, and then return them
     
     exp_DSD = (N_expDSD,N0_exp,lamda_exp,mu_exp,qr_exp,Ntr_exp,refl_DSD_exp,D_med_exp,D_m_exp)

@@ -756,14 +756,14 @@ for index,dis_filename,dis_name,starttime,stoptime,centertime,dloc in \
         Nc_bin,logNc_bin,D_med_disd,D_m_disd,D_mv_disd,D_ref_disd,QR_disd,refl_disd = dis_DSD
         N_gamDSD = N_gamDSD.T
         logN_gamDSD = N.ma.log10(N_gamDSD/1000.) # Get to log(m^-3 mm^-1)
-    	logN_gamDSD = N.ma.masked_where(N_gamDSD < dropperbin, logN_gamDSD)
+            logN_gamDSD = N.ma.masked_where(N_gamDSD < dropperbin, logN_gamDSD)
 
         if(pc.calc_dualpol):
             # Calculate polarimetric variables using the T-matrix technique
             scattfile = scattdir+'SCTT_RAIN_fw100.dat'
 
             dualpol_dis = dis.calpolrain(wavelength,scattfile,Nc_bin,bin_width) # use for raw distribution
-#            dualpol_dis = dis.calpolrain(wavelength,scattfile,(N_gamDSD/1000.),bin_width) # use for gamma fit 
+#            dualpol_dis = dis.calpolrain(wavelength,scattfile,(N_gamDSD/1000.),bin_width) # use for gamma fit
 
             # Unpack needed values from returned tuple
             Zh,Zv,Zhv,dBZ,ZDR,KDP,RHV = dualpol_dis
@@ -790,11 +790,12 @@ for index,dis_filename,dis_name,starttime,stoptime,centertime,dloc in \
 
             window = int(180./DSD_interval)
             D_0_dis_avg = pd.Series(D_med_disd).rolling(window=window,center=True,win_type='triang',min_periods=1).mean().values # use for raw distribution
-        #            D_0_dis_avg = pd.rolling_mean(D_med_gam,18,center=True,win_type='triang',min_periods=1) # use for gamma fit 
+#            D_0_dis_avg = pd.Series(D_med_gam).rolling(window=window,center=True,win_type='triang',min_periods=1).mean().values # use for gamma fit
             dBZ_ray_dis_avg = pd.Series(refl_disd).rolling(window=window,center=True,win_type='triang',min_periods=1).mean().values # use for raw distribution
-        #            dBZ_ray_dis_avg = pd.rolling_mean(refl_DSD_gam,18,center=True,win_type='triang',min_periods=1) # use for gamma fit
+#            dBZ_ray_dis_avg = pd.Series(refl_DSD_gam).rolling(window=window,center=True,win_type='triang',min_periods=1).mean().values # use for gamma fit
             disvars['D_0_dis'] = D_0_dis_avg[pstartindex:pstopindex+1]
             disvars['dBZ_ray'] = dBZ_ray_dis_avg[pstartindex:pstopindex+1]
+
 
             if(pc.calc_dualpol):
                 # Computed centered running averages of dualpol variables
@@ -833,7 +834,7 @@ for index,dis_filename,dis_name,starttime,stoptime,centertime,dloc in \
         # Prepare axis parameters
         timelimits = [plotstarttime,plotstoptime]
         diamlimits = [0.0,9.0]
-
+        
         axparams = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,
                     'minorxlocator':pc.minorlocator,'axeslimits':[timelimits,diamlimits],
                     'majorylocator':MultipleLocator(base=1.0),'axeslabels':[None,'D (mm)']}
@@ -970,7 +971,7 @@ for index,dis_filename,dis_name,starttime,stoptime,centertime,dloc in \
 				ax1.text(0.50,0.6,'Intensity =%2.2f'%intensities[t]+'mm/hr',transform=ax1.transAxes)
 				ax1.text(0.50,0.55,'Particle count (QC) = '+str(pcounts2[t]),transform=ax1.transAxes)
 				plt.savefig(image_dir+'DSDs/'+dis_name+'/'+dis_name+'_t'+str(t)+'DSD_plot.png',dpi=200,bbox_inches='tight')
-				plt.close(fig1)
+			    plt.close(fig1)	
 
     Zh_Cao = N.arange(20,61,1)
     Zdr_Cao = 10**((-2.6857*10**-4*Zh_Cao**2)+0.04892*Zh_Cao-1.4287)
@@ -988,6 +989,8 @@ for index,dis_filename,dis_name,starttime,stoptime,centertime,dloc in \
 		ax1.set_xlim(20.0,60.0)
 		ax1.set_xlabel('Zh in dBZ')
 		ax1.set_ylabel('ZDR in dB')
-		plt.savefig(image_dir+'scattergrams/'+dis_name+'scattergrams.png',dpi=200,bbox_inches='tight')			
+		plt.savefig(image_dir+'scattergrams/'+dis_name+'scattergrams.png',dpi=200,bbox_inches='tight')
+
+	
 #plt.show()
 
