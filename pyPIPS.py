@@ -439,6 +439,16 @@ if(pc.comp_radar):
                 plt.close(fig)
 
 # Outer disdrometer (and deployment) loop
+mu=[]
+lamda=[]
+zh=[]
+zdr=[]
+zh_rad=[]
+zdr_rad=[]
+Nt=[]
+r=[]
+d0=[]
+LWC=[]
 
 for index,dis_filename,dis_name,starttime,stoptime,centertime,dloc in \
     zip(xrange(0,len(dis_list)),dis_list,dis_name_list,starttimes,stoptimes,centertimes,dlocs):
@@ -640,7 +650,7 @@ for index,dis_filename,dis_name,starttime,stoptime,centertime,dloc in \
             # Resample wind diagnostics array to flag as bad any time in the interval given by plotinterval
             # Note, have to use numpy max() as a lambda function because the pandas resample.max() does not propagate NaN's!
             winddiags_rs = pd.Series(data=winddiags,index=datetimesUTC).resample(plotintervalstr,
-                                     label='right',closed='right',base=sec_offset,how=lambda x: trymax(x.values).loc[plottimeindex].values
+                                     label='right',closed='right',base=sec_offset,how=lambda x: trymax(x.values)).loc[plottimeindex].values
             winddiags_index = N.where(N.any([winddiags_rs > 0,N.isnan(winddiags_rs)],axis=0))[0] # Extract indices for "bad" wind data
             winddiags_plot = plottimes[winddiags_index] # these are the times with bad wind data
             fields.append(winddiags_plot)
@@ -753,10 +763,10 @@ for index,dis_filename,dis_name,starttime,stoptime,centertime,dloc in \
     
         N_expDSD,N0_exp,lamda_exp,mu_exp,qr_exp,Ntr_exp,refl_DSD_exp,D_med_exp,D_m_exp = exp_DSD
         N_gamDSD,N0_gam,lamda_gam,mu_gam,qr_gam,Ntr_gam,refl_DSD_gam,D_med_gam,D_m_gam = gam_DSD
-        Nc_bin,logNc_bin,D_med_disd,D_m_disd,D_mv_disd,D_ref_disd,QR_disd,refl_disd = dis_DSD
+        Nc_bin,logNc_bin,D_med_disd,D_m_disd,D_mv_disd,D_ref_disd,QR_disd,refl_disd,LWC_disd,M0 = dis_DSD
         N_gamDSD = N_gamDSD.T
         logN_gamDSD = N.ma.log10(N_gamDSD/1000.) # Get to log(m^-3 mm^-1)
-            logN_gamDSD = N.ma.masked_where(N_gamDSD < dropperbin, logN_gamDSD)
+        logN_gamDSD = N.ma.masked_where(N_gamDSD < dropperbin, logN_gamDSD)
 
         if(pc.calc_dualpol):
             # Calculate polarimetric variables using the T-matrix technique
@@ -944,7 +954,19 @@ for index,dis_filename,dis_name,starttime,stoptime,centertime,dloc in \
         ax1, = pm.set_meteogram_axes([ax1],axparamdicts)
         
         plt.savefig(image_dir+'meteograms/'+dis_name+'_voltage.png',dpi=300)
-
+        
+###     Added for shape-slope relation plots        
+    mu.extend(mu_gam)
+    lamda_gam = lamda_gam / 1000.0
+    lamda.extend(lamda_gam)
+    zh.extend(Zh)
+    zdr.extend(ZDR)
+    zh_rad.extend(radvars['dBZ'])
+    zdr_rad.extend(radvars['ZDR'])
+    d0.extend(D_med_disd)
+    LWC.extend(LWC_disd)
+    Nt.extend(Ntr_gam)
+    r.extend(intensities)
         
     if(pc.plot_DSDs):
 		if (not os.path.exists(image_dir+'DSDs/'+dis_name)):
@@ -956,7 +978,6 @@ for index,dis_filename,dis_name,starttime,stoptime,centertime,dloc in \
 				ax1=fig1.add_subplot(111)
 				plt.title('Disdrometer 10-sec DSD Fits for Time '+disdates[t].strftime(fmt2)+' EST')
 				ax1.bar(min_diameter,Nc_bin[:,t]*1000.0,max_diameter-min_diameter,log=True,color='tan')
-#				ax1.bar(min_diameter,ones_1minavg[:,t]*1000.0,max_diameter-min_diameter,log=True,color='None',edgecolor='k')
 				ax1.plot(synthbins,N_expDSD[t],lw=2)
 				ax1.plot(avg_diameter,N_gamDSD[:,t],lw=2)
 				ax1.set_yscale('log')
@@ -965,17 +986,18 @@ for index,dis_filename,dis_name,starttime,stoptime,centertime,dloc in \
 				ax1.set_xlabel('Drop Diameter (mm)')
 				ax1.set_ylabel(r'N(D) $(m^{-4})$')
 				ax1.text(0.50,0.8,'Shape parameter (gamma) = %2.2f'%mu_gam[t],transform=ax1.transAxes)
-				ax1.text(0.50,0.75,'Median Volume Diameter (gamma) =%2.2f'%D_med_gam[t],transform=ax1.transAxes)
-				ax1.text(0.50,0.7,'Reflectivity =%2.2f'%refl_disd[t]+'dBZ',transform=ax1.transAxes)
-				ax1.text(0.50,0.65,'ZDR = %2.2f'%ZDR[t]+'dB',transform=ax1.transAxes)
-				ax1.text(0.50,0.6,'Intensity =%2.2f'%intensities[t]+'mm/hr',transform=ax1.transAxes)
-				ax1.text(0.50,0.55,'Particle count (QC) = '+str(pcounts2[t]),transform=ax1.transAxes)
+				ax1.text(0.50,0.75,'Slope parameter (gamma) = %2.2f'%lamda_gam[t],transform=ax1.transAxes)
+				ax1.text(0.50,0.7,'Median Volume Diameter (gamma) =%2.2f'%D_med_gam[t],transform=ax1.transAxes)
+				ax1.text(0.50,0.65,'Reflectivity =%2.2f'%refl_disd[t]+'dBZ',transform=ax1.transAxes)
+				ax1.text(0.50,0.6,'ZDR = %2.2f'%ZDR[t]+'dB',transform=ax1.transAxes)
+				ax1.text(0.50,0.55,'Intensity =%2.2f'%intensities[t]+'mm/hr',transform=ax1.transAxes)
+				ax1.text(0.50,0.5,'Particle count (QC) = '+str(pcounts2[t]),transform=ax1.transAxes)
 				plt.savefig(image_dir+'DSDs/'+dis_name+'/'+dis_name+'_t'+str(t)+'DSD_plot.png',dpi=200,bbox_inches='tight')
-			    plt.close(fig1)	
+				plt.close(fig1)	
 
     Zh_Cao = N.arange(20,61,1)
     Zdr_Cao = 10**((-2.6857*10**-4*Zh_Cao**2)+0.04892*Zh_Cao-1.4287)
-	
+    
     if(pc.plot_scat):
 		if (not os.path.exists(image_dir+'scattergrams/')):
 			os.makedirs(image_dir+'scattergrams/')
@@ -990,7 +1012,336 @@ for index,dis_filename,dis_name,starttime,stoptime,centertime,dloc in \
 		ax1.set_xlabel('Zh in dBZ')
 		ax1.set_ylabel('ZDR in dB')
 		plt.savefig(image_dir+'scattergrams/'+dis_name+'scattergrams.png',dpi=200,bbox_inches='tight')
+		plt.close(fig1)
+    
+###     ATTEMPT AT USING RELATIONS FROM CAO ET AL. 2008
 
+    Zh_rad = pow(10.,radvars['dBZ']/10)
+    ZDR_rad = radvars['ZDR']
+    ###     Radar measured    
+    tot_drop_conc_rad = Zh_rad * 10.**(-0.0837*(ZDR_rad**3.) + 0.702*(ZDR_rad**2.) - 2.062*ZDR_rad + 0.794)
+    med_vol_diam_rad = 0.0436*(ZDR_rad**3.) - 0.216*(ZDR_rad**2.) + 1.076*ZDR_rad + 0.659 # compare to D_med_disd which is median volume diameter 
+    liq_water_cont_rad = Zh_rad * 10.**(-0.0493*(ZDR_rad**3.) + 0.430*(ZDR_rad**2.) - 1.542*ZDR_rad - 3.019) # compare to LWC_disd
+    rain_rate_rad = Zh_rad * 10.**(-0.0363*(ZDR_rad**3.) + 0.316*(ZDR_rad**2.) - 1.178*ZDR_rad - 1.964) # compare to intensities
+    ###     Disdrometer measured     
+    tot_drop_conc = Zh * 10.**(-0.0837*(ZDR**3.) + 0.702*(ZDR**2.) - 2.062*ZDR + 0.794)
+    med_vol_diam = 0.0436*(ZDR**3.) - 0.216*(ZDR**2.) + 1.076*ZDR + 0.659 # compare to D_med_disd which is median volume diameter 
+    liq_water_cont = Zh * 10.**(-0.0493*(ZDR**3.) + 0.430*(ZDR**2.) - 1.542*ZDR - 3.019) # compare to LWC_disd
+    rain_rate = Zh * 10.**(-0.0363*(ZDR**3.) + 0.316*(ZDR**2.) - 1.178*ZDR - 1.964) # compare to intensities
+#    
+#    
+###     Add for radar measured Zh and ZDR     
+    fig = plt.figure(figsize=(8,4))
+    ax1 = fig.add_subplot(111)
+    ax2 = ax1.twinx()
+    fields =[LWC_disd[pstartindex:pstopindex+1]]
+    fieldparamdict1 = {'linestyle':'-','color':'k','alpha':0.5,'plotmin':0,'label':r'Liquid Water Content (observed)'}
+    fieldparamdicts = [fieldparamdict1]
+    xvals = [DSDmidtimes]*len(fields)
+    ax1 = pm.plotmeteogram(ax1,xvals,fields,fieldparamdicts)
+    axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[0.0,10.0]],'axeslabels':[pc.timelabel,r'Liquid Water Content']}
+    axparamdicts = [axparamdict1]
+    ax1, = pm.set_meteogram_axes([ax1],axparamdicts)
+    ax1.legend(loc='upper right',ncol=1, fancybox=True, shadow=False, prop = fontP)
+    xvals.append(radvars['radmidtimes'])
+    fields.append(liq_water_cont_rad[pstartindex:pstopindex+1])
+    fieldparamdict2 = {'linestyle':'-','color':'r','alpha':0.5,'label':r'Liquid Water Content (radar empirical)'}
+    fieldparamdicts.append(fieldparamdict2)
+    ax2 = pm.plotmeteogram(ax2,xvals,fields,fieldparamdicts)
+    axparamdict2 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[0.0,10.0]],'axeslabels':[pc.timelabel,r'Liquid Water Content']}
+    axes = [ax1,ax2]
+    axparamdicts.append(axparamdict2)
+    ax2.legend(loc='upper left',ncol=1, fancybox=True, shadow=False, prop = fontP)
+    axes = pm.set_meteogram_axes(axes,axparamdicts)
+    plt.savefig(image_dir+'meteograms/'+'radar_'+dis_name+'_LWC.png',dpi=300)
+    plt.close(fig)
+    
+    fig = plt.figure(figsize=(8,4))
+    ax1 = fig.add_subplot(111)
+    ax2 = ax1.twinx()
+    fields = [intensities[pstartindex:pstopindex+1]]
+    fieldparamdict1 = {'linestyle':'-','color':'k','alpha':0.5,'plotmin':0,'label':r'Rain Rate (observed)'}
+    fieldparamdicts = [fieldparamdict1]
+    xvals = [DSDmidtimes] * len(fields)
+    ax1 = pm.plotmeteogram(ax1,xvals,fields,fieldparamdicts)
+    axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[0.0,250.0]],'axeslabels':[pc.timelabel,r'Rain Rate']}
+    axparamdicts = [axparamdict1]
+    ax1, = pm.set_meteogram_axes([ax1],axparamdicts)
+    ax1.legend(loc='upper right',ncol=1, fancybox=True, shadow=False, prop = fontP)
+    xvals.append(radvars['radmidtimes'])
+    fields.append(rain_rate_rad[pstartindex:pstopindex+1])
+    fieldparamdict2 = {'linestyle':'-','color':'r','alpha':0.5,'label':r'Rain Rate (radar empirical)'}
+    fieldparamdicts.append(fieldparamdict2)
+    ax2 = pm.plotmeteogram(ax2,xvals,fields,fieldparamdicts)
+    axparamdict2 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[0.0,250.0]],'axeslabels':[pc.timelabel,r'Rain Rate']}
+    axes = [ax1,ax2]
+    axparamdicts.append(axparamdict2)
+    ax2.legend(loc='upper left',ncol=1, fancybox=True, shadow=False, prop = fontP)
+    axes = pm.set_meteogram_axes(axes,axparamdicts)
+    plt.savefig(image_dir+'meteograms/'+'radar_'+dis_name+'_R.png',dpi=300)
+    plt.close(fig)
+    
+    
+    fig = plt.figure(figsize=(8,4))
+    ax1 = fig.add_subplot(111)
+    ax2 = ax1.twinx()
+    fields = [Ntr_gam[pstartindex:pstopindex+1]]
+    fieldparamdict1 = {'linestyle':'-','color':'k','alpha':0.5,'plotmin':0,'label':r'Total Drop Conc (observed)'}
+    fieldparamdicts = [fieldparamdict1]
+    xvals = [DSDmidtimes] * len(fields)
+    ax1 = pm.plotmeteogram(ax1,xvals,fields,fieldparamdicts)
+    axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[0.0,10000.0]],'axeslabels':[pc.timelabel,r'Nt']}
+    axparamdicts = [axparamdict1]
+    ax1, = pm.set_meteogram_axes([ax1],axparamdicts)
+    ax1.legend(loc='upper right',ncol=1, fancybox=True, shadow=False, prop = fontP)
+    xvals.append(radvars['radmidtimes'])
+    fields.append(tot_drop_conc_rad[pstartindex:pstopindex+1])
+    fieldparamdict2 = {'linestyle':'-','color':'r','alpha':0.5,'label':r'Total Drop Conc (radar empirical)'}
+    fieldparamdicts.append(fieldparamdict2)
+    ax2 = pm.plotmeteogram(ax2,xvals,fields,fieldparamdicts)
+    axparamdict2 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[0.0,10000.0]],'axeslabels':[pc.timelabel,r'Nt']}
+    axes = [ax1,ax2]
+    axparamdicts.append(axparamdict2)
+    ax2.legend(loc='upper left',ncol=1, fancybox=True, shadow=False, prop = fontP)
+    axes = pm.set_meteogram_axes(axes,axparamdicts)
+    plt.savefig(image_dir+'meteograms/'+'radar_'+dis_name+'_Nt.png',dpi=300)
+    plt.close(fig)
+    
+    fig = plt.figure(figsize=(8,4))
+    ax1 = fig.add_subplot(111)
+    ax2 = ax1.twinx()
+    fields = [D_med_disd[pstartindex:pstopindex+1]]
+    fieldparamdict1 = {'linestyle':'-','color':'k','alpha':0.5,'plotmin':0,'label':r'Median Volume Diameter (observed)'}
+    fieldparamdicts = [fieldparamdict1]
+    xvals = [DSDmidtimes] * len(fields)
+    ax1 = pm.plotmeteogram(ax1,xvals,fields,fieldparamdicts)
+    axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[0.0,5.0]],'axeslabels':[pc.timelabel,r'Median Volume Diameter']}
+    axparamdicts = [axparamdict1]
+    ax1, = pm.set_meteogram_axes([ax1],axparamdicts)
+    ax1.legend(loc='upper right',ncol=1, fancybox=True, shadow=False, prop = fontP)
+    xvals.append(radvars['radmidtimes'])
+    fields.append(med_vol_diam_rad[pstartindex:pstopindex+1])
+    fieldparamdict2 = {'linestyle':'-','color':'r','alpha':0.5,'label':r'Median Volume Diameter (radar empirical)'}
+    fieldparamdicts.append(fieldparamdict2)
+    ax2 = pm.plotmeteogram(ax2,xvals,fields,fieldparamdicts)
+    axparamdict2 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[0.0,5.0]],'axeslabels':[pc.timelabel,r'Median Volume Diameter']}
+    axes = [ax1,ax2]
+    axparamdicts.append(axparamdict2)
+    ax2.legend(loc='upper left',ncol=1, fancybox=True, shadow=False, prop = fontP)
+    axes = pm.set_meteogram_axes(axes,axparamdicts)
+    plt.savefig(image_dir+'meteograms/'+'radar_'+dis_name+'_D0.png',dpi=300)
+    plt.close(fig)
+
+###     add for disdrometer calculated Zh and ZDR     
+    fig = plt.figure(figsize=(8,4))
+    ax1 = fig.add_subplot(111)
+    fields = [med_vol_diam[pstartindex:pstopindex+1],D_med_disd[pstartindex:pstopindex+1]]
+    fieldparamdict1 = {'linestyle':'-','color':'k','alpha':0.5,'plotmin':0,'label':r'Median Volume Diameter (dis empirical)'}
+    fieldparamdict2 = {'linestyle':'-','color':'r','alpha':0.5,'plotmin':0,'label':r'Median Volume Diameter (observed)'}
+    fieldparamdicts = [fieldparamdict1,fieldparamdict2]
+    xvals = [DSDmidtimes]*len(fields)
+    ax1 = pm.plotmeteogram(ax1,xvals,fields,fieldparamdicts)
+    axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[0.0,5.0]],'axeslabels':[pc.timelabel,r'Median Volume Diameter']}
+    axparamdicts = [axparamdict1]
+    ax1, = pm.set_meteogram_axes([ax1],axparamdicts)
+    ax1.legend(bbox_to_anchor=(1.,1.), loc='upper right',ncol=1, fancybox=True, shadow=False, prop = fontP)
+    plt.savefig(image_dir+'meteograms'+dis_name+'_medvoldiam.png',dpi=300)
+    plt.close(fig)
+
+    fig = plt.figure(figsize=(8,4))
+    ax1 = fig.add_subplot(111)
+    fields = [tot_drop_conc[pstartindex:pstopindex+1],Ntr_gam[pstartindex:pstopindex+1]]
+    fieldparamdict1 = {'linestyle':'-','color':'k','alpha':0.5,'plotmin':0,'label':r'Total Drop Concentration (dis empirical)'}
+    fieldparamdict2 = {'linestyle':'-','color':'r','alpha':0.5,'plotmin':0,'label':r'Total Drop Concentration (observed)'}
+    fieldparamdicts = [fieldparamdict1,fieldparamdict2]
+    xvals = [DSDmidtimes] * len(fields)
+    ax1 = pm.plotmeteogram(ax1,xvals,fields,fieldparamdicts)
+    axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[0.0,10000.0]],'axeslabels':[pc.timelabel,r'Total Drop Concentration']}
+    axparamdicts = [axparamdict1]
+    ax1, = pm.set_meteogram_axes([ax1],axparamdicts)
+    ax1.legend(bbox_to_anchor=(1.,1.), loc='upper right',ncol=1, fancybox=True, shadow=False, prop = fontP)
+    plt.savefig(image_dir+'meteograms/'+dis_name+'_totdropconc.png',dpi=300)
+    plt.close(fig)
+
+    fig = plt.figure(figsize=(8,4))
+    ax1 = fig.add_subplot(111)
+    fields = [liq_water_cont[pstartindex:pstopindex+1],LWC_disd[pstartindex:pstopindex+1]]
+    fieldparamdict1 = {'linestyle':'-','color':'k','alpha':0.5,'plotmin':0,'label':r'Liquid Water Content (dis empirical)'}
+    fieldparamdict2 = {'linestyle':'-','color':'r','alpha':0.5,'plotmin':0,'label':r'Liquid Water Content (observed)'}
+    fieldparamdicts = [fieldparamdict1,fieldparamdict2]
+    xvals = [DSDmidtimes] * len(fields)
+    ax1 = pm.plotmeteogram(ax1,xvals,fields,fieldparamdicts)
+    axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[0.0,10.0]],'axeslabels':[pc.timelabel,r'Liquid Water Content']}
+    axparamdicts = [axparamdict1]
+    ax1, = pm.set_meteogram_axes([ax1],axparamdicts)
+    ax1.legend(bbox_to_anchor=(1.,1.), loc='upper right',ncol=1, fancybox=True, shadow=False, prop = fontP)
+    plt.savefig(image_dir+'meteograms/'+dis_name+'_LWC.png',dpi=300)
+    plt.close(fig)
+
+    fig = plt.figure(figsize=(8,4))
+    ax1 = fig.add_subplot(111)
+    fields = [rain_rate[pstartindex:pstopindex+1],intensities[pstartindex:pstopindex+1]]
+    fieldparamdict1 = {'linestyle':'-','color':'k','alpha':0.5,'plotmin':0,'label':r'Rain Rate (dis empirical)'}
+    fieldparamdict2 = {'linestyle':'-','color':'r','alpha':0.5,'plotmin':0,'label':r'Rain Rate (observed)'}
+    fieldparamdicts = [fieldparamdict1,fieldparamdict2]
+    xvals = [DSDmidtimes] * len(fields)
+    ax1 = pm.plotmeteogram(ax1,xvals,fields,fieldparamdicts)
+    axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[0.0,250.0]],'axeslabels':[pc.timelabel,r'Rain Rate']}
+    axparamdicts = [axparamdict1]
+    ax1, = pm.set_meteogram_axes([ax1],axparamdicts)
+    ax1.legend(bbox_to_anchor=(1.,1.), loc='upper right',ncol=1, fancybox=True, shadow=False, prop = fontP)
+    plt.savefig(image_dir+'meteograms/'+dis_name+'_rainrate.png',dpi=300)
+    plt.close(fig)
+
+    
+###     Figure 9a-c from Cao et al.
+ZDR_rad = N.array(zdr_rad)
+Zh_rad = pow(10.,(N.array(zh_rad)/10))
+Zh = N.array(zh)
+ZDR=N.array(zdr)
+intensities = N.array(r)
+D_med_disd = N.array(d0)
+M0 = N.array(Nt)
+LWC_disd = N.array(LWC)
+
+
+###     Radar measured    
+tot_drop_conc_rad = Zh_rad * 10.**(-0.0837*(ZDR_rad**3.) + 0.702*(ZDR_rad**2.) - 2.062*ZDR_rad + 0.794)
+med_vol_diam_rad = 0.0436*(ZDR_rad**3.) - 0.216*(ZDR_rad**2.) + 1.076*ZDR_rad + 0.659 # compare to D_med_disd which is median volume diameter 
+liq_water_cont_rad = Zh_rad * 10.**(-0.0493*(ZDR_rad**3.) + 0.430*(ZDR_rad**2.) - 1.542*ZDR_rad - 3.019) # compare to LWC_disd
+rain_rate_rad = Zh_rad * 10.**(-0.0363*(ZDR_rad**3.) + 0.316*(ZDR_rad**2.) - 1.178*ZDR_rad - 1.964) # compare to intensities
+###     Disdrometer measured    
+tot_drop_conc = Zh * 10.**(-0.0837*(ZDR**3.) + 0.702*(ZDR**2.) - 2.062*ZDR + 0.794)
+med_vol_diam = 0.0436*(ZDR**3.) - 0.216*(ZDR**2.) + 1.076*ZDR + 0.659 # compare to D_med_disd which is median volume diameter 
+liq_water_cont = Zh * 10.**(-0.0493*(ZDR**3.) + 0.430*(ZDR**2.) - 1.542*ZDR - 3.019) # compare to LWC_disd
+rain_rate = Zh * 10.**(-0.0363*(ZDR**3.) + 0.316*(ZDR**2.) - 1.178*ZDR - 1.964) # compare to intensities
+
+one_x = N.linspace(10**-4,10)
+one_y = one_x
+
+fig1=plt.figure(figsize=(8,8))
+ax1=fig1.add_subplot(111)
+ax1.scatter(intensities/Zh, rain_rate/Zh, color='r', label='Disdrometer')
+ax1.set_xlim(10**-4.,10**-2.)
+ax1.set_xscale('log')
+ax1.set_ylim(10**-4.,10**-2.)
+ax1.set_yscale('log')
+ax1.set_xlabel('Observed R/Zh')
+ax1.set_ylabel('Empirical R/Zh')
+ax1.plot(one_x,one_y,lw=2,color='k')
+plt.legend(loc='upper left',numpoints=1,ncol=1,fontsize=8)
+plt.savefig(image_dir+'scattergrams/'+'one-to-R.png',dpi=200,bbox_inches='tight')
+plt.close(fig1)
+
+fig1=plt.figure(figsize=(8,8))
+ax1=fig1.add_subplot(111)
+ax1.scatter(D_med_disd, med_vol_diam,color='r', label='Disdrometer')
+ax1.set_xlim(0,5)
+ax1.set_ylim(0,5)
+ax1.set_xlabel('Observed D0')
+ax1.set_ylabel('Empirical D0')
+ax1.plot(one_x,one_y,lw=2,color='k')
+plt.legend(loc='upper left',numpoints=1,ncol=1,fontsize=8)
+plt.savefig(image_dir+'scattergrams/'+'one-to-D0.png',dpi=200,bbox_inches='tight')
+plt.close(fig1)
+
+fig1=plt.figure(figsize=(8,8))
+ax1=fig1.add_subplot(111)
+ax1.scatter(M0/Zh, tot_drop_conc/Zh, color='r', label='Disdrometer')
+ax1.set_xlim(10**-3,10)
+ax1.set_xscale('log')
+ax1.set_ylim(10**-3,10)
+ax1.set_yscale('log')
+ax1.set_xlabel('Observed Nt/Zh')
+ax1.set_ylabel('Empirical Nt/Zh')
+ax1.plot(one_x,one_y,lw=2,color='k')
+plt.legend(loc='upper left',numpoints=1,ncol=1,fontsize=8)
+plt.savefig(image_dir+'scattergrams/'+'one-to-Nt.png',dpi=200,bbox_inches='tight')
+plt.close(fig1)
+
+###     Figure 8a-c from Cao et al.
+bias = 100 * (N.nansum(med_vol_diam-D_med_disd)/N.nansum(D_med_disd))
+#bias = N.nanmean(med_vol_diam) - N.nanmean(d0)
+fig1=plt.figure(figsize=(8,8))
+ax1=fig1.add_subplot(111)
+ax1.scatter(ZDR, med_vol_diam, color='k', label='Disdrometer Empirical')
+ax1.scatter(ZDR, D_med_disd, color='r', label='Observed Disdrometer')
+ax1.scatter(ZDR_rad, med_vol_diam_rad, color='b', label='Radar Empirical')
+ax1.set_xlim(0.0,4.0)
+ax1.set_ylim(0.0,5.0)
+ax1.set_xlabel('ZDR')
+ax1.set_ylabel('D0')
+ax1.text(0.8,0.95,'Bias =%2.2f'%bias+'%',transform=ax1.transAxes)
+plt.legend(loc='upper left',numpoints=1,ncol=1,fontsize=8)
+plt.savefig(image_dir+'scattergrams/'+'D0.png',dpi=200,bbox_inches='tight')
+plt.close(fig1)
+
+bias = 100 * (N.nansum(liq_water_cont-LWC_disd)/N.nansum(LWC_disd))
+fig1=plt.figure(figsize=(8,8))
+ax1=fig1.add_subplot(111)
+ax1.scatter(ZDR, N.log10(liq_water_cont/Zh), color='k', label='Disdrometer Empirical')
+ax1.scatter(ZDR, N.log10(LWC_disd/Zh), color='r', label='Observed Disdrometer')
+ax1.scatter(ZDR_rad, N.log10(liq_water_cont_rad/Zh_rad), color='b', label='Radar Empirical')
+ax1.set_xlim(0.0,4.0)
+ax1.set_ylim(-6,-1)
+ax1.set_xlabel('ZDR')
+ax1.set_ylabel('log(LWC/Zh)')
+ax1.text(0.8,0.95,'Bias =%2.2f'%bias+'%',transform=ax1.transAxes)
+plt.legend(loc='upper left',numpoints=1,ncol=1,fontsize=8)
+plt.savefig(image_dir+'scattergrams/'+'LWC.png',dpi=200,bbox_inches='tight')
+plt.close(fig1)
+
+bias = 100 * (N.nansum(rain_rate-intensities)/N.nansum(intensities))
+fig1=plt.figure(figsize=(8,8))
+ax1=fig1.add_subplot(111)
+ax1.scatter(ZDR, N.log10(rain_rate/Zh), color='k', label='Disdrometer Empirical')
+ax1.scatter(ZDR, N.log10(intensities/Zh), color='r', label='Observed Disdrometer')
+ax1.scatter(ZDR_rad, N.log10(rain_rate_rad/Zh_rad), color='b', label='Radar Empirical')
+ax1.set_xlim(0.0,4.0)
+ax1.set_ylim(-5,0)
+ax1.set_xlabel('ZDR')
+ax1.set_ylabel('log(R/Zh)')
+ax1.text(0.8,0.95,'Bias =%2.2f'%bias+'%',transform=ax1.transAxes)
+plt.legend(loc='upper left',numpoints=1,ncol=1,fontsize=8)
+plt.savefig(image_dir+'scattergrams/'+'R.png',dpi=200,bbox_inches='tight')
+plt.close(fig1)
+
+bias = 100 * (N.nansum(tot_drop_conc-M0)/N.nansum(M0))
+fig1=plt.figure(figsize=(8,8))
+ax1=fig1.add_subplot(111)
+ax1.scatter(ZDR, N.log10(tot_drop_conc/Zh), color='k',label='Disdrometer Empirical')
+ax1.scatter(ZDR, N.log10(M0/Zh), color='r', label='Observed Disdrometer')
+ax1.scatter(ZDR_rad, N.log10(tot_drop_conc_rad/Zh_rad), color='b', label='Radar Empirical')
+ax1.set_xlim(0.0,4.0)
+ax1.set_ylim(-2.5,5.0)
+ax1.set_xlabel('ZDR')
+ax1.set_ylabel('log(Nt/Zh)')
+ax1.text(0.8,0.95,'Bias =%2.2f'%bias+'%',transform=ax1.transAxes)
+plt.legend(loc='upper left',numpoints=1,ncol=1,fontsize=8)
+plt.savefig(image_dir+'scattergrams/'+'Nt.png',dpi=200,bbox_inches='tight')
+plt.close(fig1)
+			
+# Plot the lambda-mu relation and fit with 2nd order polynomial 
+
+poly=N.polyfit(lamda,mu,2)
+polynomial=N.poly1d(poly)
+xx = N.linspace(0.0, 30.0)
+yy = polynomial(xx)
+		
+fig=plt.figure(figsize=(8,8))
+ax1=fig.add_subplot(111)
+plt.title('Shape-Slope Relation')
+ax1.scatter(lamda,mu, color='k')
+ax1.plot(xx,yy, color='r')
+ax1.set_xlim(0.0,30.0)
+ax1.set_ylim(-5.0,20.0)
+ax1.set_xlabel('Slope parameter')
+ax1.set_ylabel('Shape parameter')
+
+plt.savefig(image_dir+'scattergrams/'+'shape_slope.png',dpi=200,bbox_inches='tight')
+plt.close(fig)
+
+print(poly)
 	
 #plt.show()
 

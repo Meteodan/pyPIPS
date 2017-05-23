@@ -61,10 +61,10 @@ use_DD_QC = False   # Use my QC methods (see below)
 use_measured_fs = True     # If True, use the raw measured fall speeds to compute number concentration
                             # If False, use the fall speed curve of Terry Schuur
 
-use_strongwindQC = False      # Remove time records that are contaminated by strong wind?
-use_splashingQC = False      # Remove drops that result from splashing?
-use_marginQC = False         # Remove drops that result from margin falls?
-use_rainonlyQC = False       # Remove all particles that are probably not rain?
+use_strongwindQC = True      # Remove time records that are contaminated by strong wind?
+use_splashingQC = True      # Remove drops that result from splashing?
+use_marginQC = True         # Remove drops that result from margin falls?
+use_rainonlyQC = True       # Remove all particles that are probably not rain?
 use_hailonlyQC = False      # Remove all particles that are probably not hail?
 use_graupelonlyQC = False   # Remove all particles that are probably not graupel?
 
@@ -1117,7 +1117,7 @@ def calc_DSD(min_size,avg_size,max_size,bin_width,Nc_bin,logNc_bin,rho,qrQC,qr_t
     
     exp_DSD = (N_expDSD,N0_exp,lamda_exp,mu_exp,qr_exp,Ntr_exp,refl_DSD_exp,D_med_exp,D_m_exp)
     gam_DSD = (N_gamDSD,N0_gam,lamda_gam,mu_gam,qr_gam,Ntr_gam,refl_DSD_gam,D_med_gam,D_m_gam)
-    dis_DSD = (Nc_bin,logNc_bin,D_med_disd,D_m_disd,D_mv_disd,D_ref_disd,QR_disd,refl_disd)
+    dis_DSD = (Nc_bin,logNc_bin,D_med_disd,D_m_disd,D_mv_disd,D_ref_disd,QR_disd,refl_disd,LWC_disd,M0)
     
     return synthbins,exp_DSD,gam_DSD,dis_DSD
 
