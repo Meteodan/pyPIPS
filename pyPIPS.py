@@ -779,7 +779,7 @@ for index,dis_filename,dis_name,starttime,stoptime,centertime,dloc in \
         N_gamDSD = N_gamDSD.T
         logN_gamDSD = N.ma.log10(N_gamDSD/1000.) # Get to log(m^-3 mm^-1)
         logN_gamDSD = N.ma.masked_where(N_gamDSD < dropperbin, logN_gamDSD)
-        rainrate = N.array(rainrate)
+
 
         if(pc.calc_dualpol):
             # Calculate polarimetric variables using the T-matrix technique
@@ -1025,7 +1025,7 @@ for index,dis_filename,dis_name,starttime,stoptime,centertime,dloc in \
     
     N_retr=N.array(N_retr)
     N_retr=N_retr.T
-    
+
         
     if(pc.plot_DSDs):
 		if (not os.path.exists(image_dir+'DSDs/'+dis_name)):
@@ -1057,7 +1057,6 @@ for index,dis_filename,dis_name,starttime,stoptime,centertime,dloc in \
 				ax1.text(0.50,0.5,'Particle count (QC) = '+str(pcounts2[t]),transform=ax1.transAxes)
 				plt.savefig(image_dir+'DSDs/'+dis_name+'/'+dis_name+'_t'+str(t)+'DSD_plot.png',dpi=200,bbox_inches='tight')
 				plt.close(fig1)
-	
 
 
     Zh_Cao = N.arange(20,61,1)
@@ -1080,6 +1079,7 @@ for index,dis_filename,dis_name,starttime,stoptime,centertime,dloc in \
 		plt.close(fig1)
     
 ###     RELATIONS FROM CAO ET AL. 2008
+<<<<<<< HEAD
 
     Zh_rad = pow(10.,radvars['dBZ']/10)
     ZDR_rad = radvars['ZDR']
