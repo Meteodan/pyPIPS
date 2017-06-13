@@ -61,10 +61,10 @@ use_DD_QC = False   # Use my QC methods (see below)
 use_measured_fs = True     # If True, use the raw measured fall speeds to compute number concentration
                             # If False, use the fall speed curve of Terry Schuur
 
-use_strongwindQC = False      # Remove time records that are contaminated by strong wind?
-use_splashingQC = False      # Remove drops that result from splashing?
-use_marginQC = False         # Remove drops that result from margin falls?
-use_rainonlyQC = False       # Remove all particles that are probably not rain?
+use_strongwindQC = True      # Remove time records that are contaminated by strong wind?
+use_splashingQC = True      # Remove drops that result from splashing?
+use_marginQC = True         # Remove drops that result from margin falls?
+use_rainonlyQC = True       # Remove all particles that are probably not rain?
 use_hailonlyQC = False      # Remove all particles that are probably not hail?
 use_graupelonlyQC = False   # Remove all particles that are probably not graupel?
 
@@ -288,6 +288,7 @@ def masklowdiamQC(countsMatrix):
     countsMatrix = ma.masked_array(countsMatrix,mask=mask)
     
     return countsMatrix
+    
     
 def correctPIPS(serialnum,infile,outfile):
     """Corrects offset Parsivel strings in a PIPS data file"""
@@ -548,6 +549,7 @@ def readPIPS(filename,fixGPS=True,basicqc=False,rainfallqc=False,rainonlyqc=Fals
     countsMatrix = N.dstack(countsMatrix)
     countsMatrix = N.rollaxis(countsMatrix,2,0)
     
+    
     # Perform Katja's QC routines if desired (should not be used in combination with my methods above,
     # most are redundant anyway).
 
@@ -585,11 +587,15 @@ def readPIPS(filename,fixGPS=True,basicqc=False,rainfallqc=False,rainonlyqc=Fals
     if(detecthail):
         countsMatrix,hailcounts = hailonlyQC(countsMatrix,returnmasked=False)
         hailflag = N.where(hailcounts > 0,True,False)
+        
+        
+    
     
     # Find total number of non-masked particles
     
     pcount2 = countsMatrix.sum(axis=2)
     pcounts2 = pcount2.sum(axis=1)
+    
     
     counts_1drop = N.ones_like(avg_diameter)
     
@@ -625,6 +631,7 @@ def readPIPS(filename,fixGPS=True,basicqc=False,rainfallqc=False,rainonlyqc=Fals
         else:
             concentration = -999.*N.ones_like(avg_diameter)
             concentration = ma.masked_where(concentration == -999.,concentration)
+            
         
         # Throw out particles above and below a certain diameter if desired
         
@@ -639,14 +646,15 @@ def readPIPS(filename,fixGPS=True,basicqc=False,rainfallqc=False,rainonlyqc=Fals
         
         #print concentration
         
+        
         concentrations.append(concentration)
         onedrop_concentrations.append(onedrop_concentration)
-        
+            
     concentrations = ma.array(concentrations)
     onedrop_concentrations = ma.array(onedrop_concentrations)
     #print "concentrations: ",concentrations
-    pcounts = N.array(pcounts)
-    #pcounts2 = ma.array(pcounts2)
+    pcounts = ma.array(pcounts)
+    #pcounts2 = N.array(pcounts2)
     amplitudes = N.array(amplitudes)
     
     # Correct the logger time and date using the GPS time
@@ -869,10 +877,10 @@ def calpolrain(wavelength,filename,Nd,intv):
     #N.savetxt('temp.txt', temp)
 
 
-    return Zh,Zv,Zhv,dBZ,ZDR,Kdp,rhv
+    return Zh,Zv,Zhv,dBZ,ZDR,Kdp,rhv,intv,d,fa2,fb2
     
 
-def calc_DSD(min_size,avg_size,max_size,bin_width,Nc_bin,logNc_bin,rho,qrQC,qr_thresh):
+def calc_DSD(min_size,avg_size,max_size,bin_width,Nc_bin,logNc_bin,rho,qrQC,qr_thresh,pcounts):
     """Fits exponential and gamma DSDs to disdrometer data and returns several DSD related quantities."""
     
     
@@ -897,8 +905,8 @@ def calc_DSD(min_size,avg_size,max_size,bin_width,Nc_bin,logNc_bin,rho,qrQC,qr_t
         numtimes = 1
         Nc_bin = Nc_bin[:,N.newaxis]
     
-    
-    
+    v = -0.1021+4.932*avg_size-0.9551*avg_size**2.+0.07934*avg_size**3.-0.002362*avg_size**4.
+    rainrate=[]
     for t in range(numtimes):
     
         temp_M0 = (1000.*Nc_bin[:,t])*bin_width[:]/1000.
@@ -908,7 +916,11 @@ def calc_DSD(min_size,avg_size,max_size,bin_width,Nc_bin,logNc_bin,rho,qrQC,qr_t
         temp_M4 = ((avg_size[:]/1000.)**4.)*(1000.*Nc_bin[:,t])*bin_width[:]/1000.
         temp_M6 = ((avg_size[:]/1000.)**6.)*(1000.*Nc_bin[:,t])*bin_width[:]/1000.
         temp_M7 = ((avg_size[:]/1000.)**7.)*(1000.*Nc_bin[:,t])*bin_width[:]/1000.
-    
+        
+        temp_rainrate = N.sum((6.*10.**-4.)*N.pi*v*avg_size[:]**3.*Nc_bin[:,t]*bin_width[:])
+        rainrate.append(temp_rainrate)
+        
+        
         # Before summing up the 3rd moment, use the bin information to find the (approximate) median volume diameter
         
         #print "temp_M3",temp_M3,temp_M3.shape
@@ -934,6 +946,9 @@ def calc_DSD(min_size,avg_size,max_size,bin_width,Nc_bin,logNc_bin,rho,qrQC,qr_t
         except:
             medindex = 0
             temp_D_med = N.nan
+            
+        
+        
         temp_M0_2 = ma.sum(temp_M0)
         temp_M0 = N.sum(temp_M0)
         temp_M1 = N.sum(temp_M1)
@@ -960,6 +975,9 @@ def calc_DSD(min_size,avg_size,max_size,bin_width,Nc_bin,logNc_bin,rho,qrQC,qr_t
     M6 = ma.array(M6,dtype=N.float64)
     M7 = ma.array(M7,dtype=N.float64)
     D_med_disd = N.array(D_med_disd)
+    rainrate = N.array(rainrate)
+    
+    N.savetxt('rain.txt',rainrate)
         
     # --- Compute various mean diameters directly from measured discrete distribution ---
     cmr = (N.pi/6.)*1000.                                     # Constant in mass-diameter relation for rain
@@ -989,6 +1007,25 @@ def calc_DSD(min_size,avg_size,max_size,bin_width,Nc_bin,logNc_bin,rho,qrQC,qr_t
         M7 = ma.masked_array(M7,mask=qrmask1D)
         rho = ma.masked_array(rho,mask=qrmask1D)
         QR_disd = ma.masked_array(QR_disd,mask=qrmask1D)
+        LWC_disd = ma.masked_array(LWC_disd,mask=qrmask1D)
+        
+    nummask1D = N.where(pcounts < 50., True,False)
+    num2D = pcounts.reshape(1,numtimes).repeat(32,0)
+    nummask2D = N.where(num2D < 50.,True,False)
+    
+    D_med_disd = ma.masked_array(D_med_disd,mask=nummask1D)
+    Nc_bin = ma.masked_array(Nc_bin,mask=nummask2D)
+    logNc_bin = ma.masked_array(logNc_bin,mask=nummask2D)
+    M0 = ma.masked_array(M0,mask=nummask1D)
+    M1 = ma.masked_array(M1,mask=nummask1D)
+    M2 = ma.masked_array(M2,mask=nummask1D)
+    M3 = ma.masked_array(M3,mask=nummask1D)
+    M4 = ma.masked_array(M4,mask=nummask1D)
+    M6 = ma.masked_array(M6,mask=nummask1D)
+    M7 = ma.masked_array(M7,mask=nummask1D)
+    rho = ma.masked_array(rho,mask=nummask1D)
+    QR_disd = ma.masked_array(QR_disd,mask=nummask1D)
+    LWC_disd = ma.masked_array(LWC_disd,mask=nummask1D)
     
     # Compute reflectivity from the 6th moment
     refl_disd=10.0*ma.log10(1e18*M6)
@@ -1101,7 +1138,8 @@ def calc_DSD(min_size,avg_size,max_size,bin_width,Nc_bin,logNc_bin,rho,qrQC,qr_t
     
     qr_gam = (cmr/rho)*N0_gam*GR2/lamda_gam**(mu_gam+4.)
     Ntr_gam = N0_gam*GR1/lamda_gam**(mu_gam+1.)
-
+    LWC_gam = cmr*1000.0*M3 
+    
     # Compute reflectivity for DSD fit
     Gr_gam = ((6.+mu_gam)*(5.+mu_gam)*(4.+mu_gam))/((3.+mu_gam)*(2.+mu_gam)*(1.+mu_gam))
     Zr_gam = ((1./cmr)**2.)*Gr_gam*((rho*qr_gam)**2.)/Ntr_gam
@@ -1116,8 +1154,8 @@ def calc_DSD(min_size,avg_size,max_size,bin_width,Nc_bin,logNc_bin,rho,qrQC,qr_t
     # Create several tuples to pack the data, and then return them
     
     exp_DSD = (N_expDSD,N0_exp,lamda_exp,mu_exp,qr_exp,Ntr_exp,refl_DSD_exp,D_med_exp,D_m_exp)
-    gam_DSD = (N_gamDSD,N0_gam,lamda_gam,mu_gam,qr_gam,Ntr_gam,refl_DSD_gam,D_med_gam,D_m_gam)
-    dis_DSD = (Nc_bin,logNc_bin,D_med_disd,D_m_disd,D_mv_disd,D_ref_disd,QR_disd,refl_disd)
+    gam_DSD = (N_gamDSD,N0_gam,lamda_gam,mu_gam,qr_gam,Ntr_gam,refl_DSD_gam,D_med_gam,D_m_gam,LWC_gam,rainrate)
+    dis_DSD = (Nc_bin,logNc_bin,D_med_disd,D_m_disd,D_mv_disd,D_ref_disd,QR_disd,refl_disd,LWC_disd,M0)
     
     return synthbins,exp_DSD,gam_DSD,dis_DSD
 

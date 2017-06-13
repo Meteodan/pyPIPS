@@ -39,6 +39,8 @@ import modules.radarmodule as radar
 import pandas as pd
 import modules.plotmodule as pm
 from modules.utils import log,warning,fatal
+import modules.DSDretrieval as DR
+import modules.empirical_module as em
 
 clevels_ref = N.arange(5.0,85.0,5.0)          # Contour levels for reflectivity (dBZ)
 clevels_zdr = N.arange(0.0,6.25,0.25)         # Contour levels for Zdr (dB)
@@ -439,6 +441,26 @@ if(pc.comp_radar):
                 plt.close(fig)
 
 # Outer disdrometer (and deployment) loop
+mu=[]
+lamda=[]
+Mu_retr=[]
+Lam_retr=[]
+zh=[]
+zdr=[]
+zh_rad=[]
+zdr_rad=[]
+Nt_obs=[]
+R_obs=[]
+D0_obs=[]
+W_obs=[]
+Nt_mm = []
+R_mm = []
+W_mm = []
+D0_mm = []
+r_retr=[]
+d0_retr=[]
+nt_retr=[]
+w_retr=[]
 
 for index,dis_filename,dis_name,starttime,stoptime,centertime,dloc in \
     zip(xrange(0,len(dis_list)),dis_list,dis_name_list,starttimes,stoptimes,centertimes,dlocs):
@@ -640,7 +662,7 @@ for index,dis_filename,dis_name,starttime,stoptime,centertime,dloc in \
             # Resample wind diagnostics array to flag as bad any time in the interval given by plotinterval
             # Note, have to use numpy max() as a lambda function because the pandas resample.max() does not propagate NaN's!
             winddiags_rs = pd.Series(data=winddiags,index=datetimesUTC).resample(plotintervalstr,
-                                     label='right',closed='right',base=sec_offset,how=lambda x: trymax(x.values).loc[plottimeindex].values
+                                     label='right',closed='right',base=sec_offset,how=lambda x: trymax(x.values)).loc[plottimeindex].values
             winddiags_index = N.where(N.any([winddiags_rs > 0,N.isnan(winddiags_rs)],axis=0))[0] # Extract indices for "bad" wind data
             winddiags_plot = plottimes[winddiags_index] # these are the times with bad wind data
             fields.append(winddiags_plot)
@@ -747,16 +769,17 @@ for index,dis_filename,dis_name,starttime,stoptime,centertime,dloc in \
 #         print rho_tDSD.shape
     
         synthbins,exp_DSD,gam_DSD,dis_DSD = dis.calc_DSD(min_diameter,avg_diameter,
-                        max_diameter,bin_width,Nc_bin,logNc_bin,rho_tDSD,pc.qrQC,pc.qr_thresh)
+                        max_diameter,bin_width,Nc_bin,logNc_bin,rho_tDSD,pc.qrQC,pc.qr_thresh,pcounts2)
     
         # Unpack needed values from returned tuples
     
         N_expDSD,N0_exp,lamda_exp,mu_exp,qr_exp,Ntr_exp,refl_DSD_exp,D_med_exp,D_m_exp = exp_DSD
-        N_gamDSD,N0_gam,lamda_gam,mu_gam,qr_gam,Ntr_gam,refl_DSD_gam,D_med_gam,D_m_gam = gam_DSD
-        Nc_bin,logNc_bin,D_med_disd,D_m_disd,D_mv_disd,D_ref_disd,QR_disd,refl_disd = dis_DSD
+        N_gamDSD,N0_gam,lamda_gam,mu_gam,qr_gam,Ntr_gam,refl_DSD_gam,D_med_gam,D_m_gam,LWC_gam,rainrate = gam_DSD
+        Nc_bin,logNc_bin,D_med_disd,D_m_disd,D_mv_disd,D_ref_disd,QR_disd,refl_disd,LWC_disd,M0 = dis_DSD
         N_gamDSD = N_gamDSD.T
         logN_gamDSD = N.ma.log10(N_gamDSD/1000.) # Get to log(m^-3 mm^-1)
-            logN_gamDSD = N.ma.masked_where(N_gamDSD < dropperbin, logN_gamDSD)
+        logN_gamDSD = N.ma.masked_where(N_gamDSD < dropperbin, logN_gamDSD)
+        rainrate = N.array(rainrate)
 
         if(pc.calc_dualpol):
             # Calculate polarimetric variables using the T-matrix technique
@@ -766,7 +789,7 @@ for index,dis_filename,dis_name,starttime,stoptime,centertime,dloc in \
 #            dualpol_dis = dis.calpolrain(wavelength,scattfile,(N_gamDSD/1000.),bin_width) # use for gamma fit
 
             # Unpack needed values from returned tuple
-            Zh,Zv,Zhv,dBZ,ZDR,KDP,RHV = dualpol_dis
+            Zh,Zv,Zhv,dBZ,ZDR,KDP,RHV,intv,d,fa2,fb2 = dualpol_dis
         
     if(pc.plot_DSD_meteo):
         # Prepare arrays for plotting
@@ -944,7 +967,65 @@ for index,dis_filename,dis_name,starttime,stoptime,centertime,dloc in \
         ax1, = pm.set_meteogram_axes([ax1],axparamdicts)
         
         plt.savefig(image_dir+'meteograms/'+dis_name+'_voltage.png',dpi=300)
-
+        
+###     Added for shape-slope relation plots        
+    mu.extend(mu_gam)
+    lamda_gam = lamda_gam/1000.
+    lamda.extend(lamda_gam)
+#     zh.extend(Zh)
+#     zdr.extend(ZDR)
+#     
+#     D0_obs.extend(D_med_disd)
+#     W_obs.extend(LWC_disd)
+#     Nt_obs.extend(M0)
+#     R_obs.extend(intensities)
+#     
+#     D0_mm.extend(D_med_gam)
+#     W_mm.extend(LWC_gam)
+#     Nt_mm.extend(Ntr_gam)
+#     R_mm.extend(rainrate)
+    
+    R_retr,D0_retr,mu_retr,lam_retr,N0_retr,Nt_retr,W_retr,sigm_retr,Dm_retr,N_retr = DR.retrieve_DSD(dBZ,ZDR,d,fa2,fb2,intv)
+    
+    Mu_retr.extend(mu_retr)
+    Lam_retr.extend(lam_retr)
+    
+    name = 'mu_retr'
+    axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],None],'axeslabels':[pc.timelabel,r'mu']}
+    em.dis_retr_timeseries(mu_gam,mu_retr,pstartindex,pstopindex,DSDmidtimes,axparamdict1,image_dir,dis_name,name)
+    
+    name = 'lam_retr'
+    axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],None],'axeslabels':[pc.timelabel,r'lambda']}
+    em.dis_retr_timeseries(lamda_gam,lam_retr,pstartindex,pstopindex,DSDmidtimes,axparamdict1,image_dir,dis_name,name)
+    
+    name = 'N0_retr'
+    axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[0.0,50.0]],'axeslabels':[pc.timelabel,r'N0']}
+    em.dis_retr_timeseries(N.log10(N0_gam),N.log10(N0_retr),pstartindex,pstopindex,DSDmidtimes,axparamdict1,image_dir,dis_name,name)
+    
+    name = 'Nt_retr'
+    axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[0.0,20000.0]],'axeslabels':[pc.timelabel,r'Nt']}
+    em.dis_retr_timeseries(Ntr_gam,Nt_retr,pstartindex,pstopindex,DSDmidtimes,axparamdict1,image_dir,dis_name,name)
+    
+    name = 'W_retr'
+    axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[0.0,10.0]],'axeslabels':[pc.timelabel,r'W']}
+    em.dis_retr_timeseries(LWC_disd,W_retr,pstartindex,pstopindex,DSDmidtimes,axparamdict1,image_dir,dis_name,name)
+    
+    name = 'R_retr'
+    axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[0.0,250.0]],'axeslabels':[pc.timelabel,r'R']}
+    em.dis_retr_timeseries(intensities,R_retr,pstartindex,pstopindex,DSDmidtimes,axparamdict1,image_dir,dis_name,name)
+    
+    name = 'D0_retr'
+    axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[0.0,5.0]],'axeslabels':[pc.timelabel,r'D0']}
+    em.dis_retr_timeseries(D_med_disd,D0_retr,pstartindex,pstopindex,DSDmidtimes,axparamdict1,image_dir,dis_name,name)
+    
+#     r_retr.extend(R_retr)
+#     d0_retr.extend(D0_retr)
+#     nt_retr.extend(Nt_retr)
+#     w_retr.extend(W_retr)
+    
+    N_retr=N.array(N_retr)
+    N_retr=N_retr.T
+    
         
     if(pc.plot_DSDs):
 		if (not os.path.exists(image_dir+'DSDs/'+dis_name)):
@@ -956,26 +1037,32 @@ for index,dis_filename,dis_name,starttime,stoptime,centertime,dloc in \
 				ax1=fig1.add_subplot(111)
 				plt.title('Disdrometer 10-sec DSD Fits for Time '+disdates[t].strftime(fmt2)+' EST')
 				ax1.bar(min_diameter,Nc_bin[:,t]*1000.0,max_diameter-min_diameter,log=True,color='tan')
-#				ax1.bar(min_diameter,ones_1minavg[:,t]*1000.0,max_diameter-min_diameter,log=True,color='None',edgecolor='k')
 				ax1.plot(synthbins,N_expDSD[t],lw=2)
 				ax1.plot(avg_diameter,N_gamDSD[:,t],lw=2)
+				ax1.plot(d,N_retr[:,t]*1000.,lw=2)
 				ax1.set_yscale('log')
 				ax1.set_ylim(10.**2.0,10.**8.5)
 				ax1.set_xlim(0.0,9.0)
 				ax1.set_xlabel('Drop Diameter (mm)')
 				ax1.set_ylabel(r'N(D) $(m^{-4})$')
-				ax1.text(0.50,0.8,'Shape parameter (gamma) = %2.2f'%mu_gam[t],transform=ax1.transAxes)
+				ax1.text(0.50,0.95,'Shape parameter (gamma) = %2.2f'%mu_gam[t],transform=ax1.transAxes)
+				ax1.text(0.50,0.90,'Mu = %2.2f'%mu_retr[t],transform=ax1.transAxes)
+				ax1.text(0.50,0.85,'Slope parameter (gamma) = %2.2f'%lamda_gam[t],transform=ax1.transAxes)
+				ax1.text(0.50,0.80,'Lambda = %2.2f'%lam_retr[t],transform=ax1.transAxes)
 				ax1.text(0.50,0.75,'Median Volume Diameter (gamma) =%2.2f'%D_med_gam[t],transform=ax1.transAxes)
-				ax1.text(0.50,0.7,'Reflectivity =%2.2f'%refl_disd[t]+'dBZ',transform=ax1.transAxes)
-				ax1.text(0.50,0.65,'ZDR = %2.2f'%ZDR[t]+'dB',transform=ax1.transAxes)
-				ax1.text(0.50,0.6,'Intensity =%2.2f'%intensities[t]+'mm/hr',transform=ax1.transAxes)
-				ax1.text(0.50,0.55,'Particle count (QC) = '+str(pcounts2[t]),transform=ax1.transAxes)
+				ax1.text(0.50,0.70,'D0 = %2.2f'%D0_retr[t],transform=ax1.transAxes)
+				ax1.text(0.50,0.65,'Reflectivity =%2.2f'%refl_disd[t]+'dBZ',transform=ax1.transAxes)
+				ax1.text(0.50,0.6,'ZDR = %2.2f'%ZDR[t]+'dB',transform=ax1.transAxes)
+				ax1.text(0.50,0.55,'Intensity =%2.2f'%intensities[t]+'mm/hr',transform=ax1.transAxes)
+				ax1.text(0.50,0.5,'Particle count (QC) = '+str(pcounts2[t]),transform=ax1.transAxes)
 				plt.savefig(image_dir+'DSDs/'+dis_name+'/'+dis_name+'_t'+str(t)+'DSD_plot.png',dpi=200,bbox_inches='tight')
-			    plt.close(fig1)	
+				plt.close(fig1)
+	
+
 
     Zh_Cao = N.arange(20,61,1)
     Zdr_Cao = 10**((-2.6857*10**-4*Zh_Cao**2)+0.04892*Zh_Cao-1.4287)
-	
+    
     if(pc.plot_scat):
 		if (not os.path.exists(image_dir+'scattergrams/')):
 			os.makedirs(image_dir+'scattergrams/')
@@ -990,7 +1077,182 @@ for index,dis_filename,dis_name,starttime,stoptime,centertime,dloc in \
 		ax1.set_xlabel('Zh in dBZ')
 		ax1.set_ylabel('ZDR in dB')
 		plt.savefig(image_dir+'scattergrams/'+dis_name+'scattergrams.png',dpi=200,bbox_inches='tight')
+		plt.close(fig1)
+    
+###     RELATIONS FROM CAO ET AL. 2008
 
+    Zh_rad = pow(10.,radvars['dBZ']/10)
+    ZDR_rad = radvars['ZDR']
+    
+    zh_rad.extend(Zh_rad)
+    zdr_rad.extend(ZDR_rad)
+    
+    ###     Radar measured  
+    Nt_rad,D0_rad,W_rad,R_rad = em.empirical(Zh_rad,ZDR_rad)  
+    
+    ###     Disdrometer measured     
+    Nt_dis,D0_dis,W_dis,R_dis = em.empirical(Zh,ZDR)
+    
+###     Add for radar measured Zh and ZDR
+
+    name = 'W_rad'
+    axparamdict = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[0.0,10.0]],'axeslabels':[pc.timelabel,r'LWC']}
+    em.rad_emp_timeseries(LWC_disd,W_rad,pstartindex,pstopindex,axparamdict,DSDmidtimes,radvars['radmidtimes'],image_dir,dis_name,name)
+
+    name = 'R_rad'
+    axparamdict = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[0.0,250.0]],'axeslabels':[pc.timelabel,r'Rain Rate']}
+    em.rad_emp_timeseries(intensities,R_rad,pstartindex,pstopindex,axparamdict,DSDmidtimes,radvars['radmidtimes'],image_dir,dis_name,name)
+
+    name = 'Nt_rad'
+    axparamdict = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[0.0,20000.0]],'axeslabels':[pc.timelabel,r'Nt']}
+    em.rad_emp_timeseries(M0,Nt_rad,pstartindex,pstopindex,axparamdict,DSDmidtimes,radvars['radmidtimes'],image_dir,dis_name,name)
+
+    name = 'D0_rad'
+    axparamdict = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[0.0,5.0]],'axeslabels':[pc.timelabel,r'D0']}
+    em.rad_emp_timeseries(D_med_disd,D0_rad,pstartindex,pstopindex,axparamdict,DSDmidtimes,radvars['radmidtimes'],image_dir,dis_name,name)
+
+###     add for disdrometer calculated Zh and ZDR   
+
+    name = 'D0_dis'
+    axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[0.0,5.0]],'axeslabels':[pc.timelabel,r'D0']}
+    em.dis_emp_timeseries(D_med_disd,D0_dis,D_med_gam,D0_retr,pstartindex,pstopindex,DSDmidtimes,axparamdict1,image_dir,dis_name,name)
+
+    name = 'Nt_dis'
+    axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[0.0,20000.0]],'axeslabels':[pc.timelabel,r'Nt']}
+    em.dis_emp_timeseries(M0,Nt_dis,Ntr_gam,Nt_retr,pstartindex,pstopindex,DSDmidtimes,axparamdict1,image_dir,dis_name,name)
+
+    name = 'W_dis'
+    axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[0.0,10.0]],'axeslabels':[pc.timelabel,r'LWC']}
+    em.dis_emp_timeseries(LWC_disd,W_dis,LWC_gam,W_retr,pstartindex,pstopindex,DSDmidtimes,axparamdict1,image_dir,dis_name,name)
+
+    name = 'R_dis'
+    axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[0.0,250.0]],'axeslabels':[pc.timelabel,r'Rain Rate']}
+    em.dis_emp_timeseries(intensities,R_dis,rainrate,R_retr,pstartindex,pstopindex,DSDmidtimes,axparamdict1,image_dir,dis_name,name)
+
+    
+    ###     Figure 9a-c from Cao et al.
+#     ZDR_rad = N.array(zdr_rad)
+#     Zh_rad = N.array(zh_rad)
+#     Zh = N.array(zh)
+#     ZDR = N.array(zdr)
+#     R_obs = N.array(R_obs)
+#     D0_obs = N.array(D0_obs)
+#     Nt_obs = N.array(Nt_obs)
+#     W_obs = N.array(W_obs)
+#     R_mm = N.array(R_mm)
+#     D0_mm = N.array(D0_mm)
+#     Nt_mm = N.array(Nt_mm)
+#     W_mm = N.array(W_mm)
+#     R_retr = N.array(r_retr)
+#     D0_retr = N.array(d0_retr)
+#     Nt_retr = N.array(nt_retr)
+#     W_retr = N.array(w_retr)
+
+
+    ###     Radar measured 
+    Nt_rad_emp,D0_rad_emp,W_rad_emp,R_rad_emp = em.empirical(Zh_rad,ZDR_rad)
+
+    ###     Disdrometer measured
+    Nt_dis_emp,D0_dis_emp,W_dis_emp,R_dis_emp = em.empirical(Zh,ZDR)    
+
+    name = 'R'
+    maxlim = 10**-2.
+    minlim = 10**-4.
+    yscale = 'log'
+    label = 'R/Zh'
+    em.one2one(intensities/Zh,R_dis_emp/Zh,R_retr/Zh,rainrate/Zh,maxlim,minlim,image_dir,dis_name,name,yscale,label)
+
+    name = 'D0'
+    maxlim = 0.0
+    minlim = 6.0
+    yscale = 'linear'
+    label = 'D0'
+    em.one2one(D_med_disd,D0_dis_emp,D0_retr,D_med_gam,maxlim,minlim,image_dir,dis_name,name,yscale,label)
+
+    name = 'Nt'
+    maxlim = 10.0
+    minlim = 10**-3.
+    yscale = 'log'
+    label = 'Nt/Zh'
+    em.one2one(M0/Zh,Nt_dis_emp/Zh,Nt_retr/Zh,Ntr_gam/Zh,maxlim,minlim,image_dir,dis_name,name,yscale,label)
+
+    name = 'W'
+    maxlim = 10**-3.
+    minlim = 10**-6.
+    yscale = 'log'
+    label = 'W/Zh'
+    em.one2one(LWC_disd/Zh,W_dis_emp/Zh,W_retr/Zh,LWC_gam/Zh,maxlim,minlim,image_dir,dis_name,name,yscale,label)
+
+    ###     Figure 8a-c from Cao et al.
+
+    name = 'D0'
+    ymin = 0.0
+    ymax = 5.0
+    ylabel = 'D0'
+    em.scatters(D_med_disd,D0_dis_emp,D0_retr,D_med_gam,ZDR,ymin,ymax,image_dir,dis_name,name,ylabel)
+
+    name = 'W'
+    ymin = -6.0
+    ymax = -1.0
+    ylabel = 'log(W/Zh)'
+    em.scatters(N.log10(LWC_disd/Zh),N.log10(W_dis_emp/Zh),N.log10(W_retr/Zh),N.log10(LWC_gam/Zh),ZDR,ymin,ymax,image_dir,dis_name,name,ylabel)
+
+    name = 'R'
+    ymin = -5.0
+    ymax = 0.0
+    ylabel = 'log(R/Zh)'
+    em.scatters(N.log10(intensities/Zh),N.log10(R_dis_emp/Zh),N.log10(R_retr/Zh),N.log10(rainrate/Zh),ZDR,ymin,ymax,image_dir,dis_name,name,ylabel)
+
+    name = 'Nt'
+    ymin = -4.0
+    ymax = 2.0
+    ylabel = 'log(Nt/Zh)'
+    em.scatters(N.log10(M0/Zh),N.log10(Nt_dis_emp/Zh),N.log10(Nt_retr/Zh),N.log10(Ntr_gam/Zh),ZDR,ymin,ymax,image_dir,dis_name,name,ylabel)
+
+
+			
+# Plot the lambda-mu relation and fit with 2nd order polynomial 
+
+poly=N.polyfit(lamda,mu,2)
+polynomial=N.poly1d(poly)
+#poly2=N.polyfit(Lam_retr,Mu_retr,2)
+#polynomial2=N.poly1d(poly2)
+xx = N.linspace(0.0, 30.0)
+yy = polynomial(xx)
+#yy2 = polynomial2(xx)
+		
+fig=plt.figure(figsize=(8,8))
+ax1=fig.add_subplot(111)
+plt.title('Shape-Slope Relation')
+ax1.scatter(lamda,mu, color='k')
+ax1.scatter(Lam_retr,Mu_retr,color='g')
+ax1.plot(xx,yy, color='r')
+#ax1.plot(xx,yy2,color='b')
+ax1.set_xlim(0.0,30.0)
+ax1.set_ylim(-5.0,20.0)
+ax1.set_xlabel('Slope parameter')
+ax1.set_ylabel('Shape parameter')
+
+plt.savefig(image_dir+'scattergrams/'+'shape_slope.png',dpi=200,bbox_inches='tight')
+plt.close(fig)
+
+print(poly)
+#print(poly2)
 	
 #plt.show()
+
+fig=plt.figure(figsize=(8,8))
+ax1=fig.add_subplot(111)
+ax1.scatter(ZDR, D0_retr,color='g')
+ax1.scatter(ZDR, D0_obs, color='r')
+ax1.scatter(ZDR, D0_dis_emp, color='b')
+ax1.set_xlim(0.0,3.0)
+ax1.set_ylim(0.5,4.0)
+ax1.set_xlabel('ZDR, dB')
+ax1.set_ylabel('D0, mm')
+plt.savefig(image_dir+'scattergrams/'+'ZDR_D0.png',dpi=200,bbox_inches='tight')
+plt.close(fig)
+
+
+
 
