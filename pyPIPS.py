@@ -774,12 +774,14 @@ for index,dis_filename,dis_name,starttime,stoptime,centertime,dloc in \
         # Unpack needed values from returned tuples
     
         N_expDSD,N0_exp,lamda_exp,mu_exp,qr_exp,Ntr_exp,refl_DSD_exp,D_med_exp,D_m_exp = exp_DSD
+
         N_gamDSD,N0_gam,lamda_gam,mu_gam,qr_gam,Ntr_gam,refl_DSD_gam,D_med_gam,D_m_gam,LWC_gam,rainrate = gam_DSD
+
         Nc_bin,logNc_bin,D_med_disd,D_m_disd,D_mv_disd,D_ref_disd,QR_disd,refl_disd,LWC_disd,M0 = dis_DSD
         N_gamDSD = N_gamDSD.T
         logN_gamDSD = N.ma.log10(N_gamDSD/1000.) # Get to log(m^-3 mm^-1)
         logN_gamDSD = N.ma.masked_where(N_gamDSD < dropperbin, logN_gamDSD)
-        rainrate = N.array(rainrate)
+
 
         if(pc.calc_dualpol):
             # Calculate polarimetric variables using the T-matrix technique
@@ -1025,7 +1027,6 @@ for index,dis_filename,dis_name,starttime,stoptime,centertime,dloc in \
     
     N_retr=N.array(N_retr)
     N_retr=N_retr.T
-    
         
     if(pc.plot_DSDs):
 		if (not os.path.exists(image_dir+'DSDs/'+dis_name)):
@@ -1057,8 +1058,6 @@ for index,dis_filename,dis_name,starttime,stoptime,centertime,dloc in \
 				ax1.text(0.50,0.5,'Particle count (QC) = '+str(pcounts2[t]),transform=ax1.transAxes)
 				plt.savefig(image_dir+'DSDs/'+dis_name+'/'+dis_name+'_t'+str(t)+'DSD_plot.png',dpi=200,bbox_inches='tight')
 				plt.close(fig1)
-	
-
 
     Zh_Cao = N.arange(20,61,1)
     Zdr_Cao = 10**((-2.6857*10**-4*Zh_Cao**2)+0.04892*Zh_Cao-1.4287)
@@ -1208,13 +1207,12 @@ for index,dis_filename,dis_name,starttime,stoptime,centertime,dloc in \
     ymax = 2.0
     ylabel = 'log(Nt/Zh)'
     em.scatters(N.log10(M0/Zh),N.log10(Nt_dis_emp/Zh),N.log10(Nt_retr/Zh),N.log10(Ntr_gam/Zh),ZDR,ymin,ymax,image_dir,dis_name,name,ylabel)
-
-
 			
 # Plot the lambda-mu relation and fit with 2nd order polynomial 
 
 poly=N.polyfit(lamda,mu,2)
 polynomial=N.poly1d(poly)
+
 #poly2=N.polyfit(Lam_retr,Mu_retr,2)
 #polynomial2=N.poly1d(poly2)
 xx = N.linspace(0.0, 30.0)
@@ -1238,7 +1236,7 @@ plt.close(fig)
 
 print(poly)
 #print(poly2)
-	
+
 #plt.show()
 
 fig=plt.figure(figsize=(8,8))

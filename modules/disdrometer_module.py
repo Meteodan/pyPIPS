@@ -1154,7 +1154,9 @@ def calc_DSD(min_size,avg_size,max_size,bin_width,Nc_bin,logNc_bin,rho,qrQC,qr_t
     # Create several tuples to pack the data, and then return them
     
     exp_DSD = (N_expDSD,N0_exp,lamda_exp,mu_exp,qr_exp,Ntr_exp,refl_DSD_exp,D_med_exp,D_m_exp)
+
     gam_DSD = (N_gamDSD,N0_gam,lamda_gam,mu_gam,qr_gam,Ntr_gam,refl_DSD_gam,D_med_gam,D_m_gam,LWC_gam,rainrate)
+
     dis_DSD = (Nc_bin,logNc_bin,D_med_disd,D_m_disd,D_mv_disd,D_ref_disd,QR_disd,refl_disd,LWC_disd,M0)
     
     return synthbins,exp_DSD,gam_DSD,dis_DSD
