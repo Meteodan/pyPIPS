@@ -1079,7 +1079,6 @@ for index,dis_filename,dis_name,starttime,stoptime,centertime,dloc in \
 		plt.close(fig1)
     
 ###     RELATIONS FROM CAO ET AL. 2008
-<<<<<<< HEAD
 
     Zh_rad = pow(10.,radvars['dBZ']/10)
     ZDR_rad = radvars['ZDR']
