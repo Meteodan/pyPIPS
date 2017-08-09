@@ -976,8 +976,6 @@ def calc_DSD(min_size,avg_size,max_size,bin_width,Nc_bin,logNc_bin,rho,qrQC,qr_t
     M7 = ma.array(M7,dtype=N.float64)
     D_med_disd = N.array(D_med_disd)
     rainrate = N.array(rainrate)
-    
-    N.savetxt('rain.txt',rainrate)
         
     # --- Compute various mean diameters directly from measured discrete distribution ---
     cmr = (N.pi/6.)*1000.                                     # Constant in mass-diameter relation for rain
@@ -1009,9 +1007,10 @@ def calc_DSD(min_size,avg_size,max_size,bin_width,Nc_bin,logNc_bin,rho,qrQC,qr_t
         QR_disd = ma.masked_array(QR_disd,mask=qrmask1D)
         LWC_disd = ma.masked_array(LWC_disd,mask=qrmask1D)
         
-    nummask1D = N.where(pcounts < 50., True,False)
+    nummask1D = N.where(pcounts < 150., True,False)
     num2D = pcounts.reshape(1,numtimes).repeat(32,0)
-    nummask2D = N.where(num2D < 50.,True,False)
+    #num2Db = rainrate.reshape(1,numtimes).repeat(32,0)
+    nummask2D = N.where(num2D < 150.,True,False)
     
     D_med_disd = ma.masked_array(D_med_disd,mask=nummask1D)
     Nc_bin = ma.masked_array(Nc_bin,mask=nummask2D)
@@ -1083,24 +1082,42 @@ def calc_DSD(min_size,avg_size,max_size,bin_width,Nc_bin,logNc_bin,rho,qrQC,qr_t
     
     # Now do the same as above for a gamma distribution fit
     
-    # Calculate G
+    # Calculate G, mu (shape parameter), lambda, and N0
     
-    G = N.where((M3 == 0.0) | (M6 == 0.0), 0.0, (M4**3.)/((M3**2.)*M6))
+    # Uncomment if you want estimates based on M3,M4,M6
+#     G = (M4**3.)/((M3**2.)*M6)
+#     G = ma.masked_invalid(G)
+#     mu_gam = (11.*G-8.+(G*(G+8.))**(1./2.))/(2.*(1.-G))
+#     mu_gam = ma.masked_invalid(mu_gam)
+#     lamda_gam = (M3*(mu_gam+4.))/M4
+#     lamda_gam = ma.masked_invalid(lamda_gam)
+#     N0_gam = (M3*lamda_gam**(mu_gam+4.))/(special.gamma(mu_gam+4.))
     
-    # Calculate mu (shape parameter), lamda, and N0
+    # Uncomment if you want estimates based on M2,M4,M6 (old/alternate masking method)
+#     G = N.where((M2 == 0.0) | (M6 == 0.0), 0.0, (M4**2.)/(M2*M6))
+#     mu_gam = N.where(G == 1.0, 0.0, ((7.-11.*G) - ((7.-11.*G)**2. - 4.*(G-1.)*(30.*G-12.))**(1./2.))/(2.*(G-1.)))
+#     mu_gam = N.where(mu_gam <= -4., -3.99, mu_gam)
+#     mu_gam = N.where(mu_gam > 30.,30.,mu_gam)
+#     mu_gam = ma.masked_where(M4 is ma.masked,mu_gam)
+#     lamda_gam = N.where(M4 == 0.0,0.0, ((M2*(mu_gam+3.)*(mu_gam+4.))/(M4))**(1./2.))
+#     N0_gam = (M4*lamda_gam**(mu_gam+5.))/(special.gamma(mu_gam+5.))
+    # Uncomment if you want estimates based on M2,M4,M6
+    G =(M4**2.)/(M2*M6)
+    G = ma.masked_invalid(G)
+    mu_gam = ((7.-11.*G) - ((7.-11.*G)**2. - 4.*(G-1.)*(30.*G-12.))**(1./2.))/(2.*(G-1.))
+    mu_gam = ma.masked_invalid(mu_gam)
+    lamda_gam = ((M2*(mu_gam+3.)*(mu_gam+4.))/(M4))**(1./2.)
+    lamda_gam = ma.masked_invalid(lamda_gam)
+    N0_gam = (M4*lamda_gam**(mu_gam+5.))/(special.gamma(mu_gam+5.))
     
-    mu_gam = N.where(G == 1.0, 0.0, (11.*G-8.+(G*(G+8.))**(1./2.))/(2.*(1.-G)))
-    mu_gam = N.where(mu_gam <= -4.,-3.99,mu_gam)
-    mu_gam = N.where(mu_gam > 40.,40.,mu_gam)
-    mu_gam = ma.masked_where(M3 is ma.masked,mu_gam)     # Mask where the moment is masked
-    lamda_gam = N.where(M4 == 0.0, 0.0, (M3*(mu_gam+4.))/M4)
-    N0_gam = (M3*lamda_gam**(mu_gam+4.))/(special.gamma(mu_gam+4.))
-        
-    #print 'mu (gam) = ',mu_gam
-    #print 'lamda (gam) = ',lamda_gam
-    #print 'N0 (gam) = ',N0_gam
+    # Uncomment if you want estimates based on M2,M3,M4
+#     mu_gam = (3.*M2*M4 - 4.*M3**2.)/(M3**2. - M2*M4)
+#     mu_gam = ma.masked_invalid(mu_gam)
+#     lamda_gam = (M3*(mu_gam+4.))/(M4)
+#     lamda_gam = ma.masked_invalid(lamda_gam)
+#     N0_gam = (M3*lamda_gam**(mu_gam+4.))/(special.gamma(mu_gam+4.))
+
     
-    #print N0_gam.dtype
     
     N_gamDSD=[]
     #refl_gamDSD=[]
