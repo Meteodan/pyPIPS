@@ -40,6 +40,13 @@ clevels_rhv = N.arange(0.9,1.01,0.01)           # Contour levels for rhv
 clevels_vr = N.arange(-40.0,41.0,1.0)         # Contour levels for Vr (m/s)
 clevels_kdp = N.arange(-1.0,7.0,0.5)		  # Contour levels for Kdp (deg/km)
 clevels_rhv = N.arange(0.0,1.0,0.1)			  # Contour levels for Rhv 
+clevels_rain = N.arange(0.1,200.0)        # Contour levels for rainrate
+clevels_d0 = N.arange(0.0,4.0,0.1)             # Contour levels for median drop size
+clevels_lwc = N.arange(0.01,10.0)        # Contour levels for liquid water content
+clevels_nt = N.arange(-0.5,4.5,0.5)         # Contour levels for log total number concentration
+clevels_sigm = N.arange(0.0,2.0,0.05)        # Contour levels for sigma
+clevels_mu = N.arange(-2.0,20.0,1.0)        # Contour levels for shape parameter
+clevels_lam = N.arange(0.0,20.0,1.0)        # Contour levels for slope parameter
 cmapdBZ = ctables.__getattribute__('REF_default')
 cmapzdr = cm.Reds
 cmapkdp = cm.Blues
@@ -47,6 +54,8 @@ cmaprhv = cm.Reds
 cmapvr = cm.RdBu_r
 cmapkdp = cm.Set1
 cmaprhv = cm.Dark2
+cmapretrievals = cm.viridis
+
 
 def mtokm(val,pos):
     """Convert m to km for formatting axes tick labels"""
@@ -863,10 +872,10 @@ def plotsweep(radlims,plotlims,fieldnames,fieldlist,masklist,range_start,range,
         
     figlist=[]
     gridlist=[]
+    
 
     # Loop through the provided fields and prepare them for plotting
     for fieldname,field,fields_D,mask in zip(fieldnames,fieldlist,fields_D_list,masklist):
-        
         if(field == None):
             continue
     
@@ -924,13 +933,54 @@ def plotsweep(radlims,plotlims,fieldnames,fieldlist,masklist,range_start,range,
             cmap = cmapvr
             clvls = 5.0
             disfmtstr = "{:3.1f} m/s"
+        elif(fieldname == 'Rain'):
+            clevels = clevels_rain
+            cmap = cmapretrievals
+            clvls = [0.1,1.0,3.0,5.0,10.0,15.0,20.0,30.0,50.0,75.0,100.0,150.0,200.0]
+            disfmtstr = "{:3.1f} mm/hr"
+        elif(fieldname == 'D0'):
+            clevels = clevels_d0
+            cmap = cmapretrievals
+            clvls = 0.5
+            disfmtstr = "{:3.1f} mm"
+        elif(fieldname == 'W'):
+            clevels = clevels_lwc
+            cmap = cmapretrievals
+            clvls = [0.01,0.1,0.3,0.5,1.0,1.5,2.,3.,5.,7.5,10.]
+            disfmtstr = "{:3.1f} g m^-3"
+        elif(fieldname == 'Nt'):
+            clevels = clevels_nt
+            cmap = cmapretrievals
+            clvls = 0.5
+            disfmtstr = "{:3.1f} # m^3"
+        elif(fieldname == 'sigm'):
+            clevels = clevels_sigm
+            cmap = cmapretrievals
+            clvls = 0.2
+            disfmtstr = "{:3.1f} mm"
+        elif(fieldname == 'mu'):
+            clevels = clevels_mu
+            cmap = cmapretrievals
+            clvls = 2.0
+            disfmtstr = "{:3.1f}"
+        elif(fieldname == 'lam'):
+            clevels = clevels_lam
+            cmap = cmapretrievals
+            clvls = 2.0
+            disfmtstr = "{:3.1f}"
     
         fig = plt.figure()
         grid = ImageGrid(fig,111,nrows_ncols = (1,1),axes_pad=0.0,cbar_mode="single",cbar_location="right",aspect=True,label_mode="1")
         ax = grid[0]
-        norm = matplotlib.colors.BoundaryNorm(clevels,cmap.N)
+        if(fieldname == 'Rain'):
+            norm = matplotlib.colors.LogNorm(vmin = 0.1, vmax = 200.0)
+        elif(fieldname == 'W'):
+            norm = matplotlib.colors.LogNorm(vmin = 0.01, vmax = 10.)
+        else:
+            norm = matplotlib.colors.BoundaryNorm(clevels,cmap.N)
         plot1 = ax.pcolormesh(xplttmp,yplttmp,fieldplt,vmin=clevels[0],vmax=clevels[-1],cmap=cmap,norm=norm,edgecolors='None',antialiased=False)
         #plot2 = ax2.contour(xplt_c,yplt_c,dBZplt,levels=[40.0],c='k')
+
         
         # DTD: originally did this outside the function, but have to do it here because of some weird problem
         if(ovrdis):
@@ -939,8 +989,8 @@ def plotsweep(radlims,plotlims,fieldnames,fieldlist,masklist,range_start,range,
                 Dy = dloc[1]
                 ax.plot(Dx,Dy,'k*',ms=8)
                 ax.annotate(dname,(Dx+550.,Dy-100.))
-#                if(field_D != None):
-#                    ax.annotate(disfmtstr.format(field_D),(Dx+550.,Dy-550.))
+                if(field_D != None):
+                    ax.annotate(disfmtstr.format(field_D),(Dx+550.,Dy-2100.))
         
         # Determine plot bounds
         if(plotxmin == -1):
@@ -952,10 +1002,23 @@ def plotsweep(radlims,plotlims,fieldnames,fieldlist,masklist,range_start,range,
         if(plotymax == -1):
             plotymax = N.max(yplt)
                 
-        clvllocator = MultipleLocator(base=clvls)
-        grid.cbar_axes[0].colorbar(plot1)
-        grid.cbar_axes[0].toggle_label(True)
-        grid.cbar_axes[0].yaxis.set_major_locator(clvllocator)
+        if(fieldname == 'Rain'):
+            clvllocator = LogLocator(base = 10.0, subs = (0.1,1.0,3.0,5.0,10.0,15.0,20.0,30.0,50.0,75.0,100.0,150.0,200.0))
+            grid.cbar_axes[0].colorbar(plot1)
+            grid.cbar_axes[0].toggle_label(True)
+            grid.cbar_axes[0].yaxis.set_ticks([0.1,1.0,3.0,5.0,10.0,15.0,20.0,30.0,50.0,75.0,100.0,150.0,200.0])
+            grid.cbar_axes[0].yaxis.set_ticklabels(['0.1','1.0','3.0','5.0','10.0','15.0','20.0','30.0','50.0','75.0','100.0','150.0','200.0'])      
+        elif(fieldname == 'W'):
+            clvllocator = LogLocator(base = 10.0, subs = (0.01,0.1,0.3,0.5,1.0,1.5,2.,3.,5.,7.5,10.))
+            grid.cbar_axes[0].colorbar(plot1)
+            grid.cbar_axes[0].toggle_label(True)
+            grid.cbar_axes[0].yaxis.set_ticks([0.01,0.1,0.3,0.5,1.0,1.5,2.,3.,5.,7.5,10.])
+            grid.cbar_axes[0].yaxis.set_ticklabels(['0.01','0.1','0.3','0.5','1.0','1.5','2.','3.','5.','7.5','10.'])
+        else:
+            clvllocator = MultipleLocator(base=clvls)
+            grid.cbar_axes[0].colorbar(plot1)
+            grid.cbar_axes[0].toggle_label(True)
+            grid.cbar_axes[0].yaxis.set_major_locator(clvllocator)
         #plt.title('dBZ at el = %.2f'%(el/deg2rad)+'and time '+time.strftime(fmt))
         ax.set_xlim(plotxmin,plotxmax)
         ax.set_ylim(plotymin,plotymax)
