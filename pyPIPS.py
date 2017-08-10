@@ -818,13 +818,13 @@ for index,dis_filename,dis_name,starttime,stoptime,centertime,dloc in \
         
         # Mark flagged times with vertical lines, if desired
         if(pc.plot_diagnostics):
-            flaggedtimes_index = N.where(flaggedtimes)[0] # Extract indices for flagged times
+            flaggedtimes_index = N.where(flaggedtimes[pstartindex:pstopindex+1] > 0)[0] # Extract indices for flagged times
             flaggedtimes_plot = DSDmidtimes[flaggedtimes_index] # these are the times with wind contamination
-            disvars['flaggedtimes']=flaggedtimes_plot[pstartindex:pstopindex+1]
+            disvars['flaggedtimes']=flaggedtimes_plot
 
-            hailflag_index = N.where(hailflag)[0]
+            hailflag_index = N.where(hailflag[pstartindex:pstopindex+1])[0]
             hailflag_plot = DSDmidtimes[hailflag_index] # these are the times with hail detected
-            disvars['hailflag']=hailflag_plot[pstartindex:pstopindex+1]
+            disvars['hailflag']=hailflag_plot
 
         # Get radar variables together for comparison, if desired
         radvars = {}

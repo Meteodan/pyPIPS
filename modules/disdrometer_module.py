@@ -61,14 +61,14 @@ use_DD_QC = False   # Use my QC methods (see below)
 use_measured_fs = True     # If True, use the raw measured fall speeds to compute number concentration
                             # If False, use the fall speed curve of Terry Schuur
 
-use_strongwindQC = True      # Remove time records that are contaminated by strong wind?
-use_splashingQC = True      # Remove drops that result from splashing?
-use_marginQC = True         # Remove drops that result from margin falls?
-use_rainonlyQC = True       # Remove all particles that are probably not rain?
+use_strongwindQC = False      # Remove time records that are contaminated by strong wind?
+use_splashingQC = False      # Remove drops that result from splashing?
+use_marginQC = False         # Remove drops that result from margin falls?
+use_rainonlyQC = False       # Remove all particles that are probably not rain?
 use_hailonlyQC = False      # Remove all particles that are probably not hail?
 use_graupelonlyQC = False   # Remove all particles that are probably not graupel?
 
-use_rainfallspeedQC = True      # Remove all fall speeds +/- a percentage of the rain fall speed relation
+use_rainfallspeedQC = False      # Remove all fall speeds +/- a percentage of the rain fall speed relation
                                 # Percentage is set by falltol
 falltol = 0.6
 maskhigh = True
@@ -181,13 +181,13 @@ def strongwindQC(countsMatrix):
                                          # to be in mask area
             print "Severe Wind contamination, masking entire PSD!"
             countsMatrix[t,:] = -999.
-            flaggedtimes.append(True)
+            flaggedtimes.append(2)
         elif(baddrops > 0): # Let the PSD through QC, but mask the offending drops
             print "Wind contamination!"
             countsMatrix[t,0:11,20:32] = -999.
-            flaggedtimes.append(False)
+            flaggedtimes.append(1)
         else:
-            flaggedtimes.append(False)
+            flaggedtimes.append(0)
     
     countsMatrix = ma.masked_array(countsMatrix,mask=N.where(countsMatrix == -999.,True,False))
     
@@ -560,8 +560,16 @@ def readPIPS(filename,fixGPS=True,basicqc=False,rainfallqc=False,rainonlyqc=Fals
     
     countsMatrix = truncatedspectrumQC(countsMatrix)
     
+    if(detecthail):
+        countsMatrix,hailcounts = hailonlyQC(countsMatrix,returnmasked=False)
+        hailflag = N.where(hailcounts > 0,True,False)
+
+    
     if(use_strongwindQC or basicqc or strongwindqc):
         countsMatrix,flaggedtimes = strongwindQC(countsMatrix)
+        if(detecthail):
+            # Unflag hail detection for those times where wind contamination was also detected
+            hailflag = N.where(flaggedtimes > 0,False,hailflag)
     
     if(use_splashingQC or basicqc):
         countsMatrix = splashingQC(countsMatrix)
@@ -583,13 +591,7 @@ def readPIPS(filename,fixGPS=True,basicqc=False,rainfallqc=False,rainonlyqc=Fals
 
     if(masklowdiam):
         countsMatrix = masklowdiamQC(countsMatrix)
-    
-    if(detecthail):
-        countsMatrix,hailcounts = hailonlyQC(countsMatrix,returnmasked=False)
-        hailflag = N.where(hailcounts > 0,True,False)
-        
-        
-    
+
     
     # Find total number of non-masked particles
     
@@ -619,14 +621,18 @@ def readPIPS(filename,fixGPS=True,basicqc=False,rainfallqc=False,rainonlyqc=Fals
         # Units are #/m^3/mm
 #         if time == '171320':
 #             print spectrum.size,spectrum,countsMatrix.data[t,:],spectrum.data
-        if(spectrum.size == 1024 and not flaggedtimes[t]):
+        if(spectrum.size == 1024 and flaggedtimes[t] < 2):
             concentration = dspectrum/(vspectrum*sampleintervals[t]*eff_sensor_area*(max_diameter-min_diameter))
-            onedrop_concentration = counts_1drop/(rainvd*sampleintervals[t]*eff_sensor_area*(max_diameter-min_diameter))
             if(use_measured_fs):    # Sum up # concentration for each velocity bin
                 concentration = concentration.sum(axis=0)
+#                 onedropvel = N.ma.average(vspectrum,axis=0,weights=dspectrum)
+#             else:
+#                 onedropvel = rainvd
+            onedropvel = rainvd
+            onedrop_concentration = counts_1drop/(onedropvel*sampleintervals[t]*eff_sensor_area*(max_diameter-min_diameter))
             #print "concentration.shape"
             #print concentration.shape
-        elif(not flaggedtimes[t]):
+        elif(flaggedtimes[t] < 2):
             concentration = N.zeros_like(avg_diameter)
         else:
             concentration = -999.*N.ones_like(avg_diameter)
