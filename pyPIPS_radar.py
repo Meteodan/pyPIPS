@@ -43,6 +43,11 @@ from modules.utils import log,warning,fatal
 import modules.DSDretrieval_radar as DR
 import modules.empirical_module as em
 
+# Find out root directory of pyPIPS. This is needed further down when reading in the lookup
+# tables
+
+pyPIPSroot = os.path.dirname(os.path.realpath(__file__))
+
 clevels_ref = N.arange(5.0,85.0,5.0)          # Contour levels for reflectivity (dBZ)
 clevels_zdr = N.arange(0.0,6.25,0.25)         # Contour levels for Zdr (dB)
 clevels_vr  = N.arange(-40.0,41.0,1.0)        # Contour levels for Vr (m/s)
@@ -713,12 +718,12 @@ for index,path,sweeptime in zip(xrange(len(radar_filelist)),radar_filelist,radti
     masklist = [mask,mask,mask,mask,mask,mask]
     
     columns = N.arange(0.0,6.0,0.01)
-    R_lookup = pd.read_csv('lookups/R.csv',sep=',',header=0,index_col='dBZ')
-    D0_lookup = pd.read_csv('lookups/D0.csv',sep=',',header=0,index_col='dBZ')
-    W_lookup = pd.read_csv('lookups/w.csv',sep=',',header=0,index_col='dBZ')
-    sigm_lookup = pd.read_csv('lookups/sigm.csv',sep=',',header=0,index_col='dBZ')
-    mu_lookup = pd.read_csv('lookups/mu.csv',sep=',',header=0,index_col='dBZ')
-    lam_lookup = pd.read_csv('lookups/lam.csv',sep=',',header=0,index_col='dBZ')
+    R_lookup = pd.read_csv(os.path.join(pyPIPSroot,'lookups/R.csv'),sep=',',header=0,index_col='dBZ')
+    D0_lookup = pd.read_csv(os.path.join(pyPIPSroot,'lookups/D0.csv'),sep=',',header=0,index_col='dBZ')
+    W_lookup = pd.read_csv(os.path.join(pyPIPSroot,'lookups/w.csv'),sep=',',header=0,index_col='dBZ')
+    sigm_lookup = pd.read_csv(os.path.join(pyPIPSroot,'lookups/sigm.csv'),sep=',',header=0,index_col='dBZ')
+    mu_lookup = pd.read_csv(os.path.join(pyPIPSroot,'lookups/mu.csv'),sep=',',header=0,index_col='dBZ')
+    lam_lookup = pd.read_csv(os.path.join(pyPIPSroot,'lookups/lam.csv'),sep=',',header=0,index_col='dBZ')
     #print list(R_lookup.index)
     ng = len(rad_ZDR)
     na = len(rad_ZDR[0])

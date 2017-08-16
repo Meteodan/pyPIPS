@@ -988,9 +988,9 @@ def plotsweep(radlims,plotlims,fieldnames,fieldlist,masklist,range_start,range,
                 Dx = dloc[0]
                 Dy = dloc[1]
                 ax.plot(Dx,Dy,'k*',ms=8)
-                ax.annotate(dname,(Dx+550.,Dy-100.))
+                ax.annotate(dname,(Dx+550.,Dy-100.),clip_on=True)
                 if(field_D != None):
-                    ax.annotate(disfmtstr.format(field_D),(Dx+550.,Dy-2100.))
+                    ax.annotate(disfmtstr.format(field_D),(Dx+550.,Dy-2100.),clip_on=True)
         
         # Determine plot bounds
         if(plotxmin == -1):
@@ -1168,9 +1168,9 @@ def plotsweep_pyART(radlims,plotlims,fieldnames,radarsweep,ovrmap,ovrdis,dis_nam
                 Dx = dloc[0]
                 Dy = dloc[1]
                 ax.plot(Dx,Dy,'k*',ms=8)
-                ax.annotate(dname,(Dx+250.,Dy+250.))
+                ax.annotate(dname,(Dx+250.,Dy+250.),clip_on=True)
                 if(field_D != None):
-                    ax.annotate(disfmtstr.format(field_D),(Dx+250.,Dy-250.))
+                    ax.annotate(disfmtstr.format(field_D),(Dx+250.,Dy-250.),clip_on=True)
         
         # Determine plot bounds
         if(plotxmin == -1):

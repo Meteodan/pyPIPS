@@ -140,7 +140,7 @@ def retrieve_DSD(Z,Zdr,d,fa2,fb2,intv):
                 nd[d > Dmx] = 0.0
                 mtp1 = N.sum(nd*d**3.*intv)
                 mtp2 = 0.0
-                m = 0.0
+                m = 0
                 mas = 0.0
                 if(mtp1>0):
                     while(mas<0.5):
