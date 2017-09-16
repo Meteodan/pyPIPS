@@ -326,16 +326,16 @@ def plotDSDmeteograms(dis_name,image_dir,axparams,disvars,radvars):
                 axis_limits = [0.0,1.05]
                 axis_intv = 0.1
             
-            plotparamdict1 = {'type':'line','linestyle':'-','color':'g','linewidth':0.5,'label':dualpol_dis_varlabel}
+            plotparamdict1 = {'type':'line','linestyle':'-','color':'b','linewidth':1.5,'label':dualpol_dis_varlabel}
             plotparamdicts = [plotparamdict1]
             if(dualpol_dis_varname == 'dBZ' and dBZ_ray_dis.size):
-                plotparamdict = {'type':'line','linestyle':'--','color':'g','linewidth':0.5,'label':dBZ_ray_dis_varlabel}
+                plotparamdict = {'type':'line','linestyle':'--','color':'b','linewidth':1.5,'label':dBZ_ray_dis_varlabel}
                 plotparamdicts.append(plotparamdict)
             
             if(dualpol_rad_var.size):
                 xvals.append(radmidtimes)
                 plotvars.append(dualpol_rad_var)
-                plotparamdict2 = {'type':'line','linestyle':'-','color':'k','linewidth':0.5,'label':dualpol_rad_varlabel}
+                plotparamdict2 = {'type':'line','linestyle':'-','color':'purple','linewidth':1.5,'label':dualpol_rad_varlabel}
                 plotparamdicts.append(plotparamdict2)
             
             #print xvals,plotvars,plotparamdicts

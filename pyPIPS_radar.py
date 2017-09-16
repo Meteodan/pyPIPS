@@ -247,7 +247,13 @@ with open(sys.argv[argindex],'r') as inputfile:
         print "requested elevation angle",el_req
     except:
         el_req = 0.5    # Default to 0.5 degrees
-        
+    
+    try:
+        heading = N.float(line[5])
+        print "Radar heading: ",heading
+    except:
+        heading = None
+    
     # Read in min range,max range, min azimuth, and max azimuth for radar plotting (may deprecate this)
     inputfile.readline()
     line = inputfile.readline().strip().split(',')
@@ -301,9 +307,12 @@ if(pc.comp_radar):
             if(platform == 'NEXRAD'):
                 outfieldnames,fields,range_start,radar_range,azimuth_start_rad,azimuth_rad,rlat_rad,rlon_rad,ralt,el_rad = \
                 radar.readCFRadial(True,el_req,rlat,rlon,ralt,path,sweeptime,fieldnames)
-            else:
+            elif(platform == 'SMARTR'):
                 outfieldnames,fields,range_start,radar_range,azimuth_start_rad,azimuth_rad,rlat_rad,rlon_rad,ralt,el_rad = \
-                radar.readUMXPnc(path,sweeptime,fieldnames)
+                radar.readCFRadial(False,el_req,rlat,rlon,ralt,path,sweeptime,fieldnames)
+            elif(platform == 'UMXP'):
+                outfieldnames,fields,range_start,radar_range,azimuth_start_rad,azimuth_rad,rlat_rad,rlon_rad,ralt,el_rad = \
+                radar.readUMXPnc(path,sweeptime,fieldnames,heading=heading)
 
         
             fields_tlist.append(fields)
@@ -317,7 +326,7 @@ if(pc.comp_radar):
             el_tlist.append(el_rad)
             
             dxy_list,fields_D = dis.rad2DD2(fields,range_start,radar_range,
-            azimuth_start_rad,azimuth_rad,rlat_rad,rlon_rad,ralt,el_rad,dlocs)
+            azimuth_start_rad,azimuth_rad,rlat_rad,rlon_rad,ralt,el_rad,dlocs,average_gates=False,Cressman=True,roi=1000.)
             
             fields_D_tlist.append(fields_D)
             dxy_tlist.append(dxy_list)
@@ -428,8 +437,8 @@ if(pc.comp_radar):
                 h,r = oban.computeheightrangesingle(Dx,Dy,el_req*deg2rad)
                 # In most of our cases the radar location isn't going to change with time, but in the more
                 # general case, this may not be true (i.e. if we are dealing with a mobile radar). 
-                #print "Disdrometer name,x,y,radar elevation angle,slant range, approximate beam height:"
-                #print dname,Dx,Dy,el_rad/deg2rad,r,h
+                print "Disdrometer name,x,y,radar elevation angle,slant range, approximate beam height:"
+                print dname,Dx,Dy,el_rad/deg2rad,r,h
                 if(dloc == dlocs[0] and plotxmin == -1):
                     plotlims = [Dx-25000.,Dx+25000.,Dy-30000.,Dy+20000.]
         

@@ -129,30 +129,61 @@ register_projection(NorthPolarAxes)
 
 deg2rad = N.pi/180.
 
+def _getsweeptime(path,CFRadial=True):
+    """Attempts to read sweep time from the radar file or construct it from the file name."""
+    if(CFRadial):    
+        #print "Opening file: ",path
+        sweepfile_netcdf = Nio.open_file(path)
+        sweeptime = sweepfile_netcdf.variables['time_coverage_start'].get_value().tostring()
+        radyear = int(sweeptime[:4])
+        radmonth = int(sweeptime[5:7])
+        radday = int(sweeptime[8:10])
+        radhour = int(sweeptime[11:13])
+        radmin = int(sweeptime[14:16])
+        radsec = int(sweeptime[17:19])
+        sweepfile_netcdf.close()
+    else:
+        filename = os.path.split(path)[1]   # Get time from file name for now
+        sweeptime = filename[1:-4]
+        radyear = int(sweeptime[:4])
+        radmonth = int(sweeptime[4:6])
+        radday = int(sweeptime[6:8])
+        radhour = int(sweeptime[8:10])
+        radmin = int(sweeptime[10:12])
+        radsec = int(sweeptime[12:14])
+
+    return datetime(radyear,radmonth,radday,radhour,radmin,radsec) # -timedelta(hours=5) # Get it to CST time
+
+
 def getradarfilelist(radar_dir,starttime=None,stoptime=None,platform='NEXRAD',radar_name=None,el_req=0.5):
     """Given a directory of radar data in netCDF format, return a list of the files containing
        successive sweeps at the desired elevation angle.  Currently only CFRadial files for NEXRAD
        and (proprietary) netCDF files for UMASS X-Pol are supported."""
         
-    if(platform not in ['NEXRAD','UMXP']):
+    if(platform not in ['NEXRAD','UMXP','SMARTR']):
         print "Sorry, platform: ",platform," not supported.  Please try again!"
         return
     
-    if(platform == 'UMXP'):
+    if(platform == 'NEXRAD' or platform == 'SMARTR'):
+        CFRadial = True
+    else:
+        CFRadial = False
+    
+    if(platform == 'UMXP' or platform == 'SMARTR'):
         radar_name = platform
     
     radar_filelist = glob.glob(radar_dir+'*.nc')
     
     # Filter only those files containing sweeps closest to the desired elevation angle
-    # Only need to do this for UMXP, which has separate files for each elevation
-    if(platform == 'UMXP'):
+    # Only need to do this for UMXP or SMARTR, which has separate files for each elevation
+    if(platform == 'UMXP' or platform == 'SMARTR'):
         # First check to see if text file containing file list of requested elevation already exists (saves loads of time)
         radar_filelist_file = radar_name+'_'+starttime.strftime(fmt3).strip()+'_'+    \
                               stoptime.strftime(fmt3).strip()+'_el'+str(el_req)+'_filelist.txt'
         if(os.path.exists(radar_filelist_file)):
             radar_filelist = [line.rstrip('\n') for line in open(radar_filelist_file)]
         else:
-            radar_filelist = getUMXPfilelist(radar_filelist,el_req) 
+            radar_filelist = getncfilelist(platform,radar_filelist,el_req) 
             # Save the file list with requested elevation to text file for later retrieval
             radar_filelist_fileout=open(radar_filelist_file,'w')
             for file in radar_filelist:
@@ -162,36 +193,9 @@ def getradarfilelist(radar_dir,starttime=None,stoptime=None,platform='NEXRAD',ra
     
     for path in radar_filelist:
         # Grab the time information from the file
-        
-        if(platform == 'NEXRAD'):    
-            #print "Opening file: ",path
-            sweepfile_netcdf = Nio.open_file(path)
-            sweeptime = sweepfile_netcdf.variables['time_coverage_start'].get_value().tostring()
-            radyear = int(sweeptime[:4])
-            radmonth = int(sweeptime[5:7])
-            radday = int(sweeptime[8:10])
-            radhour = int(sweeptime[11:13])
-            radmin = int(sweeptime[14:16])
-            radsec = int(sweeptime[17:19])
-        else:
-            filename = os.path.split(path)[1]   # Get time from file name for now
-            sweeptime = filename[1:-4]
-            radyear = int(sweeptime[:4])
-            radmonth = int(sweeptime[4:6])
-            radday = int(sweeptime[6:8])
-            radhour = int(sweeptime[8:10])
-            radmin = int(sweeptime[10:12])
-            radsec = int(sweeptime[12:14])
-            
-        #''.join(sweeptime)
-        #print sweeptime
-        
-        radtime = datetime(radyear,radmonth,radday,radhour,radmin,radsec) # -timedelta(hours=5) # Get it to CST time
+        radtime = _getsweeptime(path,CFRadial)        
         radtimes.append(radtime)
-        
-        if(platform == 'NEXRAD'):
-            sweepfile_netcdf.close()
-        
+                
         #print "Time of sweep = ",radtime.strftime(fmt)
     
     # Sort the list of radar files using the sweep times
@@ -257,7 +261,9 @@ def readCFRadial_pyART(nexrad,el,radlat,radlon,radalt,file,sweeptime,fieldnames,
     el_rad = el*deg2rad
 
     # Grab the time information from the file
-     
+    if(not sweeptime):
+        sweeptime=_getsweeptime(file,True)
+            
     print "Time of sweep = ",sweeptime.strftime(fmt)
         
     # Assign some needed variables from the PyART radar object
@@ -625,15 +631,21 @@ def readCFRadial(nexrad,el,radlat,radlon,radalt,file,sweeptime,fieldnames):
     
     return outfieldnames,fieldlist,range_start,range,azimuth_start_rad,azimuth_rad,rlat_rad,rlon_rad,ralt,el_rad
 
-def getUMXPfilelist(filelist,el_req,tolerance=0.5):
-    """Given a list of UMXP netcdf files, find those that contain the elevation angle closest
+def getncfilelist(platform,filelist,el_req,tolerance=0.5):
+    """Given a list of radar netcdf files that contain one elevation angle apiece, 
+       find those that contain the elevation angle closest
        to that requested and return a list of them"""
+    
+    if(platform == 'UMXP'):
+        elvarname = 'Elevation'
+    else:
+        elvarname = 'elevation'
     
     elevations = []
     
     for index,file in enumerate(filelist):
         sweepfile_netcdf = Nio.open_file(file)
-        elevations.append(sweepfile_netcdf.variables['Elevation'][0])
+        elevations.append(sweepfile_netcdf.variables[elvarname][0])
     
     elevations = N.array(elevations)
     diffs = N.abs(elevations-el_req)
@@ -642,12 +654,10 @@ def getUMXPfilelist(filelist,el_req,tolerance=0.5):
     
     return newfilelist
 
-def readUMXPnc(file,sweeptime,fieldnames):
+def readUMXPnc(file,sweeptime,fieldnames,heading=None,correct_attenuation=True):
     """Reads a single sweep from a UMASS X-pol netCDF file"""
     
     debug = False
-    correct_attenuation = False # If attenuation information is available in the file,
-                                # attempt to correct reflectivity?
     
     fieldlist = []
 
@@ -659,9 +669,10 @@ def readUMXPnc(file,sweeptime,fieldnames):
     # Grab some needed variables from the netCDF file
 
     numgates = sweepfile_netcdf.dimensions['Gate']
-    heading = sweepfile_netcdf.Heading # -90.0
+    if not heading:
+        heading = sweepfile_netcdf.Heading # -90.0
+    print "Heading: ",heading
     heading = heading*N.pi/180.
-    #print heading
     el = sweepfile_netcdf.variables['Elevation'][0]
     print "Elevation angle: ",el
     el_rad = el*deg2rad
@@ -697,19 +708,20 @@ def readUMXPnc(file,sweeptime,fieldnames):
     # Some of the UMXP files have extra sweeps in them (or have bad azimuths as the azimuth wraps around 360 deg).  This is a stopgap measure to remove
     # the extra sweeps while I get Will's code to work correctly to split the netCDF files that have extra sweeps
     # up, or Will uploads the reprocessed data, whichever comes first.
+    # UPDATE 08/18/2017: Something isn't working correctly with this code at the moment. Disabled for now.
     
-    diffazim = azimuth[1:]-azimuth[:-1]
-    stopindices = N.where(diffazim < -90.)[0]
-    if(stopindices.size):
-        if(stopindices[0] == 0):
-            stopindex = stopindices[1]
-        else:
-            stopindex = stopindices[0]
-    else:
-        stopindex = azimuth.size-1
-    
-    print "stopindex = ",stopindex
-    azimuth = azimuth[:stopindex+1]
+#     diffazim = azimuth[1:]-azimuth[:-1]
+#     stopindices = N.where(diffazim < -90.)[0]
+#     if(stopindices.size):
+#         if(stopindices[0] == 0):
+#             stopindex = stopindices[1]
+#         else:
+#             stopindex = stopindices[0]
+#     else:
+#         stopindex = azimuth.size-1
+#     
+#     print "stopindex = ",stopindex
+#     azimuth = azimuth[:stopindex+1]
     # Add heading of truck to azimuth
     azimuth_rad = azimuth*N.pi/180
     num_azim = N.size(azimuth_rad)
@@ -737,12 +749,22 @@ def readUMXPnc(file,sweeptime,fieldnames):
         if(fieldname == 'dBZ' or fieldname == 'Z'):
             try:
                 tempfield = sweepfile_netcdf.variables['Zh'][:]
+                if(correct_attenuation):
+                    try:
+                        tempfield = tempfield + sweepfile_netcdf.variables['Ah'][:]
+                    except:
+                        print "No attenuation correction information in the file!"
             except:
                 print "Cannot find reflectivity field in file, setting to to empty"
                 tempfield = N.empty((0))
         if(fieldname == 'Zdr' or fieldname == 'ZDR'):
             try:
                 tempfield = sweepfile_netcdf.variables['ZDR'][:]
+                if(correct_attenuation):
+                    try:
+                        tempfield = tempfield + sweepfile_netcdf.variables['Ad'][:]
+                    except:
+                        print "No attenuation correction information in the file!"
             except:
                 print "Cannot find differential reflectivity field in file, setting to to empty"
                 tempfield = N.empty((0))
@@ -1153,7 +1175,7 @@ def plotsweep_pyART(radlims,plotlims,fieldnames,radarsweep,ovrmap,ovrdis,dis_nam
             cmap = cmapvr
             clvls = 5.0
             disfmtstr = "{:3.1f} m/s"
-            
+        
         fig = plt.figure()
         grid = ImageGrid(fig,111,nrows_ncols = (1,1),axes_pad=0.0,cbar_mode="single",cbar_location="right",aspect=True,label_mode="1")
         ax = grid[0]

@@ -87,6 +87,11 @@ plot_strongwindQC = False
 plot_rainonlyQC = False
 plot_rainfallspeedQC = False
 
+def interpnan1D(a):
+    """Replaces NaN's in a 1D array by interpolating from good values on either side"""
+    ind = N.where(~N.isnan(a))[0] # indices of valid values
+    return N.interp(range(len(a)),ind,a[ind]) # Use valid values to interpolate to invalid values
+
 def DDMtoDD(DDM,hem):
     """Converts from 'Degrees + Decimal Minutes' format to Decimal Degrees"""
     
@@ -790,6 +795,119 @@ def readPIPSloc(filename):
         
     return GPS_lats,GPS_lons,GPS_stats,GPS_alts,dloc
 
+def readPIPSstation(filename,fixGPS=True):
+    """Reads in just the data from a PIPS file that is needed for a station plot"""
+    
+    dates=[]
+    times=[]
+    datetimes=[]             
+    windspds=[]
+    winddirabss=[]
+    winddiags=[]
+    fasttemps=[]
+    dewpoints=[]
+    pressures=[]
+    GPS_lats=[]
+    GPS_lons=[]
+    GPS_stats=[]
+    GPS_alts=[]
+    
+    disfile = open(filename,'r')
+    
+    firstgoodGPS = False
+    
+    for line in disfile:
+        tokens = line.strip().split(',')
+        timestamp = tokens[0]
+        timestring = timestamp.strip().split()
+        date = timestring[0] # .strip('-')
+        time = timestring[1] # .strip(':')
+        
+        #2016-03-31 22:19:02
+        
+        #Construct datetime object
+        year = N.int(date[:4])
+        month = N.int(date[5:7])
+        day = N.int(date[8:])
+        hour = N.int(time[:2])
+        min = N.int(time[3:5])
+        sec = N.int(time[6:])
+
+        datetimelogger = datetime(year,month,day,hour,min,sec)
+        
+        windspd = N.float(tokens[5])
+        winddiag = N.float(tokens[6])
+        fasttemp = N.float(tokens[7])
+        pressure = N.float(tokens[10])
+        GPS_time = tokens[12]
+        GPS_status = tokens[13]
+        GPS_lat = N.float(tokens[14])
+        GPS_lat_hem = tokens[15]
+        GPS_lat = DDMtoDD(GPS_lat,GPS_lat_hem)
+        GPS_lon = N.float(tokens[16])
+        GPS_lon_hem = tokens[17]
+        GPS_lon = DDMtoDD(GPS_lon,GPS_lon_hem)
+        GPS_spd = N.float(tokens[18])
+        GPS_dir = N.float(tokens[19])
+        GPS_date = tokens[20]
+        GPS_alt = N.float(tokens[22])
+        
+        winddirabs = N.float(tokens[23])
+        try:
+            dewpoint = N.float(tokens[24])
+        except:
+            dewpoint = N.nan
+                 
+        # Find the first good GPS time and date and use that
+        # to construct the time offset for the data logger
+        if(not N.isnan(GPS_alt) and not firstgoodGPS and GPS_status == 'A'):
+            firstgoodGPS = True
+            print GPS_date,GPS_time
+            print date,time
+            
+            print year,month,day,hour,min,sec
+            
+            #Construct datetime object
+            gyear = N.int('20'+GPS_date[4:])
+            gmonth = N.int(GPS_date[2:4])
+            gday = N.int(GPS_date[:2])
+            ghour = N.int(GPS_time[:2])
+            gmin = N.int(GPS_time[2:4])
+            gsec = N.int(GPS_time[4:])
+
+            datetimeGPS = datetime(gyear,gmonth,gday,ghour,gmin,gsec)
+            GPS_offset = datetimeGPS-datetimelogger
+            print datetimeGPS,datetimelogger
+            print "GPS Offset",GPS_offset
+    
+        datetimes.append(datetimelogger)
+        windspds.append(windspd)
+        winddirabss.append(winddirabs)
+        winddiags.append(winddiag)
+        fasttemps.append(fasttemp)
+        dewpoints.append(dewpoint)
+        pressures.append(pressure)
+        GPS_lats.append(GPS_lat)
+        GPS_lons.append(GPS_lon)
+        GPS_stats.append(GPS_status)
+        GPS_alts.append(GPS_alt)
+                
+    # Correct the logger time and date using the GPS time
+    
+    # Sometimes the GPS has major issues for the whole deployment.
+    # In this case, set the offset to 0
+    if(not firstgoodGPS): 
+        GPS_offset = timedelta(seconds=0)
+        
+    datetimes_corrected = []
+    for datetimelogger in datetimes:
+        datetimes_corrected.append(datetimelogger+GPS_offset)
+        
+    return datetimes_corrected,windspds,winddirabss,fasttemps,dewpoints,pressures,    \
+            GPS_lats,GPS_lons,GPS_stats,GPS_alts
+
+
+
 def PIPS2TTU(filename,fixGPS=True):
     """Reads conventional data from a PIPS text file and outputs it in the format used by TTU's
        StickNets"""
@@ -1013,10 +1131,10 @@ def calc_DSD(min_size,avg_size,max_size,bin_width,Nc_bin,logNc_bin,rho,qrQC,qr_t
         QR_disd = ma.masked_array(QR_disd,mask=qrmask1D)
         LWC_disd = ma.masked_array(LWC_disd,mask=qrmask1D)
         
-    nummask1D = N.where(pcounts < 150., True,False)
+    nummask1D = N.where(pcounts < 50., True,False)
     num2D = pcounts.reshape(1,numtimes).repeat(32,0)
     #num2Db = rainrate.reshape(1,numtimes).repeat(32,0)
-    nummask2D = N.where(num2D < 150.,True,False)
+    nummask2D = N.where(num2D < 50.,True,False)
     
     D_med_disd = ma.masked_array(D_med_disd,mask=nummask1D)
     Nc_bin = ma.masked_array(Nc_bin,mask=nummask2D)
@@ -1449,10 +1567,10 @@ def avgwind(winddirs,windspds,avgintv,gusts=True,gustintv=3,center=True):
        compute the vector and scalar average wind speed, and vector average wind direction.
        Optionally also compute gusts."""
     
-    windspdsavg = pd.rolling_mean(windspds,avgintv,center=center)
+    windspdsavg = pd.rolling_mean(windspds,avgintv,center=center,min_periods=1)
     if(gusts):
-        windgusts = pd.rolling_mean(windspds,gustintv,center=center)
-        windgustsavg = pd.rolling_max(windgusts,avgintv,center=center)
+        windgusts = pd.rolling_mean(windspds,gustintv,center=center,min_periods=1)
+        windgustsavg = pd.rolling_max(windgusts,avgintv,center=center,min_periods=1)
     else:
         windgusts = None
         windgustsavg = None
@@ -1463,11 +1581,11 @@ def avgwind(winddirs,windspds,avgintv,gusts=True,gustintv=3,center=True):
     vs = windspds*N.sin(N.deg2rad(-winddirs+270.))
 
     # Linearly interpolate for bad values of us,vs
-    #us = interpnan1D(us)
-    #vs = interpnan1D(vs)
+    us = interpnan1D(us)
+    vs = interpnan1D(vs)
     # Compute averages of wind components
-    usavg = pd.rolling_mean(us,avgintv,center=center)
-    vsavg = pd.rolling_mean(vs,avgintv,center=center)
+    usavg = pd.rolling_mean(us,avgintv,center=center,min_periods=1)
+    vsavg = pd.rolling_mean(vs,avgintv,center=center,min_periods=1)
     windspdsavgvec = N.sqrt(usavg**2.+vsavg**2.)
     winddirsavgvec = (270.0-(180./N.pi)*N.arctan2(vsavg,usavg))%360. # Need to use %360 to keep wind dir between 0 and 360 degrees
 
