@@ -444,9 +444,15 @@ def readPIPS(filename,fixGPS=True,basicqc=False,rainfallqc=False,rainonlyqc=Fals
         GPS_spd = N.float(tokens[18])
         GPS_dir = N.float(tokens[19])
         GPS_date = tokens[20]
-        GPS_magvar = N.float(tokens[21])
-        GPS_alt = N.float(tokens[22])
-        
+        try:
+            GPS_magvar = N.float(tokens[21])
+        except:
+            GPS_magvar = N.nan
+        try:
+            GPS_alt = N.float(tokens[22])
+        except:
+            GPS_alt = N.nan
+            
         winddirabs = N.float(tokens[23])
         try:
             dewpoint = N.float(tokens[24])
@@ -713,8 +719,16 @@ def readPIPS(filename,fixGPS=True,basicqc=False,rainfallqc=False,rainonlyqc=Fals
         pcounts_df = pcounts_df.resample(intervalstr,label='right',closed='right',base=sec_offset).sum()
         pcounts2_df = pcounts2_df.resample(intervalstr,label='right',closed='right',base=sec_offset).sum()
         amplitudes_df = amplitudes_df.resample(intervalstr,label='right',closed='right',base=sec_offset).mean().fillna(0)
-        flaggedtimes_df = flaggedtimes_df.resample(intervalstr,label='right',closed='right',base=sec_offset,how=lambda x: x.values.max())
-        hailflag_df = hailflag_df.resample(intervalstr,label='right',closed='right',base=sec_offset,how=lambda x: x.values.max())
+        # I'm not sure what's going on here. Sometimes I get a valueerror suggesting the data are empty, so the except clause is a temporary
+        # bandaid.
+        try:
+            flaggedtimes_df = flaggedtimes_df.resample(intervalstr,label='right',closed='right',base=sec_offset,how=lambda x: x.values.max())
+        except:
+            flaggedtimes_df = pd.Series(data=N.zeros_like(amplitudes_df.values),index=amplitudes_df.index)
+        try:
+            hailflag_df = hailflag_df.resample(intervalstr,label='right',closed='right',base=sec_offset,how=lambda x: x.values.max())
+        except:
+            hailflag_df = pd.Series(data=N.zeros_like(amplitudes_df.values),index=amplitudes_df.index)
 
     # Pandas apparently (gotcha!) converts missing values to NaN when extracting the numpy array representation using .values
     # Since I want the original masked array functionality for now for further computations, I need to remask the array here.
