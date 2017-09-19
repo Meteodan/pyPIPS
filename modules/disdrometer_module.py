@@ -405,6 +405,10 @@ def readPIPS(filename,fixGPS=True,basicqc=False,rainfallqc=False,rainonlyqc=Fals
     
     for line in disfile:
         tokens = line.strip().split(',')
+        # Check for header line (older versions don't have it)
+        if(tokens[0] == 'TIMESTAMP'):
+            continue
+        
         timestamp = tokens[0]
         timestring = timestamp.strip().split()
         date = timestring[0] # .strip('-')
@@ -772,7 +776,10 @@ def readPIPSloc(filename):
         
     for line in disfile:
         tokens = line.strip().split(',')
-        
+        # Check for header line (older versions don't have it)
+        if(tokens[0] == 'TIMESTAMP'):
+            continue
+
         GPS_status = tokens[13]
         GPS_lat = N.float(tokens[14])
         GPS_lat_hem = tokens[15]
