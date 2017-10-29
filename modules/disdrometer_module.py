@@ -1004,7 +1004,6 @@ def calpolrain(wavelength,filename,Nd,intv):
         
     lamda = wavelength*10. # Get radar wavelength in mm
     Kw2 = 0.93 # Dielectric factor for water
-    
     sar_h = fa2*Nd*intv
     sar_v = fb2*Nd*intv
     sar_hv = fab*Nd*intv

@@ -8,7 +8,7 @@ import Nio
 import matplotlib
 #matplotlib.use('TkAgg')
 import numpy as N
-import numpy.ma as MA
+from numpy import ma as ma
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 from matplotlib.dates import *
@@ -43,78 +43,84 @@ from modules.utils import log,warning,fatal
 import modules.DSDretrieval as DR
 import modules.empirical_module as em
 
-k=0
+#k=0
 mu=[]
 lamda=[]
 
-indir = '/Users/bozell/pyPIPS_work/input/'
+# Function definition
+def trymax(a,default=0):
+	try:
+		return a.max()
+	except:
+		return default
+
+
+deg2rad = N.pi/180.
+
+
+# Set global font size for axes and colorbar labels, etc.
+font = {'size':12}
+matplotlib.rc('font',**font)
+fontP = FontProperties()
+fontP.set_size('medium')
+
+
+# Disdrometer bin and diameter information 
+min_diameter = dis.min_diameter
+max_diameter = dis.max_diameter
+bin_width = max_diameter-min_diameter
+avg_diameter = dis.avg_diameter
+fall_bins = dis.fall_bins
+min_fall_bins = dis.min_fall_bins
+
+
+#Time zone stuff
+Central = pytz.timezone('US/Central')
+fmt = '%Y-%m-%d %H:%M:%S %Z%z'
+fmt2 = '%Y-%m-%d %H:%M:%S'
+fmt3 = '%Y%m%d%H%M%S'
+
+#-----------------------------------------------------------------------
+#
+#   Dynamically import pyPIPScontrol.py or user version of it.
+#
+#-----------------------------------------------------------------------
+
+def import_all_from(module_path):
+	"""Modified from http://grokbase.com/t/python/python-list/1172ahxp0s/from-module-import-using-import
+	   Loads python file at "module_path" as module and adds contents to global namespace."""
+	#mod = __import__(module_name)
+	mod = imp.load_source('mod',module_path)
+	return mod
+
+if len(sys.argv) > 1:   # Try to import user-defined plotcontrol module
+	controlmodpath = sys.argv[1]
+	log("Input file is "+controlmodpath)
+	pc = import_all_from(controlmodpath)
+	try:
+		pc = import_all_from(controlmodpath)
+		log("Successfully imported pyPIPS control parameters!")
+	except:
+		warning("Unable to import user-defined pyPIPS control parameters! Reverting to defaults.")
+		import pyPIPScontrol as pc
+else:   # Read in default plotcontrol.py
+	import pyPIPScontrol as pc
+
+#-----------------------------------------------------------------------
+#
+#   Loop to run through each IOP.
+#
+#-----------------------------------------------------------------------
+
+indir = '/Users/bozell/pyPIPS_work/input/NEXRAD/'
 for root, dirs, filenames in os.walk(indir):
 	for f in filenames:
-		if f.endswith(".txt"):
+		if f.endswith("IOP1A.txt"):
+			continue
+		elif f.endswith("FMCW.txt"):
 			print f 
-			k = k+1
+#			k = k+1
 			fieldnames = ['dBZ','ZDR','KDP','RHV','Vr']
-		
-			# Function definition
-			def trymax(a,default=0):
-				try:
-					return a.max()
-				except:
-					return default
-
-
-			deg2rad = N.pi/180.
-
-
-			# Set global font size for axes and colorbar labels, etc.
-			font = {'size':10}
-			matplotlib.rc('font',**font)
-			fontP = FontProperties()
-			fontP.set_size('small')
-
-
-			# Disdrometer bin and diameter information 
-			min_diameter = dis.min_diameter
-			max_diameter = dis.max_diameter
-			bin_width = max_diameter-min_diameter
-			avg_diameter = dis.avg_diameter
-			fall_bins = dis.fall_bins
-			min_fall_bins = dis.min_fall_bins
-
-
-			#Time zone stuff
-			Central = pytz.timezone('US/Central')
-			fmt = '%Y-%m-%d %H:%M:%S %Z%z'
-			fmt2 = '%Y-%m-%d %H:%M:%S'
-			fmt3 = '%Y%m%d%H%M%S'
-
-
-
-			#-----------------------------------------------------------------------
-			#
-			#   Dynamically import pyPIPScontrol.py or user version of it.
-			#
-			#-----------------------------------------------------------------------
-
-			def import_all_from(module_path):
-				"""Modified from http://grokbase.com/t/python/python-list/1172ahxp0s/from-module-import-using-import
-				   Loads python file at "module_path" as module and adds contents to global namespace."""
-				#mod = __import__(module_name)
-				mod = imp.load_source('mod',module_path)
-				return mod
-
-			if len(sys.argv) > 1:   # Try to import user-defined plotcontrol module
-				controlmodpath = sys.argv[1]
-				log("Input file is "+controlmodpath)
-				pc = import_all_from(controlmodpath)
-				try:
-					pc = import_all_from(controlmodpath)
-					log("Successfully imported pyPIPS control parameters!")
-				except:
-					warning("Unable to import user-defined pyPIPS control parameters! Reverting to defaults.")
-					import pyPIPScontrol as pc
-			else:   # Read in default plotcontrol.py
-				import pyPIPScontrol as pc
 
 			# Parse command line argument and read in disdrometer/radar information from text file
 			# Maybe in the future can find a more efficient way, such as checking to see if there is a pickled
@@ -369,7 +375,8 @@ for root, dirs, filenames in os.walk(indir):
 
 			for index,dis_filename,dis_name,starttime,stoptime,centertime,dloc in \
 				zip(xrange(0,len(dis_list)),dis_list,dis_name_list,starttimes,stoptimes,centertimes,dlocs):
-
+#				if(dis_name == 'PIPS_2B'):
+#					continue
 				if(pc.timetospace):
 					centertime = centertimes[index]
 
@@ -415,8 +422,8 @@ for root, dirs, filenames in os.walk(indir):
 				Nc_bin = concentrations.T
 				dropperbin = onedrop_concentrations.T
 		
-				logNc_bin = N.ma.log10(Nc_bin)
-				logNc_bin = N.ma.masked_where(Nc_bin < dropperbin, logNc_bin)
+				logNc_bin = ma.log10(Nc_bin)
+				logNc_bin = ma.masked_where(Nc_bin < dropperbin, logNc_bin)
 
 				# Compute potential temperature, water vapor mixing ratio, and density
 				pt = thermo.caltheta(pressures*100.,slowtemps+273.15)
@@ -529,8 +536,8 @@ for root, dirs, filenames in os.walk(indir):
 					N_gamDSD,N0_gam,lamda_gam,mu_gam,qr_gam,Ntr_gam,refl_DSD_gam,D_med_gam,D_m_gam,LWC_gam,rainrate = gam_DSD
 					Nc_bin,logNc_bin,D_med_disd,D_m_disd,D_mv_disd,D_ref_disd,QR_disd,refl_disd,LWC_disd,M0 = dis_DSD
 					N_gamDSD = N_gamDSD.T
-					logN_gamDSD = N.ma.log10(N_gamDSD/1000.) # Get to log(m^-3 mm^-1)
-					logN_gamDSD = N.ma.masked_where(N_gamDSD < dropperbin, logN_gamDSD)
+					logN_gamDSD = ma.log10(N_gamDSD/1000.) # Get to log(m^-3 mm^-1)
+					logN_gamDSD = ma.masked_where(N_gamDSD < dropperbin, logN_gamDSD)
 
 
 					if(pc.calc_dualpol):
@@ -624,18 +631,48 @@ for root, dirs, filenames in os.walk(indir):
 			###     Added for shape-slope relation plots       
 				mu.extend(mu_gam)
 				lamda.extend(lamda_gam)
-
+				
 # 			###     Interpolate radar values to match disdrometer times before starting retrieval    
 				dBZ_rad = pd.Series(N.array(radvars['dBZ']), index= radvars['radmidtimes'])
 				ZDR_rad = pd.Series(N.array(radvars['ZDR']), index= radvars['radmidtimes'])
 				idx = dBZ_rad.index.union(DSDmidtimes)
-				dBZ_rad = N.array(dBZ_rad.reindex(idx).interpolate(method='index').reindex(DSDmidtimes))
+				dBZ_rad = N.array(dBZ_rad.reindex(idx).interpolate(method='index',limit=8).reindex(DSDmidtimes))
 				idx2 = ZDR_rad.index.union(DSDmidtimes)
-				ZDR_rad = N.array(ZDR_rad.reindex(idx2).interpolate(method='index').reindex(DSDmidtimes))
-	
-				R_rad_retr,D0_rad_retr,mu_rad_retr,lam_rad_retr,N0_rad_retr,Nt_rad_retr,W_rad_retr,sigm_rad_retr,Dm_rad_retr,N_rad_retr = DR.retrieve_DSD(dBZ_rad,ZDR_rad,d,fa2,fb2,intv)
-				R_dis_retr,D0_dis_retr,mu_dis_retr,lam_dis_retr,N0_dis_retr,Nt_dis_retr,W_dis_retr,sigm_dis_retr,Dm_dis_retr,N_dis_retr = DR.retrieve_DSD(dBZ,ZDR,d,fa2,fb2,intv)
-	
+				ZDR_rad = N.array(ZDR_rad.reindex(idx2).interpolate(method='index',limit=8).reindex(DSDmidtimes))
+				
+				
+				dBZ_rad = ma.masked_where(ZDR_rad > 3., dBZ_rad)
+				ZDR_rad = ma.masked_where(ZDR_rad> 3., ZDR_rad)
+				dBZ = ma.masked_where(ZDR>3.,dBZ)
+				ZDR = ma.masked_where(ZDR>3.,ZDR)
+				
+				R_rad_retr,D0_rad_retr,mu_rad_retr,lam_rad_retr,N0_rad_retr,Nt_rad_retr,W_rad_retr,sigm_rad_retr,Dm_rad_retr,N_rad_retr = DR.retrieve_DSD(dBZ_rad,ZDR_rad,d,fa2,fb2,intv,wavelength)
+				R_dis_retr,D0_dis_retr,mu_dis_retr,lam_dis_retr,N0_dis_retr,Nt_dis_retr,W_dis_retr,sigm_dis_retr,Dm_dis_retr,N_dis_retr = DR.retrieve_DSD(dBZ,ZDR,d,fa2,fb2,intv,wavelength)
+				
+				lam_dis_retr = N.array(lam_dis_retr)
+				R_dis_retr = ma.masked_where(lam_dis_retr > 15., R_dis_retr)
+				D0_dis_retr = ma.masked_where(lam_dis_retr > 15., D0_dis_retr)
+				mu_dis_retr = ma.masked_where(lam_dis_retr > 15., mu_dis_retr)
+				N0_dis_retr = ma.masked_where(lam_dis_retr > 15., N0_dis_retr)
+				Nt_dis_retr = ma.masked_where(lam_dis_retr > 15., Nt_dis_retr)
+				W_dis_retr = ma.masked_where(lam_dis_retr > 15., W_dis_retr)
+				sigm_dis_retr = ma.masked_where(lam_dis_retr > 15., sigm_dis_retr)
+				Dm_dis_retr = ma.masked_where(lam_dis_retr > 15., Dm_dis_retr)
+				N_dis_retr = ma.masked_where(lam_dis_retr > 15., N_dis_retr)
+				lam_dis_retr = ma.masked_where(lam_dis_retr > 15., lam_dis_retr)
+# 				
+				lam_rad_retr = N.array(lam_rad_retr)
+				R_rad_retr = ma.masked_where(lam_rad_retr > 15., R_rad_retr)
+				D0_rad_retr = ma.masked_where(lam_rad_retr > 15., D0_rad_retr)
+				mu_rad_retr = ma.masked_where(lam_rad_retr > 15., mu_rad_retr)
+				N0_rad_retr = ma.masked_where(lam_rad_retr > 15., N0_rad_retr)
+				Nt_rad_retr = ma.masked_where(lam_rad_retr > 15., Nt_rad_retr)
+				W_rad_retr = ma.masked_where(lam_rad_retr > 15., W_rad_retr)
+				sigm_rad_retr = ma.masked_where(lam_rad_retr > 15., sigm_rad_retr)
+				Dm_rad_retr = ma.masked_where(lam_rad_retr > 15., Dm_rad_retr)
+				N_rad_retr = ma.masked_where(lam_rad_retr > 15., N_rad_retr)
+				lam_rad_retr = ma.masked_where(lam_rad_retr > 15., lam_rad_retr)
+				
 				Mu_retr.extend(mu_dis_retr)
 				Lam_retr.extend(lam_dis_retr)
 
@@ -649,11 +686,12 @@ for root, dirs, filenames in os.walk(indir):
 
 				name = 'dBZ'
 				axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],None],'axeslabels':[pc.timelabel,r'dBZ']}
-				em.dis_retr_timeseries(dBZ,dBZ_rad,dBZ,pstartindex,pstopindex,DSDmidtimes,axparamdict1,image_dir,dis_name,name)
-
+				em.zh_zdr_timeseries(dBZ_rad,dBZ,pstartindex,pstopindex,DSDmidtimes,axparamdict1,image_dir,dis_name,name)
+				
+				
 				name = 'ZDR'
 				axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],None],'axeslabels':[pc.timelabel,r'ZDR']}
-				em.dis_retr_timeseries(ZDR,ZDR_rad,ZDR,pstartindex,pstopindex,DSDmidtimes,axparamdict1,image_dir,dis_name,name)
+				em.zh_zdr_timeseries(ZDR_rad,ZDR,pstartindex,pstopindex,DSDmidtimes,axparamdict1,image_dir,dis_name,name)
 
 	
 				N_retr=N.array(N_dis_retr)
@@ -667,7 +705,7 @@ for root, dirs, filenames in os.walk(indir):
 					if (not os.path.exists(image_dir+'DSDs/'+dis_name)):
 						os.makedirs(image_dir+'DSDs/'+dis_name)
 					for t in range(N.size(Nc_bin,axis=1)):
-						sum = N.ma.sum(Nc_bin[:,t])
+						sum = ma.sum(Nc_bin[:,t])
 						if(sum != 0.0):
 							fig1=plt.figure(figsize=(8,6))
 							ax1=fig1.add_subplot(111)
@@ -683,11 +721,11 @@ for root, dirs, filenames in os.walk(indir):
 							ax1.set_xlabel('Drop Diameter (mm)')
 							ax1.set_ylabel(r'N(D) $(m^{-4})$')
 							ax1.text(0.50,0.95,'Shape parameter (gamma) = %2.2f'%mu_gam[t],transform=ax1.transAxes)
-							ax1.text(0.50,0.90,'Mu = %2.2f'%mu_dis_retr[t],transform=ax1.transAxes)
+							ax1.text(0.50,0.90,'Mu (radar) = %2.2f'%mu_rad_retr[t],transform=ax1.transAxes)
 							ax1.text(0.50,0.85,'Slope parameter (gamma) = %2.2f'%lamda_gam[t],transform=ax1.transAxes)
-							ax1.text(0.50,0.80,'Lambda = %2.2f'%lam_dis_retr[t],transform=ax1.transAxes)
-							ax1.text(0.50,0.75,'Median Volume Diameter (gamma) =%2.2f'%D_med_gam[t],transform=ax1.transAxes)
-							ax1.text(0.50,0.70,'D0 = %2.2f'%D0_dis_retr[t],transform=ax1.transAxes)
+							ax1.text(0.50,0.80,'Lambda (radar) = %2.2f'%lam_rad_retr[t],transform=ax1.transAxes)
+							ax1.text(0.50,0.75,'Median Volume Diameter (obs) =%2.2f'%D_med_disd[t],transform=ax1.transAxes)
+							ax1.text(0.50,0.70,'D0 (radar) = %2.2f'%D0_rad_retr[t],transform=ax1.transAxes)
 							ax1.text(0.50,0.65,'Reflectivity =%2.2f'%refl_disd[t]+'dBZ',transform=ax1.transAxes)
 							ax1.text(0.50,0.6,'ZDR = %2.2f'%ZDR[t]+'dB',transform=ax1.transAxes)
 							ax1.text(0.50,0.55,'Intensity =%2.2f'%intensities[t]+'mm/hr',transform=ax1.transAxes)
@@ -697,99 +735,100 @@ for root, dirs, filenames in os.walk(indir):
 							plt.close(fig1)
 
 
+# 				print DSDmidtimes
+# 
+# 				D_med_disd = ma.masked_where(DSDmidtimes == 736084.87686343 , D_med_disd)
+# 				print D_med_disd
+
 				Zh_Cao = N.arange(20,61,1)
 				Zdr_Cao = 10**((-2.6857*10**-4*Zh_Cao**2)+0.04892*Zh_Cao-1.4287)
 	
 				if (not os.path.exists(image_dir+'scattergrams/')):
 					os.makedirs(image_dir+'scattergrams/')
 			#     
-			###     RELATIONS FROM CAO ET AL. 2008
-
+###     RELATIONS FROM CAO ET AL. 2008
 
 				Zh_rad = pow(10.,dBZ_rad/10)
-# 	
-# 				###     Radar measured  
+
+				###     Radar measured  
 				Nt_rad_emp,D0_rad_emp,W_rad_emp,R_rad_emp = em.empirical(Zh_rad,ZDR_rad)  
-# 	
-# 				###     Disdrometer measured     
+
+				###     Disdrometer measured     
 				Nt_dis_emp,D0_dis_emp,W_dis_emp,R_dis_emp = em.empirical(Zh,ZDR)
-# 	
-
-			###     add for disdrometer timeseries   
-
-				name = 'D0_dis'
-				axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[0.0,5.0]],'axeslabels':[pc.timelabel,r'D0']}
-				em.retr_timeseries(D_med_disd,D_med_gam,D0_rad_retr,D0_dis_retr,pstartindex,pstopindex,DSDmidtimes,axparamdict1,image_dir,dis_name,name)
 	
-				name = 'Nt_dis'
-				axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[0.0,20000.0]],'axeslabels':[pc.timelabel,r'Nt']}
-				em.retr_timeseries(M0,Ntr_gam,Nt_rad_retr,Nt_dis_retr,pstartindex,pstopindex,DSDmidtimes,axparamdict1,image_dir,dis_name,name)
 
-				name = 'W_dis'
-				axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[0.0,10.0]],'axeslabels':[pc.timelabel,r'LWC']}
-				em.retr_timeseries(LWC_disd,LWC_gam,W_rad_retr,W_dis_retr,pstartindex,pstopindex,DSDmidtimes,axparamdict1,image_dir,dis_name,name)
-	
-				name = 'R_dis'
+####     Timeseries and Figure 9a-c from Cao et al. and Figure 8a-c from Cao et al.
+				name = 'R'
 				axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[0.0,250.0]],'axeslabels':[pc.timelabel,r'Rain Rate']}
 				em.retr_timeseries(intensities,rainrate,R_rad_retr,R_dis_retr,pstartindex,pstopindex,DSDmidtimes,axparamdict1,image_dir,dis_name,name)
 
-# 			###     Figure 9a-c from Cao et al. 
-# 	
-				name = 'R'
-				maxlim = 10**-2.
-				minlim = 10**-4.
-				yscale = 'log'
-				label = 'R/Zh'
-				em.one2one(intensities/Zh,rainrate/Zh,R_dis_retr/Zh,R_rad_retr/Zh_rad,maxlim,minlim,image_dir,dis_name,name,yscale,label)
+				em.one2one(intensities/Zh,rainrate/Zh,R_dis_retr/Zh,R_rad_retr/Zh_rad,image_dir,dis_name,name)
+				em.scatters(N.log10(intensities/Zh),N.log10(rainrate/Zh),N.log10(R_dis_retr/Zh),N.log10(R_rad_retr/Zh_rad),ZDR_rad,ZDR,DSDmidtimes,image_dir,dis_name,name)
 
 				name = 'D0'
-				maxlim = 0.0
-				minlim = 6.0
-				yscale = 'linear'
-				label = 'D0'
-				em.one2one(D_med_disd,D_med_gam,D0_dis_retr,D0_rad_retr,maxlim,minlim,image_dir,dis_name,name,yscale,label)
+				axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[0.0,5.0]],'axeslabels':[pc.timelabel,r'D0']}
+				em.retr_timeseries(D_med_disd,D_med_gam,D0_rad_retr,D0_dis_retr,pstartindex,pstopindex,DSDmidtimes,axparamdict1,image_dir,dis_name,name)
+
+				em.one2one(D_med_disd,D_med_gam,D0_dis_retr,D0_rad_retr,image_dir,dis_name,name)
+				em.scatters(D_med_disd,D_med_gam,N.array(D0_dis_retr),D0_rad_retr,ZDR_rad,ZDR,DSDmidtimes,image_dir,dis_name,name)
 
 				name = 'Nt'
-				maxlim = 10.0
-				minlim = 10**-3.
-				yscale = 'log'
-				label = 'Nt/Zh'
-				em.one2one(M0/Zh,Ntr_gam/Zh,Nt_dis_retr/Zh,Nt_rad_retr/Zh_rad,maxlim,minlim,image_dir,dis_name,name,yscale,label)
+				axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[0.0,20000.0]],'axeslabels':[pc.timelabel,r'Nt']}
+				em.retr_timeseries(M0,Ntr_gam,Nt_rad_retr,Nt_dis_retr,pstartindex,pstopindex,DSDmidtimes,axparamdict1,image_dir,dis_name,name)
+
+				em.one2one(M0/Zh,Ntr_gam/Zh,Nt_dis_retr/Zh,Nt_rad_retr/Zh_rad,image_dir,dis_name,name)
+				em.scatters(N.log10(M0/Zh),N.log10(Ntr_gam/Zh),N.log10(Nt_dis_retr/Zh),N.log10(Nt_rad_retr/Zh_rad),ZDR_rad,ZDR,DSDmidtimes,image_dir,dis_name,name)
 
 				name = 'W'
-				maxlim = 10**-3.
-				minlim = 10**-6.
-				yscale = 'log'
-				label = 'W/Zh'
-				em.one2one(LWC_disd/Zh,LWC_gam/Zh,W_dis_retr/Zh,W_rad_retr/Zh_rad,maxlim,minlim,image_dir,dis_name,name,yscale,label)
+				axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[0.0,10.0]],'axeslabels':[pc.timelabel,r'LWC']}
+				em.retr_timeseries(LWC_disd,LWC_gam,W_rad_retr,W_dis_retr,pstartindex,pstopindex,DSDmidtimes,axparamdict1,image_dir,dis_name,name)
 
-				###     Figure 8a-c from Cao et al.
+				em.one2one(LWC_disd/Zh,LWC_gam/Zh,W_dis_retr/Zh,W_rad_retr/Zh_rad,image_dir,dis_name,name)
+				em.scatters(N.log10(LWC_disd/Zh),N.log10(LWC_gam/Zh),N.log10(W_dis_retr/Zh),N.log10(W_rad_retr/Zh_rad),ZDR_rad,ZDR,DSDmidtimes,image_dir,dis_name,name)
 
-				name = 'D0'
-				ymin = 0.0
-				ymax = 5.0
-				ylabel = 'D0'
-				em.scatters(D_med_disd,D_med_gam,D0_dis_retr,D0_rad_retr,ZDR_rad,ZDR,DSDmidtimes,ymin,ymax,image_dir,dis_name,name,ylabel)
 
-				name = 'W'
-				ymin = -6.0
-				ymax = -1.0
-				ylabel = 'log(W/Zh)'
-				em.scatters(N.log10(LWC_disd/Zh),N.log10(LWC_gam/Zh),N.log10(W_dis_retr/Zh),N.log10(W_rad_retr/Zh_rad),ZDR_rad,ZDR,DSDmidtimes,ymin,ymax,image_dir,dis_name,name,ylabel)
-
-				name = 'R'
-				ymin = -5.0
-				ymax = 0.0
-				ylabel = 'log(R/Zh)'
-				em.scatters(N.log10(intensities/Zh),N.log10(rainrate/Zh),N.log10(R_dis_retr/Zh),N.log10(R_rad_retr/Zh_rad),ZDR_rad,ZDR,DSDmidtimes,ymin,ymax,image_dir,dis_name,name,ylabel)
-
-				name = 'Nt'
-				ymin = -4.0
-				ymax = 2.0
-				ylabel = 'log(Nt/Zh)'
-				em.scatters(N.log10(M0/Zh),N.log10(Ntr_gam/Zh),N.log10(Nt_dis_retr/Zh),N.log10(Nt_rad_retr/Zh_rad),ZDR_rad,ZDR,DSDmidtimes,ymin,ymax,image_dir,dis_name,name,ylabel)
-				
-
+### need to do with all cases				
+# 				fig1=plt.figure(figsize=(8,8))
+# 				ax1=fig1.add_subplot(111)
+# 				ax1.scatter(mu_gam, rainrate, color='m', marker='.', label='Method Moments')
+# 				ax1.scatter(mu_dis_retr, R_dis_retr, color='c', marker='.', label='Dis Retrieval')
+# 				ax1.scatter(mu_rad_retr, R_rad_retr, color='k', marker='.', label='Rad Retrieval')
+# 				ax1.set_xlim(-2.0,15.0)
+# 				ax1.set_yscale('log')
+# 				ax1.set_ylim(10**-1,10**2)
+# 				ax1.set_xlabel('Mu')
+# 				ax1.set_ylabel('RainRate')
+# 				plt.legend(loc='upper left',numpoints=1,ncol=1,fontsize=8)
+# 				plt.savefig(image_dir+'scattergrams/'+dis_name+'_mu_R.png',dpi=200,bbox_inches='tight')
+# 				plt.close(fig1)
+# 				
+# 				fig1=plt.figure(figsize=(8,8))
+# 				ax1=fig1.add_subplot(111)
+# 				ax1.scatter(lamda_gam, rainrate, color='m', marker='.', label='Method Moments')
+# 				ax1.scatter(lam_dis_retr, R_dis_retr, color='c', marker='.', label='Dis Retrieval')
+# 				ax1.scatter(lam_rad_retr, R_rad_retr, color='k', marker='.', label='Rad Retrieval')
+# 				ax1.set_xlim(0.0,15.0)
+# 				ax1.set_yscale('log')
+# 				ax1.set_ylim(10**-1,10**2)
+# 				ax1.set_xlabel('Lamda')
+# 				ax1.set_ylabel('RainRate')
+# 				plt.legend(loc='upper left',numpoints=1,ncol=1,fontsize=8)
+# 				plt.savefig(image_dir+'scattergrams/'+dis_name+'_lam_R.png',dpi=200,bbox_inches='tight')
+# 				plt.close(fig1)
+# 				
+# 				fig1=plt.figure(figsize=(8,8))
+# 				ax1=fig1.add_subplot(111)
+# 				ax1.scatter(D_med_gam, rainrate, color='m', marker='.', label='Method Moments')
+# 				ax1.scatter(D0_dis_retr, R_dis_retr, color='c', marker='.', label='Dis Retrieval')
+# 				ax1.scatter(D0_rad_retr, R_rad_retr, color='k', marker='.', label='Rad Retrieval')
+# 				ax1.set_xlim(0.5,3.)
+# 				ax1.set_yscale('log')
+# 				ax1.set_ylim(10**-1,10**2)
+# 				ax1.set_xlabel('D0')
+# 				ax1.set_ylabel('RainRate')
+# 				plt.legend(loc='upper left',numpoints=1,ncol=1,fontsize=8)
+# 				plt.savefig(image_dir+'scattergrams/'+dis_name+'_D0_R.png',dpi=200,bbox_inches='tight')
+# 				plt.close(fig1)
 
 			#     D0dict[dis_name+'_obs'] = D_med_disd
 			#     D0dict[dis_name+'_mom'] = D_med_gam
@@ -888,9 +927,9 @@ ax1.plot(xx,y3,label='Zhang Relation')
 #ax1.set_ylim(-5.0,20.0)
 ax1.set_xlabel('Slope parameter')
 ax1.set_ylabel('Shape parameter')
-ax1.text(0.05,0.93,'# of Points: %2.1f'%len(lamda), transform=ax1.transAxes, fontsize=8.)
-ax1.text(0.05,0.90,'%2.4f'%poly[2]+'*lam^2 + %2.4f'%poly[1]+'*lam + %2.4f'%poly[0], transform=ax1.transAxes, fontsize=8.)
-plt.legend(loc='upper left',numpoints=1,ncol=3,fontsize=8)
+ax1.text(0.05,0.90,'# of Points: %2.1f'%len(lamda), transform=ax1.transAxes, fontsize=12.)
+ax1.text(0.05,0.85,'%2.4f'%poly[2]+'*lam^2 + %2.4f'%poly[1]+'*lam + %2.4f'%poly[0], transform=ax1.transAxes, fontsize=12.)
+plt.legend(loc='upper left',numpoints=1,ncol=3,fontsize=12.)
 plt.savefig('shape_slope.png',dpi=200,bbox_inches='tight')
 plt.close(fig)
 
@@ -924,19 +963,18 @@ ax1.plot(xx,yy,label='Our Relation')
 ax1.plot(xx,y2,label='Cao Relation')
 ax1.plot(xx,y3,label='Zhang Relation')
 #ax1.plot(xx,yy2,color='b')
-#ax1.set_xlim(0.0,20.0)
-#ax1.set_ylim(-5.0,20.0)
+ax1.set_xlim(0.0,15.0)
+#ax1.set_ylim(-5.0,15.0)
 ax1.set_xlabel('Slope parameter')
 ax1.set_ylabel('Shape parameter')
-ax1.text(0.05,0.93,'# of Points: %2.1f'%len(Lam), transform=ax1.transAxes,fontsize=8.)
-ax1.text(0.05,0.90,'%2.4f'%poly2[2]+'*lam^2 + %2.4f'%poly2[1]+'*lam + %2.4f'%poly2[0], transform=ax1.transAxes, fontsize = 8.)
-plt.legend(loc='upper left',numpoints=1,ncol=3,fontsize=8)
+ax1.text(0.05,0.90,'# of Points: %2.1f'%len(Lam), transform=ax1.transAxes,fontsize=10.)
+ax1.text(0.05,0.85,'%2.4f'%poly2[2]+'*lam^2 + %2.4f'%poly2[1]+'*lam + %2.4f'%poly2[0], transform=ax1.transAxes, fontsize = 10.)
+plt.legend(loc='upper left',numpoints=1,ncol=3,fontsize=10.)
 plt.savefig('shape_slope_15under.png',dpi=200,bbox_inches='tight')
 plt.close(fig)
 		
 print(poly2)
 print len(Lam)
-
 
 
 

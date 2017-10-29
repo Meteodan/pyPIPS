@@ -6,7 +6,7 @@ import numpy as N
 from numpy import ma as ma 
 
 
-def retrieve_DSD(Z,Zdr,d,fa2,fb2,intv):
+def retrieve_DSD(Z,Zdr,d,fa2,fb2,intv,wavelength):
 ###     radar retrieval of DSD from Z(dBZ), and ZDR(dB) measurements
 ###     use constrained-gamma method
     
@@ -31,7 +31,7 @@ def retrieve_DSD(Z,Zdr,d,fa2,fb2,intv):
     epr = 80.205 + 1j*17.167
     K2 = N.abs((epr-1)/(epr+2))**2.
 #    K2 = 0.93       # dielectric constant 
-    wave = 107.0    # radar wavelength in mm
+    wave = wavelength * 10.    # radar wavelength in mm
 #    v = -0.1021+4.932*d-0.9551*d**2.+0.07934*d**3.-0.002362*d**4.      # terminal velocity equation from Brandes et al. 2002
     v = 3.778*d**0.67
     
@@ -73,7 +73,7 @@ def retrieve_DSD(Z,Zdr,d,fa2,fb2,intv):
                 tf = 0
                 lam = 0+n3*dlm      # assign number to lambda (0.1-30)
                 #mum = -0.008794*lam**2.+1.10139*lam-2.2781      # solve for mu using constrained gamma relation from Cao et al. 2008
-                mum = -0.00794*lam**2. + 0.90109*lam-1.15393
+                mum = -0.0324*lam**2. + 1.1931*lam - 1.7023 
                 zh = 0.0
                 zv = 0.0
                 nd = d**mum*N.exp(-lam*d)
@@ -108,7 +108,7 @@ def retrieve_DSD(Z,Zdr,d,fa2,fb2,intv):
                     sigm = 0.163+0.519*dbzdr-0.0247*dbzdr**2.
             else:
                 #mum = -0.008794*lam**2.+1.10139*lam-2.2781      # constrained gamma relation again
-                mum = -0.00794*lam**2. + 0.90109*lam-1.15393
+                mum = -0.0324*lam**2. + 1.1931*lam - 1.7023 
                 zh0 = 0.0
                 tkd = 0.0
                 Dm0 = 0.0

@@ -239,7 +239,7 @@ with open(sys.argv[argindex],'r') as inputfile:
         ralt = N.float(line[3])
     except:
         ralt = None
-    
+
     #print line[4]
     #print N.float(line[4])
     try:
@@ -247,13 +247,13 @@ with open(sys.argv[argindex],'r') as inputfile:
         print "requested elevation angle",el_req
     except:
         el_req = 0.5    # Default to 0.5 degrees
-    
+
     try:
         heading = N.float(line[5])
         print "Radar heading: ",heading
     except:
         heading = None
-    
+
     # Read in min range,max range, min azimuth, and max azimuth for radar plotting (may deprecate this)
     inputfile.readline()
     line = inputfile.readline().strip().split(',')
@@ -300,10 +300,9 @@ if(pc.comp_radar):
         el_tlist = []
         fields_D_tlist = []
         dxy_tlist = []
-        
+
         for index,path,sweeptime in zip(xrange(len(radar_filelist)),radar_filelist,radtimes):
             print "Processing file: "+path
-            
             if(platform == 'NEXRAD'):
                 outfieldnames,fields,range_start,radar_range,azimuth_start_rad,azimuth_rad,rlat_rad,rlon_rad,ralt,el_rad = \
                 radar.readCFRadial(True,el_req,rlat,rlon,ralt,path,sweeptime,fieldnames)
@@ -313,7 +312,6 @@ if(pc.comp_radar):
             elif(platform == 'UMXP'):
                 outfieldnames,fields,range_start,radar_range,azimuth_start_rad,azimuth_rad,rlat_rad,rlon_rad,ralt,el_rad = \
                 radar.readUMXPnc(path,sweeptime,fieldnames,heading=heading)
-
         
             fields_tlist.append(fields)
             range_start_tlist.append(range_start)
@@ -330,7 +328,7 @@ if(pc.comp_radar):
             
             fields_D_tlist.append(fields_D)
             dxy_tlist.append(dxy_list)
-        
+
         fields_tarr = N.array(fields_tlist)
         range_start_tarr = N.array(range_start_tlist)
         range_tarr = N.array(range_tlist)
@@ -441,7 +439,6 @@ if(pc.comp_radar):
                 print dname,Dx,Dy,el_rad/deg2rad,r,h
                 if(dloc == dlocs[0] and plotxmin == -1):
                     plotlims = [Dx-25000.,Dx+25000.,Dy-30000.,Dy+20000.]
-        
 
             figlist,gridlist = radar.plotsweep(radlims,plotlims,outfieldnames,fields_list,masklist,
                         range_start,radar_range,azimuth_start_rad,azimuth_rad,rlat_rad,rlon_rad,ralt,el_rad,False,
@@ -682,147 +679,148 @@ for index,dis_filename,dis_name,starttime,stoptime,centertime,dloc in \
                             radvars[radvarname] = dualpol_rad_var
         
 
+if (pc.plot_retr_PPI):
+    if (not os.path.exists(image_dir+'radar_PPI/')):
+        os.makedirs(image_dir+'radar_PPI/')
 
-if (not os.path.exists(image_dir+'radar_PPI/')):
-    os.makedirs(image_dir+'radar_PPI/')
+    for index,path,sweeptime in zip(xrange(len(radar_filelist)),radar_filelist,radtimes):
 
-for index,path,sweeptime in zip(xrange(len(radar_filelist)),radar_filelist,radtimes):
-
-    fields_arr = fields_tarr[index]
-    fields_D_arr = fields_D_tarr[index]
-    rlat_rad = rlat_tarr[index]
-    rlon_rad = rlon_tarr[index]
-    ralt = ralt_tarr[index]
-    el_rad = el_tarr[index]
-    range_start = range_start_tarr[index]
-    radar_range = range_tarr[index]
-    azimuth_start_rad = azimuth_start_tarr[index]
-    azimuth_rad = azimuth_tarr[index]
-    dxy_arr = dxy_tarr[index]
+        fields_arr = fields_tarr[index]
+        fields_D_arr = fields_D_tarr[index]
+        rlat_rad = rlat_tarr[index]
+        rlon_rad = rlon_tarr[index]
+        ralt = ralt_tarr[index]
+        el_rad = el_tarr[index]
+        range_start = range_start_tarr[index]
+        radar_range = range_tarr[index]
+        azimuth_start_rad = azimuth_start_tarr[index]
+        azimuth_rad = azimuth_tarr[index]
+        dxy_arr = dxy_tarr[index]
     
-    fields_list = list(fields_arr)  # list(array) where array is 2D or higher yields a list of arrays!
-    dxy_list = dxy_arr.tolist()
-    fields_D_list = fields_D_arr.T.tolist()   # array.tolist() yields a nested list for a 2D+ array!
-                                              # Note, need to transpose here because plotsweep expects the first
-                                              # axis to be the field (i.e. dBZ, ZDR, etc.) and the second axis to be 
-                                              # the disdrometer.  What a tangled web I weave!
+        fields_list = list(fields_arr)  # list(array) where array is 2D or higher yields a list of arrays!
+        dxy_list = dxy_arr.tolist()
+        fields_D_list = fields_D_arr.T.tolist()   # array.tolist() yields a nested list for a 2D+ array!
+                                                  # Note, need to transpose here because plotsweep expects the first
+                                                  # axis to be the field (i.e. dBZ, ZDR, etc.) and the second axis to be 
+                                                  # the disdrometer.  What a tangled web I weave!
     
-    # In most of our cases the radar location isn't going to change with time, but in the more
-    # general case, this may not be true (i.e. if we are dealing with a mobile radar).        
-    #print "sweeptime,rlat_rad,rlon_rad,ralt,el_rad",sweeptime.strftime(fmt),rlat_rad,rlon_rad,ralt,el_rad
-    print "Radar sweep time: ",sweeptime.strftime(fmt)
-    # Prepare masks for fields by reflectivity < some threshold
 
-    for field,fieldname,field_D in zip(fields_list,outfieldnames,fields_D_list): # Probably should do this using a dictionary
-        if(fieldname == 'dBZ'):
-            mask = N.where(field > 5.0,False,True)
-            rad_dBZ = field
-            dis_dBZ = field_D
-            print "DBZ DIS", dis_dBZ
-        if(fieldname == 'ZDR'):
-            rad_ZDR = field
-            dis_ZDR = field_D
-            print "ZDR DIS", dis_ZDR
-    print rad_dBZ.shape
-    masklist = [mask,mask,mask,mask,mask,mask]
-    
-    columns = N.arange(0.0,6.0,0.01)
-    R_lookup = pd.read_csv(os.path.join(pyPIPSroot,'lookups/R.csv'),sep=',',header=0,index_col='dBZ')
-    D0_lookup = pd.read_csv(os.path.join(pyPIPSroot,'lookups/D0.csv'),sep=',',header=0,index_col='dBZ')
-    W_lookup = pd.read_csv(os.path.join(pyPIPSroot,'lookups/w.csv'),sep=',',header=0,index_col='dBZ')
-    sigm_lookup = pd.read_csv(os.path.join(pyPIPSroot,'lookups/sigm.csv'),sep=',',header=0,index_col='dBZ')
-    mu_lookup = pd.read_csv(os.path.join(pyPIPSroot,'lookups/mu.csv'),sep=',',header=0,index_col='dBZ')
-    lam_lookup = pd.read_csv(os.path.join(pyPIPSroot,'lookups/lam.csv'),sep=',',header=0,index_col='dBZ')
-    #print list(R_lookup.index)
-    ng = len(rad_ZDR)
-    na = len(rad_ZDR[0])
-    R_retr = []
-    D0_retr= []     #N.empty_like(rad_dBZ)    
-    W_retr = []
-    Sigm_retr = []
-    Mu_retr = []
-    Lam_retr = []
-
-    rad_ZDR = N.where(rad_ZDR >= 5.99, 5.99,rad_ZDR)
-    rad_dBZ = N.where(rad_dBZ >= 69.9, 69.9, rad_dBZ)
-    for n1 in xrange(0,ng):
-        r_retr = []
-        d0_retr = []
-        w_retr = []
-        sigm = []
-        mu = []
-        lam = []
-        for n2 in xrange(0,na):
-            dbz = rad_dBZ[n1,n2]
-            zdr = rad_ZDR[n1,n2]
-            if(dbz >= 0.0 and zdr >= 0.0):
-                x = round(rad_dBZ[n1,n2],1)
-                y = str(round(rad_ZDR[n1,n2],2))
-                R = R_lookup.get_value(x,y)
-                D = D0_lookup.get_value(x,y)
-                W = W_lookup.get_value(x,y)
-                S = sigm_lookup.get_value(x,y)
-                M = mu_lookup.get_value(x,y)
-                L = lam_lookup.get_value(x,y)
-            else:
-                R = N.nan
-                D = N.nan
-                W = N.nan
-                S = N.nan
-                M = N.nan
-                L = N.nan
-            r_retr.append(R)
-            d0_retr.append(D)
-            w_retr.append(W)
-            sigm.append(S)
-            mu.append(M)
-            lam.append(L)
-        R_retr.append(r_retr)
-        D0_retr.append(d0_retr)
-        W_retr.append(w_retr)
-        Sigm_retr.append(sigm)
-        Mu_retr.append(mu)
-        Lam_retr.append(lam)
-    outfieldnames_retr = ['Rain','D0','W','sigm','mu','lam']
-    fields_list_retr = [R_retr,D0_retr,W_retr,Sigm_retr,Mu_retr,Lam_retr]
-    # Compute height and range of radar beam above disdrometer (assumes lambert conformal like plotsweep for now)
-    for dloc,dname,dxy in zip(dlocs,dis_name_list,dxy_list):
-        Dx,Dy = dxy
-        h,r = oban.computeheightrangesingle(Dx,Dy,el_req*deg2rad)
         # In most of our cases the radar location isn't going to change with time, but in the more
-        # general case, this may not be true (i.e. if we are dealing with a mobile radar). 
-        #print "Disdrometer name,x,y,radar elevation angle,slant range, approximate beam height:"
-        #print dname,Dx,Dy,el_rad/deg2rad,r,h
-        if(dloc == dlocs[0] and plotxmin == -1):
-            plotlims = [Dx-25000.,Dx+25000.,Dy-30000.,Dy+20000.] 
-            
-    ng = len(dis_ZDR)
-    r_dis = []
-    d0_dis = []
-    w_dis = []
-    sigm_dis = []
-    mu_dis = []
-    lam_dis = []
-    for n2 in xrange(0,ng):
-        r_retr,d0_retr,mu_retr,lam_retr,n0_retr,nt_retr,w_retr,sigm_retr,dm_retr,n_retr = DR.retrieve_DSD(dis_dBZ[n2],dis_ZDR[n2],d,fa2,fb2,intv)
-        r_dis.extend(r_retr)
-        d0_dis.extend(d0_retr)
-        w_dis.extend(w_retr)
-        sigm_dis.extend(sigm_retr)
-        mu_dis.extend(mu_retr)
-        lam_dis.extend(lam_retr)
-    fields_D_list_retr = [r_dis,d0_dis,w_dis,sigm_dis,mu_dis,lam_dis]
+        # general case, this may not be true (i.e. if we are dealing with a mobile radar).        
+        #print "sweeptime,rlat_rad,rlon_rad,ralt,el_rad",sweeptime.strftime(fmt),rlat_rad,rlon_rad,ralt,el_rad
+        print "Radar sweep time: ",sweeptime.strftime(fmt)
+        # Prepare masks for fields by reflectivity < some threshold
+
+        for field,fieldname,field_D in zip(fields_list,outfieldnames,fields_D_list): # Probably should do this using a dictionary
+            if(fieldname == 'dBZ'):
+                mask = N.where(field > 5.0,False,True)
+                rad_dBZ = field
+                dis_dBZ = field_D
+                print "DBZ DIS", dis_dBZ
+            if(fieldname == 'ZDR'):
+                rad_ZDR = field
+                dis_ZDR = field_D
+                print "ZDR DIS", dis_ZDR
+        print rad_dBZ.shape
+        masklist = [mask,mask,mask,mask,mask,mask]
     
-    figlist,gridlist = radar.plotsweep(radlims,plotlims,outfieldnames_retr,fields_list_retr,masklist,
-                range_start,radar_range,azimuth_start_rad,azimuth_rad,rlat_rad,rlon_rad,ralt,el_rad,False,
-                True,dis_name_list,dxy_list,fields_D_list_retr)
+        columns = N.arange(0.0,6.0,0.01)
+        R_lookup = pd.read_csv(os.path.join(pyPIPSroot,'lookups/R.csv'),sep=',',header=0,index_col='dBZ')
+        D0_lookup = pd.read_csv(os.path.join(pyPIPSroot,'lookups/D0.csv'),sep=',',header=0,index_col='dBZ')
+        W_lookup = pd.read_csv(os.path.join(pyPIPSroot,'lookups/w.csv'),sep=',',header=0,index_col='dBZ')
+        sigm_lookup = pd.read_csv(os.path.join(pyPIPSroot,'lookups/sigm.csv'),sep=',',header=0,index_col='dBZ')
+        mu_lookup = pd.read_csv(os.path.join(pyPIPSroot,'lookups/mu.csv'),sep=',',header=0,index_col='dBZ')
+        lam_lookup = pd.read_csv(os.path.join(pyPIPSroot,'lookups/lam.csv'),sep=',',header=0,index_col='dBZ')
+        #print list(R_lookup.index)
+        ng = len(rad_ZDR)
+        na = len(rad_ZDR[0])
+        R_retr = []
+        D0_retr= []     #N.empty_like(rad_dBZ)    
+        W_retr = []
+        Sigm_retr = []
+        Mu_retr = []
+        Lam_retr = []
+
+        rad_ZDR = N.where(rad_ZDR >= 5.99, 5.99,rad_ZDR)
+        rad_dBZ = N.where(rad_dBZ >= 69.9, 69.9, rad_dBZ)
+        for n1 in xrange(0,ng):
+            r_retr = []
+            d0_retr = []
+            w_retr = []
+            sigm = []
+            mu = []
+            lam = []
+            for n2 in xrange(0,na):
+                dbz = rad_dBZ[n1,n2]
+                zdr = rad_ZDR[n1,n2]
+                if(dbz >= 0.0 and zdr >= 0.0):
+                    x = round(rad_dBZ[n1,n2],1)
+                    y = str(round(rad_ZDR[n1,n2],2))
+                    R = R_lookup.get_value(x,y)
+                    D = D0_lookup.get_value(x,y)
+                    W = W_lookup.get_value(x,y)
+                    S = sigm_lookup.get_value(x,y)
+                    M = mu_lookup.get_value(x,y)
+                    L = lam_lookup.get_value(x,y)
+                else:
+                    R = N.nan
+                    D = N.nan
+                    W = N.nan
+                    S = N.nan
+                    M = N.nan
+                    L = N.nan
+                r_retr.append(R)
+                d0_retr.append(D)
+                w_retr.append(W)
+                sigm.append(S)
+                mu.append(M)
+                lam.append(L)
+            R_retr.append(r_retr)
+            D0_retr.append(d0_retr)
+            W_retr.append(w_retr)
+            Sigm_retr.append(sigm)
+            Mu_retr.append(mu)
+            Lam_retr.append(lam)
+        outfieldnames_retr = ['Rain','D0','W','sigm','mu','lam']
+        fields_list_retr = [R_retr,D0_retr,W_retr,Sigm_retr,Mu_retr,Lam_retr]
+        # Compute height and range of radar beam above disdrometer (assumes lambert conformal like plotsweep for now)
+        for dloc,dname,dxy in zip(dlocs,dis_name_list,dxy_list):
+            Dx,Dy = dxy
+            h,r = oban.computeheightrangesingle(Dx,Dy,el_req*deg2rad)
+            # In most of our cases the radar location isn't going to change with time, but in the more
+            # general case, this may not be true (i.e. if we are dealing with a mobile radar). 
+            #print "Disdrometer name,x,y,radar elevation angle,slant range, approximate beam height:"
+            #print dname,Dx,Dy,el_rad/deg2rad,r,h
+            if(dloc == dlocs[0] and plotxmin == -1):
+                plotlims = [Dx-25000.,Dx+25000.,Dy-30000.,Dy+20000.] 
+            
+        ng = len(dis_ZDR)
+        r_dis = []
+        d0_dis = []
+        w_dis = []
+        sigm_dis = []
+        mu_dis = []
+        lam_dis = []
+        for n2 in xrange(0,ng):
+            r_retr,d0_retr,mu_retr,lam_retr,n0_retr,nt_retr,w_retr,sigm_retr,dm_retr,n_retr = DR.retrieve_DSD(dis_dBZ[n2],dis_ZDR[n2],d,fa2,fb2,intv,wavelength)
+            r_dis.extend(r_retr)
+            d0_dis.extend(d0_retr)
+            w_dis.extend(w_retr)
+            sigm_dis.extend(sigm_retr)
+            mu_dis.extend(mu_retr)
+            lam_dis.extend(lam_retr)
+        fields_D_list_retr = [r_dis,d0_dis,w_dis,sigm_dis,mu_dis,lam_dis]
+    
+        figlist,gridlist = radar.plotsweep(radlims,plotlims,outfieldnames_retr,fields_list_retr,masklist,
+                    range_start,radar_range,azimuth_start_rad,azimuth_rad,rlat_rad,rlon_rad,ralt,el_rad,False,
+                    True,dis_name_list,dxy_list,fields_D_list_retr)
                 
-        # Save figures
-    for fieldname,fig in zip(outfieldnames_retr,figlist):
-        plt.figure(fig.number) 
-        plt.title(sweeptime.strftime(fmt2).strip())
-        plt.savefig(image_dir+'radar_PPI/'+fieldname+sweeptime.strftime(fmt3).strip()+'el'+str(el_req)+'.png',dpi=200,bbox_inches='tight')
-        plt.close(fig)
+            # Save figures
+        for fieldname,fig in zip(outfieldnames_retr,figlist):
+            plt.figure(fig.number) 
+            plt.title(sweeptime.strftime(fmt2).strip())
+            plt.savefig(image_dir+'radar_PPI/'+fieldname+sweeptime.strftime(fmt3).strip()+'el'+str(el_req)+'.png',dpi=200,bbox_inches='tight')
+            plt.close(fig)
         
 ### Original version of running retrieval for entire sweep
 

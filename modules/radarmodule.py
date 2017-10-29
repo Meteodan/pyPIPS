@@ -171,7 +171,7 @@ def getradarfilelist(radar_dir,starttime=None,stoptime=None,platform='NEXRAD',ra
     
     if(platform == 'UMXP' or platform == 'SMARTR'):
         radar_name = platform
-    
+
     radar_filelist = glob.glob(radar_dir+'*.nc')
     
     # Filter only those files containing sweeps closest to the desired elevation angle
@@ -181,9 +181,12 @@ def getradarfilelist(radar_dir,starttime=None,stoptime=None,platform='NEXRAD',ra
         radar_filelist_file = radar_name+'_'+starttime.strftime(fmt3).strip()+'_'+    \
                               stoptime.strftime(fmt3).strip()+'_el'+str(el_req)+'_filelist.txt'
         if(os.path.exists(radar_filelist_file)):
-            radar_filelist = [line.rstrip('\n') for line in open(radar_filelist_file)]
+            print len(radar_filelist)
+            with open(radar_filelist_file) as f:
+                radar_filelist = [line.rstrip('\n') for line in f]
+            
         else:
-            radar_filelist = getncfilelist(platform,radar_filelist,el_req) 
+            radar_filelist = getncfilelist(platform,radar_filelist,el_req,tolerance=0.5) 
             # Save the file list with requested elevation to text file for later retrieval
             radar_filelist_fileout=open(radar_filelist_file,'w')
             for file in radar_filelist:
@@ -1022,7 +1025,7 @@ def plotsweep(radlims,plotlims,fieldnames,fieldlist,masklist,range_start,range,
         if(plotymin == -1):
             plotymin = N.min(yplt)
         if(plotymax == -1):
-            plotymax = N.max(yplt)
+            plotymax = N.max(yplt) 
                 
         if(fieldname == 'Rain'):
             clvllocator = LogLocator(base = 10.0, subs = (0.1,1.0,3.0,5.0,10.0,15.0,20.0,30.0,50.0,75.0,100.0,150.0,200.0))

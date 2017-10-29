@@ -5,7 +5,7 @@ import numpy as N
 from numpy import ma as ma 
 
 
-def retrieve_DSD(Z,Zdr,d,fa2,fb2,intv):
+def retrieve_DSD(Z,Zdr,d,fa2,fb2,intv,wavelength):
 ###     radar retrieval of DSD from Z(dBZ), and ZDR(dB) measurements
 ###     use constrained-gamma method
     
@@ -30,7 +30,7 @@ def retrieve_DSD(Z,Zdr,d,fa2,fb2,intv):
     epr = 80.205 + 1j*17.167
     K2 = N.abs((epr-1)/(epr+2))**2.
 #    K2 = 0.93       # dielectric constant 
-    wave = 107.0    # radar wavelength in mm
+    wave = wavelength * 10.    # radar wavelength in mm
 #    v = -0.1021+4.932*d-0.9551*d**2.+0.07934*d**3.-0.002362*d**4.      # terminal velocity equation from Brandes et al. 2002
     v = 3.778*d**0.67
     
@@ -57,23 +57,24 @@ def retrieve_DSD(Z,Zdr,d,fa2,fb2,intv):
                 Nt = refl * 10.**(-0.0558*(dbzdr**3.) + 0.5388*(dbzdr**2.) - 1.8846*dbzdr + 0.994)
                 rain = refl * 10.**(-0.0307*(dbzdr**3.) + 0.2768*(dbzdr**2.) - 1.1138*dbzdr - 1.9406)
                 sigm = N.nan
-            elif (dbzdr > 3.0):     # ignore zdr values larger than 3dB
-                rain = N.nan
-                D0 = N.nan
-                Dm = N.nan
-                mum = N.nan
-                lam = N.nan
-                N0 = N.nan
-                Nt = N.nan
-                lwc = N.nan
-                sigm = N.nan
+#             elif (dbzdr > 3.0):     # ignore zdr values larger than 3dB
+#                 rain = N.nan
+#                 D0 = N.nan
+#                 Dm = N.nan
+#                 mum = N.nan
+#                 lam = N.nan
+#                 N0 = N.nan
+#                 Nt = N.nan
+#                 lwc = N.nan
+#                 sigm = N.nan
             else:
                 for n3 in xrange(1,mt):     # run through possible lambda values 
                     tf = 0
                     lam = 0+n3*dlm      # assign number to lambda (0.1-30)
-                    #mum = -0.008794*lam**2.+1.10139*lam-2.2781      # solve for mu using constrained gamma relation from Cao et al. 2008
-#                    mum = -0.00793865*lam**2. + 0.90108541*lam-1.15393115
-                    mum =  -0.02201812*lam**2. + 1.05399117*lam-1.45026223
+#                    mum = -0.0201*lam**2.+0.902*lam-1.718      # solve for mu using constrained gamma relation from Cao et al. 2008
+#                    mum = -0.016*lam**2. + 1.213*lam - 1.957    # Zhang et al 2001 relation
+#                    mum =  -0.0264*lam**2. + 1.1073*lam-1.5206  ### all IOP's
+                    mum  = -0.0324*lam**2. + 1.1931*lam - 1.7023 ### all IOP's minus IOP_1A and plus IOP_1B_2 (with 2B)
                     zh = 0.0
                     zv = 0.0
                     nd = d**mum*N.exp(-lam*d)
@@ -107,9 +108,10 @@ def retrieve_DSD(Z,Zdr,d,fa2,fb2,intv):
                         D0 = 0.717+1.479*dbzdr-0.725*dbzdr**2.+0.171*dbzdr**3.
                         sigm = 0.163+0.519*dbzdr-0.0247*dbzdr**2.
                 else:
-                    #mum = -0.008794*lam**2.+1.10139*lam-2.2781      # constrained gamma relation again
-#                    mum = -0.00793865*lam**2. + 0.90108541*lam-1.15393115
-                    mum =  -0.02201812*lam**2. + 1.05399117*lam-1.45026223
+#                    mum = -0.0201*lam**2.+0.902*lam-1.718     # constrained gamma relation again from Cao et al
+#                    mum = -0.016*lam**2. + 1.213*lam - 1.957    # Zhang et al 2001 relation
+#                    mum =  -0.0264*lam**2. + 1.1073*lam-1.5206  ### all IOP's
+                    mum  = -0.0324*lam**2. + 1.1931*lam - 1.7023 ### all IOP's minus IOP_1A and plus IOP_1B_2 (with 2B)
                     zh0 = 0.0
                     tkd = 0.0
                     Dm0 = 0.0

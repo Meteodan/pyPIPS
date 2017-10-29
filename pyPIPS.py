@@ -1078,114 +1078,37 @@ for index,dis_filename,dis_name,starttime,stoptime,centertime,dloc in \
     
         ###     Disdrometer measured     
         Nt_dis_emp,D0_dis_emp,W_dis_emp,R_dis_emp = em.empirical(Zh,ZDR)
-    
-    ###     Add for radar measured Zh and ZDR
-    #     
-    #     name = 'W_rad'
-    #     axparamdict = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[0.0,10.0]],'axeslabels':[pc.timelabel,r'LWC']}
-    #     em.rad_emp_timeseries(LWC_disd,W_rad,W_rad_retr,pstartindex,pstopindex,axparamdict,DSDmidtimes,radvars['radmidtimes'],image_dir,dis_name,name)
-    # 
-    #     name = 'R_rad'
-    #     axparamdict = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[0.0,250.0]],'axeslabels':[pc.timelabel,r'Rain Rate']}
-    #     em.rad_emp_timeseries(intensities,R_rad,R_rad_retr,pstartindex,pstopindex,axparamdict,DSDmidtimes,radvars['radmidtimes'],image_dir,dis_name,name)
-    # 
-    #     name = 'Nt_rad'
-    #     axparamdict = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[0.0,20000.0]],'axeslabels':[pc.timelabel,r'Nt']}
-    #     em.rad_emp_timeseries(M0,Nt_rad,Nt_rad_retr,pstartindex,pstopindex,axparamdict,DSDmidtimes,radvars['radmidtimes'],image_dir,dis_name,name)
-    # 
-    #     name = 'D0_rad'
-    #     axparamdict = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[0.0,5.0]],'axeslabels':[pc.timelabel,r'D0']}
-    #     em.rad_emp_timeseries(D_med_disd,D0_rad,D0_rad_retr,pstartindex,pstopindex,axparamdict,DSDmidtimes,radvars['radmidtimes'],image_dir,dis_name,name)
 
-    ###     add for disdrometer timeseries   
 
-        name = 'D0_dis'
-        axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[0.0,5.0]],'axeslabels':[pc.timelabel,r'D0']}
-    #    em.dis_emp_timeseries(D_med_disd,D0_dis,D_med_gam,D0_dis_retr,pstartindex,pstopindex,DSDmidtimes,axparamdict1,image_dir,dis_name,name)
-        em.retr_timeseries(D_med_disd,D_med_gam,D0_rad_retr,D0_dis_retr,pstartindex,pstopindex,DSDmidtimes,axparamdict1,image_dir,dis_name,name)
-    
-        name = 'Nt_dis'
-        axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[0.0,20000.0]],'axeslabels':[pc.timelabel,r'Nt']}
-    #    em.dis_emp_timeseries(M0,Nt_dis,Ntr_gam,Nt_dis_retr,pstartindex,pstopindex,DSDmidtimes,axparamdict1,image_dir,dis_name,name)
-        em.retr_timeseries(M0,Ntr_gam,Nt_rad_retr,Nt_dis_retr,pstartindex,pstopindex,DSDmidtimes,axparamdict1,image_dir,dis_name,name)
-
-        name = 'W_dis'
-        axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[0.0,10.0]],'axeslabels':[pc.timelabel,r'LWC']}
-    #    em.dis_emp_timeseries(LWC_disd,W_dis,LWC_gam,W_dis_retr,pstartindex,pstopindex,DSDmidtimes,axparamdict1,image_dir,dis_name,name)
-        em.retr_timeseries(LWC_disd,LWC_gam,W_rad_retr,W_dis_retr,pstartindex,pstopindex,DSDmidtimes,axparamdict1,image_dir,dis_name,name)
-    
-        name = 'R_dis'
+#### Timeseries and Figure 9a-c from Cao et al. and Figure 8a-c from Cao et al.
+        name = 'R'
         axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[0.0,250.0]],'axeslabels':[pc.timelabel,r'Rain Rate']}
-    #    em.dis_emp_timeseries(intensities,R_dis,rainrate,R_dis_retr,pstartindex,pstopindex,DSDmidtimes,axparamdict1,image_dir,dis_name,name)
         em.retr_timeseries(intensities,rainrate,R_rad_retr,R_dis_retr,pstartindex,pstopindex,DSDmidtimes,axparamdict1,image_dir,dis_name,name)
 
-
-    ###     Interpolate radar values to match disdrometer times after retrieval    
-    #     D0_rad_retr = pd.Series(N.array(D0_rad_retr), index= radvars['radmidtimes'])
-    #     idx = D0_rad_retr.index.union(DSDmidtimes)
-    #     D0_rad_retr = N.array(D0_rad_retr.reindex(idx).interpolate(method='index').reindex(DSDmidtimes))
-
-    ###     Figure 9a-c from Cao et al. 
-    
-        name = 'R'
-        maxlim = 10**-2.
-        minlim = 10**-4.
-        yscale = 'log'
-        label = 'R/Zh'
-        em.one2one(intensities/Zh,rainrate/Zh,R_dis_retr/Zh,R_rad_retr/Zh_rad,maxlim,minlim,image_dir,dis_name,name,yscale,label)
+        em.one2one(intensities/Zh,rainrate/Zh,R_dis_retr/Zh,R_rad_retr/Zh_rad,image_dir,dis_name,name)
+        em.scatters(N.log10(intensities/Zh),N.log10(rainrate/Zh),N.log10(R_dis_retr/Zh),N.log10(R_rad_retr/Zh_rad),ZDR_rad,ZDR,DSDmidtimes,image_dir,dis_name,name)
 
         name = 'D0'
-        maxlim = 0.0
-        minlim = 6.0
-        yscale = 'linear'
-        label = 'D0'
-        em.one2one(D_med_disd,D_med_gam,D0_dis_retr,D0_rad_retr,maxlim,minlim,image_dir,dis_name,name,yscale,label)
+        axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[0.0,5.0]],'axeslabels':[pc.timelabel,r'D0']}
+        em.retr_timeseries(D_med_disd,D_med_gam,D0_rad_retr,D0_dis_retr,pstartindex,pstopindex,DSDmidtimes,axparamdict1,image_dir,dis_name,name)
+
+        em.one2one(D_med_disd,D_med_gam,D0_dis_retr,D0_rad_retr,image_dir,dis_name,name)
+        em.scatters(D_med_disd,D_med_gam,N.array(D0_dis_retr),D0_rad_retr,ZDR_rad,ZDR,DSDmidtimes,image_dir,dis_name,name)
 
         name = 'Nt'
-        maxlim = 10.0
-        minlim = 10**-3.
-        yscale = 'log'
-        label = 'Nt/Zh'
-        em.one2one(M0/Zh,Ntr_gam/Zh,Nt_dis_retr/Zh,Nt_rad_retr/Zh_rad,maxlim,minlim,image_dir,dis_name,name,yscale,label)
+        axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[0.0,20000.0]],'axeslabels':[pc.timelabel,r'Nt']}
+        em.retr_timeseries(M0,Ntr_gam,Nt_rad_retr,Nt_dis_retr,pstartindex,pstopindex,DSDmidtimes,axparamdict1,image_dir,dis_name,name)
+
+        em.one2one(M0/Zh,Ntr_gam/Zh,Nt_dis_retr/Zh,Nt_rad_retr/Zh_rad,image_dir,dis_name,name)
+        em.scatters(N.log10(M0/Zh),N.log10(Ntr_gam/Zh),N.log10(Nt_dis_retr/Zh),N.log10(Nt_rad_retr/Zh_rad),ZDR_rad,ZDR,DSDmidtimes,image_dir,dis_name,name)
 
         name = 'W'
-        maxlim = 10**-3.
-        minlim = 10**-6.
-        yscale = 'log'
-        label = 'W/Zh'
-        em.one2one(LWC_disd/Zh,LWC_gam/Zh,W_dis_retr/Zh,W_rad_retr/Zh_rad,maxlim,minlim,image_dir,dis_name,name,yscale,label)
+        axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[0.0,10.0]],'axeslabels':[pc.timelabel,r'LWC']}
+        em.retr_timeseries(LWC_disd,LWC_gam,W_rad_retr,W_dis_retr,pstartindex,pstopindex,DSDmidtimes,axparamdict1,image_dir,dis_name,name)
 
-        ###     Figure 8a-c from Cao et al.
+        em.one2one(LWC_disd/Zh,LWC_gam/Zh,W_dis_retr/Zh,W_rad_retr/Zh_rad,image_dir,dis_name,name)
+        em.scatters(N.log10(LWC_disd/Zh),N.log10(LWC_gam/Zh),N.log10(W_dis_retr/Zh),N.log10(W_rad_retr/Zh_rad),ZDR_rad,ZDR,DSDmidtimes,image_dir,dis_name,name)
 
-        name = 'D0'
-        ymin = 0.0
-        ymax = 5.0
-        ylabel = 'D0'
-    #    em.scatters(D_med_disd,D0_dis_emp,D0_dis_retr,D_med_gam,ZDR,ymin,ymax,image_dir,dis_name,name,ylabel)
-        em.scatters(D_med_disd,D_med_gam,D0_dis_retr,D0_rad_retr,ZDR_rad,ZDR,DSDmidtimes,ymin,ymax,image_dir,dis_name,name,ylabel)
-
-        name = 'W'
-        ymin = -6.0
-        ymax = -1.0
-        ylabel = 'log(W/Zh)'
-    #    em.scatters(N.log10(LWC_disd/Zh),N.log10(W_dis_emp/Zh),N.log10(W_dis_retr/Zh),N.log10(LWC_gam/Zh),ZDR,ymin,ymax,image_dir,dis_name,name,ylabel)
-        em.scatters(N.log10(LWC_disd/Zh),N.log10(LWC_gam/Zh),N.log10(W_dis_retr/Zh),N.log10(W_rad_retr/Zh_rad),ZDR_rad,ZDR,DSDmidtimes,ymin,ymax,image_dir,dis_name,name,ylabel)
-
-        name = 'R'
-        ymin = -5.0
-        ymax = 0.0
-        ylabel = 'log(R/Zh)'
-    #    em.scatters(N.log10(intensities/Zh),N.log10(R_dis_emp/Zh),N.log10(R_dis_retr/Zh),N.log10(rainrate/Zh),ZDR,ymin,ymax,image_dir,dis_name,name,ylabel)
-        em.scatters(N.log10(intensities/Zh),N.log10(rainrate/Zh),N.log10(R_dis_retr/Zh),N.log10(R_rad_retr/Zh_rad),ZDR_rad,ZDR,DSDmidtimes,ymin,ymax,image_dir,dis_name,name,ylabel)
-
-        name = 'Nt'
-        ymin = -4.0
-        ymax = 2.0
-        ylabel = 'log(Nt/Zh)'
-    #    em.scatters(N.log10(M0/Zh),N.log10(Nt_dis_emp/Zh),N.log10(Nt_dis_retr/Zh),N.log10(Ntr_gam/Zh),ZDR,ymin,ymax,image_dir,dis_name,name,ylabel)
-        em.scatters(N.log10(M0/Zh),N.log10(Ntr_gam/Zh),N.log10(Nt_dis_retr/Zh),N.log10(Nt_rad_retr/Zh_rad),ZDR_rad,ZDR,DSDmidtimes,ymin,ymax,image_dir,dis_name,name,ylabel)
-
-    
         D0dict[dis_name+'_obs'] = D_med_disd
         ZDRdict[dis_name+'_obs'] = ZDR
         ZDRdict[dis_name+'_rad'] = Zh
