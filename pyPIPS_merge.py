@@ -163,9 +163,9 @@ def readData(PIPS_data_dir):
     # Actually could probably handle this by finding the union of the two lists,
     # but I'm too lazy to mess with that right now.
 
-    nfiles = len(filelist_onesec)
-    if(nfiles != len(filelist_tensec)):
-        sys.exit("Number of files for 1-s and 10-s data do not match! Fix this and run the script again!")
+#     nfiles = len(filelist_onesec)
+#     if(nfiles != len(filelist_tensec)):
+#         sys.exit("Number of files for 1-s and 10-s data do not match! Fix this and run the script again!")
 
     # Start reading in data. Start with the 1-s files
 
@@ -228,7 +228,8 @@ def mergeData(PIPS_data_dir,output_filename):
     # records with the corresponding 1-s record as we go
     numrecords = len(dict_onesec['TIMESTAMP']) # These are the number of lines (records) we
                                                # have to work with.
-
+    numparsivelrecords = len(dict_tensec['TIMESTAMP']) # Number of Parsivel records
+    
     PIPS_outputfile = os.path.join(PIPS_data_dir,output_filename)
 
     with open(PIPS_outputfile, 'w') as f:
@@ -281,38 +282,41 @@ def mergeData(PIPS_data_dir,output_filename):
             except:
                 outputrow['RHDer'] = 'NaN'
         
-            # Next, we need to fill in the Parsivel data for the records that need it.
-            nextParsivelTimeStamp = dict_tensec['TIMESTAMP'][j]
-            # Parse the timestamp for the 10-s records and create a datetime object out of it
-            timestring_tensec = nextParsivelTimeStamp.strip().split()
-            datetime_tensec = parseTimeStamp(timestring_tensec)
-        
-            # To match the Parsivel timestamps with the appropriate 1-s timestamps, we
-            # exploit the fact that the time is always increasing in the dataset (or it should
-            # be; if not, something is wrong! This version of the script doesn't catch such 
-            # errors, but it probably should be added at some point).
-            # We basically loop one at a time through the 1-s records, and try to match the
-            # timestamp up with the next Parsivel timestamp. If we find a match, great! Add it 
-            # to the end of the 1-s record, and then go on to the next Parsivel timestamp. 
-            # This way, we only sweep through both the 1-s and 10-s records once, instead of checking
-            # the entire list of 1-s times for every 10-s record, which saves a lot of 
-            # time (i.e search is of ~O(N) instead of O(N*n) where, N is the number of 1-s records
-            # and n is the number of 10-s records).
-        
-            # This shouldn't really happen if the logger is working correctly, but in case the
-            # First n Parsivel times are *earlier* than the first 1-s time, we have to increment
-            # the j index until we get our first match.
-            while(datetime_onesec > datetime_tensec):
-                j += 1
+            if(j < numparsivelrecords): # Only do the following if we still have Parsivel data
+                # Next, we need to fill in the Parsivel data for the records that need it.
                 nextParsivelTimeStamp = dict_tensec['TIMESTAMP'][j]
+                # Parse the timestamp for the 10-s records and create a datetime object out of it
                 timestring_tensec = nextParsivelTimeStamp.strip().split()
                 datetime_tensec = parseTimeStamp(timestring_tensec)
         
-            if(datetime_onesec == datetime_tensec): # Found a match! Add Parsivel string to end
-                                                    # of 1-s record, and then increment the j counter.
-                outputrow['ParsivelStr'] = dict_tensec['ParsivelStr'][j]
-                j += 1
-            else:   # No match, put a NaN at the end of the 1-s record.
+                # To match the Parsivel timestamps with the appropriate 1-s timestamps, we
+                # exploit the fact that the time is always increasing in the dataset (or it should
+                # be; if not, something is wrong! This version of the script doesn't catch such 
+                # errors, but it probably should be added at some point).
+                # We basically loop one at a time through the 1-s records, and try to match the
+                # timestamp up with the next Parsivel timestamp. If we find a match, great! Add it 
+                # to the end of the 1-s record, and then go on to the next Parsivel timestamp. 
+                # This way, we only sweep through both the 1-s and 10-s records once, instead of checking
+                # the entire list of 1-s times for every 10-s record, which saves a lot of 
+                # time (i.e search is of ~O(N) instead of O(N*n) where, N is the number of 1-s records
+                # and n is the number of 10-s records).
+        
+                # This shouldn't really happen if the logger is working correctly, but in case the
+                # First n Parsivel times are *earlier* than the first 1-s time, we have to increment
+                # the j index until we get our first match.
+                while(datetime_onesec > datetime_tensec):
+                    j += 1
+                    nextParsivelTimeStamp = dict_tensec['TIMESTAMP'][j]
+                    timestring_tensec = nextParsivelTimeStamp.strip().split()
+                    datetime_tensec = parseTimeStamp(timestring_tensec)
+        
+                if(datetime_onesec == datetime_tensec): # Found a match! Add Parsivel string to end
+                                                        # of 1-s record, and then increment the j counter.
+                    outputrow['ParsivelStr'] = dict_tensec['ParsivelStr'][j]
+                    j += 1
+                else:   # No match, put a NaN at the end of the 1-s record.
+                    outputrow['ParsivelStr'] = 'NaN'
+            else:
                 outputrow['ParsivelStr'] = 'NaN'
                 
             #Write the output record

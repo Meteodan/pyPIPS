@@ -799,7 +799,11 @@ def readPIPSloc(filename):
     GPS_lats_masked = ma.masked_where(GPSnonvalid,N.array(GPS_lats))
     GPS_lons_masked = ma.masked_where(GPSnonvalid,N.array(GPS_lons))
     GPS_alts_masked = ma.masked_where(GPSnonvalid,N.array(GPS_alts))
-        
+            
+    GPS_lats_masked = ma.masked_invalid(GPS_lats_masked)
+    GPS_lons_masked = ma.masked_invalid(GPS_lons_masked)
+    GPS_alts_masked = ma.masked_invalid(GPS_alts_masked)
+            
     lat = GPS_lats_masked.mean()
     lon = GPS_lons_masked.mean()
     alt = GPS_alts_masked.mean()
@@ -815,6 +819,65 @@ def readPIPSloc(filename):
     dloc = (lat,lon,alt)
         
     return GPS_lats,GPS_lons,GPS_stats,GPS_alts,dloc
+
+def readPIPStimerange(filename):
+    """Reads in a PIPS data file and returns the range of times within the file"""
+    
+    # Below is adapted from https://stackoverflow.com/questions/3346430/
+    # what-is-the-most-efficient-way-to-get-first-and-last-line-of-a-text-file
+    with open(filename, "rb") as f:
+        first = f.readline()        # Read the first line.
+        second = f.readline()       # Read second line in case we need it (first may be header)
+        f.seek(-2, os.SEEK_END)     # Jump to the second last byte.
+        while f.read(1) != b"\n":   # Until EOL is found...
+            f.seek(-2, os.SEEK_CUR) # ...jump back the read byte plus one more.
+        last = f.readline()         # Read last line.
+    
+    # First time
+    tokens = first.strip().split(',')
+    # Check for header line (older versions don't have it)
+    if(tokens[0] == 'TIMESTAMP'):
+        tokens = second.strip().split(',')
+        
+    timestamp = tokens[0]
+    timestring = timestamp.strip().split()
+    firstdate = timestring[0] # .strip('-')
+    firsttime = timestring[1] # .strip(':')
+    
+    #2016-03-31 22:19:02
+    
+    #Construct datetime object
+    year = N.int(firstdate[:4])
+    month = N.int(firstdate[5:7])
+    day = N.int(firstdate[8:])
+    hour = N.int(firsttime[:2])
+    min = N.int(firsttime[3:5])
+    sec = N.int(firsttime[6:])
+
+    datetimefirst = datetime(year,month,day,hour,min,sec)
+    
+    # Last time
+    tokens = last.strip().split(',')
+    # Check for header line (older versions don't have it)
+        
+    timestamp = tokens[0]
+    timestring = timestamp.strip().split()
+    lastdate = timestring[0] # .strip('-')
+    lasttime = timestring[1] # .strip(':')
+    
+    #2016-03-31 22:19:02
+    
+    #Construct datetime object
+    year = N.int(lastdate[:4])
+    month = N.int(lastdate[5:7])
+    day = N.int(lastdate[8:])
+    hour = N.int(lasttime[:2])
+    min = N.int(lasttime[3:5])
+    sec = N.int(lasttime[6:])
+
+    datetimelast = datetime(year,month,day,hour,min,sec)
+    
+    return (firstdate,firsttime,datetimefirst),(lastdate,lasttime,datetimelast)
 
 def readPIPSstation(filename,fixGPS=True):
     """Reads in just the data from a PIPS file that is needed for a station plot"""
