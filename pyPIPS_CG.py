@@ -115,9 +115,7 @@ else:   # Read in default plotcontrol.py
 indir = '/Users/bozell/pyPIPS_work/input/NEXRAD/'
 for root, dirs, filenames in os.walk(indir):
 	for f in filenames:
-		if f.endswith("IOP1A.txt"):
-			continue
-		elif f.endswith("FMCW.txt"):
+		if f.endswith(".txt"):
 			print f 
 #			k = k+1
 			fieldnames = ['dBZ','ZDR','KDP','RHV','Vr']
@@ -224,7 +222,12 @@ for root, dirs, filenames in os.walk(indir):
 					print "requested elevation angle",el_req
 				except:
 					el_req = 0.5    # Default to 0.5 degrees
-		
+				try:
+					heading = N.float(line[5])
+					print "Radar heading: ",heading
+				except:
+					heading = None
+					
 				# Read in min range,max range, min azimuth, and max azimuth for radar plotting (may deprecate this)
 				inputfile.readline()
 				line = inputfile.readline().strip().split(',')
@@ -278,9 +281,12 @@ for root, dirs, filenames in os.walk(indir):
 						if(platform == 'NEXRAD'):
 							outfieldnames,fields,range_start,radar_range,azimuth_start_rad,azimuth_rad,rlat_rad,rlon_rad,ralt,el_rad = \
 							radar.readCFRadial(True,el_req,rlat,rlon,ralt,path,sweeptime,fieldnames)
-						else:
+						elif(platform == 'SMARTR'):
 							outfieldnames,fields,range_start,radar_range,azimuth_start_rad,azimuth_rad,rlat_rad,rlon_rad,ralt,el_rad = \
-							radar.readUMXPnc(path,sweeptime,fieldnames)
+							radar.readCFRadial(False,el_req,rlat,rlon,ralt,path,sweeptime,fieldnames)
+						elif(platform == 'UMXP'):
+							outfieldnames,fields,range_start,radar_range,azimuth_start_rad,azimuth_rad,rlat_rad,rlon_rad,ralt,el_rad = \
+							radar.readUMXPnc(path,sweeptime,fieldnames,heading=heading)
 
 		
 						fields_tlist.append(fields)
@@ -294,7 +300,7 @@ for root, dirs, filenames in os.walk(indir):
 						el_tlist.append(el_rad)
 			
 						dxy_list,fields_D = dis.rad2DD2(fields,range_start,radar_range,
-						azimuth_start_rad,azimuth_rad,rlat_rad,rlon_rad,ralt,el_rad,dlocs)
+						azimuth_start_rad,azimuth_rad,rlat_rad,rlon_rad,ralt,el_rad,dlocs,average_gates=False,Cressman=True,roi=1000.)
 			
 						fields_D_tlist.append(fields_D)
 						dxy_tlist.append(dxy_list)
@@ -312,14 +318,14 @@ for root, dirs, filenames in os.walk(indir):
 					dxy_tarr = N.array(dxy_tlist)
 		
 					if(pc.saveradopt):
-						raddate_file=open(radar_name+'_'+starttimerad.strftime(fmt3).strip()+'_'+    \
+						raddate_file=open('radar_files/'+radar_name+'_'+starttimerad.strftime(fmt3).strip()+'_'+    \
 										  stoptimerad.strftime(fmt3).strip()+'.txt','w')
 						pickle.dump(radtimes,raddate_file)
 						pickle.dump(radar_filelist,raddate_file)
 						pickle.dump(outfieldnames,raddate_file)
 						raddate_file.close()
 			
-						radnpz_filename = radar_name+'_'+starttimerad.strftime(fmt3).strip()+'_'+    \
+						radnpz_filename = 'radar_files/'+radar_name+'_'+starttimerad.strftime(fmt3).strip()+'_'+    \
 										  stoptimerad.strftime(fmt3).strip()+str(el_req)+'.npz'           
 						savevars={}
 						savevars['fields_tarr'] = fields_tarr
@@ -337,14 +343,14 @@ for root, dirs, filenames in os.walk(indir):
 						N.savez(radnpz_filename,**savevars)
 		
 				if(pc.loadradopt):
-					raddate_file=open(radar_name+'_'+starttimerad.strftime(fmt3).strip()+'_'+        \
+					raddate_file=open('radar_files/'+radar_name+'_'+starttimerad.strftime(fmt3).strip()+'_'+        \
 										  stoptimerad.strftime(fmt3).strip()+'.txt','r')
 					radtimes = pickle.load(raddate_file)
 					radar_filelist = pickle.load(raddate_file)
 					outfieldnames = pickle.load(raddate_file)
 					raddate_file.close()
 		
-					radnpz_filename = radar_name+'_'+starttimerad.strftime(fmt3).strip()+'_'+    \
+					radnpz_filename = 'radar_files/'+radar_name+'_'+starttimerad.strftime(fmt3).strip()+'_'+    \
 										  stoptimerad.strftime(fmt3).strip()+str(el_req)+'.npz'
 					radnpz_file = N.load(radnpz_filename)
 		
@@ -360,7 +366,66 @@ for root, dirs, filenames in os.walk(indir):
 					fields_D_tarr = radnpz_file['fields_D_tarr']
 					dxy_tarr = radnpz_file['dxy_tarr']        
 		
+				if(pc.plot_radar):
+					if (not os.path.exists(image_dir+'radar_PPI/')):
+						os.makedirs(image_dir+'radar_PPI/')
 
+					print "Plotting radar scans with overlaid disdrometer locations and data."
+					for index,path,sweeptime in zip(xrange(len(radar_filelist)),radar_filelist,radtimes):
+
+						fields_arr = fields_tarr[index]
+						fields_D_arr = fields_D_tarr[index]
+						rlat_rad = rlat_tarr[index]
+						rlon_rad = rlon_tarr[index]
+						ralt = ralt_tarr[index]
+						el_rad = el_tarr[index]
+						range_start = range_start_tarr[index]
+						radar_range = range_tarr[index]
+						azimuth_start_rad = azimuth_start_tarr[index]
+						azimuth_rad = azimuth_tarr[index]
+						dxy_arr = dxy_tarr[index]
+
+						fields_list = list(fields_arr)  # list(array) where array is 2D or higher yields a list of arrays!
+						dxy_list = dxy_arr.tolist()
+						fields_D_list = fields_D_arr.T.tolist()   # array.tolist() yields a nested list for a 2D+ array!
+																  # Note, need to transpose here because plotsweep expects the first
+																  # axis to be the field (i.e. dBZ, ZDR, etc.) and the second axis to be 
+																  # the disdrometer.  What a tangled web I weave!
+
+						# In most of our cases the radar location isn't going to change with time, but in the more
+						# general case, this may not be true (i.e. if we are dealing with a mobile radar).        
+						#print "sweeptime,rlat_rad,rlon_rad,ralt,el_rad",sweeptime.strftime(fmt),rlat_rad,rlon_rad,ralt,el_rad
+						print "Radar sweep time: ",sweeptime.strftime(fmt)
+						# Prepare masks for fields by reflectivity < some threshold
+
+						for field,fieldname in zip(fields_list,outfieldnames):   # Probably should do this using a dictionary
+							if(fieldname == 'dBZ'):
+								mask = N.where(field > 5.0,False,True)
+
+						masklist = [mask,mask,mask]
+
+						# Compute height and range of radar beam above disdrometer (assumes lambert conformal like plotsweep for now)
+						for dloc,dname,dxy in zip(dlocs,dis_name_list,dxy_list):
+							Dx,Dy = dxy
+							print Dx,Dy
+							h,r = oban.computeheightrangesingle(Dx,Dy,el_req*deg2rad)
+							# In most of our cases the radar location isn't going to change with time, but in the more
+							# general case, this may not be true (i.e. if we are dealing with a mobile radar). 
+							print "Disdrometer name,x,y,radar elevation angle,slant range, approximate beam height:"
+							print dname,Dx,Dy,el_rad/deg2rad,r,h
+							if(dloc == dlocs[0] and plotxmin == -1):
+								plotlims = [Dx-25000.,Dx+25000.,Dy-30000.,Dy+20000.]
+
+						figlist,gridlist = radar.plotsweep(radlims,plotlims,outfieldnames,fields_list,masklist,
+									range_start,radar_range,azimuth_start_rad,azimuth_rad,rlat_rad,rlon_rad,ralt,el_rad,False,
+									pc.plot_radar,dis_name_list,dxy_list,fields_D_list)
+			
+							# Save figures
+						for fieldname,fig in zip(outfieldnames,figlist):
+							plt.figure(fig.number) 
+							plt.title(sweeptime.strftime(fmt2).strip())
+							plt.savefig(image_dir+'radar_PPI/'+fieldname+sweeptime.strftime(fmt3).strip()+'el'+str(el_req)+'.png',dpi=200,bbox_inches='tight')
+							plt.close(fig)
 
 			# Outer disdrometer (and deployment) loop
 			Mu_retr=[]
@@ -507,6 +572,7 @@ for root, dirs, filenames in os.walk(indir):
 				# Resample the 1-s data corresponding to each integrated DSD (for the given DSD interval)
 				sec_offset = pdatetimesUTC[0].second
 
+
 				dummy,windspds_tDSD,winddirs_tDSD,dummy,dummy,dummy,dummy,dummy,dummy,dummy = dis.resamplewind(datetimesUTC,sec_offset,winddirabss,
 								windspds,DSD_intervalstr,gusts=False,gustintvstr='3S',center=False)
 	
@@ -557,7 +623,6 @@ for root, dirs, filenames in os.walk(indir):
 
 			#        logNc_bin_plot = logNc_bin[:,pstartindex:pstopindex+1] # use for raw distribution
 					logNc_bin_plot = logN_gamDSD[:,pstartindex:pstopindex+1] # use for gamma fit
-
 					disvars = {'min_diameter':min_diameter,'DSDstarttimes':DSDstarttimes,
 							   'DSDmidtimes':DSDmidtimes,'logNc_bin':logNc_bin_plot}
 
@@ -611,8 +676,16 @@ for root, dirs, filenames in os.walk(indir):
 									dualpol_rad_var = fields_D_tarr[:,index,indexrad]
 									if(dualpol_rad_var.size):
 										radvars[radvarname] = dualpol_rad_var
-
-
+					# remove non-precipitation echoes from radar data
+					gc_mask = N.where((radvars['RHV'] < 0.90) & (radvars['dBZ']<15.), True,False)
+					for radvarname in ['ZDR','dBZ','RHV']:
+						radvars[radvarname] = ma.masked_array(radvars[radvarname],mask=gc_mask)
+					# set plot start and end time to the start and end of precipitation
+					rainindex = N.where(disvars['RHV'] > 0.1)
+					raintimes = DSDmidtimes[rainindex]
+					plotstarttime = raintimes[0]
+					plotstoptime = raintimes[len(raintimes)-1]
+					
 					# Prepare axis parameters
 					timelimits = [plotstarttime,plotstoptime]
 					diamlimits = [0.0,9.0]
@@ -734,11 +807,6 @@ for root, dirs, filenames in os.walk(indir):
 							plt.savefig(image_dir+'DSDs/'+dis_name+'/'+dis_name+'_t'+str(t)+'DSD_plot.png',dpi=200,bbox_inches='tight')
 							plt.close(fig1)
 
-
-# 				print DSDmidtimes
-# 
-# 				D_med_disd = ma.masked_where(DSDmidtimes == 736084.87686343 , D_med_disd)
-# 				print D_med_disd
 
 				Zh_Cao = N.arange(20,61,1)
 				Zdr_Cao = 10**((-2.6857*10**-4*Zh_Cao**2)+0.04892*Zh_Cao-1.4287)
@@ -903,8 +971,6 @@ lamda = N.array(lamda)
 mu = N.array(mu)
 lamda = lamda[~N.isnan(lamda)]
 mu = mu[~N.isnan(mu)]	
-N.savetxt('LAMDA.txt',lamda)
-N.savetxt('MU.txt',mu)
 poly=N.polynomial.polynomial.polyfit(lamda,mu,2)
 polynomial=N.polynomial.polynomial.Polynomial(poly)
 

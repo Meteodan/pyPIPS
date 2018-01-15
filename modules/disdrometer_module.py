@@ -1216,7 +1216,6 @@ def calc_DSD(min_size,avg_size,max_size,bin_width,Nc_bin,logNc_bin,rho,qrQC,qr_t
         
     nummask1D = N.where(pcounts < 50., True,False)
     num2D = pcounts.reshape(1,numtimes).repeat(32,0)
-    #num2Db = rainrate.reshape(1,numtimes).repeat(32,0)
     nummask2D = N.where(num2D < 50.,True,False)
     
     D_med_disd = ma.masked_array(D_med_disd,mask=nummask1D)

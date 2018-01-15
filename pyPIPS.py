@@ -338,14 +338,14 @@ if(pc.comp_radar):
         dxy_tarr = N.array(dxy_tlist)
         
         if(pc.saveradopt):
-            raddate_file=open(radar_name+'_'+starttimerad.strftime(fmt3).strip()+'_'+    \
+            raddate_file=open('radar_files/'+radar_name+'_'+starttimerad.strftime(fmt3).strip()+'_'+    \
                               stoptimerad.strftime(fmt3).strip()+'.txt','w')
             pickle.dump(radtimes,raddate_file)
             pickle.dump(radar_filelist,raddate_file)
             pickle.dump(outfieldnames,raddate_file)
             raddate_file.close()
             
-            radnpz_filename = radar_name+'_'+starttimerad.strftime(fmt3).strip()+'_'+    \
+            radnpz_filename = 'radar_files/'+radar_name+'_'+starttimerad.strftime(fmt3).strip()+'_'+    \
                               stoptimerad.strftime(fmt3).strip()+str(el_req)+'.npz'           
             savevars={}
             savevars['fields_tarr'] = fields_tarr
@@ -363,14 +363,14 @@ if(pc.comp_radar):
             N.savez(radnpz_filename,**savevars)
         
     if(pc.loadradopt):
-        raddate_file=open(radar_name+'_'+starttimerad.strftime(fmt3).strip()+'_'+        \
+        raddate_file=open('radar_files/'+radar_name+'_'+starttimerad.strftime(fmt3).strip()+'_'+        \
                               stoptimerad.strftime(fmt3).strip()+'.txt','r')
         radtimes = pickle.load(raddate_file)
         radar_filelist = pickle.load(raddate_file)
         outfieldnames = pickle.load(raddate_file)
         raddate_file.close()
         
-        radnpz_filename = radar_name+'_'+starttimerad.strftime(fmt3).strip()+'_'+    \
+        radnpz_filename = 'radar_files/'+radar_name+'_'+starttimerad.strftime(fmt3).strip()+'_'+    \
                               stoptimerad.strftime(fmt3).strip()+str(el_req)+'.npz'
         radnpz_file = N.load(radnpz_filename)
         
@@ -854,8 +854,16 @@ for index,dis_filename,dis_name,starttime,stoptime,centertime,dloc in \
                         dualpol_rad_var = fields_D_tarr[:,index,indexrad]
                         if(dualpol_rad_var.size):
                             radvars[radvarname] = dualpol_rad_var
-
-
+        # remove non-precipitation echoes from radar data
+        gc_mask = N.where((radvars['RHV'] < 0.90) & (radvars['dBZ']<15.), True,False)
+        for radvarname in ['ZDR','dBZ','RHV']:
+            radvars[radvarname] = ma.masked_array(radvars[radvarname],mask=gc_mask)
+        # set plot start and end time to the start and end of precipitation
+        rainindex = N.where(disvars['RHV'] > 0.1)
+        raintimes = DSDmidtimes[rainindex]
+        plotstarttime = raintimes[0]
+        plotstoptime = raintimes[len(raintimes)-1]
+        
         # Prepare axis parameters
         timelimits = [plotstarttime,plotstoptime]
         diamlimits = [0.0,9.0]

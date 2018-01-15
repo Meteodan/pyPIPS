@@ -249,7 +249,6 @@ def plotDSDmeteograms(dis_name,image_dir,axparams,disvars,radvars):
     for dualpol_dis_varname,dualpol_dis_var in zip(dualpol_dis_varnames,dualpol_dis_vars):
         # See if the variable is also provided in the radvars dictionary
         dualpol_rad_var = radvars.pop(dualpol_dis_varname,N.empty((0)))
-    
         # Create the figure
         fig = plt.figure(figsize=(8,3))
         ax1 = host_subplot(111)

@@ -31,8 +31,8 @@ def retrieve_DSD(Z,Zdr,d,fa2,fb2,intv,wavelength):
     K2 = N.abs((epr-1)/(epr+2))**2.
 #    K2 = 0.93       # dielectric constant 
     wave = wavelength * 10.    # radar wavelength in mm
-#    v = -0.1021+4.932*d-0.9551*d**2.+0.07934*d**3.-0.002362*d**4.      # terminal velocity equation from Brandes et al. 2002
-    v = 3.778*d**0.67
+    v = -0.1021+4.932*d-0.9551*d**2.+0.07934*d**3.-0.002362*d**4.      # terminal velocity equation from Brandes et al. 2002
+#    v = 3.778*d**0.67
     
 ###     solve for lambda from the measured value of Zdr
     for n1 in xrange(0,na):     # running through each value in dBZ and ZDR array
@@ -71,10 +71,12 @@ def retrieve_DSD(Z,Zdr,d,fa2,fb2,intv,wavelength):
                 for n3 in xrange(1,mt):     # run through possible lambda values 
                     tf = 0
                     lam = 0+n3*dlm      # assign number to lambda (0.1-30)
-#                    mum = -0.0201*lam**2.+0.902*lam-1.718      # solve for mu using constrained gamma relation from Cao et al. 2008
+#                    mum = -0.0201*lam**2.+0.902*lam-1.718      # Cao et al. 2008
 #                    mum = -0.016*lam**2. + 1.213*lam - 1.957    # Zhang et al 2001 relation
 #                    mum =  -0.0264*lam**2. + 1.1073*lam-1.5206  ### all IOP's
-                    mum  = -0.0324*lam**2. + 1.1931*lam - 1.7023 ### all IOP's minus IOP_1A and plus IOP_1B_2 (with 2B)
+#                    mum  = -0.0324*lam**2. + 1.1931*lam - 1.7023 ### all IOP's minus IOP_1A and plus IOP_1B_2 (with 2B)
+#                    mum = -0.02014232*lam**2. + 1.05737156*lam - 2.09717828 ### FMCW Relation
+                    mum = -1.53068763 + 0.98197835*lam -0.01650507*lam**2. ### all FMCW, IOP data
                     zh = 0.0
                     zv = 0.0
                     nd = d**mum*N.exp(-lam*d)
@@ -111,7 +113,9 @@ def retrieve_DSD(Z,Zdr,d,fa2,fb2,intv,wavelength):
 #                    mum = -0.0201*lam**2.+0.902*lam-1.718     # constrained gamma relation again from Cao et al
 #                    mum = -0.016*lam**2. + 1.213*lam - 1.957    # Zhang et al 2001 relation
 #                    mum =  -0.0264*lam**2. + 1.1073*lam-1.5206  ### all IOP's
-                    mum  = -0.0324*lam**2. + 1.1931*lam - 1.7023 ### all IOP's minus IOP_1A and plus IOP_1B_2 (with 2B)
+#                    mum  = -0.0324*lam**2. + 1.1931*lam - 1.7023 ### all IOP's minus IOP_1A and plus IOP_1B_2 (with 2B)
+#                    mum = -0.02014232*lam**2. + 1.05737156*lam - 2.09717828 ### FMCW Relation
+                    mum = -1.53068763 + 0.98197835*lam -0.01650507*lam**2. ### all FMCW, IOP data
                     zh0 = 0.0
                     tkd = 0.0
                     Dm0 = 0.0

@@ -178,7 +178,7 @@ def getradarfilelist(radar_dir,starttime=None,stoptime=None,platform='NEXRAD',ra
     # Only need to do this for UMXP or SMARTR, which has separate files for each elevation
     if(platform == 'UMXP' or platform == 'SMARTR'):
         # First check to see if text file containing file list of requested elevation already exists (saves loads of time)
-        radar_filelist_file = radar_name+'_'+starttime.strftime(fmt3).strip()+'_'+    \
+        radar_filelist_file = 'radar_files/'+radar_name+'_'+starttime.strftime(fmt3).strip()+'_'+    \
                               stoptime.strftime(fmt3).strip()+'_el'+str(el_req)+'_filelist.txt'
         if(os.path.exists(radar_filelist_file)):
             print len(radar_filelist)
@@ -651,6 +651,7 @@ def getncfilelist(platform,filelist,el_req,tolerance=0.5):
         elevations.append(sweepfile_netcdf.variables[elvarname][0])
     
     elevations = N.array(elevations)
+    print elevations
     diffs = N.abs(elevations-el_req)
     indices = N.where(diffs < tolerance)[0].tolist()
     newfilelist = [filelist[i] for i in indices]
