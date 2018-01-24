@@ -54,7 +54,7 @@ Dm_dis=[]
 Dm_rad=[]
 R_list = []
 D0_list = []
-Nc_bin_list = []
+Nc_bin_list = N.empty((0,32))
 
 	
 deg2rad = N.pi/180.
@@ -80,6 +80,10 @@ bin_width = max_diameter-min_diameter
 avg_diameter = dis.avg_diameter
 fall_bins = dis.fall_bins
 min_fall_bins = dis.min_fall_bins
+
+
+outer_image_dir = '/Volumes/depot/dawson29/data/VORTEXSE/obsdata/jess_images/CG/'
+
 
 #-----------------------------------------------------------------------
 #
@@ -188,7 +192,7 @@ for directory in directories:
 					ralt = None
 					el_req = 0.5
 			
-					image_dir = '/Users/bozell/VORTEXSE/new/'+radar_date+'/'
+					image_dir = '/Users/bozell/VORTEXSE/testing_cc/'+radar_date+'/'
 					radar_dir = '/Users/bozell/nexrad/PIPS2A_FMCW/'+radar_date+'/CFRadial/'
 					scattdir = '/Users/bozell/pyPIPS/tmatrix/S-band/'
 			
@@ -596,13 +600,15 @@ for directory in directories:
 						# using the method of moments, after Zhang et al. 2008 and Tokay and Short 1996
 	
 
-						synthbins,exp_DSD,gam_DSD,dis_DSD = dis.calc_DSD(min_diameter,avg_diameter,
-										max_diameter,bin_width,Nc_bin,logNc_bin,rho_tDSD,pc.qrQC,pc.qr_thresh,pcounts2)
+						synthbins,exp_DSD,gam_DSD,tmf_DSD,dis_DSD = dis.calc_DSD(min_diameter,avg_diameter,
+										max_diameter,bin_width,Nc_bin,logNc_bin,rho_tDSD,pc.qrQC,pc.qr_thresh,pcounts2,intensities)
+						intensities = ma.masked_where(intensities > 100., intensities)
 
 						# Unpack needed values from returned tuples
 
 						N_expDSD,N0_exp,lamda_exp,mu_exp,qr_exp,Ntr_exp,refl_DSD_exp,D_med_exp,D_m_exp = exp_DSD
 						N_gamDSD,N0_gam,lamda_gam,mu_gam,qr_gam,Ntr_gam,refl_DSD_gam,D_med_gam,D_m_gam,LWC_gam,rainrate = gam_DSD
+						N_tmfDSD,N0_tmf,lamda_tmf,mu_tmf = tmf_DSD
 						Nc_bin,logNc_bin,D_med_disd,D_m_disd,D_mv_disd,D_ref_disd,QR_disd,refl_disd,LWC_disd,M0 = dis_DSD
 						N_gamDSD = N_gamDSD.T
 						logN_gamDSD = ma.log10(N_gamDSD/1000.) # Get to log(m^-3 mm^-1)
@@ -677,7 +683,6 @@ for directory in directories:
 								for radvarname in ['ZDR','KDP','RHV']:
 									if radvarname in outfieldnames:
 										indexrad = outfieldnames.index(radvarname)
-										print indexrad
 										dualpol_rad_var = fields_D_tarr[:,0,indexrad]
 										if(dualpol_rad_var.size):
 											radvars[radvarname] = dualpol_rad_var
@@ -690,6 +695,10 @@ for directory in directories:
 						raintimes = DSDmidtimes[rainindex]
 						plotstarttime = raintimes[0]
 						plotstoptime = raintimes[len(raintimes)-1]
+						
+						rstartindex = rainindex[0][0]
+						rstopindex = rainindex[0][-1]-1
+
 						
 						# Prepare axis parameters
 						timelimits = [plotstarttime,plotstoptime]
@@ -810,6 +819,7 @@ for directory in directories:
 					Dm_rad_retr = ma.masked_where(lam_rad_retr > 20., Dm_rad_retr)
 					N_rad_retr = ma.masked_where(lam_rad_retr > 20., N_rad_retr)
 					lam_rad_retr = ma.masked_where(lam_rad_retr > 20., lam_rad_retr)
+					
 
 					sigm_dis_obs = N.sqrt((mu_gam + 4.)/(lamda_gam**2.)) ### equation for spectrum width from Vivekanandan et al. 2004
 					sigm_obs.extend(sigm_dis_obs)
@@ -821,15 +831,16 @@ for directory in directories:
 			
 					name = 'mu_retr'
 					axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],None],'axeslabels':[pc.timelabel,r'mu']}
-					em.dis_retr_timeseries(mu_gam,mu_rad_retr,mu_dis_retr,pstartindex,pstopindex,DSDmidtimes,axparamdict1,image_dir,dis_name,name)
-
+					em.dis_retr_timeseries(mu_gam[rainindex],mu_rad_retr[rainindex],mu_dis_retr[rainindex],pstartindex,pstopindex,raintimes,axparamdict1,image_dir,dis_name,name)
+					
+					
 					name = 'lam_retr'
 					axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],None],'axeslabels':[pc.timelabel,r'lambda']}
-					em.dis_retr_timeseries(lamda_gam,lam_rad_retr,lam_dis_retr,pstartindex,pstopindex,DSDmidtimes,axparamdict1,image_dir,dis_name,name)
-
+					em.dis_retr_timeseries(lamda_gam[rainindex],lam_rad_retr[rainindex],lam_dis_retr[rainindex],pstartindex,pstopindex,raintimes,axparamdict1,image_dir,dis_name,name)
+					
 					name = 'dBZ'
 					axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],None],'axeslabels':[pc.timelabel,r'dBZ']}
-					em.zh_zdr_timeseries(dBZ_rad,dBZ,pstartindex,pstopindex,DSDmidtimes,axparamdict1,image_dir,dis_name,name)
+					em.zh_zdr_timeseries(dBZ_rad[rainindex],dBZ[rainindex],pstartindex,pstopindex,raintimes,axparamdict1,image_dir,dis_name,name)
 			
 			
 					name = 'ZDR'
@@ -842,6 +853,9 @@ for directory in directories:
 
 					N_retr2=N.array(N_rad_retr)
 					N_retr2=N_retr2.T
+					
+					N_tmfDSD=N.array(N_tmfDSD)
+					N_tmfDSD=N_tmfDSD.T
 # 
 	
 					if(pc.plot_DSDs):
@@ -856,6 +870,7 @@ for directory in directories:
 								ax1.bar(min_diameter,Nc_bin[:,t]*1000.0,max_diameter-min_diameter,log=True,color='tan')
 								ax1.plot(synthbins,N_expDSD[t],lw=2,label='Exp')
 								ax1.plot(avg_diameter,N_gamDSD[:,t],lw=2,label='Gamma')
+								ax1.plot(avg_diameter,N_tmfDSD[:,t],lw=2,label='TMF')
 								ax1.plot(d,N_retr[:,t]*1000.,lw=2,label='Dis Retr')
 								ax1.plot(d,N_retr2[:,t]*1000.,lw=2,label='Rad Retr')
 								ax1.set_yscale('log')
@@ -898,7 +913,7 @@ for directory in directories:
 			
 		####	 Timeseries and Figure 9a-c from Cao et al. and Figure 8a-c from Cao et al.
 					name = 'R'
-					axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[0.0,250.0]],'axeslabels':[pc.timelabel,r'Rain Rate']}
+					axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[10**0.,10**2.25]],'axeslabels':[pc.timelabel,r'Rain Rate']}
 					em.retr_timeseries(intensities,rainrate,R_rad_retr,R_dis_retr,pstartindex,pstopindex,DSDmidtimes,axparamdict1,image_dir,dis_name,name)
 
 					em.one2one(intensities/Zh,rainrate/Zh,R_dis_retr/Zh,R_rad_retr/Zh_rad,image_dir,dis_name,name)
@@ -912,22 +927,24 @@ for directory in directories:
 					em.scatters(D_med_disd,D_med_gam,N.array(D0_dis_retr),D0_rad_retr,ZDR_rad,ZDR,DSDmidtimes,image_dir,dis_name,name)
 
 					name = 'Nt'
-					axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[0.0,20000.0]],'axeslabels':[pc.timelabel,r'Nt']}
+					axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[10**1.,10**5.]],'axeslabels':[pc.timelabel,r'Nt']}
 					em.retr_timeseries(M0,Ntr_gam,Nt_rad_retr,Nt_dis_retr,pstartindex,pstopindex,DSDmidtimes,axparamdict1,image_dir,dis_name,name)
 
 					em.one2one(M0/Zh,Ntr_gam/Zh,Nt_dis_retr/Zh,Nt_rad_retr/Zh_rad,image_dir,dis_name,name)
 					em.scatters(N.log10(M0/Zh),N.log10(Ntr_gam/Zh),N.log10(Nt_dis_retr/Zh),N.log10(Nt_rad_retr/Zh_rad),ZDR_rad,ZDR,DSDmidtimes,image_dir,dis_name,name)
 
 					name = 'W'
-					axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[0.0,10.0]],'axeslabels':[pc.timelabel,r'LWC']}
+					axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[0.0,8.0]],'axeslabels':[pc.timelabel,r'LWC']}
 					em.retr_timeseries(LWC_disd,LWC_gam,W_rad_retr,W_dis_retr,pstartindex,pstopindex,DSDmidtimes,axparamdict1,image_dir,dis_name,name)
 
 					em.one2one(LWC_disd/Zh,LWC_gam/Zh,W_dis_retr/Zh,W_rad_retr/Zh_rad,image_dir,dis_name,name)
 					em.scatters(N.log10(LWC_disd/Zh),N.log10(LWC_gam/Zh),N.log10(W_dis_retr/Zh),N.log10(W_rad_retr/Zh_rad),ZDR_rad,ZDR,DSDmidtimes,image_dir,dis_name,name)
 
-					R_list.append(rainrate)
-					D0_list.append(D_med_disd)
-					Nc_bin_list.append(Nc_bin)		  
+					R_list.extend(rainrate)
+					D0_list.extend(D_med_disd)
+					Nc_bin = Nc_bin.T
+					for t in range(N.size(Nc_bin,axis=0)): 
+						Nc_bin_list = N.append(Nc_bin_list, [Nc_bin[t,:]], axis = 0)
 
 
 ### not using right now...ignore...need to do with all cases				
@@ -1033,168 +1050,166 @@ for directory in directories:
 # 			plt.close(fig1) 
 
 
-## Plot the lambda-mu relation and fit with 2nd order polynomial 
-print len(lamda)
-## Lam = []
-## Mu = []
-## for n1 in xrange(0,len(lamda)):
-## 	lam = lamda[n1]
-## 	if(lam > 0.0):
-## 		Lam.append(lamda[n1])
-## 		Mu.append(mu[n1])
-lamda = N.array(lamda)
-mu = N.array(mu)
-lamda = lamda[~N.isnan(lamda)]
-mu = mu[~N.isnan(mu)]	
-poly=N.polynomial.polynomial.polyfit(lamda,mu,2)
-polynomial=N.polynomial.polynomial.Polynomial(poly)
- 
-xx = N.linspace(0.0, 30.0)
-yy = polynomial(xx)
-y2 = -0.0201*xx**2. + 0.902*xx - 1.718
-y3 = -0.016*xx**2. + 1.213*xx - 1.957
-#yy2 = polynomial2(xx)
-		
-fig=plt.figure(figsize=(8,8))
-ax1=fig.add_subplot(111)
-plt.title('Shape-Slope Relation')
-ax1.scatter(lamda,mu, color='k', marker='.')
-ax1.plot(xx,yy,label='Our Relation')
-ax1.plot(xx,y2,label='Cao Relation')
-ax1.plot(xx,y3,label='Zhang Relation')
-#ax1.plot(xx,yy2,color='b')
-#ax1.set_xlim(0.0,20.0)
-#ax1.set_ylim(-5.0,20.0)
-ax1.set_xlabel('Slope parameter')
-ax1.set_ylabel('Shape parameter')
-ax1.text(0.05,0.90,'# of Points: %2.1f'%len(lamda), transform=ax1.transAxes, fontsize=12.)
-ax1.text(0.05,0.85,'%2.4f'%poly[2]+'*lam^2 + %2.4f'%poly[1]+'*lam + %2.4f'%poly[0], transform=ax1.transAxes, fontsize=12.)
-plt.legend(loc='upper left',numpoints=1,ncol=3,fontsize=12.)
-plt.savefig('shape_slope.png',dpi=200,bbox_inches='tight')
-plt.close(fig)
-
-print(poly)
-print len(lamda)
+# ## Plot the lambda-mu relation and fit with 2nd order polynomial 
+# print len(lamda)
+# ## Lam = []
+# ## Mu = []
+# ## for n1 in xrange(0,len(lamda)):
+# ## 	lam = lamda[n1]
+# ## 	if(lam > 0.0):
+# ## 		Lam.append(lamda[n1])
+# ## 		Mu.append(mu[n1])
+# lamda = N.array(lamda)
+# mu = N.array(mu)
+# lamda = lamda[~N.isnan(lamda)]
+# mu = mu[~N.isnan(mu)]	
+# poly=N.polynomial.polynomial.polyfit(lamda,mu,2)
+# polynomial=N.polynomial.polynomial.Polynomial(poly)
+#  
+# xx = N.linspace(0.0, 30.0)
+# yy = polynomial(xx)
+# y2 = -0.0201*xx**2. + 0.902*xx - 1.718
+# y3 = -0.016*xx**2. + 1.213*xx - 1.957
+# 		
+# fig=plt.figure(figsize=(8,8))
+# ax1=fig.add_subplot(111)
+# plt.title('Shape-Slope Relation')
+# ax1.scatter(lamda,mu, color='k', marker='.')
+# ax1.plot(xx,yy,label='Our Relation')
+# ax1.plot(xx,y2,label='Cao Relation')
+# ax1.plot(xx,y3,label='Zhang Relation')
+# #ax1.set_xlim(0.0,20.0)
+# #ax1.set_ylim(-5.0,20.0)
+# ax1.set_xlabel('Slope parameter')
+# ax1.set_ylabel('Shape parameter')
+# ax1.text(0.05,0.90,'# of Points: %2.1f'%len(lamda), transform=ax1.transAxes, fontsize=12.)
+# ax1.text(0.05,0.85,'%2.4f'%poly[2]+'*lam^2 + %2.4f'%poly[1]+'*lam + %2.4f'%poly[0], transform=ax1.transAxes, fontsize=12.)
+# plt.legend(loc='upper left',numpoints=1,ncol=3,fontsize=12.)
+# plt.savefig(outer_image_dir+'shape_slope.png',dpi=200,bbox_inches='tight')
+# plt.close(fig)
 # 
-Lam = []
-Mu = []
-
-for n1 in xrange(0,len(lamda)):
-	lam = lamda[n1]
-	if(lam < 20.):
-		Lam.append(lamda[n1])
-		Mu.append(mu[n1])
-
-poly2=N.polynomial.polynomial.polyfit(Lam,Mu,2)
-polynomial2=N.polynomial.polynomial.Polynomial(poly2)
-
-xx = N.linspace(0.0, 30.0)
-yy = polynomial2(xx)
-y2 = -0.0201*xx**2. + 0.902*xx - 1.718
-y3 = -0.016*xx**2. + 1.213*xx - 1.957
-#yy2 = polynomial2(xx)
-		
-fig=plt.figure(figsize=(8,8))
-ax1=fig.add_subplot(111)
-plt.title('Shape-Slope Relation with Slope < 20')
-ax1.scatter(Lam,Mu, color='k', marker='.')
-ax1.plot(xx,yy,label='Our Relation')
-ax1.plot(xx,y2,label='Cao Relation')
-ax1.plot(xx,y3,label='Zhang Relation')
-#ax1.plot(xx,yy2,color='b')
-ax1.set_xlim(0.0,15.0)
-#ax1.set_ylim(-5.0,15.0)
-ax1.set_xlabel('Slope parameter')
-ax1.set_ylabel('Shape parameter')
-ax1.text(0.05,0.90,'# of Points: %2.1f'%len(Lam), transform=ax1.transAxes,fontsize=10.)
-ax1.text(0.05,0.85,'%2.4f'%poly2[2]+'*lam^2 + %2.4f'%poly2[1]+'*lam + %2.4f'%poly2[0], transform=ax1.transAxes, fontsize = 10.)
-plt.legend(loc='upper left',numpoints=1,ncol=3,fontsize=10.)
-plt.savefig('shape_slope_20under.png',dpi=200,bbox_inches='tight')
-plt.close(fig)
-		
-print(poly2)
-print len(Lam)
-
-Dm_obs = N.array(Dm_obs)
-Dm_rad = N.array(Dm_rad)
-Dm_dis = N.array(Dm_dis)
-sigm_obs = N.array(sigm_obs)
-sigm_rad = N.array(sigm_rad)
-sigm_dis = N.array(sigm_dis)
-
-### additional figures from Cao et al 2008
-fig=plt.figure(figsize=(8,8))
-ax1=fig.add_subplot(111)
-plt.title('D_m-Sigm_m Relation with Slope < 20')
-ax1.scatter(Dm_obs,sigm_obs, color='k', marker='.')
-ax1.plot(Dm_rad,sigm_rad,label='Radar Retr')
-ax1.set_xlim(0.0,5.0)
-ax1.set_ylim(0.0,5.0)
-ax1.set_xlabel('Dm , mm')
-ax1.set_ylabel('sigma m , mm')
-plt.legend(loc='upper left',numpoints=1,ncol=1,fontsize=10.)
-plt.savefig('dm_sigma.png',dpi=200,bbox_inches='tight')
-plt.close(fig)
-
-fig1=plt.figure(figsize=(8,8))
-ax1=fig1.add_subplot(111)
-one_x = N.linspace(0.0,6.0)
-one_y = one_x
-bias_dis = 100 * ((N.nansum(sigm_dis-sigm_obs))/N.nansum(sigm_obs))
-bias_rad = 100 * ((N.nansum(sigm_rad-sigm_obs))/N.nansum(sigm_obs))
-cc_dis = pd.DataFrame({'dis': sigm_dis, 'obs': sigm_obs}).corr()
-cc_rad = pd.DataFrame({'rad': sigm_rad, 'obs': sigm_obs}).corr()
-ax1.scatter(sigm_obs, sigm_rad, color='g', marker='.', label='Rad Retrieval')
-ax1.scatter(sigm_obs, sigm_dis, color='c', marker='.', label='Dis Retreival')
-ax1.set_xlim(0.0,4.0)
-ax1.set_ylim(0.0,4.0)
-ax1.set_xlabel('Observed Sigma')
-ax1.set_ylabel('Calculated Sigma')
-ax1.plot(one_x,one_y,lw=2,color='k')
-ax1.text(0.6,0.20,'Dis Retr. Bias =%2.2f'%bias_dis+'%',transform=ax1.transAxes)
-ax1.text(0.6,0.15,'Rad Retr. Bias =%2.2f'%bias_rad+'%',transform=ax1.transAxes)
-ax1.text(0.6,0.10,'Dis Retr. Corr Coeff =%2.3f'%cc_dis.ix[0,1],transform=ax1.transAxes)
-ax1.text(0.6,0.05,'Rad Retr. Corr Coeff =%2.3f'%cc_rad.ix[0,1],transform=ax1.transAxes)
-plt.legend(loc='upper left',numpoints=1,ncol=1,fontsize=12.)
-plt.savefig('sigma_one2one.png',dpi=200,bbox_inches='tight')
-plt.close(fig1)
-
-fig1=plt.figure(figsize=(8,8))
-ax1=fig1.add_subplot(111)
-one_x = N.linspace(0.0,6.0)
-one_y = one_x
-bias_dis = 100 * ((N.nansum(Dm_dis-Dm_obs))/N.nansum(Dm_obs))
-bias_rad = 100 * ((N.nansum(Dm_rad-Dm_obs))/N.nansum(Dm_obs))
-cc_dis = pd.DataFrame({'dis': Dm_dis, 'obs': Dm_obs}).corr()
-cc_rad = pd.DataFrame({'rad': Dm_rad, 'obs': Dm_obs}).corr()
-ax1.scatter(Dm_obs, Dm_rad, color='g', marker='.', label='Rad Retrieval')
-ax1.scatter(Dm_obs, Dm_dis, color='c', marker='.', label='Dis Retreival')
-ax1.set_xlim(0.0,6.0)
-ax1.set_ylim(0.0,6.0)
-ax1.set_xlabel('Observed Dm')
-ax1.set_ylabel('Calculated Dm')
-ax1.plot(one_x,one_y,lw=2,color='k')
-ax1.text(0.6,0.20,'Dis Retr. Bias =%2.2f'%bias_dis+'%',transform=ax1.transAxes)
-ax1.text(0.6,0.15,'Rad Retr. Bias =%2.2f'%bias_rad+'%',transform=ax1.transAxes)
-ax1.text(0.6,0.10,'Dis Retr. Corr Coeff =%2.3f'%cc_dis.ix[0,1],transform=ax1.transAxes)
-ax1.text(0.6,0.05,'Rad Retr. Corr Coeff =%2.3f'%cc_rad.ix[0,1],transform=ax1.transAxes)
-plt.legend(loc='upper left',numpoints=1,ncol=1,fontsize=12.)
-plt.savefig('Dm_one2one.png',dpi=200,bbox_inches='tight')
-plt.close(fig1)
-
-
-###this is not working right now ...Nc_bin_list is not in the right format or something, need to figure out for SATP.py
-R_tarr = N.array(R_list)
-D0_tarr = N.array(D0_list)
-Nc_bin_tarr = N.zeros_like(Nc_bin_list)
-print Nc_bin_tarr.shape
-Nc_bin_tarr = N.array(Nc_bin_list)
-
-radnpz_filename = 'SATP_all.npz'
-savevars={}
-savevars['Nc_bin'] = Nc_bin_tarr
-savevars['R'] = R_tarr
-savevars['D0'] = D0_tarr
-N.savez(radnpz_filename,**savevars)
-
-
+# print(poly)
+# print len(lamda)
+# # 
+# Lam = []
+# Mu = []
+# 
+# for n1 in xrange(0,len(lamda)):
+# 	lam = lamda[n1]
+# 	if(lam < 20.):
+# 		Lam.append(lamda[n1])
+# 		Mu.append(mu[n1])
+# 
+# poly2=N.polynomial.polynomial.polyfit(Lam,Mu,2)
+# polynomial2=N.polynomial.polynomial.Polynomial(poly2)
+# 
+# xx = N.linspace(0.0, 30.0)
+# yy = polynomial2(xx)
+# y2 = -0.0201*xx**2. + 0.902*xx - 1.718
+# y3 = -0.016*xx**2. + 1.213*xx - 1.957
+# #yy2 = polynomial2(xx)
+# 		
+# fig=plt.figure(figsize=(8,8))
+# ax1=fig.add_subplot(111)
+# plt.title('Shape-Slope Relation with Slope < 20')
+# ax1.scatter(Lam,Mu, color='k', marker='.')
+# ax1.plot(xx,yy,label='Our Relation')
+# ax1.plot(xx,y2,label='Cao Relation')
+# ax1.plot(xx,y3,label='Zhang Relation')
+# #ax1.plot(xx,yy2,color='b')
+# ax1.set_xlim(0.0,30.0)
+# #ax1.set_ylim(-5.0,15.0)
+# ax1.set_xlabel('Slope parameter')
+# ax1.set_ylabel('Shape parameter')
+# ax1.text(0.05,0.90,'# of Points: %2.1f'%len(Lam), transform=ax1.transAxes,fontsize=10.)
+# ax1.text(0.05,0.85,'%2.4f'%poly2[2]+'*lam^2 + %2.4f'%poly2[1]+'*lam + %2.4f'%poly2[0], transform=ax1.transAxes, fontsize = 10.)
+# plt.legend(loc='upper left',numpoints=1,ncol=3,fontsize=10.)
+# plt.savefig(outer_image_dir+'shape_slope_20under.png',dpi=200,bbox_inches='tight')
+# plt.close(fig)
+# 		
+# print(poly2)
+# print len(Lam)
+# 
+# Dm_obs = N.array(Dm_obs)
+# Dm_rad = N.array(Dm_rad)
+# Dm_dis = N.array(Dm_dis)
+# sigm_obs = N.array(sigm_obs)
+# sigm_rad = N.array(sigm_rad)
+# sigm_dis = N.array(sigm_dis)
+# 
+# ### additional figures from Cao et al 2008
+# fig=plt.figure(figsize=(8,8))
+# ax1=fig.add_subplot(111)
+# plt.title('D_m-Sigm_m Relation with Slope < 20')
+# ax1.scatter(Dm_obs,sigm_obs, color='k', marker='.',label='Dis Obs')
+# ax1.plot(Dm_rad,sigm_rad, color='b', marker = '.',label='Radar Retr')
+# #ax1.set_xlim(0.0,5.0)
+# #ax1.set_ylim(0.0,5.0)
+# ax1.set_xlabel('Dm , mm')
+# ax1.set_ylabel('sigma m , mm')
+# plt.legend(loc='upper left',numpoints=1,ncol=1,fontsize=10.)
+# plt.savefig(outer_image_dir+'dm_sigma.png',dpi=200,bbox_inches='tight')
+# plt.close(fig)
+# 
+# fig1=plt.figure(figsize=(8,8))
+# ax1=fig1.add_subplot(111)
+# one_x = N.linspace(0.0,6.0)
+# one_y = one_x
+# bias_dis = 100 * ((N.nansum(sigm_dis-sigm_obs))/N.nansum(sigm_obs))
+# bias_rad = 100 * ((N.nansum(sigm_rad-sigm_obs))/N.nansum(sigm_obs))
+# cc_dis = pd.DataFrame({'dis': sigm_dis, 'obs': sigm_obs}).corr()
+# cc_rad = pd.DataFrame({'rad': sigm_rad, 'obs': sigm_obs}).corr()
+# ax1.scatter(sigm_obs, sigm_rad, color='g', marker='.', label='Rad Retrieval')
+# ax1.scatter(sigm_obs, sigm_dis, color='c', marker='.', label='Dis Retreival')
+# #ax1.set_xlim(0.0,4.0)
+# #ax1.set_ylim(0.0,4.0)
+# ax1.set_xlabel('Observed Sigma')
+# ax1.set_ylabel('Calculated Sigma')
+# ax1.plot(one_x,one_y,lw=2,color='k')
+# ax1.text(0.6,0.20,'Dis Retr. Bias =%2.2f'%bias_dis+'%',transform=ax1.transAxes)
+# ax1.text(0.6,0.15,'Rad Retr. Bias =%2.2f'%bias_rad+'%',transform=ax1.transAxes)
+# ax1.text(0.6,0.10,'Dis Retr. Corr Coeff =%2.3f'%cc_dis.ix[0,1],transform=ax1.transAxes)
+# ax1.text(0.6,0.05,'Rad Retr. Corr Coeff =%2.3f'%cc_rad.ix[0,1],transform=ax1.transAxes)
+# plt.legend(loc='upper left',numpoints=1,ncol=1,fontsize=12.)
+# plt.savefig(outer_image_dir+'sigma_one2one.png',dpi=200,bbox_inches='tight')
+# plt.close(fig1)
+# 
+# fig1=plt.figure(figsize=(8,8))
+# ax1=fig1.add_subplot(111)
+# one_x = N.linspace(0.0,6.0)
+# one_y = one_x
+# bias_dis = 100 * ((N.nansum(Dm_dis-Dm_obs))/N.nansum(Dm_obs))
+# bias_rad = 100 * ((N.nansum(Dm_rad-Dm_obs))/N.nansum(Dm_obs))
+# cc_dis = pd.DataFrame({'dis': Dm_dis, 'obs': Dm_obs}).corr()
+# cc_rad = pd.DataFrame({'rad': Dm_rad, 'obs': Dm_obs}).corr()
+# ax1.scatter(Dm_obs, Dm_rad, color='g', marker='.', label='Rad Retrieval')
+# ax1.scatter(Dm_obs, Dm_dis, color='c', marker='.', label='Dis Retreival')
+# #ax1.set_xlim(0.0,6.0)
+# #ax1.set_ylim(0.0,6.0)
+# ax1.set_xlabel('Observed Dm')
+# ax1.set_ylabel('Calculated Dm')
+# ax1.plot(one_x,one_y,lw=2,color='k')
+# ax1.text(0.6,0.20,'Dis Retr. Bias =%2.2f'%bias_dis+'%',transform=ax1.transAxes)
+# ax1.text(0.6,0.15,'Rad Retr. Bias =%2.2f'%bias_rad+'%',transform=ax1.transAxes)
+# ax1.text(0.6,0.10,'Dis Retr. Corr Coeff =%2.3f'%cc_dis.ix[0,1],transform=ax1.transAxes)
+# ax1.text(0.6,0.05,'Rad Retr. Corr Coeff =%2.3f'%cc_rad.ix[0,1],transform=ax1.transAxes)
+# plt.legend(loc='upper left',numpoints=1,ncol=1,fontsize=12.)
+# plt.savefig(outer_image_dir+'Dm_one2one.png',dpi=200,bbox_inches='tight')
+# plt.close(fig1)
+# 
+# 
+# ###this is not working right now ...Nc_bin_list is not in the right format or something, need to figure out for SATP.py
+# R_tarr = N.array(R_list)
+# print R_tarr.shape
+# D0_tarr = N.array(D0_list)
+# print len(Nc_bin_list)
+# 
+# 
+# radnpz_filename = 'SATP_all.npz'
+# savevars={}
+# savevars['Nc_bin'] = Nc_bin_list
+# savevars['R'] = R_tarr
+# savevars['D0'] = D0_tarr
+# N.savez(radnpz_filename,**savevars)
+# 
+# # 

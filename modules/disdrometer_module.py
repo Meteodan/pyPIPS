@@ -1087,7 +1087,7 @@ def calpolrain(wavelength,filename,Nd,intv):
     return Zh,Zv,Zhv,dBZ,ZDR,Kdp,rhv,intv,d,fa2,fb2
     
 
-def calc_DSD(min_size,avg_size,max_size,bin_width,Nc_bin,logNc_bin,rho,qrQC,qr_thresh,pcounts):
+def calc_DSD(min_size,avg_size,max_size,bin_width,Nc_bin,logNc_bin,rho,qrQC,qr_thresh,pcounts,intensities):
     """Fits exponential and gamma DSDs to disdrometer data and returns several DSD related quantities."""
     
     
@@ -1105,6 +1105,8 @@ def calc_DSD(min_size,avg_size,max_size,bin_width,Nc_bin,logNc_bin,rho,qrQC,qr_t
     M6=[]
     M7=[]   # Ditto
     D_med_disd=[]    # Median volume diameter
+    Dmax = []  #largest observed drop diameter bin
+    Dmin = []
 
     try:
         numtimes = N.size(Nc_bin,axis=1)
@@ -1114,8 +1116,9 @@ def calc_DSD(min_size,avg_size,max_size,bin_width,Nc_bin,logNc_bin,rho,qrQC,qr_t
     
     v = -0.1021+4.932*avg_size-0.9551*avg_size**2.+0.07934*avg_size**3.-0.002362*avg_size**4.
     rainrate=[]
+
     for t in range(numtimes):
-    
+
         temp_M0 = (1000.*Nc_bin[:,t])*bin_width[:]/1000.
         temp_M1 = ((avg_size[:]/1000.))*(1000.*Nc_bin[:,t])*bin_width[:]/1000.
         temp_M2 = ((avg_size[:]/1000.)**2.)*(1000.*Nc_bin[:,t])*bin_width[:]/1000.
@@ -1153,8 +1156,21 @@ def calc_DSD(min_size,avg_size,max_size,bin_width,Nc_bin,logNc_bin,rho,qrQC,qr_t
         except:
             medindex = 0
             temp_D_med = N.nan
-            
         
+        temp_Dmax = 0.  #initialize in case there are no drops ?
+        temp_Dmin = 0.
+        
+        for index, value in reversed(list(enumerate(Nc_bin[:,t]))):
+            if (value > 0.):
+                temp_Dmax = avg_size[index]
+                break
+#        print "DMAX", temp_Dmax
+        
+        for index2,value2 in list(enumerate(Nc_bin[:,t])):
+            if (value2 > 0.):
+                temp_Dmin = avg_size[index2]
+                break
+#        print "DMIN", temp_Dmin
         
         temp_M0_2 = ma.sum(temp_M0)
         temp_M0 = N.sum(temp_M0)
@@ -1173,6 +1189,8 @@ def calc_DSD(min_size,avg_size,max_size,bin_width,Nc_bin,logNc_bin,rho,qrQC,qr_t
         M6.append(temp_M6)
         M7.append(temp_M7)
         D_med_disd.append(temp_D_med)
+        Dmax.append(temp_Dmax)
+        Dmin.append(temp_Dmin)
             
     M0 = ma.array(M0,dtype=N.float64)
     M1 = ma.array(M1,dtype=N.float64)
@@ -1183,6 +1201,8 @@ def calc_DSD(min_size,avg_size,max_size,bin_width,Nc_bin,logNc_bin,rho,qrQC,qr_t
     M7 = ma.array(M7,dtype=N.float64)
     D_med_disd = N.array(D_med_disd)
     rainrate = N.array(rainrate)
+    Dmax = N.array(Dmax)
+    Dmin = N.array(Dmin)
         
     # --- Compute various mean diameters directly from measured discrete distribution ---
     cmr = (N.pi/6.)*1000.                                     # Constant in mass-diameter relation for rain
@@ -1214,10 +1234,11 @@ def calc_DSD(min_size,avg_size,max_size,bin_width,Nc_bin,logNc_bin,rho,qrQC,qr_t
         QR_disd = ma.masked_array(QR_disd,mask=qrmask1D)
         LWC_disd = ma.masked_array(LWC_disd,mask=qrmask1D)
         
-    nummask1D = N.where(pcounts < 50., True,False)
+    nummask1D = N.where((pcounts < 50.) | (intensities > 100.), True,False)
     num2D = pcounts.reshape(1,numtimes).repeat(32,0)
-    nummask2D = N.where(num2D < 50.,True,False)
-    
+    rain2D = intensities.reshape(1,numtimes).repeat(32,0)
+    nummask2D = N.where((num2D < 50.) | (rain2D > 100.),True,False)
+  
     D_med_disd = ma.masked_array(D_med_disd,mask=nummask1D)
     Nc_bin = ma.masked_array(Nc_bin,mask=nummask2D)
     logNc_bin = ma.masked_array(logNc_bin,mask=nummask2D)
@@ -1231,6 +1252,7 @@ def calc_DSD(min_size,avg_size,max_size,bin_width,Nc_bin,logNc_bin,rho,qrQC,qr_t
     rho = ma.masked_array(rho,mask=nummask1D)
     QR_disd = ma.masked_array(QR_disd,mask=nummask1D)
     LWC_disd = ma.masked_array(LWC_disd,mask=nummask1D)
+    rainrate = ma.masked_array(rainrate, mask = nummask1D)
     
     # Compute reflectivity from the 6th moment
     refl_disd=10.0*ma.log10(1e18*M6)
@@ -1307,15 +1329,7 @@ def calc_DSD(min_size,avg_size,max_size,bin_width,Nc_bin,logNc_bin,rho,qrQC,qr_t
 #     mu_gam = ma.masked_where(M4 is ma.masked,mu_gam)
 #     lamda_gam = N.where(M4 == 0.0,0.0, ((M2*(mu_gam+3.)*(mu_gam+4.))/(M4))**(1./2.))
 #     N0_gam = (M4*lamda_gam**(mu_gam+5.))/(special.gamma(mu_gam+5.))
-    # Uncomment if you want estimates based on M2,M4,M6
-    G =(M4**2.)/(M2*M6)
-    G = ma.masked_invalid(G)
-    mu_gam = ((7.-11.*G) - ((7.-11.*G)**2. - 4.*(G-1.)*(30.*G-12.))**(1./2.))/(2.*(G-1.))
-    mu_gam = ma.masked_invalid(mu_gam)
-    lamda_gam = ((M2*(mu_gam+3.)*(mu_gam+4.))/(M4))**(1./2.)
-    lamda_gam = ma.masked_invalid(lamda_gam)
-    N0_gam = (M4*lamda_gam**(mu_gam+5.))/(special.gamma(mu_gam+5.))
-    
+
     # Uncomment if you want estimates based on M2,M3,M4
 #     mu_gam = (3.*M2*M4 - 4.*M3**2.)/(M3**2. - M2*M4)
 #     mu_gam = ma.masked_invalid(mu_gam)
@@ -1323,19 +1337,82 @@ def calc_DSD(min_size,avg_size,max_size,bin_width,Nc_bin,logNc_bin,rho,qrQC,qr_t
 #     lamda_gam = ma.masked_invalid(lamda_gam)
 #     N0_gam = (M3*lamda_gam**(mu_gam+4.))/(special.gamma(mu_gam+4.))
 
+####### Uncomment if you want estimates based on M2,M4,M6 #######
+    G =(M4**2.)/(M2*M6) # moment ratio based on untruncated moments 
+    G = ma.masked_invalid(G)
+    mu_gam = ((7.-11.*G) - ((7.-11.*G)**2. - 4.*(G-1.)*(30.*G-12.))**(1./2.))/(2.*(G-1.))
+    mu_gam = ma.masked_invalid(mu_gam)
+    lamda_gam = ((M2*(mu_gam+3.)*(mu_gam+4.))/(M4))**(1./2.)
+    lamda_gam = ma.masked_invalid(lamda_gam)
+    N0_gam = (M4*lamda_gam**(mu_gam+5.))/(special.gamma(mu_gam+5.))
     
     
+####### Truncated moments (TMF) #######
+    lam_gam = lamda_gam/1000.
+    mu_tmf=[]
+    lamda_tmf=[]
+    N0_tmf=[]
+    
+    for t in range(numtimes):  #compute the truncated moments for each observed time using equation A7 from Thurai et al. 2014 
+        TM2 = N0_gam[t] * ((special.gammainc(3+mu_gam[t],lam_gam[t]*Dmax[t])-special.gammainc(3+mu_gam[t],lam_gam[t]*Dmin[t]))/lam_gam[t]**(3+mu_gam[t]))
+        TM3 = N0_gam[t] * ((special.gammainc(4+mu_gam[t],lam_gam[t]*Dmax[t])-special.gammainc(4+mu_gam[t],lam_gam[t]*Dmin[t]))/lam_gam[t]**(4+mu_gam[t]))        
+        TM4 = N0_gam[t] * ((special.gammainc(5+mu_gam[t],lam_gam[t]*Dmax[t])-special.gammainc(5+mu_gam[t],lam_gam[t]*Dmin[t]))/lam_gam[t]**(5+mu_gam[t]))
+        TM6 = N0_gam[t] * ((special.gammainc(7+mu_gam[t],lam_gam[t]*Dmax[t])-special.gammainc(7+mu_gam[t],lam_gam[t]*Dmin[t]))/lam_gam[t]**(7+mu_gam[t]))
+        
+        G_trunc_obs = TM4**2./(TM2*TM6)  # moment ratio based on truncated moments. Equation A10 from Thurai et al. 2014
+        # truncated moment ratio below. Equation A8 from Thurai and equation 7 from Vivekanandan et al. 2014
+        G_trunc = ((special.gammainc(5+mu_gam[t],lam_gam[t]*Dmax[t])-special.gammainc(5+mu_gam[t],lam_gam[t]*Dmin[t]))**2.)/(special.gammainc(3+mu_gam[t],lam_gam[t]*Dmax[t])*special.gammainc(7+mu_gam[t],lam_gam[t]*Dmax[t])-special.gammainc(3+mu_gam[t],lam_gam[t]*Dmin[t])*special.gammainc(7+mu_gam[t],lam_gam[t]*Dmin[t]))
+    
+#        print "RATIO OBS", G[t]
+#        print "RATIO TRUNC OBS", G_trunc_obs
+#        print "RATIO TRUNC", G_trunc
+
+        # initialize the truncated values with those computed from the untruncated moments
+        mu_trunc = mu_gam[t]
+        lam_trunc = lam_gam[t]
+        N0_trunc = N0_gam[t]
+        
+        # if the moment ratio value is empty, append the empty mu,lambda, and N0 values to the truncated arrays and continue on to the next time
+        if not G_trunc_obs:
+            mu_tmf.append(mu_trunc)
+            lamda_tmf.append(lam_trunc)
+            N0_tmf.append(N0_trunc)
+            continue
+            
+        while(G_trunc < G_trunc_obs):  #until the truncated moment ratio converges with the observed moment ratio...
+            mu_trunc = mu_trunc + 0.05  #adjusting mu by increments of 0.5 
+            # equation 8 from Vivekanandan 
+            lamda_trunc = (((special.gammainc(5+mu_trunc,lam_trunc*Dmax[t])-special.gammainc(5+mu_trunc,lam_trunc*Dmin[t]))*TM2)/((special.gammainc(3+mu_trunc,lam_trunc*Dmax[t])-special.gammainc(3+mu_trunc,lam_trunc*Dmin[t]))*TM4))**(1./2.)
+            # recompute with new mu and lambda values
+            G_trunc = ((special.gammainc(5+mu_trunc,lam_trunc*Dmax[t])-special.gammainc(5+mu_trunc,lam_trunc*Dmin[t]))**2.)/(special.gammainc(3+mu_trunc,lam_trunc*Dmax[t])*special.gammainc(7+mu_trunc,lam_trunc*Dmax[t])-special.gammainc(3+mu_trunc,lam_trunc*Dmin[t])*special.gammainc(7+mu_trunc,lam_trunc*Dmin[t]))
+            lam_trunc = lamda_trunc
+        #Equation A11 from Thurai 
+        N0_trunc = TM3*((lamda_trunc**(4.+mu_trunc))/(special.gammainc(4+mu_trunc,lamda_trunc*Dmax[t])-special.gammainc(4+mu_trunc,lamda_trunc*Dmin[t])))
+        
+        mu_tmf.append(mu_trunc)
+        lamda_tmf.append(lamda_trunc)
+        N0_tmf.append(N0_trunc)
+        
+    mu_tmf = N.array(mu_tmf)
+    lamda_tmf = N.array(lamda_tmf)
+    N0_tmf = N.array(N0_tmf)    
+##################################
+
     N_gamDSD=[]
+    N_tmfDSD=[]
     #refl_gamDSD=[]
     
     for t in range(numtimes):
         #temp_N_gamDSD = N0_gam[t]*((synthbins/1000.0)**mu_gam[t])*N.exp(-lamda_gam[t]*synthbins/1000.0)
         temp_N_gamDSD = N0_gam[t]*((avg_size/1000.0)**mu_gam[t])*N.exp(-lamda_gam[t]*avg_size/1000.)    # Use disdrometer bins
+        temp_N_tmfDSD = N0_tmf[t]*((avg_size/1000.0)**mu_tmf[t])*N.exp(-lamda_tmf[t]*avg_size)
         #temp_Z_gamDSD = ((synthbins/1000.)**6.)*(1000.*temp_N_gamDSD)*0.1/1000.
         N_gamDSD.append(temp_N_gamDSD)
+        N_tmfDSD.append(temp_N_tmfDSD)
         #refl_gamDSD.append(10.0*N.log10(N.sum(temp_Z_gamDSD)))
     
     N_gamDSD = ma.array(N_gamDSD,dtype=N.float64)
+    N_tmfDSD = ma.array(N_tmfDSD,dtype=N.float64)
     
     # Quantities based on exponential distribution    
     
@@ -1378,9 +1455,10 @@ def calc_DSD(min_size,avg_size,max_size,bin_width,Nc_bin,logNc_bin,rho,qrQC,qr_t
     
     exp_DSD = (N_expDSD,N0_exp,lamda_exp,mu_exp,qr_exp,Ntr_exp,refl_DSD_exp,D_med_exp,D_m_exp)
     gam_DSD = (N_gamDSD,N0_gam,lamda_gam,mu_gam,qr_gam,Ntr_gam,refl_DSD_gam,D_med_gam,D_m_gam,LWC_gam,rainrate)
+    tmf_DSD = (N_tmfDSD,N0_tmf, lamda_tmf, mu_tmf)
     dis_DSD = (Nc_bin,logNc_bin,D_med_disd,D_m_disd,D_mv_disd,D_ref_disd,QR_disd,refl_disd,LWC_disd,M0)
     
-    return synthbins,exp_DSD,gam_DSD,dis_DSD
+    return synthbins,exp_DSD,gam_DSD,tmf_DSD,dis_DSD
 
     
 def rad2DD(filename,dlocs):

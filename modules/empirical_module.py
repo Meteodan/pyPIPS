@@ -69,6 +69,8 @@ def retr_timeseries(obs,mm,retr_rad,retr_dis,pstartindex,pstopindex,DSDmidtimes,
     ax1 = pm.plotmeteogram(ax1,xvals,fields,fieldparamdicts)
     axparamdicts = [axparamdict1]
     ax1, = pm.set_meteogram_axes([ax1],axparamdicts)
+    if (name == 'Nt' or name == 'R'):
+        ax1.set_yscale('log')
     ax1.text(0.05,0.93,'Dis Retr. Bias =%2.2f'%bias_dis+'%',transform=ax1.transAxes)
     ax1.text(0.05,0.86,'Rad Retr. Bias =%2.2f'%bias_rad+'%',transform=ax1.transAxes)
     ax1.text(0.05,0.79,'Dis Retr. Corr Coeff =%2.3f'%cc_dis.ix[0,1],transform=ax1.transAxes)
@@ -77,7 +79,6 @@ def retr_timeseries(obs,mm,retr_rad,retr_dis,pstartindex,pstopindex,DSDmidtimes,
     plt.savefig(image_dir+'meteograms/'+dis_name+'_'+name+'.png',dpi=300)
     plt.close(fig)
     
-    return bias_dis,bias_rad,cc_dis,cc_rad
     
 def dis_retr_timeseries(obs,retr_rad,retr_dis,pstartindex,pstopindex,DSDmidtimes,axparamdict1,image_dir,dis_name,name):
     
@@ -87,7 +88,7 @@ def dis_retr_timeseries(obs,retr_rad,retr_dis,pstartindex,pstopindex,DSDmidtimes
     cc_rad = pd.DataFrame({'rad': retr_rad, 'obs': obs}).corr()
     fig = plt.figure(figsize=(8,4))
     ax1 = fig.add_subplot(111)
-    fields = [obs[pstartindex:pstopindex+1],retr_rad[pstartindex:pstopindex+1],retr_dis[pstartindex:pstopindex+1]]
+    fields = [obs[pstartindex:pstopindex],retr_rad[pstartindex:pstopindex+1],retr_dis[pstartindex:pstopindex+1]]
     fieldparamdict1 = {'linestyle':'-','color':'k','alpha':0.5,'plotmin':0,'label':r'observed'}
     fieldparamdict2 = {'linestyle':'-','color':'g','alpha':0.5,'plotmin':0,'label':r'rad retrieved'}
     fieldparamdict3 = {'linestyle':'-','color':'c','alpha':0.5,'plotmin':0,'label':r'dis retrieved'} 
