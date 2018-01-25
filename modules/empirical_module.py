@@ -88,7 +88,7 @@ def dis_retr_timeseries(obs,retr_rad,retr_dis,pstartindex,pstopindex,DSDmidtimes
     cc_rad = pd.DataFrame({'rad': retr_rad, 'obs': obs}).corr()
     fig = plt.figure(figsize=(8,4))
     ax1 = fig.add_subplot(111)
-    fields = [obs[pstartindex:pstopindex],retr_rad[pstartindex:pstopindex+1],retr_dis[pstartindex:pstopindex+1]]
+    fields = [obs[pstartindex:pstopindex+1],retr_rad[pstartindex:pstopindex+1],retr_dis[pstartindex:pstopindex+1]]
     fieldparamdict1 = {'linestyle':'-','color':'k','alpha':0.5,'plotmin':0,'label':r'observed'}
     fieldparamdict2 = {'linestyle':'-','color':'g','alpha':0.5,'plotmin':0,'label':r'rad retrieved'}
     fieldparamdict3 = {'linestyle':'-','color':'c','alpha':0.5,'plotmin':0,'label':r'dis retrieved'} 

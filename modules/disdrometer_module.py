@@ -1341,8 +1341,10 @@ def calc_DSD(min_size,avg_size,max_size,bin_width,Nc_bin,logNc_bin,rho,qrQC,qr_t
     G =(M4**2.)/(M2*M6) # moment ratio based on untruncated moments 
     G = ma.masked_invalid(G)
     mu_gam = ((7.-11.*G) - ((7.-11.*G)**2. - 4.*(G-1.)*(30.*G-12.))**(1./2.))/(2.*(G-1.))
+    mu_gam = ma.masked_where(mu_gam > 30., mu_gam)
     mu_gam = ma.masked_invalid(mu_gam)
     lamda_gam = ((M2*(mu_gam+3.)*(mu_gam+4.))/(M4))**(1./2.)
+    lamda_gam = ma.masked_where(lamda_gam > 20000., lamda_gam)
     lamda_gam = ma.masked_invalid(lamda_gam)
     N0_gam = (M4*lamda_gam**(mu_gam+5.))/(special.gamma(mu_gam+5.))
     
