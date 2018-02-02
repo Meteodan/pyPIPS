@@ -17,16 +17,20 @@ loadradopt = True       # Option to load the above
 
 calc_DSD = True         # Calculate DSD fits (exp and gamma)?
 calc_evap = False       # Calculate evaporation rates?
-calc_dualpol = True       # Calculate polarimetric radar variables (currently assumes rain only)?
+calc_dualpol = True     # Calculate polarimetric radar variables (currently assumes rain only)?
 comp_radar = True       # Compare with reflectivity from 88D?
+radar_save_dir = 'radar_files'
+
 
 plot_opt = True        # Plot or not?
 plot_DSD_meteo = True   # Plot meteograms of DSDs?
+plot_only_precip = False # Restrict plotting window to start and end of precip in requested period?
 plot_DSDs = True      # Plot individual DSDs and fits?
 DSD_interval = 10.0     # Interval of DSD (Minimum 10 s, multiple of 10 s)
 plot_DSDderived = True  # Plot some internal derived quantities from the Parsivel?
-plot_conv_meteo = True     # Plot meteograms of conventional fields?
+plot_conv_meteo = True  # Plot meteograms of conventional fields?
 plot_radar = True       # Plot radar base scan with disdrometer locations?
+clean_radar = True      # Remove non-precipitation values from radar timeseries?
 plot_scat = True        # Plot scattergrams of Zdr vs Z
 plot_diagnostics = True  # Add diagnostic information to various meteograms (e.g. wind quality flag)
                          # and create additional diagnostic plots (e.g. battery voltage, laser signal amplitude, etc.)
@@ -36,7 +40,7 @@ dateformat = '%H:%M' # '%d/%H'
 formatter = DateFormatter(dateformat)
 #locator = MinuteLocator(interval=15) # HourLocator(interval=3)
 #minorlocator = MinuteLocator(interval=1)
-locator = MinuteLocator(byminute=[0,15,30,45]) # HourLocator(interval=1) 
+locator = MinuteLocator(byminute=[0,15,30,45]) # HourLocator(interval=1)
 minorlocator = MinuteLocator(byminute=range(0,60,5)) # MinuteLocator(byminute=[0,15,30,45])
 #locator = HourLocator(interval=3)
 #minorlocator = HourLocator(interval=1)
@@ -74,5 +78,5 @@ xstart = -2.0
 xstop = 13.0
 xtickintv = 1.0
 enhancesmalldrops = False        # For testing, artificially boost concentration of small drops?
-enhancefactor = 2.0            
+enhancefactor = 2.0
 enhancethresh = 0.562           # Drop size at and below which to enhance the small drops
