@@ -113,7 +113,7 @@ def DDMtoDD(DDM, hem):
     return sign * (degrees + DM / 60.)
 
 
-def assignfallspeed(d):
+def assignfallspeed(d, rhocorrect=False, rho=None):
     """Assigns a fall speed for a range of diameters based on code
        from David Dowell (originally from Terry Schuur).  It appears that
        the formulas originate from Atlas et al. (1973), but this took a bit of sleuthing!"""
@@ -124,6 +124,10 @@ def assignfallspeed(d):
 
     v = N.where(d < 3.0, 3.78 * d**0.67, 9.65 - 10.3 * N.exp(-0.6 * d))
     v = N.where(d < 0.0, 0.0, v)
+
+    # Correct fall speed based on air density
+    if(rhocorrect and rho is not None):
+        v = v0 * (1.204/rho)**(0.4)
 
     return v
 
@@ -1198,7 +1202,7 @@ def calpolrain(wavelength, filename, Nd, intv):
     # Added by Jessie (was temp > 0).  Find out why...
     rhv = N.where(Zh != Zv, Zhv / (N.sqrt(temp)), 0.0)
     #N.savetxt('temp.txt', temp)
-    
+
     return Zh, Zv, Zhv, dBZ, ZDR, Kdp, rhv, intv, d, fa2, fb2
 
 def calc_DSD(min_size, avg_size, max_size, bin_width, Nc_bin, logNc_bin, rho, qrQC, qr_thresh,
