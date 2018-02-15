@@ -398,24 +398,26 @@ for directory in directories:
                         for DSDtype in ['observed', 'exponential', 'gamma']:
                             if(DSDtype == 'observed'):
                                 logND_plot = logND[:, pstartindex:pstopindex + 1]
-                                D_0_plot = D_med_disd
-                                refl_ray_plot = refl_disd
-#                                 dp = dualpol_dis
-                                Zh, Zv, Zhv, dBZ, ZDR, KDP, RHV, intv, d, fa2, fb2 = dualpol_dis
+                                if(pc.calc_DSD):
+                                    D_0_plot = D_med_disd
+                                    refl_ray_plot = refl_disd
+                                    dp = dualpol_dis
+                                    #Zh, Zv, Zhv, dBZ, ZDR, KDP, RHV, intv, d, fa2, fb2 = dualpol_dis
                             elif(DSDtype == 'exponential'):
                                 logND_plot = logND_expDSD[:, pstartindex:pstopindex + 1]
-                                D_0_plot = D_med_exp
-                                refl_ray_plot = refl_DSD_exp
-#                                 dp = dualpol_exp
-                                Zh, Zv, Zhv, dBZ, ZDR, KDP, RHV, intv, d, fa2, fb2 = dualpol_exp
+                                if(pc.calc_DSD):
+                                    D_0_plot = D_med_exp
+                                    refl_ray_plot = refl_DSD_exp
+                                    dp = dualpol_exp
+                                    #Zh, Zv, Zhv, dBZ, ZDR, KDP, RHV, intv, d, fa2, fb2 = dualpol_exp
                             elif(DSDtype == 'gamma'):
                                 logND_plot = logND_gamDSD[:, pstartindex:pstopindex + 1]
-                                D_0_plot = D_med_gam
-                                refl_ray_plot = refl_DSD_gam
-#                                 dp = dualpol_gam
-                                Zh, Zv, Zhv, dBZ, ZDR, KDP, RHV, intv, d, fa2, fb2 = dualpol_gam
+                                if(pc.calc_DSD):
+                                    D_0_plot = D_med_gam
+                                    refl_ray_plot = refl_DSD_gam
+                                    dp = dualpol_gam
+                                    #Zh, Zv, Zhv, dBZ, ZDR, KDP, RHV, intv, d, fa2, fb2 = dualpol_gam
 
-                            
                             disvars = {'min_diameter': min_diameter, 'PSDstarttimes': PSDstarttimes,
                                        'PSDmidtimes': PSDmidtimes, 'logND': logND_plot}
 
@@ -426,33 +428,34 @@ for directory in directories:
                             # recommended to first set the "rain_only_QC" flag to True in disdrometer_module.py
 
                             if(pc.calc_DSD):
-                                # 3-min average of median volume diameter and radar reflectivity
-                                # (Rayleigh approx.) from disdrometer
+                                # If desired, perform centered running averages
+                                if(pc.avgwindow):
+                                    window = int(pc.avgwindow / DSD_interval)
 
-                                window = int(180. / DSD_interval)
-                                D_0_avg = pd.Series(D_0_plot).rolling(
-                                    window=window,
-                                    center=True,
-                                    win_type='triang',
-                                    min_periods=1).mean().values  # use for gamma fit
-                                dBZ_ray_avg = pd.Series(refl_ray_plot).rolling(
-                                    window=window,
-                                    center=True,
-                                    win_type='triang',
-                                    min_periods=1).mean().values  # use for gamma fit
-                                disvars['D_0'] = D_0_avg[pstartindex:pstopindex + 1]
-                                disvars['dBZ_ray'] = dBZ_ray_avg[pstartindex:pstopindex + 1]
+                                    D_0_plot = pd.Series(D_0_plot).rolling(
+                                        window=window,
+                                        center=True,
+                                        win_type='triang',
+                                        min_periods=1).mean().values  # use for gamma fit
+                                    refl_ray_plot = pd.Series(refl_ray_plot).rolling(
+                                        window=window,
+                                        center=True,
+                                        win_type='triang',
+                                        min_periods=1).mean().values  # use for gamma fit
+                                disvars['D_0'] = D_0_plot[pstartindex:pstopindex + 1]
+                                disvars['dBZ_ray'] = refl_ray_plot[pstartindex:pstopindex + 1]
 
                                 if(pc.calc_dualpol):
                                     # Computed centered running averages of dualpol variables
-                                    for varname,var in zip(['dBZ', 'ZDR', 'KDP', 'RHV'],[dBZ,ZDR,KDP,RHV]):
-#                                         var = dp.get(varname, N.empty((0)))
+                                    for varname in ['dBZ', 'ZDR', 'KDP', 'RHV']:
+                                        var = dp.get(varname, N.empty((0)))
                                         if(var.size):
-                                            var_avg = pd.Series(var).rolling(
-                                                window=window, center=True, win_type='triang',
-                                                min_periods=1).mean().values
-                                            disvars[varname] = var_avg[pstartindex:pstopindex + 1]
-
+                                            # If desired, perform centered running averages
+                                            if(pc.avgwindow)
+                                                var = pd.Series(var).rolling(
+                                                    window=window, center=True, win_type='triang',
+                                                    min_periods=1).mean().values
+                                            disvars[varname] = var[pstartindex:pstopindex + 1]
 
                             # Mark flagged times with vertical lines, if desired
                             if(pc.plot_diagnostics):
@@ -528,8 +531,21 @@ for directory in directories:
                     if(pc.plot_radar and index==0):
                         radar.plotsweeps(pc, ib, sb, sweepstart, sweepstop)
 
+                    # Extract some needed stuff from dictionary containing disdrometer-derived
+                    # polarimetric variables (note, this can be changed if you are interested
+                    # instead to compare values from the gamma or exponential fits). Just change
+                    # "dualpol_dis" to "dualpol_gam" or "dualpol_exp" below.
+                    Zh = dualpol_dis['Zh']
+                    ZDR = dualpol_dis['ZDR']
+                    dBZ = dualpol_dis['dBZ']
+                    RHV = dualpol_dis['RHV']
+                    d = dualpol_dis['d']
+                    fa2 = dualpol_dis['fa2']
+                    fb2 = dualpol_dis['fb2']
+                    intv = dualpol_dis['intv']
+
                     lamda_gam = lamda_gam/1000.
-                    
+
                 ### Added for shape-slope relation plots
                     mu.extend(mu_gam)
                     lamda.extend(lamda_gam)
@@ -542,13 +558,17 @@ for directory in directories:
                     idx2 = ZDR_rad.index.union(PSDmidtimes)
                     ZDR_rad = N.array(ZDR_rad.reindex(idx2).interpolate(method='index',limit=8).reindex(PSDmidtimes))
 
-                    dBZ_rad = ma.masked_where((ZDR_rad > 4.) | (disvars['RHV'] < 0.6), dBZ_rad)
-                    ZDR_rad = ma.masked_where((ZDR_rad> 4.) | (disvars['RHV'] < 0.6), ZDR_rad)
-                    dBZ_dis = ma.masked_where((disvars['ZDR']>4.) | (disvars['RHV'] < 0.6),disvars['dBZ'])
-                    ZDR_dis = ma.masked_where((disvars['ZDR']>4.) | (disvars['RHV'] < 0.6),disvars['ZDR'])
+                    dBZ_rad = ma.masked_where((ZDR_rad > 4.) | (RHV < 0.6), dBZ_rad)
+                    ZDR_rad = ma.masked_where((ZDR_rad> 4.) | (RHV < 0.6), ZDR_rad)
+                    dBZ_dis = ma.masked_where((ZDR>4.) | (RHV < 0.6), dBZ)
+                    ZDR_dis = ma.masked_where((ZDR>4.) | (RHV < 0.6), ZDR)
 
-                    R_rad_retr,D0_rad_retr,mu_rad_retr,lam_rad_retr,N0_rad_retr,Nt_rad_retr,W_rad_retr,sigm_rad_retr,Dm_rad_retr,N_rad_retr = DR.retrieve_DSD(dBZ_rad,ZDR_rad,d,fa2,fb2,intv,ib.wavelength)
-                    R_dis_retr,D0_dis_retr,mu_dis_retr,lam_dis_retr,N0_dis_retr,Nt_dis_retr,W_dis_retr,sigm_dis_retr,Dm_dis_retr,N_dis_retr = DR.retrieve_DSD(dBZ_dis,ZDR_dis,d,fa2,fb2,intv,ib.wavelength)
+                    radrettuple = DR.retrieve_DSD(dBZ_rad, ZDR_rad, d, fa2, fb2, intv, ib.wavelength)
+                    (R_rad_retr, D0_rad_retr, mu_rad_retr, lam_rad_retr, N0_rad_retr, Nt_rad_retr,
+                     W_rad_retr, sigm_rad_retr, Dm_rad_retr, N_rad_retr) = radrettuple
+                    disrettuple = DR.retrieve_DSD(dBZ_dis, ZDR_dis, d, fa2, fb2, intv, ib.wavelength)
+                    (R_dis_retr, D0_dis_retr, mu_dis_retr, lam_dis_retr, N0_dis_retr, Nt_dis_retr,
+                     W_dis_retr, sigm_dis_retr, Dm_dis_retr, N_dis_retr) = disrettuple
 
                     lam_dis_retr = N.array(lam_dis_retr)
                     R_dis_retr = ma.masked_where(lam_dis_retr > 20., R_dis_retr)

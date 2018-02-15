@@ -1200,8 +1200,11 @@ def calpolrain(wavelength, filename, Nd, intv):
     # Added by Jessie (was temp > 0).  Find out why...
     rhv = N.where(Zh != Zv, Zhv / (N.sqrt(temp)), 0.0)
     #N.savetxt('temp.txt', temp)
-    
-    return Zh, Zv, Zhv, dBZ, ZDR, Kdp, rhv, intv, d, fa2, fb2
+
+    dualpol_dict = {'ZH':Zh, 'ZV':Zv, 'ZHV':Zhv, 'dBZ':dBZ, 'ZDR':ZDR, 'KDP':Kdp, 'RHV':rhv,
+                    'intv':intv, 'd':d, 'fa2':fa2, 'fb2':fb2}
+
+    return dualpol_dict
 
 def calc_DSD(min_size, avg_size, max_size, bin_width, Nc_bin, logNc_bin, rho, qrQC, qr_thresh,
              pcounts, intensities):
@@ -1352,6 +1355,9 @@ def calc_DSD(min_size, avg_size, max_size, bin_width, Nc_bin, logNc_bin, rho, qr
         QR_disd = ma.masked_array(QR_disd, mask=qrmask1D)
         LWC_disd = ma.masked_array(LWC_disd, mask=qrmask1D)
 
+    # TODO: Make the masking by particle counts adjustable in the pyPIPScontrol file
+    # There may be times when we don't want such stringent masking, and it is dependent on the
+    # integration interval we choose, anyway.
     nummask1D = N.where((pcounts < 50.) | (intensities > 100.), True, False)
     num2D = pcounts.reshape(1, numtimes).repeat(32, 0)
     rain2D = intensities.reshape(1, numtimes).repeat(32, 0)

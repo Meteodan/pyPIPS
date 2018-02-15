@@ -24,6 +24,7 @@ radar_save_dir = 'radar_files'
 
 plot_opt = True        # Plot or not?
 plot_DSD_meteo = True   # Plot meteograms of DSDs?
+avgwindow = 180.        # Averaging window in seconds for plotting of DSD parameters on meteograms
 plot_only_precip = False # Restrict plotting window to start and end of precip in requested period?
 plot_DSDs = True      # Plot individual DSDs and fits?
 DSD_interval = 10.0     # Interval of DSD (Minimum 10 s, multiple of 10 s)
