@@ -30,7 +30,19 @@ Dm_obs=[]
 Dm_dis=[]
 Dm_rad=[]
 R_list = []
+R_mm = []
+R_retr = []
 D0_list = []
+D0_mm = []
+D0_retr = []
+Nt_obs = []
+Nt_mm = []
+Nt_retr = []
+W_obs = []
+W_mm = []
+W_retr = []
+Zh_dis = []
+Zh_retr = []
 ND_list = N.empty((0,32))
 
 fieldnames = ['dBZ','ZDR','KDP','RHV','Vr']
@@ -92,7 +104,7 @@ directories = ['/Users/bozell/pyPIPS_work/input/NEXRAD/','/Volumes/depot/dawson2
 for directory in directories:
     for root, dirs, files in os.walk(directory):
         for f in files:
-            if f.endswith("FMCW.txt"):
+            if f.endswith("040517.txt","040417.txt","041717.txt","042017.txt","042417.txt","FMCW.txt"):
                 continue
             elif f.endswith(".txt"):
                 print directory
@@ -484,7 +496,12 @@ for directory in directories:
                                 rainindex = N.where(disvars['RHV'] > 0.6)
                                 raintimes = PSDmidtimes[rainindex]
                                 plotstarttime = raintimes[0]
-                                plotstoptime = raintimes[len(raintimes)-1]
+                                plotstoptime = raintimes[-1]
+                                # set radar PPI plot start and end time for FMCW days 
+                                sweeptimes = disdates[rainindex]
+                                sb['sweepstarttime'] = sweeptimes[0]
+                                sb['sweepstoptime'] = sweeptimes[-1]
+                                
                             if(DSDtype == 'observed'):
                                 # Prepare axis parameters
                                 timelimits = [plotstarttime, plotstoptime]
@@ -506,8 +523,9 @@ for directory in directories:
                             PSDderiveddict = {'PSDmidtimes': PSDmidtimes, 'PSD_plot_df': PSD_plot_df}
 
                             pm.plotDSDderivedmeteograms(index, pc, ib, **PSDderiveddict)
-
-                    if(pc.plot_radar):
+                            
+                    # add index == 0 because for IOP days, only want to plot for once, not for each disdrometer?
+                    if(pc.plot_radar and index==0):
                         radar.plotsweeps(pc, ib, sb)
 
                     lamda_gam = lamda_gam/1000.
@@ -658,6 +676,9 @@ for directory in directories:
 
                     em.one2one(PSD_df['intensity'].values/Zh,rainrate/Zh,R_dis_retr/Zh,R_rad_retr/Zh_rad,ib.image_dir,dis_name,name)
                     em.scatters(N.log10(PSD_df['intensity'].values/Zh),N.log10(rainrate/Zh),N.log10(R_dis_retr/Zh),N.log10(R_rad_retr/Zh_rad),ZDR_rad,ZDR,PSDmidtimes,ib.image_dir,dis_name,name)
+                    
+                    R_mm.extend(rainrate)
+                    R_retr.extend(R_rad_retr)
 
                     name = 'D0'
                     axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[0.0,5.0]],'axeslabels':[pc.timelabel,r'D0']}
@@ -665,6 +686,9 @@ for directory in directories:
 
                     em.one2one(D_med_disd,D_med_gam,D0_dis_retr,D0_rad_retr,ib.image_dir,dis_name,name)
                     em.scatters(D_med_disd,D_med_gam,N.array(D0_dis_retr),D0_rad_retr,ZDR_rad,ZDR,PSDmidtimes,ib.image_dir,dis_name,name)
+                   
+                    D0_mm.extend(D_med_gam)
+                    D0_retr.extend(D_rad_retr)
 
                     name = 'Nt'
                     axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[10**1.,10**5.]],'axeslabels':[pc.timelabel,r'Nt']}
@@ -673,6 +697,10 @@ for directory in directories:
                     em.one2one(M0/Zh,Ntr_gam/Zh,Nt_dis_retr/Zh,Nt_rad_retr/Zh_rad,ib.image_dir,dis_name,name)
                     em.scatters(N.log10(M0/Zh),N.log10(Ntr_gam/Zh),N.log10(Nt_dis_retr/Zh),N.log10(Nt_rad_retr/Zh_rad),ZDR_rad,ZDR,PSDmidtimes,ib.image_dir,dis_name,name)
 
+                    Nt_obs.extend(M0)
+                    Nt_mm.extend(Ntr_gam)
+                    Nt_retr.extend(Nt_rad_retr)
+                    
                     name = 'W'
                     axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[0.0,8.0]],'axeslabels':[pc.timelabel,r'LWC']}
                     em.retr_timeseries(LWC_disd,LWC_gam,W_rad_retr,W_dis_retr,pstartindex,pstopindex,PSDmidtimes,axparamdict1,ib.image_dir,dis_name,name)
@@ -680,6 +708,13 @@ for directory in directories:
                     em.one2one(LWC_disd/Zh,LWC_gam/Zh,W_dis_retr/Zh,W_rad_retr/Zh_rad,ib.image_dir,dis_name,name)
                     em.scatters(N.log10(LWC_disd/Zh),N.log10(LWC_gam/Zh),N.log10(W_dis_retr/Zh),N.log10(W_rad_retr/Zh_rad),ZDR_rad,ZDR,PSDmidtimes,ib.image_dir,dis_name,name)
 
+                    W_obs.extend(LWC_disd)
+                    W_mm.extend(LWC_gam)
+                    W_retr.extend(W_rad_retr)
+                    
+                    Zh_dis.extend(Zh)
+                    Zh_retr.extend(Zh_rad)
+                    
                     R_list.extend(rainrate)
                     D0_list.extend(D_med_disd)
                     ND = ND.T
@@ -789,6 +824,17 @@ for directory in directories:
 #           plt.savefig(ib.image_dir+'scattergrams/brandes.png',dpi=200,bbox_inches='tight')
 #           plt.close(fig1)
 
+name = 'R'
+em.outer_one2one(N.array(R_list)/N.array(Zh_dis),N.array(R_mm)/N.array(Zh_dis),N.array(R_retr)/N.array(Zh_retr),outer_image_dir,name)
+ 
+name = 'D0'
+em.outer_one2one(N.array(D0_list), N.array(D0_mm), N.array(D0_retr), outer_image_dir,name)
+ 
+name = 'Nt'
+em.outer_one2one(N.array(Nt_obs)/N.array(Zh_dis),N.array(Nt_mm)/N.array(Zh_dis),N.array(Nt_retr)/N.array(Zh_retr), outer_image_dir,name)
+
+name = 'W'
+em.outer_one2one(N.array(W_obs)/N.array(Zh_dis),N.array(W_mm)/N.array(Zh_dis),N.array(W_retr)/N.array(Zh_retr),outer_image_dir,name)
 
 ## Plot the lambda-mu relation and fit with 2nd order polynomial
 print len(lamda)
@@ -824,44 +870,6 @@ plt.close(fig)
 print(poly)
 print len(lamda)
 #
-Lam = []
-Mu = []
-
-for n1 in xrange(0,len(lamda)):
-    lam = lamda[n1]
-    if(lam < 20.):
-        Lam.append(lamda[n1])
-        Mu.append(mu[n1])
-
-poly2=N.polynomial.polynomial.polyfit(Lam,Mu,2)
-polynomial2=N.polynomial.polynomial.Polynomial(poly2)
-
-xx = N.linspace(0.0, 30.0)
-yy = polynomial2(xx)
-y2 = -0.0201*xx**2. + 0.902*xx - 1.718
-y3 = -0.016*xx**2. + 1.213*xx - 1.957
-#yy2 = polynomial2(xx)
-
-fig=plt.figure(figsize=(8,8))
-ax1=fig.add_subplot(111)
-plt.title('Shape-Slope Relation with Slope < 20')
-ax1.scatter(Lam,Mu, color='k', marker='.')
-ax1.plot(xx,yy,label='Our Relation')
-ax1.plot(xx,y2,label='Cao Relation')
-ax1.plot(xx,y3,label='Zhang Relation')
-#ax1.plot(xx,yy2,color='b')
-ax1.set_xlim(0.0,30.0)
-#ax1.set_ylim(-5.0,15.0)
-ax1.set_xlabel('Slope parameter')
-ax1.set_ylabel('Shape parameter')
-ax1.text(0.05,0.90,'# of Points: %2.1f'%len(Lam), transform=ax1.transAxes,fontsize=10.)
-ax1.text(0.05,0.85,'%2.4f'%poly2[2]+'*lam^2 + %2.4f'%poly2[1]+'*lam + %2.4f'%poly2[0], transform=ax1.transAxes, fontsize = 10.)
-plt.legend(loc='upper left',numpoints=1,ncol=3,fontsize=10.)
-plt.savefig(outer_image_dir+'shape_slope_20under.png',dpi=200,bbox_inches='tight')
-plt.close(fig)
-
-print(poly2)
-print len(Lam)
 
 Dm_obs = N.array(Dm_obs)
 Dm_rad = N.array(Dm_rad)
@@ -946,3 +954,4 @@ savevars['D0'] = D0_tarr
 N.savez(radnpz_filename,**savevars)
 
 #
+

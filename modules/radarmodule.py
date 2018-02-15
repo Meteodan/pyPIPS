@@ -38,11 +38,9 @@ clevels_mu = N.arange(-2.0, 20.0, 1.0)        # Contour levels for shape paramet
 clevels_lam = N.arange(0.0, 20.0, 1.0)        # Contour levels for slope parameter
 cmapdBZ = ctables.__getattribute__('REF_default')
 cmapzdr = cm.Reds
-cmapkdp = cm.Blues
-cmaprhv = cm.Reds
 cmapvr = cm.RdBu_r
 cmapkdp = cm.Set1
-cmaprhv = cm.Dark2
+cmaprhv = cm.Spectral
 cmapretrievals = cm.viridis
 
 
@@ -1425,67 +1423,68 @@ def plotsweeps(pc, ib, sb):
     print "Plotting radar sweeps with overlaid disdrometer locations and data."
     for index, path, sweeptime in zip(xrange(len(sb.radar_filelist)), sb.radar_filelist,
                                       sb.radtimes):
+        if(sb.sweepstarttime - timedelta(hours=1) <= sweeptime <= sb.sweepstoptime + timedelta(hours=1)):
 
-        fields_arr = sb.fields_tarr[index]
-        fields_D_arr = sb.fields_D_tarr[index]
-        rlat_rad = sb.rlat_tarr[index]
-        rlon_rad = sb.rlon_tarr[index]
-        ralt = sb.ralt_tarr[index]
-        el_rad = sb.el_tarr[index]
-        range_start = sb.range_start_tarr[index]
-        radar_range = sb.range_tarr[index]
-        azimuth_start_rad = sb.azimuth_start_tarr[index]
-        azimuth_rad = sb.azimuth_tarr[index]
-        dxy_arr = sb.dxy_tarr[index]
+            fields_arr = sb.fields_tarr[index]
+            fields_D_arr = sb.fields_D_tarr[index]
+            rlat_rad = sb.rlat_tarr[index]
+            rlon_rad = sb.rlon_tarr[index]
+            ralt = sb.ralt_tarr[index]
+            el_rad = sb.el_tarr[index]
+            range_start = sb.range_start_tarr[index]
+            radar_range = sb.range_tarr[index]
+            azimuth_start_rad = sb.azimuth_start_tarr[index]
+            azimuth_rad = sb.azimuth_tarr[index]
+            dxy_arr = sb.dxy_tarr[index]
 
-        # list(array) where array is 2D or higher yields a list of arrays!
-        fields_list = list(fields_arr)
-        dxy_list = dxy_arr.tolist()
-        # array.tolist() yields a nested list for a 2D+ array!
-        # Note, need to transpose here because plotsweep expects the first axis to be the
-        # field (i.e. dBZ, ZDR, etc.) and the second axis to be the disdrometer.  What a
-        # tangled web I weave!
-        fields_D_list = fields_D_arr.T.tolist()
+            # list(array) where array is 2D or higher yields a list of arrays!
+            fields_list = list(fields_arr)
+            dxy_list = dxy_arr.tolist()
+            # array.tolist() yields a nested list for a 2D+ array!
+            # Note, need to transpose here because plotsweep expects the first axis to be the
+            # field (i.e. dBZ, ZDR, etc.) and the second axis to be the disdrometer.  What a
+            # tangled web I weave!
+            fields_D_list = fields_D_arr.T.tolist()
 
-        # In most of our cases the radar location isn't going to change with time,
-        # but in the more general case, this may not be true (i.e. if we are dealing with
-        # a mobile radar).
-        print "Radar sweep time: ", sweeptime.strftime(tm.timefmt)
-        # Prepare masks for fields by reflectivity < some threshold
-
-        # Probably should do this using a dictionary
-        for field, fieldname in zip(fields_list, sb.outfieldnames):
-            if(fieldname == 'dBZ'):
-                mask = N.where(field > 5.0, False, True)
-
-        masklist = [mask, mask, mask]
-
-        # Compute height and range of radar beam above disdrometer (assumes lambert
-        # conformal like plotsweep for now)
-        for dloc, dname, dxy in zip(ib.dlocs, ib.dis_name_list, dxy_list):
-            Dx, Dy = dxy
-            print Dx, Dy
-            h, r = oban.computeheightrangesingle(Dx, Dy, N.deg2rad(ib.el_req))
             # In most of our cases the radar location isn't going to change with time,
-            # but in the more general case, this may not be true (i.e. if we are dealing
-            # with a mobile radar).
-            print ("Disdrometer name,x,y,radar elevation angle,slant range, "
-                   "approximate beam height:")
-            print dname, Dx, Dy, el_rad/deg2rad, r, h
-            if(dloc == ib.dlocs[0] and ib.plotlims[0] == -1):
-                ib.plotlims = [Dx-25000., Dx+25000., Dy-30000., Dy+20000.]
+            # but in the more general case, this may not be true (i.e. if we are dealing with
+            # a mobile radar).
+            print "Radar sweep time: ", sweeptime.strftime(tm.timefmt)
+            # Prepare masks for fields by reflectivity < some threshold
 
-        figlist, gridlist = plotsweep(ib.radlims, ib.plotlims, sb.outfieldnames,
-                                      fields_list, masklist, range_start,
-                                      radar_range, azimuth_start_rad,
-                                      azimuth_rad, rlat_rad, rlon_rad, ralt, el_rad,
-                                      False, pc.plot_radar, ib.dis_name_list,
-                                      dxy_list, fields_D_list)
+            # Probably should do this using a dictionary
+            for field, fieldname in zip(fields_list, sb.outfieldnames):
+                if(fieldname == 'dBZ'):
+                    mask = N.where(field > 5.0, False, True)
 
-        # Save figures
-        for fieldname, fig in zip(sb.outfieldnames, figlist):
-            plt.figure(fig.number)
-            plt.title(sweeptime.strftime(tm.timefmt2).strip())
-            plt.savefig(radar_image_dir+fieldname+sweeptime.strftime(tm.timefmt3).strip()
-                        + 'el'+str(ib.el_req)+'.png', dpi=200, bbox_inches='tight')
-            plt.close(fig)
+            masklist = [mask, mask, mask]
+
+            # Compute height and range of radar beam above disdrometer (assumes lambert
+            # conformal like plotsweep for now)
+            for dloc, dname, dxy in zip(ib.dlocs, ib.dis_name_list, dxy_list):
+                Dx, Dy = dxy
+                print Dx, Dy
+                h, r = oban.computeheightrangesingle(Dx, Dy, N.deg2rad(ib.el_req))
+                # In most of our cases the radar location isn't going to change with time,
+                # but in the more general case, this may not be true (i.e. if we are dealing
+                # with a mobile radar).
+                print ("Disdrometer name,x,y,radar elevation angle,slant range, "
+                      "approximate beam height:")
+                print dname, Dx, Dy, el_rad/deg2rad, r, h
+                if(dloc == ib.dlocs[0] and ib.plotlims[0] == -1):
+                    ib.plotlims = [Dx-25000., Dx+25000., Dy-30000., Dy+20000.]
+
+            figlist, gridlist = plotsweep(ib.radlims, ib.plotlims, sb.outfieldnames,
+                                          fields_list, masklist, range_start,
+                                          radar_range, azimuth_start_rad,
+                                          azimuth_rad, rlat_rad, rlon_rad, ralt, el_rad,
+                                          False, pc.plot_radar, ib.dis_name_list,
+                                          dxy_list, fields_D_list)
+
+            # Save figures
+            for fieldname, fig in zip(sb.outfieldnames, figlist):
+                plt.figure(fig.number)
+                plt.title(sweeptime.strftime(tm.timefmt2).strip())
+                plt.savefig(radar_image_dir+fieldname+sweeptime.strftime(tm.timefmt3).strip()
+                            + 'el'+str(ib.el_req)+'.png', dpi=200, bbox_inches='tight')
+                plt.close(fig)
