@@ -9,10 +9,10 @@
 # derives the ambient wind direction, dewpoint, and RH (using the method
 # outlined by Richardson et al. (1998).
 
-# Richardson, S. J., S. E. Fredrickson, F. V. Brock, and J. A. Brotzge, 1998: 
-# Combination temperature and relative humidity probes: avoiding large air 
-# temperature errors and associated relative humidity errors. Preprints, 
-# 10th Symposium on Meteorological Observations and Instrumentation, 
+# Richardson, S. J., S. E. Fredrickson, F. V. Brock, and J. A. Brotzge, 1998:
+# Combination temperature and relative humidity probes: avoiding large air
+# temperature errors and associated relative humidity errors. Preprints,
+# 10th Symposium on Meteorological Observations and Instrumentation,
 # Phoenix, AZ, USA, American Meteorological Society, 278-283.
 
 # Original MATLAB script written by Sean Waugh: 1/25/2016
@@ -34,12 +34,12 @@ from datetime import datetime,timedelta
 # Location of input files. You should only need to change these for your particular
 # dataset.
 
-_PIPS_data_dir = '/Users/ddawson/Dropbox/PIPS_data/Irma2017/PIPS2B/converted/'
+_PIPS_data_dir = '/Users/ddawson/Dropbox/PIPS_data/Irma2017/PIPS1A/converted/'
 _output_filename = 'PIPS_merged.txt'
 
-fieldnames_onesec = ['TIMESTAMP', 'RECORD', 'BattV', 'PTemp_C', 'WindDir', 'WS_ms', 
-                     'WSDiag', 'FastTemp', 'SlowTemp', 'RH', 'Pressure(1)', 'FluxDirection', 
-                     'GPSTime', 'GPSStatus', 'GPSLat', 'GPSLon', 'GPSSpd', 'GPSDir', 
+fieldnames_onesec = ['TIMESTAMP', 'RECORD', 'BattV', 'PTemp_C', 'WindDir', 'WS_ms',
+                     'WSDiag', 'FastTemp', 'SlowTemp', 'RH', 'Pressure(1)', 'FluxDirection',
+                     'GPSTime', 'GPSStatus', 'GPSLat', 'GPSLon', 'GPSSpd', 'GPSDir',
                      'GPSDate', 'GPSMagVar', 'GPSAlt']
 fieldnames_tensec = ['TIMESTAMP', 'RECORD', 'ParsivelStr']
 
@@ -84,7 +84,7 @@ def process_onesec_record(row):
     except:
         row['GPSLon'] = 'NaN'
         row['GPSLonHem'] = ''
-    
+
     return row
 
 def process_tensec_record(row):
@@ -104,9 +104,9 @@ def process_tensec_record(row):
         except:
             pass
         row[field] = value
-    
+
     return row
-    
+
 def parseTimeStamp(timestring):
     """Parses a logger timestamp string and returns a datetime object"""
     date = timestring[0] # .strip('-')
@@ -118,7 +118,7 @@ def parseTimeStamp(timestring):
     min = N.int(time[3:5])
     sec = N.int(time[6:])
     return datetime(year,month,day,hour,min,sec)
-   
+
 
 # The following are taken from https://stackoverflow.com/questions/
 # 5967500/how-to-correctly-sort-a-string-with-a-number-inside?noredirect=1&lq=1
@@ -145,7 +145,7 @@ def merge_dicts(*dict_args):
     for dictionary in dict_args:
         result.update(dictionary)
     return result
-    
+
 
 def readData(PIPS_data_dir):
     """Reads the data from a list of 1-s and 10-s files and stores them in two dictionaries"""
@@ -158,7 +158,7 @@ def readData(PIPS_data_dir):
     filelist_tensec.sort(key=natural_keys)
 
     # Check sizes of the lists. There should be the same number of files in both lists.
-    # If there isn't, something is wrong and the user needs to figure that out before running 
+    # If there isn't, something is wrong and the user needs to figure that out before running
     # this script.
     # Actually could probably handle this by finding the union of the two lists,
     # but I'm too lazy to mess with that right now.
@@ -171,7 +171,7 @@ def readData(PIPS_data_dir):
 
     dict_onesec = {}
     for i,file in enumerate(filelist_onesec):
-        print "Reading 1-s data file: ",os.path.basename(file)   
+        print "Reading 1-s data file: ",os.path.basename(file)
         with open(file) as f:
             f.next() # Read and discard first header line
             fieldnames = f.next().strip().replace('"','').split(',') # The field names are contained in the second header line
@@ -180,7 +180,7 @@ def readData(PIPS_data_dir):
             #print fieldnames
             f.next() # Read and discard third header line
             f.next() # Read and discard fourth header line
-        
+
             # The remaining lines contain all the data. Read and parse them into a dictionary
             # using the field names as keys
             # See https://stackoverflow.com/questions/14091387/creating-a-dictionary-from-a-csv-file
@@ -191,7 +191,7 @@ def readData(PIPS_data_dir):
                 row = process_onesec_record(row)
                 for column, value in row.iteritems():
                     dict_onesec.setdefault(column, []).append(value)
-                    
+
     # Now read the 10-s files
 
     dict_tensec = {}
@@ -220,16 +220,16 @@ def readData(PIPS_data_dir):
     return dict_onesec,dict_tensec
 
 def mergeData(PIPS_data_dir,output_filename):
-    
+
     # First, read the data from the files
     dict_onesec,dict_tensec = readData(PIPS_data_dir)
-    
+
     # Now for the fun part! Merge all the records into a single 1-s file, matching the Parsivel
     # records with the corresponding 1-s record as we go
     numrecords = len(dict_onesec['TIMESTAMP']) # These are the number of lines (records) we
                                                # have to work with.
     numparsivelrecords = len(dict_tensec['TIMESTAMP']) # Number of Parsivel records
-    
+
     PIPS_outputfile = os.path.join(PIPS_data_dir,output_filename)
 
     with open(PIPS_outputfile, 'w') as f:
@@ -241,27 +241,27 @@ def mergeData(PIPS_data_dir,output_filename):
             # Parse the timestamp for the 1-s records and create a datetime object out of it
             timestring_onesec = dict_onesec['TIMESTAMP'][i].strip().split()
             datetime_onesec = parseTimeStamp(timestring_onesec)
-        
+
             # Fill in known 1-s values into output row dictionary
             outputrow = {key: value[i] for key,value in dict_onesec.iteritems()}
             # Derive absolute wind direction, dewpoint, and RH
             # Note, the output of the string "NaN" instead of just letting it output
-            # the float version is not really needed, but is done just for consistency with 
+            # the float version is not really needed, but is done just for consistency with
             # the original Matlab script (the float version outputs as "nan").
             try:
                 winddirabs = N.mod(dict_onesec['FluxDirection'][i] + \
                                    dict_onesec['WindDir'][i],360.)
                 if(N.isnan(winddirabs)):
                     outputrow['WindDirAbs'] = 'NaN'
-                else: 
+                else:
                     outputrow['WindDirAbs'] = '{:4.1f}'.format(winddirabs).strip().rstrip('0').rstrip('.')
             except:
                 outputrow['WindDirAbs'] = 'NaN'
-            
+
             RH = dict_onesec['RH'][i]
             SlowT = dict_onesec['SlowTemp'][i]
             FastT = dict_onesec['FastTemp'][i]
-        
+
             try:
                 dewpoint = 243.04*(N.log(RH/100.)+((17.625*SlowT)/(243.04+SlowT)))/ \
                                   (17.625-N.log(RH/100.)-((17.625*SlowT)/(243.04+SlowT)))
@@ -271,7 +271,7 @@ def mergeData(PIPS_data_dir,output_filename):
                     outputrow['Dewpoint'] = '{:7.4f}'.format(dewpoint).strip().rstrip('0').rstrip('.')
             except:
                 outputrow['Dewpoint'] = 'NaN'
-        
+
             try:
                 RHDer = 100.*(N.exp((17.625*dewpoint)/(243.04+dewpoint))/ \
                               N.exp((17.625*FastT)/(243.04+FastT)))
@@ -281,26 +281,26 @@ def mergeData(PIPS_data_dir,output_filename):
                     outputrow['RHDer'] =  '{:7.4f}'.format(RHDer).strip().rstrip('0').rstrip('.')
             except:
                 outputrow['RHDer'] = 'NaN'
-        
+
             if(j < numparsivelrecords): # Only do the following if we still have Parsivel data
                 # Next, we need to fill in the Parsivel data for the records that need it.
                 nextParsivelTimeStamp = dict_tensec['TIMESTAMP'][j]
                 # Parse the timestamp for the 10-s records and create a datetime object out of it
                 timestring_tensec = nextParsivelTimeStamp.strip().split()
                 datetime_tensec = parseTimeStamp(timestring_tensec)
-        
+
                 # To match the Parsivel timestamps with the appropriate 1-s timestamps, we
                 # exploit the fact that the time is always increasing in the dataset (or it should
-                # be; if not, something is wrong! This version of the script doesn't catch such 
+                # be; if not, something is wrong! This version of the script doesn't catch such
                 # errors, but it probably should be added at some point).
                 # We basically loop one at a time through the 1-s records, and try to match the
-                # timestamp up with the next Parsivel timestamp. If we find a match, great! Add it 
-                # to the end of the 1-s record, and then go on to the next Parsivel timestamp. 
+                # timestamp up with the next Parsivel timestamp. If we find a match, great! Add it
+                # to the end of the 1-s record, and then go on to the next Parsivel timestamp.
                 # This way, we only sweep through both the 1-s and 10-s records once, instead of checking
-                # the entire list of 1-s times for every 10-s record, which saves a lot of 
+                # the entire list of 1-s times for every 10-s record, which saves a lot of
                 # time (i.e search is of ~O(N) instead of O(N*n) where, N is the number of 1-s records
                 # and n is the number of 10-s records).
-        
+
                 # This shouldn't really happen if the logger is working correctly, but in case the
                 # First n Parsivel times are *earlier* than the first 1-s time, we have to increment
                 # the j index until we get our first match.
@@ -309,7 +309,7 @@ def mergeData(PIPS_data_dir,output_filename):
                     nextParsivelTimeStamp = dict_tensec['TIMESTAMP'][j]
                     timestring_tensec = nextParsivelTimeStamp.strip().split()
                     datetime_tensec = parseTimeStamp(timestring_tensec)
-        
+
                 if(datetime_onesec == datetime_tensec): # Found a match! Add Parsivel string to end
                                                         # of 1-s record, and then increment the j counter.
                     outputrow['ParsivelStr'] = dict_tensec['ParsivelStr'][j]
@@ -318,18 +318,18 @@ def mergeData(PIPS_data_dir,output_filename):
                     outputrow['ParsivelStr'] = 'NaN'
             else:
                 outputrow['ParsivelStr'] = 'NaN'
-                
+
             #Write the output record
             print "Writing output record # ",i+1," of ",numrecords
             writer.writerow(outputrow)
 
 if __name__ == "__main__":
 
-    if(len(sys.argv) > 0):
+    if(len(sys.argv) > 1):
         PIPS_data_dir = sys.argv[1]
         output_filename = sys.argv[2]
     else:
         PIPS_data_dir = _PIPS_data_dir
         output_filename = _output_filename
-    
+
     mergeData(PIPS_data_dir,output_filename)
