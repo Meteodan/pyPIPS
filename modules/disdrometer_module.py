@@ -49,6 +49,8 @@ min_fall_bins = [0.000, 0.100, 0.200, 0.300, 0.400, 0.500, 0.600, 0.700, 0.800, 
 
 # Parsivel sampling area and sampling period
 sensor_area = 0.0054    # (m^2)
+sensor_width = 0.03     # (m)
+sensor_length = 0.18    # (m)
 sampling_period = 10.0  # (s)
 
 min_diameter = N.array(min_diameter_bins)
@@ -1328,7 +1330,7 @@ def calc_DSD(min_size, avg_size, max_size, bin_width, Nc_bin, logNc_bin, rho, qr
     rainrate = N.array(rainrate)
     Dmax = N.array(Dmax)/1000.
     Dmin = N.array(Dmin)/1000.
-    
+
     # --- Compute various mean diameters directly from measured discrete distribution ---
     cmr = (N.pi / 6.) * 1000.                                     # Constant in mass-diameter relation for rain
     LWC_disd = cmr * 1000.0 * M3
@@ -1487,7 +1489,7 @@ def calc_DSD(min_size, avg_size, max_size, bin_width, Nc_bin, logNc_bin, rho, qr
     mu_tmf=[]
     lamda_tmf=[]
     N0_tmf=[]
-  
+
     for t in range(numtimes):
         LDmx = lam_gam[t]*Dmax[t]
         for x in xrange(10):
@@ -1498,22 +1500,22 @@ def calc_DSD(min_size, avg_size, max_size, bin_width, Nc_bin, logNc_bin, rho, qr
             gm7 = gammap(7.+mu,LDmx)*N.exp(gammln(7.+mu))
             z0 = G[t] - gm5**2./gm3/gm7
             z1 = G[t] - gm5**2./gm3/gm7
-        
+
             while(z1/z0 > 0.0):
                 mu = mu - 0.01
                 gm3 = gammap(3.+mu,LDmx)*N.exp(gammln(3.+mu))
                 gm5 = gammap(5.+mu,LDmx)*N.exp(gammln(5.+mu))
                 gm7 = gammap(7.+mu,LDmx)*N.exp(gammln(7.+mu))
                 z1 = G[t] - gm5**2./gm3/gm7
-            
+
             lam_tmf= (M2[t]*gm5/M4[t]/gm3)**0.5
             LDmx = lam_tmf*Dmax[t]
-            
+
         N0 = (M4[t]*lam_tmf**(5.+mu))/(gammap(5.+mu,LDmx)*N.exp(gammln(5.+mu)))
         mu_tmf.append(mu)
         lamda_tmf.append(lam_tmf)
         N0_tmf.append(N0)
-        
+
     mu_tmf = N.array(mu_tmf)
     lamda_tmf = N.array(lamda_tmf)
     N0_tmf = N.array(N0_tmf)
