@@ -12,7 +12,7 @@ from matplotlib.projections import PolarAxes, register_projection
 from matplotlib.transforms import Affine2D, Bbox, IdentityTransform
 from mpl_toolkits.axes_grid1 import ImageGrid
 import ctablesfrompyesviewer as ctables
-from datetime import datetime
+from datetime import datetime, timedelta
 import obanmodule as oban
 import glob
 import os
@@ -1413,7 +1413,7 @@ def readsweeps2PIPS(fieldnames, pc, ib):
     return utils.Bunch(sweepdict)
 
 
-def plotsweeps(pc, ib, sb):
+def plotsweeps(pc, ib, sb, sweepstart, sweepstop):
     """Plots radar sweeps with overlaid disdrometer locations"""
 
     radar_image_dir = os.path.join(ib.image_dir, 'radar_PPI/')
@@ -1423,7 +1423,7 @@ def plotsweeps(pc, ib, sb):
     print "Plotting radar sweeps with overlaid disdrometer locations and data."
     for index, path, sweeptime in zip(xrange(len(sb.radar_filelist)), sb.radar_filelist,
                                       sb.radtimes):
-        if(sb.sweepstarttime - timedelta(hours=1) <= sweeptime <= sb.sweepstoptime + timedelta(hours=1)):
+        if(sweepstart - timedelta(hours=1) <= sweeptime <= sweepstop + timedelta(hours=1)):
 
             fields_arr = sb.fields_tarr[index]
             fields_D_arr = sb.fields_D_tarr[index]

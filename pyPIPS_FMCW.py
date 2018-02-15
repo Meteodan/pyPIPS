@@ -104,9 +104,9 @@ directories = ['/Users/bozell/pyPIPS_work/input/NEXRAD/','/Volumes/depot/dawson2
 for directory in directories:
     for root, dirs, files in os.walk(directory):
         for f in files:
-            if f.endswith("040517.txt","040417.txt","041717.txt","042017.txt","042417.txt","FMCW.txt"):
+            if f.endswith(("040517.txt","040417.txt","041717.txt","042017.txt","042417.txt","FMCW.txt")):
                 continue
-            elif f.endswith(".txt"):
+            elif f.endswith("040317.txt"):
                 print directory
                 print f
 
@@ -202,7 +202,7 @@ for directory in directories:
                     inputdict['el_req'] = 0.5
                     inputdict['heading'] = None
 
-                    inputdict['image_dir'] = '/Users/bozell/VORTEXSE/testing_cc/'+radar_date+'/'
+                    inputdict['image_dir'] = '/Users/bozell/VORTEXSE/testing_new_code/'+radar_date+'/'
                     inputdict['radar_dir'] = '/Users/bozell/nexrad/PIPS2A_FMCW/'+radar_date+'/CFRadial/'
                     inputdict['scattdir'] = '/Users/bozell/pyPIPS/tmatrix/S-band/'
 
@@ -498,9 +498,9 @@ for directory in directories:
                                 plotstarttime = raintimes[0]
                                 plotstoptime = raintimes[-1]
                                 # set radar PPI plot start and end time for FMCW days 
-                                sweeptimes = disdates[rainindex]
-                                sb['sweepstarttime'] = sweeptimes[0]
-                                sb['sweepstoptime'] = sweeptimes[-1]
+                                sweeptimes = PSDtimestamps[rainindex]
+                                sweepstart = sweeptimes[0]
+                                sweepstop = sweeptimes[-1]
                                 
                             if(DSDtype == 'observed'):
                                 # Prepare axis parameters
@@ -526,7 +526,7 @@ for directory in directories:
                             
                     # add index == 0 because for IOP days, only want to plot for once, not for each disdrometer?
                     if(pc.plot_radar and index==0):
-                        radar.plotsweeps(pc, ib, sb)
+                        radar.plotsweeps(pc, ib, sb, sweepstart, sweepstop)
 
                     lamda_gam = lamda_gam/1000.
                     
@@ -688,7 +688,7 @@ for directory in directories:
                     em.scatters(D_med_disd,D_med_gam,N.array(D0_dis_retr),D0_rad_retr,ZDR_rad,ZDR,PSDmidtimes,ib.image_dir,dis_name,name)
                    
                     D0_mm.extend(D_med_gam)
-                    D0_retr.extend(D_rad_retr)
+                    D0_retr.extend(D0_rad_retr)
 
                     name = 'Nt'
                     axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[10**1.,10**5.]],'axeslabels':[pc.timelabel,r'Nt']}
