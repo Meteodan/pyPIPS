@@ -33,7 +33,7 @@ Nc_bin_tarr = radnpz_file['Nc_bin']
 R_tarr = radnpz_file['R']
 D0_tarr = radnpz_file['D0']
 mm = N.nanmax(R_tarr)
-print mm
+print len(R_tarr)
 rain_bins = []
 D0_bins = N.arange(0.0,4.05,0.05)
 D0_bins = N.array(D0_bins)

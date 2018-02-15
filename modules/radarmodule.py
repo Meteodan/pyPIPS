@@ -39,7 +39,7 @@ clevels_kdp = N.arange(0.0,12.5,0.5)            # Contour levels for Kdp (deg km
 clevels_rhv = N.arange(0.9,1.01,0.01)           # Contour levels for rhv
 clevels_vr = N.arange(-40.0,41.0,1.0)         # Contour levels for Vr (m/s)
 clevels_kdp = N.arange(-1.0,7.0,0.5)		  # Contour levels for Kdp (deg/km)
-clevels_rhv = N.arange(0.0,1.0,0.1)			  # Contour levels for Rhv 
+clevels_rhv = N.arange(0.5,1.0,0.05)			  # Contour levels for Rhv 
 clevels_rain = N.arange(0.1,200.0)        # Contour levels for rainrate
 clevels_d0 = N.arange(0.0,4.0,0.1)             # Contour levels for median drop size
 clevels_lwc = N.arange(0.01,10.0)        # Contour levels for liquid water content
@@ -49,11 +49,9 @@ clevels_mu = N.arange(-2.0,20.0,1.0)        # Contour levels for shape parameter
 clevels_lam = N.arange(0.0,20.0,1.0)        # Contour levels for slope parameter
 cmapdBZ = ctables.__getattribute__('REF_default')
 cmapzdr = cm.Reds
-cmapkdp = cm.Blues
-cmaprhv = cm.Reds
 cmapvr = cm.RdBu_r
 cmapkdp = cm.Set1
-cmaprhv = cm.Dark2
+cmaprhv = cm.Spectral
 cmapretrievals = cm.viridis
 
 
