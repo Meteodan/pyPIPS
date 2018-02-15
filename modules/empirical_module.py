@@ -174,6 +174,54 @@ def one2one(obs,mm,retr_dis,retr_rad,image_dir,dis_name,name):
     plt.savefig(image_dir+'scattergrams/'+dis_name+'_one-to-'+name+'.png',dpi=200,bbox_inches='tight')
     plt.close(fig1)
     
+def outer_one2one(obs,mm,retr_rad,image_dir,name):
+    
+    if(name=='R'):
+        maxlim = 10**-1.
+        minlim = 10**-4.
+        yscale = 'log'
+        label = 'R/Zh'        
+    if(name=='D0'):
+        maxlim = 5.0
+        minlim = 0.0
+        yscale = 'linear'
+        label = 'D0'        
+    if(name=='Nt'):
+        maxlim = 10**2.
+        minlim = 10**-3.
+        yscale = 'log'
+        label = 'Nt/Zh'        
+    if(name=='W'):
+        maxlim = 10**-2.
+        minlim = 10**-6.
+        yscale = 'log'
+        label = 'W/Zh'        
+    
+    one_x = N.linspace(10**-8,10**2)
+    one_y = one_x
+    bias_mm = 100 * ((N.nansum(retr_rad-mm))/N.nansum(mm))
+    bias_obs = 100 * ((N.nansum(retr_rad-obs))/N.nansum(obs))
+    cc_mm = pd.DataFrame({'rad': retr_rad, 'mm': mm}).corr()
+    cc_obs = pd.DataFrame({'rad': retr_rad, 'obs': obs}).corr()
+    fig1=plt.figure(figsize=(8,8))
+    ax1=fig1.add_subplot(111)
+    ax1.scatter(obs, mm, color='m', marker='.', label='Method Moments')
+    ax1.scatter(obs, retr_rad, color='g', marker='.', label='Rad Retrieval')
+    ax1.set_xlim(minlim,maxlim)
+    ax1.set_xscale(yscale)
+    ax1.set_ylim(minlim,maxlim)
+    ax1.set_yscale(yscale)
+    ax1.set_xlabel('Observed' + label)
+    ax1.set_ylabel('Calculated' + label)
+    ax1.plot(one_x,one_y,lw=2,color='k')
+    ax1.text(0.6,0.20,'Obs Bias =%2.2f'%bias_obs+'%',transform=ax1.transAxes)
+    ax1.text(0.6,0.15,'Moments Bias =%2.2f'%bias_mm+'%',transform=ax1.transAxes)
+    ax1.text(0.6,0.10,'Obs. Corr Coeff =%2.3f'%cc_obs.ix[0,1],transform=ax1.transAxes)
+    ax1.text(0.6,0.05,'Moments Corr Coeff =%2.3f'%cc_mm.ix[0,1],transform=ax1.transAxes)
+    plt.legend(loc='upper left',numpoints=1,ncol=1,fontsize=12.)
+    plt.savefig(image_dir+'one-to-'+name+'.png',dpi=200,bbox_inches='tight')
+    plt.close(fig1)
+    
 def scatters(obs,mm,retr_dis,retr_rad,ZDR_rad,ZDR,DSDmidtimes,image_dir,dis_name,name):
     
     if(name=='D0'):

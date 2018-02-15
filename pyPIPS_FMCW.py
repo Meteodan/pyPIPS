@@ -30,7 +30,19 @@ Dm_obs=[]
 Dm_dis=[]
 Dm_rad=[]
 R_list = []
+R_mm = []
+R_retr = []
 D0_list = []
+D0_mm = []
+D0_retr = []
+Nt_obs = []
+Nt_mm = []
+Nt_retr = []
+W_obs = []
+W_mm = []
+W_retr = []
+Zh_dis = []
+Zh_retr = []
 ND_list = N.empty((0,32))
 
 fieldnames = ['dBZ','ZDR','KDP','RHV','Vr']
@@ -92,9 +104,9 @@ directories = ['/Users/bozell/pyPIPS_work/input/NEXRAD/','/Volumes/depot/dawson2
 for directory in directories:
     for root, dirs, files in os.walk(directory):
         for f in files:
-            if f.endswith("FMCW.txt"):
+            if f.endswith(("040517.txt","040417.txt","041717.txt","042017.txt","042417.txt","FMCW.txt")):
                 continue
-            elif f.endswith(".txt"):
+            elif f.endswith("040317.txt"):
                 print directory
                 print f
 
@@ -190,7 +202,7 @@ for directory in directories:
                     inputdict['el_req'] = 0.5
                     inputdict['heading'] = None
 
-                    inputdict['image_dir'] = '/Users/bozell/VORTEXSE/testing_cc/'+radar_date+'/'
+                    inputdict['image_dir'] = '/Users/bozell/VORTEXSE/testing_new_code/'+radar_date+'/'
                     inputdict['radar_dir'] = '/Users/bozell/nexrad/PIPS2A_FMCW/'+radar_date+'/CFRadial/'
                     inputdict['scattdir'] = '/Users/bozell/pyPIPS/tmatrix/S-band/'
 
@@ -386,24 +398,26 @@ for directory in directories:
                         for DSDtype in ['observed', 'exponential', 'gamma']:
                             if(DSDtype == 'observed'):
                                 logND_plot = logND[:, pstartindex:pstopindex + 1]
-                                D_0_plot = D_med_disd
-                                refl_ray_plot = refl_disd
-#                                 dp = dualpol_dis
-                                Zh, Zv, Zhv, dBZ, ZDR, KDP, RHV, intv, d, fa2, fb2 = dualpol_dis
+                                if(pc.calc_DSD):
+                                    D_0_plot = D_med_disd
+                                    refl_ray_plot = refl_disd
+                                    dp = dualpol_dis
+                                    #Zh, Zv, Zhv, dBZ, ZDR, KDP, RHV, intv, d, fa2, fb2 = dualpol_dis
                             elif(DSDtype == 'exponential'):
                                 logND_plot = logND_expDSD[:, pstartindex:pstopindex + 1]
-                                D_0_plot = D_med_exp
-                                refl_ray_plot = refl_DSD_exp
-#                                 dp = dualpol_exp
-                                Zh, Zv, Zhv, dBZ, ZDR, KDP, RHV, intv, d, fa2, fb2 = dualpol_exp
+                                if(pc.calc_DSD):
+                                    D_0_plot = D_med_exp
+                                    refl_ray_plot = refl_DSD_exp
+                                    dp = dualpol_exp
+                                    #Zh, Zv, Zhv, dBZ, ZDR, KDP, RHV, intv, d, fa2, fb2 = dualpol_exp
                             elif(DSDtype == 'gamma'):
                                 logND_plot = logND_gamDSD[:, pstartindex:pstopindex + 1]
-                                D_0_plot = D_med_gam
-                                refl_ray_plot = refl_DSD_gam
-#                                 dp = dualpol_gam
-                                Zh, Zv, Zhv, dBZ, ZDR, KDP, RHV, intv, d, fa2, fb2 = dualpol_gam
+                                if(pc.calc_DSD):
+                                    D_0_plot = D_med_gam
+                                    refl_ray_plot = refl_DSD_gam
+                                    dp = dualpol_gam
+                                    #Zh, Zv, Zhv, dBZ, ZDR, KDP, RHV, intv, d, fa2, fb2 = dualpol_gam
 
-                            
                             disvars = {'min_diameter': min_diameter, 'PSDstarttimes': PSDstarttimes,
                                        'PSDmidtimes': PSDmidtimes, 'logND': logND_plot}
 
@@ -414,33 +428,34 @@ for directory in directories:
                             # recommended to first set the "rain_only_QC" flag to True in disdrometer_module.py
 
                             if(pc.calc_DSD):
-                                # 3-min average of median volume diameter and radar reflectivity
-                                # (Rayleigh approx.) from disdrometer
+                                # If desired, perform centered running averages
+                                if(pc.avgwindow):
+                                    window = int(pc.avgwindow / DSD_interval)
 
-                                window = int(180. / DSD_interval)
-                                D_0_avg = pd.Series(D_0_plot).rolling(
-                                    window=window,
-                                    center=True,
-                                    win_type='triang',
-                                    min_periods=1).mean().values  # use for gamma fit
-                                dBZ_ray_avg = pd.Series(refl_ray_plot).rolling(
-                                    window=window,
-                                    center=True,
-                                    win_type='triang',
-                                    min_periods=1).mean().values  # use for gamma fit
-                                disvars['D_0'] = D_0_avg[pstartindex:pstopindex + 1]
-                                disvars['dBZ_ray'] = dBZ_ray_avg[pstartindex:pstopindex + 1]
+                                    D_0_plot = pd.Series(D_0_plot).rolling(
+                                        window=window,
+                                        center=True,
+                                        win_type='triang',
+                                        min_periods=1).mean().values  # use for gamma fit
+                                    refl_ray_plot = pd.Series(refl_ray_plot).rolling(
+                                        window=window,
+                                        center=True,
+                                        win_type='triang',
+                                        min_periods=1).mean().values  # use for gamma fit
+                                disvars['D_0'] = D_0_plot[pstartindex:pstopindex + 1]
+                                disvars['dBZ_ray'] = refl_ray_plot[pstartindex:pstopindex + 1]
 
                                 if(pc.calc_dualpol):
                                     # Computed centered running averages of dualpol variables
-                                    for varname,var in zip(['dBZ', 'ZDR', 'KDP', 'RHV'],[dBZ,ZDR,KDP,RHV]):
-#                                         var = dp.get(varname, N.empty((0)))
+                                    for varname in ['dBZ', 'ZDR', 'KDP', 'RHV']:
+                                        var = dp.get(varname, N.empty((0)))
                                         if(var.size):
-                                            var_avg = pd.Series(var).rolling(
-                                                window=window, center=True, win_type='triang',
-                                                min_periods=1).mean().values
-                                            disvars[varname] = var_avg[pstartindex:pstopindex + 1]
-
+                                            # If desired, perform centered running averages
+                                            if(pc.avgwindow)
+                                                var = pd.Series(var).rolling(
+                                                    window=window, center=True, win_type='triang',
+                                                    min_periods=1).mean().values
+                                            disvars[varname] = var[pstartindex:pstopindex + 1]
 
                             # Mark flagged times with vertical lines, if desired
                             if(pc.plot_diagnostics):
@@ -484,7 +499,12 @@ for directory in directories:
                                 rainindex = N.where(disvars['RHV'] > 0.6)
                                 raintimes = PSDmidtimes[rainindex]
                                 plotstarttime = raintimes[0]
-                                plotstoptime = raintimes[len(raintimes)-1]
+                                plotstoptime = raintimes[-1]
+                                # set radar PPI plot start and end time for FMCW days 
+                                sweeptimes = PSDtimestamps[rainindex]
+                                sweepstart = sweeptimes[0]
+                                sweepstop = sweeptimes[-1]
+                                
                             if(DSDtype == 'observed'):
                                 # Prepare axis parameters
                                 timelimits = [plotstarttime, plotstoptime]
@@ -506,12 +526,26 @@ for directory in directories:
                             PSDderiveddict = {'PSDmidtimes': PSDmidtimes, 'PSD_plot_df': PSD_plot_df}
 
                             pm.plotDSDderivedmeteograms(index, pc, ib, **PSDderiveddict)
+                            
+                    # add index == 0 because for IOP days, only want to plot for once, not for each disdrometer?
+                    if(pc.plot_radar and index==0):
+                        radar.plotsweeps(pc, ib, sb, sweepstart, sweepstop)
 
-                    if(pc.plot_radar):
-                        radar.plotsweeps(pc, ib, sb)
+                    # Extract some needed stuff from dictionary containing disdrometer-derived
+                    # polarimetric variables (note, this can be changed if you are interested
+                    # instead to compare values from the gamma or exponential fits). Just change
+                    # "dualpol_dis" to "dualpol_gam" or "dualpol_exp" below.
+                    Zh = dualpol_dis['Zh']
+                    ZDR = dualpol_dis['ZDR']
+                    dBZ = dualpol_dis['dBZ']
+                    RHV = dualpol_dis['RHV']
+                    d = dualpol_dis['d']
+                    fa2 = dualpol_dis['fa2']
+                    fb2 = dualpol_dis['fb2']
+                    intv = dualpol_dis['intv']
 
                     lamda_gam = lamda_gam/1000.
-                    
+
                 ### Added for shape-slope relation plots
                     mu.extend(mu_gam)
                     lamda.extend(lamda_gam)
@@ -524,13 +558,17 @@ for directory in directories:
                     idx2 = ZDR_rad.index.union(PSDmidtimes)
                     ZDR_rad = N.array(ZDR_rad.reindex(idx2).interpolate(method='index',limit=8).reindex(PSDmidtimes))
 
-                    dBZ_rad = ma.masked_where((ZDR_rad > 4.) | (disvars['RHV'] < 0.6), dBZ_rad)
-                    ZDR_rad = ma.masked_where((ZDR_rad> 4.) | (disvars['RHV'] < 0.6), ZDR_rad)
-                    dBZ_dis = ma.masked_where((disvars['ZDR']>4.) | (disvars['RHV'] < 0.6),disvars['dBZ'])
-                    ZDR_dis = ma.masked_where((disvars['ZDR']>4.) | (disvars['RHV'] < 0.6),disvars['ZDR'])
+                    dBZ_rad = ma.masked_where((ZDR_rad > 4.) | (RHV < 0.6), dBZ_rad)
+                    ZDR_rad = ma.masked_where((ZDR_rad> 4.) | (RHV < 0.6), ZDR_rad)
+                    dBZ_dis = ma.masked_where((ZDR>4.) | (RHV < 0.6), dBZ)
+                    ZDR_dis = ma.masked_where((ZDR>4.) | (RHV < 0.6), ZDR)
 
-                    R_rad_retr,D0_rad_retr,mu_rad_retr,lam_rad_retr,N0_rad_retr,Nt_rad_retr,W_rad_retr,sigm_rad_retr,Dm_rad_retr,N_rad_retr = DR.retrieve_DSD(dBZ_rad,ZDR_rad,d,fa2,fb2,intv,ib.wavelength)
-                    R_dis_retr,D0_dis_retr,mu_dis_retr,lam_dis_retr,N0_dis_retr,Nt_dis_retr,W_dis_retr,sigm_dis_retr,Dm_dis_retr,N_dis_retr = DR.retrieve_DSD(dBZ_dis,ZDR_dis,d,fa2,fb2,intv,ib.wavelength)
+                    radrettuple = DR.retrieve_DSD(dBZ_rad, ZDR_rad, d, fa2, fb2, intv, ib.wavelength)
+                    (R_rad_retr, D0_rad_retr, mu_rad_retr, lam_rad_retr, N0_rad_retr, Nt_rad_retr,
+                     W_rad_retr, sigm_rad_retr, Dm_rad_retr, N_rad_retr) = radrettuple
+                    disrettuple = DR.retrieve_DSD(dBZ_dis, ZDR_dis, d, fa2, fb2, intv, ib.wavelength)
+                    (R_dis_retr, D0_dis_retr, mu_dis_retr, lam_dis_retr, N0_dis_retr, Nt_dis_retr,
+                     W_dis_retr, sigm_dis_retr, Dm_dis_retr, N_dis_retr) = disrettuple
 
                     lam_dis_retr = N.array(lam_dis_retr)
                     R_dis_retr = ma.masked_where(lam_dis_retr > 20., R_dis_retr)
@@ -658,6 +696,9 @@ for directory in directories:
 
                     em.one2one(PSD_df['intensity'].values/Zh,rainrate/Zh,R_dis_retr/Zh,R_rad_retr/Zh_rad,ib.image_dir,dis_name,name)
                     em.scatters(N.log10(PSD_df['intensity'].values/Zh),N.log10(rainrate/Zh),N.log10(R_dis_retr/Zh),N.log10(R_rad_retr/Zh_rad),ZDR_rad,ZDR,PSDmidtimes,ib.image_dir,dis_name,name)
+                    
+                    R_mm.extend(rainrate)
+                    R_retr.extend(R_rad_retr)
 
                     name = 'D0'
                     axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[0.0,5.0]],'axeslabels':[pc.timelabel,r'D0']}
@@ -665,6 +706,9 @@ for directory in directories:
 
                     em.one2one(D_med_disd,D_med_gam,D0_dis_retr,D0_rad_retr,ib.image_dir,dis_name,name)
                     em.scatters(D_med_disd,D_med_gam,N.array(D0_dis_retr),D0_rad_retr,ZDR_rad,ZDR,PSDmidtimes,ib.image_dir,dis_name,name)
+                   
+                    D0_mm.extend(D_med_gam)
+                    D0_retr.extend(D0_rad_retr)
 
                     name = 'Nt'
                     axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[10**1.,10**5.]],'axeslabels':[pc.timelabel,r'Nt']}
@@ -673,6 +717,10 @@ for directory in directories:
                     em.one2one(M0/Zh,Ntr_gam/Zh,Nt_dis_retr/Zh,Nt_rad_retr/Zh_rad,ib.image_dir,dis_name,name)
                     em.scatters(N.log10(M0/Zh),N.log10(Ntr_gam/Zh),N.log10(Nt_dis_retr/Zh),N.log10(Nt_rad_retr/Zh_rad),ZDR_rad,ZDR,PSDmidtimes,ib.image_dir,dis_name,name)
 
+                    Nt_obs.extend(M0)
+                    Nt_mm.extend(Ntr_gam)
+                    Nt_retr.extend(Nt_rad_retr)
+                    
                     name = 'W'
                     axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[0.0,8.0]],'axeslabels':[pc.timelabel,r'LWC']}
                     em.retr_timeseries(LWC_disd,LWC_gam,W_rad_retr,W_dis_retr,pstartindex,pstopindex,PSDmidtimes,axparamdict1,ib.image_dir,dis_name,name)
@@ -680,6 +728,13 @@ for directory in directories:
                     em.one2one(LWC_disd/Zh,LWC_gam/Zh,W_dis_retr/Zh,W_rad_retr/Zh_rad,ib.image_dir,dis_name,name)
                     em.scatters(N.log10(LWC_disd/Zh),N.log10(LWC_gam/Zh),N.log10(W_dis_retr/Zh),N.log10(W_rad_retr/Zh_rad),ZDR_rad,ZDR,PSDmidtimes,ib.image_dir,dis_name,name)
 
+                    W_obs.extend(LWC_disd)
+                    W_mm.extend(LWC_gam)
+                    W_retr.extend(W_rad_retr)
+                    
+                    Zh_dis.extend(Zh)
+                    Zh_retr.extend(Zh_rad)
+                    
                     R_list.extend(rainrate)
                     D0_list.extend(D_med_disd)
                     ND = ND.T
@@ -789,6 +844,17 @@ for directory in directories:
 #           plt.savefig(ib.image_dir+'scattergrams/brandes.png',dpi=200,bbox_inches='tight')
 #           plt.close(fig1)
 
+name = 'R'
+em.outer_one2one(N.array(R_list)/N.array(Zh_dis),N.array(R_mm)/N.array(Zh_dis),N.array(R_retr)/N.array(Zh_retr),outer_image_dir,name)
+ 
+name = 'D0'
+em.outer_one2one(N.array(D0_list), N.array(D0_mm), N.array(D0_retr), outer_image_dir,name)
+ 
+name = 'Nt'
+em.outer_one2one(N.array(Nt_obs)/N.array(Zh_dis),N.array(Nt_mm)/N.array(Zh_dis),N.array(Nt_retr)/N.array(Zh_retr), outer_image_dir,name)
+
+name = 'W'
+em.outer_one2one(N.array(W_obs)/N.array(Zh_dis),N.array(W_mm)/N.array(Zh_dis),N.array(W_retr)/N.array(Zh_retr),outer_image_dir,name)
 
 ## Plot the lambda-mu relation and fit with 2nd order polynomial
 print len(lamda)
@@ -824,44 +890,6 @@ plt.close(fig)
 print(poly)
 print len(lamda)
 #
-Lam = []
-Mu = []
-
-for n1 in xrange(0,len(lamda)):
-    lam = lamda[n1]
-    if(lam < 20.):
-        Lam.append(lamda[n1])
-        Mu.append(mu[n1])
-
-poly2=N.polynomial.polynomial.polyfit(Lam,Mu,2)
-polynomial2=N.polynomial.polynomial.Polynomial(poly2)
-
-xx = N.linspace(0.0, 30.0)
-yy = polynomial2(xx)
-y2 = -0.0201*xx**2. + 0.902*xx - 1.718
-y3 = -0.016*xx**2. + 1.213*xx - 1.957
-#yy2 = polynomial2(xx)
-
-fig=plt.figure(figsize=(8,8))
-ax1=fig.add_subplot(111)
-plt.title('Shape-Slope Relation with Slope < 20')
-ax1.scatter(Lam,Mu, color='k', marker='.')
-ax1.plot(xx,yy,label='Our Relation')
-ax1.plot(xx,y2,label='Cao Relation')
-ax1.plot(xx,y3,label='Zhang Relation')
-#ax1.plot(xx,yy2,color='b')
-ax1.set_xlim(0.0,30.0)
-#ax1.set_ylim(-5.0,15.0)
-ax1.set_xlabel('Slope parameter')
-ax1.set_ylabel('Shape parameter')
-ax1.text(0.05,0.90,'# of Points: %2.1f'%len(Lam), transform=ax1.transAxes,fontsize=10.)
-ax1.text(0.05,0.85,'%2.4f'%poly2[2]+'*lam^2 + %2.4f'%poly2[1]+'*lam + %2.4f'%poly2[0], transform=ax1.transAxes, fontsize = 10.)
-plt.legend(loc='upper left',numpoints=1,ncol=3,fontsize=10.)
-plt.savefig(outer_image_dir+'shape_slope_20under.png',dpi=200,bbox_inches='tight')
-plt.close(fig)
-
-print(poly2)
-print len(Lam)
 
 Dm_obs = N.array(Dm_obs)
 Dm_rad = N.array(Dm_rad)
@@ -946,3 +974,4 @@ savevars['D0'] = D0_tarr
 N.savez(radnpz_filename,**savevars)
 
 #
+

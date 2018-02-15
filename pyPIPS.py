@@ -144,7 +144,11 @@ for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc in zip(
     ND_onedrop = ND_onedrop.T
 
     logND = N.ma.log10(ND)
-    logND = N.ma.masked_where(ND < ND_onedrop, logND)
+    # Commented out below: we want to do the "one-drop" masking for the gamma and
+    # exponential fits, *not* for the actual data. (You can't observe a fraction of a drop! and the
+    # way it's computed (using the theoretical fall speed instead of measured) may actually end up
+    # zeroing out some bins.)
+    #logND = N.ma.masked_where(ND < ND_onedrop, logND)
 
     DSD_index = PIPS_dict['DSD_index']
     DSD_interval = PIPS_dict['DSD_interval']
@@ -284,7 +288,7 @@ for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc in zip(
     if(pc.calc_DSD):
 
         synthbins, exp_DSD, gam_DSD, tmf_DSD, dis_DSD = dis.calc_DSD(
-            min_diameter, avg_diameter, max_diameter, bin_width, ND, logND, rho_tDSD, pc.qrQC,
+            min_diameter, avg_diameter, max_diameter, bin_width, ND, logND, rho_tDSD.values, pc.qrQC,
             pc.qr_thresh, PSD_df['pcount2'].values, PSD_df['intensity'].values)
 
         # Unpack needed values from returned tuples
@@ -323,22 +327,25 @@ for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc in zip(
         for DSDtype in ['observed', 'exponential', 'gamma']:
             if(DSDtype == 'observed'):
                 logND_plot = logND[:, pstartindex:pstopindex + 1]
-                D_0_plot = D_med_disd
-                refl_ray_plot = refl_disd
-                dp = dualpol_dis
-                Zh, Zv, Zhv, dBZ, ZDR, KDP, RHV, intv, d, fa2, fb2 = dualpol_dis
+                if(pc.calc_DSD):
+                    D_0_plot = D_med_disd
+                    refl_ray_plot = refl_disd
+                    dp = dualpol_dis
+                    #Zh, Zv, Zhv, dBZ, ZDR, KDP, RHV, intv, d, fa2, fb2 = dualpol_dis
             elif(DSDtype == 'exponential'):
                 logND_plot = logND_expDSD[:, pstartindex:pstopindex + 1]
-                D_0_plot = D_med_exp
-                refl_ray_plot = refl_DSD_exp
-                dp = dualpol_exp
-                Zh, Zv, Zhv, dBZ, ZDR, KDP, RHV, intv, d, fa2, fb2 = dualpol_exp
+                if(pc.calc_DSD):
+                    D_0_plot = D_med_exp
+                    refl_ray_plot = refl_DSD_exp
+                    dp = dualpol_exp
+                    #Zh, Zv, Zhv, dBZ, ZDR, KDP, RHV, intv, d, fa2, fb2 = dualpol_exp
             elif(DSDtype == 'gamma'):
                 logND_plot = logND_gamDSD[:, pstartindex:pstopindex + 1]
-                D_0_plot = D_med_gam
-                refl_ray_plot = refl_DSD_gam
-                dp = dualpol_gam
-                Zh, Zv, Zhv, dBZ, ZDR, KDP, RHV, intv, d, fa2, fb2 = dualpol_gam
+                if(pc.calc_DSD):
+                    D_0_plot = D_med_gam
+                    refl_ray_plot = refl_DSD_gam
+                    dp = dualpol_gam
+                    #Zh, Zv, Zhv, dBZ, ZDR, KDP, RHV, intv, d, fa2, fb2 = dualpol_gam
 
             disvars = {'min_diameter': min_diameter, 'PSDstarttimes': PSDstarttimes,
                        'PSDmidtimes': PSDmidtimes, 'logND': logND_plot}
@@ -350,32 +357,34 @@ for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc in zip(
             # recommended to first set the "rain_only_QC" flag to True in disdrometer_module.py
 
             if(pc.calc_DSD):
-                # 3-min average of median volume diameter and radar reflectivity
-                # (Rayleigh approx.) from disdrometer
+                # If desired, perform centered running averages
+                if(pc.avgwindow):
+                    window = int(pc.avgwindow / DSD_interval)
 
-                window = int(180. / DSD_interval)
-                D_0_avg = pd.Series(D_0_plot).rolling(
-                    window=window,
-                    center=True,
-                    win_type='triang',
-                    min_periods=1).mean().values  # use for gamma fit
-                dBZ_ray_avg = pd.Series(refl_ray_plot).rolling(
-                    window=window,
-                    center=True,
-                    win_type='triang',
-                    min_periods=1).mean().values  # use for gamma fit
-                disvars['D_0'] = D_0_avg[pstartindex:pstopindex + 1]
-                disvars['dBZ_ray'] = dBZ_ray_avg[pstartindex:pstopindex + 1]
+                    D_0_plot = pd.Series(D_0_plot).rolling(
+                        window=window,
+                        center=True,
+                        win_type='triang',
+                        min_periods=1).mean().values  # use for gamma fit
+                    refl_ray_plot = pd.Series(refl_ray_plot).rolling(
+                        window=window,
+                        center=True,
+                        win_type='triang',
+                        min_periods=1).mean().values  # use for gamma fit
+                disvars['D_0'] = D_0_plot[pstartindex:pstopindex + 1]
+                disvars['dBZ_ray'] = refl_ray_plot[pstartindex:pstopindex + 1]
 
                 if(pc.calc_dualpol):
                     # Computed centered running averages of dualpol variables
                     for varname in ['dBZ', 'ZDR', 'KDP', 'RHV']:
                         var = dp.get(varname, N.empty((0)))
                         if(var.size):
-                            var_avg = pd.Series(var).rolling(
-                                window=window, center=True, win_type='triang',
-                                min_periods=1).mean().values
-                            disvars[varname] = var_avg[pstartindex:pstopindex + 1]
+                            # If desired, perform centered running averages
+                            if(pc.avgwindow)
+                                var = pd.Series(var).rolling(
+                                    window=window, center=True, win_type='triang',
+                                    min_periods=1).mean().values
+                            disvars[varname] = var[pstartindex:pstopindex + 1]
 
             # Mark flagged times with vertical lines, if desired
             if(pc.plot_diagnostics):

@@ -84,9 +84,9 @@ for root, dirs, filenames in os.walk(indir):
             continue
         elif f.endswith(".txt"):
             print f
-            
+
             filepath = os.path.join(root,f)
-            
+
             # Parse command line argument and read in disdrometer/radar information from text file
             # Maybe in the future can find a more efficient way, such as checking to see if there is a pickled
             # version first, and if not, reading the textfile and pickling the read-in
@@ -297,22 +297,25 @@ for root, dirs, filenames in os.walk(indir):
                     for DSDtype in ['observed', 'exponential', 'gamma']:
                         if(DSDtype == 'observed'):
                             logND_plot = logND[:, pstartindex:pstopindex + 1]
-                            D_0_plot = D_med_disd
-                            refl_ray_plot = refl_disd
-                            dp = dualpol_dis
-                            Zh, Zv, Zhv, dBZ, ZDR, KDP, RHV, intv, d, fa2, fb2 = dualpol_dis
+                            if(pc.calc_DSD):
+                                D_0_plot = D_med_disd
+                                refl_ray_plot = refl_disd
+                                dp = dualpol_dis
+                                #Zh, Zv, Zhv, dBZ, ZDR, KDP, RHV, intv, d, fa2, fb2 = dualpol_dis
                         elif(DSDtype == 'exponential'):
                             logND_plot = logND_expDSD[:, pstartindex:pstopindex + 1]
-                            D_0_plot = D_med_exp
-                            refl_ray_plot = refl_DSD_exp
-                            dp = dualpol_exp
-                            Zh, Zv, Zhv, dBZ, ZDR, KDP, RHV, intv, d, fa2, fb2 = dualpol_exp
+                            if(pc.calc_DSD):
+                                D_0_plot = D_med_exp
+                                refl_ray_plot = refl_DSD_exp
+                                dp = dualpol_exp
+                                #Zh, Zv, Zhv, dBZ, ZDR, KDP, RHV, intv, d, fa2, fb2 = dualpol_exp
                         elif(DSDtype == 'gamma'):
                             logND_plot = logND_gamDSD[:, pstartindex:pstopindex + 1]
-                            D_0_plot = D_med_gam
-                            refl_ray_plot = refl_DSD_gam
-                            dp = dualpol_gam
-                            Zh, Zv, Zhv, dBZ, ZDR, KDP, RHV, intv, d, fa2, fb2 = dualpol_gam
+                            if(pc.calc_DSD):
+                                D_0_plot = D_med_gam
+                                refl_ray_plot = refl_DSD_gam
+                                dp = dualpol_gam
+                                #Zh, Zv, Zhv, dBZ, ZDR, KDP, RHV, intv, d, fa2, fb2 = dualpol_gam
 
                         disvars = {'min_diameter': min_diameter, 'PSDstarttimes': PSDstarttimes,
                                    'PSDmidtimes': PSDmidtimes, 'logND': logND_plot}
@@ -324,32 +327,34 @@ for root, dirs, filenames in os.walk(indir):
                         # recommended to first set the "rain_only_QC" flag to True in disdrometer_module.py
 
                         if(pc.calc_DSD):
-                            # 3-min average of median volume diameter and radar reflectivity
-                            # (Rayleigh approx.) from disdrometer
+                            # If desired, perform centered running averages
+                            if(pc.avgwindow):
+                                window = int(pc.avgwindow / DSD_interval)
 
-                            window = int(180. / DSD_interval)
-                            D_0_avg = pd.Series(D_0_plot).rolling(
-                                window=window,
-                                center=True,
-                                win_type='triang',
-                                min_periods=1).mean().values  # use for gamma fit
-                            dBZ_ray_avg = pd.Series(refl_ray_plot).rolling(
-                                window=window,
-                                center=True,
-                                win_type='triang',
-                                min_periods=1).mean().values  # use for gamma fit
-                            disvars['D_0'] = D_0_avg[pstartindex:pstopindex + 1]
-                            disvars['dBZ_ray'] = dBZ_ray_avg[pstartindex:pstopindex + 1]
+                                D_0_plot = pd.Series(D_0_plot).rolling(
+                                    window=window,
+                                    center=True,
+                                    win_type='triang',
+                                    min_periods=1).mean().values  # use for gamma fit
+                                refl_ray_plot = pd.Series(refl_ray_plot).rolling(
+                                    window=window,
+                                    center=True,
+                                    win_type='triang',
+                                    min_periods=1).mean().values  # use for gamma fit
+                            disvars['D_0'] = D_0_plot[pstartindex:pstopindex + 1]
+                            disvars['dBZ_ray'] = refl_ray_plot[pstartindex:pstopindex + 1]
 
                             if(pc.calc_dualpol):
                                 # Computed centered running averages of dualpol variables
                                 for varname in ['dBZ', 'ZDR', 'KDP', 'RHV']:
                                     var = dp.get(varname, N.empty((0)))
                                     if(var.size):
-                                        var_avg = pd.Series(var).rolling(
-                                            window=window, center=True, win_type='triang',
-                                            min_periods=1).mean().values
-                                        disvars[varname] = var_avg[pstartindex:pstopindex + 1]
+                                        # If desired, perform centered running averages
+                                        if(pc.avgwindow)
+                                            var = pd.Series(var).rolling(
+                                                window=window, center=True, win_type='triang',
+                                                min_periods=1).mean().values
+                                        disvars[varname] = var[pstartindex:pstopindex + 1]
 
                         # Mark flagged times with vertical lines, if desired
                         if(pc.plot_diagnostics):
@@ -417,10 +422,18 @@ for root, dirs, filenames in os.walk(indir):
 
                         pm.plotDSDderivedmeteograms(index, pc, ib, **PSDderiveddict)
 
-                # Unpack polarimetric variables from the dictionary that contains the gamma
-                # distribution fit
-                dBZ = dualpol_gam['dBZ']
-                ZDR = dualpol_gam['ZDR']
+                # Extract some needed stuff from dictionary containing disdrometer-derived
+                # polarimetric variables (note, this can be changed if you are interested
+                # instead to compare values from the gamma or exponential fits). Just change
+                # "dualpol_dis" to "dualpol_gam" or "dualpol_exp" below.
+                Zh = dualpol_dis['Zh']
+                ZDR = dualpol_dis['ZDR']
+                dBZ = dualpol_dis['dBZ']
+                RHV = dualpol_dis['RHV']
+                d = dualpol_dis['d']
+                fa2 = dualpol_dis['fa2']
+                fb2 = dualpol_dis['fb2']
+                intv = dualpol_dis['intv']
 
                 lamda_gam = lamda_gam / 1000.
 
