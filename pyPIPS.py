@@ -380,7 +380,7 @@ for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc in zip(
                         var = dp.get(varname, N.empty((0)))
                         if(var.size):
                             # If desired, perform centered running averages
-                            if(pc.avgwindow)
+                            if(pc.avgwindow):
                                 var = pd.Series(var).rolling(
                                     window=window, center=True, win_type='triang',
                                     min_periods=1).mean().values
