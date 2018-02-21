@@ -1324,7 +1324,7 @@ def calc_DSD(min_size, avg_size, max_size, bin_width, Nc_bin, logNc_bin, rho, qr
     rainrate = N.array(rainrate)
     Dmax = N.array(Dmax)/1000.
     Dmin = N.array(Dmin)/1000.
-    
+
     # --- Compute various mean diameters directly from measured discrete distribution ---
     cmr = (N.pi / 6.) * 1000.                                     # Constant in mass-diameter relation for rain
     LWC_disd = cmr * 1000.0 * M3
@@ -1358,25 +1358,26 @@ def calc_DSD(min_size, avg_size, max_size, bin_width, Nc_bin, logNc_bin, rho, qr
     # TODO: Make the masking by particle counts adjustable in the pyPIPScontrol file
     # There may be times when we don't want such stringent masking, and it is dependent on the
     # integration interval we choose, anyway.
-    nummask1D = N.where((pcounts < 50.) | (intensities > 100.), True, False)
-    num2D = pcounts.reshape(1, numtimes).repeat(32, 0)
-    rain2D = intensities.reshape(1, numtimes).repeat(32, 0)
-    nummask2D = N.where((num2D < 50.) | (rain2D > 100.), True, False)
+    if(pc.masklowcounts):
+        nummask1D = N.where((pcounts < 50.) | (intensities > 100.), True, False)
+        num2D = pcounts.reshape(1, numtimes).repeat(32, 0)
+        rain2D = intensities.reshape(1, numtimes).repeat(32, 0)
+        nummask2D = N.where((num2D < 50.) | (rain2D > 100.), True, False)
 
-    D_med_disd = ma.masked_array(D_med_disd, mask=nummask1D)
-    Nc_bin = ma.masked_array(Nc_bin, mask=nummask2D)
-    logNc_bin = ma.masked_array(logNc_bin, mask=nummask2D)
-    M0 = ma.masked_array(M0, mask=nummask1D)
-    M1 = ma.masked_array(M1, mask=nummask1D)
-    M2 = ma.masked_array(M2, mask=nummask1D)
-    M3 = ma.masked_array(M3, mask=nummask1D)
-    M4 = ma.masked_array(M4, mask=nummask1D)
-    M6 = ma.masked_array(M6, mask=nummask1D)
-    M7 = ma.masked_array(M7, mask=nummask1D)
-    rho = ma.masked_array(rho, mask=nummask1D)
-    QR_disd = ma.masked_array(QR_disd, mask=nummask1D)
-    LWC_disd = ma.masked_array(LWC_disd, mask=nummask1D)
-    rainrate = ma.masked_array(rainrate, mask = nummask1D)
+        D_med_disd = ma.masked_array(D_med_disd, mask=nummask1D)
+        Nc_bin = ma.masked_array(Nc_bin, mask=nummask2D)
+        logNc_bin = ma.masked_array(logNc_bin, mask=nummask2D)
+        M0 = ma.masked_array(M0, mask=nummask1D)
+        M1 = ma.masked_array(M1, mask=nummask1D)
+        M2 = ma.masked_array(M2, mask=nummask1D)
+        M3 = ma.masked_array(M3, mask=nummask1D)
+        M4 = ma.masked_array(M4, mask=nummask1D)
+        M6 = ma.masked_array(M6, mask=nummask1D)
+        M7 = ma.masked_array(M7, mask=nummask1D)
+        rho = ma.masked_array(rho, mask=nummask1D)
+        QR_disd = ma.masked_array(QR_disd, mask=nummask1D)
+        LWC_disd = ma.masked_array(LWC_disd, mask=nummask1D)
+        rainrate = ma.masked_array(rainrate, mask = nummask1D)
 
     # Compute reflectivity from the 6th moment
     refl_disd = 10.0 * ma.log10(1e18 * M6)
@@ -1483,7 +1484,7 @@ def calc_DSD(min_size, avg_size, max_size, bin_width, Nc_bin, logNc_bin, rho, qr
     mu_tmf=[]
     lamda_tmf=[]
     N0_tmf=[]
-  
+
     for t in range(numtimes):
         LDmx = lam_gam[t]*Dmax[t]
         for x in xrange(10):
@@ -1494,22 +1495,22 @@ def calc_DSD(min_size, avg_size, max_size, bin_width, Nc_bin, logNc_bin, rho, qr
             gm7 = gammap(7.+mu,LDmx)*N.exp(gammln(7.+mu))
             z0 = G[t] - gm5**2./gm3/gm7
             z1 = G[t] - gm5**2./gm3/gm7
-        
+
             while(z1/z0 > 0.0):
                 mu = mu - 0.01
                 gm3 = gammap(3.+mu,LDmx)*N.exp(gammln(3.+mu))
                 gm5 = gammap(5.+mu,LDmx)*N.exp(gammln(5.+mu))
                 gm7 = gammap(7.+mu,LDmx)*N.exp(gammln(7.+mu))
                 z1 = G[t] - gm5**2./gm3/gm7
-            
+
             lam_tmf= (M2[t]*gm5/M4[t]/gm3)**0.5
             LDmx = lam_tmf*Dmax[t]
-            
+
         N0 = (M4[t]*lam_tmf**(5.+mu))/(gammap(5.+mu,LDmx)*N.exp(gammln(5.+mu)))
         mu_tmf.append(mu)
         lamda_tmf.append(lam_tmf)
         N0_tmf.append(N0)
-        
+
     mu_tmf = N.array(mu_tmf)
     lamda_tmf = N.array(lamda_tmf)
     N0_tmf = N.array(N0_tmf)

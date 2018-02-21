@@ -58,6 +58,9 @@ rainonlyQC = False       # Remove all particles that are probably not rain?
 hailonlyQC = False      # Remove all particles that are probably not hail?
 graupelonlyQC = False   # Remove all particles that are probably not graupel?
 
+masklowcounts = False   # Mask out DSDs below a certain particle count/rainrate? (currently
+                        # hardcoded in calc_DSD in disdrometer_module.py)
+
 #Following may not be working yet
 wind_thresh = 5.0       # wind speed threshold (1-min average) above which to throw out DSDs
 qrQC = False             # Perform additional QC on disdrometer DSDs based on unrealistic qr?
