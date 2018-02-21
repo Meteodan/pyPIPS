@@ -1206,7 +1206,7 @@ def calpolrain(wavelength, filename, Nd, intv):
 
     return dualpol_dict
 
-def calc_DSD(min_size, avg_size, max_size, bin_width, Nc_bin, logNc_bin, rho, qrQC, qr_thresh,
+def calc_DSD(pc, min_size, avg_size, max_size, bin_width, Nc_bin, logNc_bin, rho, qrQC, qr_thresh,
              pcounts, intensities):
     """Fits exponential and gamma DSDs to disdrometer data and returns several DSD related quantities."""
 

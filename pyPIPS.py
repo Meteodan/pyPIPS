@@ -287,7 +287,7 @@ for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc in zip(
     # Short 1996
     if(pc.calc_DSD):
 
-        synthbins, exp_DSD, gam_DSD, tmf_DSD, dis_DSD = dis.calc_DSD(
+        synthbins, exp_DSD, gam_DSD, tmf_DSD, dis_DSD = dis.calc_DSD(pc, 
             min_diameter, avg_diameter, max_diameter, bin_width, ND, logND, rho_tDSD.values, pc.qrQC,
             pc.qr_thresh, PSD_df['pcount2'].values, PSD_df['intensity'].values)
 
