@@ -257,7 +257,7 @@ for root, dirs, filenames in os.walk(indir):
                 # parameters using the method of moments, after Zhang et al. 2008 and Tokay and
                 # Short 1996
                 if(pc.calc_DSD):
-                    synthbins, exp_DSD, gam_DSD, tmf_DSD, dis_DSD = dis.calc_DSD(pc, 
+                    synthbins, exp_DSD, gam_DSD, tmf_DSD, dis_DSD = dis.calc_DSD(pc,
                         min_diameter, avg_diameter, max_diameter, bin_width, ND, logND, rho_tDSD, pc.qrQC,
                         pc.qr_thresh, PSD_df['pcount2'].values, PSD_df['intensity'].values)
 
@@ -266,8 +266,8 @@ for root, dirs, filenames in os.walk(indir):
                     ND_expDSD, N0_exp, lamda_exp, mu_exp, qr_exp, Ntr_exp, refl_DSD_exp, D_med_exp, D_m_exp = \
                         exp_DSD
                     ND_gamDSD, N0_gam, lamda_gam, mu_gam, qr_gam, Ntr_gam, refl_DSD_gam, D_med_gam, D_m_gam, \
-                        LWC_gam, rainrate = gam_DSD
-                    ND, logND, D_med_disd, D_m_disd, D_mv_disd, D_ref_disd, QR_disd, refl_disd, LWC_disd, M0 = \
+                        LWC_gam, rainrate_gam = gam_DSD
+                    ND, logND, D_med_disd, D_m_disd, D_mv_disd, D_ref_disd, QR_disd, refl_disd, LWC_disd, M0, rainrate = \
                         dis_DSD
 
                     ND_expDSD = ND_expDSD.T
@@ -350,7 +350,7 @@ for root, dirs, filenames in os.walk(indir):
                                     var = dp.get(varname, N.empty((0)))
                                     if(var.size):
                                         # If desired, perform centered running averages
-                                        if(pc.avgwindow)
+                                        if(pc.avgwindow):
                                             var = pd.Series(var).rolling(
                                                 window=window, center=True, win_type='triang',
                                                 min_periods=1).mean().values
@@ -388,8 +388,7 @@ for root, dirs, filenames in os.walk(indir):
                                             radvars[radvarname] = dualpol_rad_var
                                 if(pc.clean_radar):
                                     # remove non-precipitation echoes from radar data
-                                    gc_mask = N.where((radvars['RHV'] < 0.90) & (radvars['dBZ'] < 15.),
-                                                      True, False)
+                                    gc_mask = N.where((radvars['RHV'] < 0.90), True, False)
                                     for radvarname in ['ZDR', 'dBZ', 'RHV']:
                                             radvars[radvarname] = ma.masked_array(radvars[radvarname],
                                                                                   mask=gc_mask)

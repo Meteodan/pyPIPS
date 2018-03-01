@@ -22,9 +22,9 @@ def empirical(zh,zdr):
     D0 = 0.0436*(zdr**3.) - 0.216*(zdr**2.) + 1.076*zdr + 0.659
     W = zh * 10.**(-0.0493*(zdr**3.) + 0.430*(zdr**2.) - 1.542*zdr - 3.019)
     R = zh * 10.**(-0.0363*(zdr**3.) + 0.316*(zdr**2.) - 1.178*zdr - 1.964)
-    
+
     return Nt,D0,W,R
-    
+
 def rad_emp_timeseries(dis,interp,obs,pstartindex,pstopindex,axparamdict,DSDmidtimes,radmidtimes,image_dir,dis_name,name):
 
     fig = plt.figure(figsize=(8,4))
@@ -50,7 +50,7 @@ def rad_emp_timeseries(dis,interp,obs,pstartindex,pstopindex,axparamdict,DSDmidt
     axes = pm.set_meteogram_axes(axes,axparamdicts)
     plt.savefig(image_dir+'meteograms/'+dis_name+'_'+name+'.png',dpi=300)
     plt.close(fig)
-    
+
 def retr_timeseries(obs,mm,retr_rad,retr_dis,pstartindex,pstopindex,DSDmidtimes,axparamdict1,image_dir,dis_name,name):
 
     bias_dis = 100 * ((N.nansum(retr_dis-obs))/N.nansum(obs))
@@ -78,10 +78,10 @@ def retr_timeseries(obs,mm,retr_rad,retr_dis,pstartindex,pstopindex,DSDmidtimes,
     ax1.legend(bbox_to_anchor=(1.,1.), loc='upper right',ncol=1, fancybox=True, shadow=False, prop = fontP)
     plt.savefig(image_dir+'meteograms/'+dis_name+'_'+name+'.png',dpi=300)
     plt.close(fig)
-    
-    
+
+
 def dis_retr_timeseries(obs,retr_rad,retr_dis,pstartindex,pstopindex,DSDmidtimes,axparamdict1,image_dir,dis_name,name):
-    
+
     bias_dis = 100 * ((N.nansum(retr_dis-obs))/N.nansum(obs))
     bias_rad = 100 * ((N.nansum(retr_rad-obs))/N.nansum(obs))
     cc_dis = pd.DataFrame({'dis': retr_dis, 'obs': obs}).corr()
@@ -91,7 +91,7 @@ def dis_retr_timeseries(obs,retr_rad,retr_dis,pstartindex,pstopindex,DSDmidtimes
     fields = [obs[pstartindex:pstopindex+1],retr_rad[pstartindex:pstopindex+1],retr_dis[pstartindex:pstopindex+1]]
     fieldparamdict1 = {'linestyle':'-','color':'k','alpha':0.5,'plotmin':0,'label':r'observed'}
     fieldparamdict2 = {'linestyle':'-','color':'g','alpha':0.5,'plotmin':0,'label':r'rad retrieved'}
-    fieldparamdict3 = {'linestyle':'-','color':'c','alpha':0.5,'plotmin':0,'label':r'dis retrieved'} 
+    fieldparamdict3 = {'linestyle':'-','color':'c','alpha':0.5,'plotmin':0,'label':r'dis retrieved'}
     fieldparamdicts = [fieldparamdict1,fieldparamdict2,fieldparamdict3]
     xvals = [DSDmidtimes]*len(fields)
     ax1 = pm.plotmeteogram(ax1,xvals,fields,fieldparamdicts)
@@ -106,7 +106,7 @@ def dis_retr_timeseries(obs,retr_rad,retr_dis,pstartindex,pstopindex,DSDmidtimes
     plt.close(fig)
 
 def zh_zdr_timeseries(obs_rad,obs_dis,pstartindex,pstopindex,DSDmidtimes,axparamdict1,image_dir,dis_name,name):
-    
+
     bias = 100 * ((N.nansum(obs_rad-obs_dis))/N.nansum(obs_dis))
     cc = pd.DataFrame({'dis': obs_dis, 'rad': obs_rad}).corr()
     fig = plt.figure(figsize=(8,4))
@@ -124,9 +124,9 @@ def zh_zdr_timeseries(obs_rad,obs_dis,pstartindex,pstopindex,DSDmidtimes,axparam
     ax1.legend(bbox_to_anchor=(1.,1.), loc='upper right',ncol=1, fancybox=True, shadow=False, prop = fontP)
     plt.savefig(image_dir+'meteograms/'+dis_name+'_'+name+'.png',dpi=300)
     plt.close(fig)
-    
+
 def one2one(obs,mm,retr_dis,retr_rad,image_dir,dis_name,name):
-    
+
     if(name=='R'):
         maxlim = 10**-1.
         minlim = 10**-4.
@@ -147,7 +147,7 @@ def one2one(obs,mm,retr_dis,retr_rad,image_dir,dis_name,name):
         minlim = 10**-6.
         yscale = 'log'
         label = 'W/Zh'
-    
+
     one_x = N.linspace(10**-8,10**2)
     one_y = one_x
     bias_dis = 100 * ((N.nansum(retr_dis-obs))/N.nansum(obs))
@@ -173,36 +173,37 @@ def one2one(obs,mm,retr_dis,retr_rad,image_dir,dis_name,name):
     plt.legend(loc='upper left',numpoints=1,ncol=1,fontsize=12.)
     plt.savefig(image_dir+'scattergrams/'+dis_name+'_one-to-'+name+'.png',dpi=200,bbox_inches='tight')
     plt.close(fig1)
-    
+
 def outer_one2one(obs,mm,retr_rad,image_dir,name):
-    
+
     if(name=='R'):
         maxlim = 10**-1.
         minlim = 10**-4.
         yscale = 'log'
-        label = 'R/Zh'        
+        label = 'R/Zh'
     if(name=='D0'):
         maxlim = 5.0
         minlim = 0.0
         yscale = 'linear'
-        label = 'D0'        
+        label = 'D0'
     if(name=='Nt'):
         maxlim = 10**2.
         minlim = 10**-3.
         yscale = 'log'
-        label = 'Nt/Zh'        
+        label = 'Nt/Zh'
     if(name=='W'):
         maxlim = 10**-2.
         minlim = 10**-6.
         yscale = 'log'
-        label = 'W/Zh'        
-    
+        label = 'W/Zh'
+
     one_x = N.linspace(10**-8,10**2)
     one_y = one_x
-    bias_mm = 100 * ((N.nansum(retr_rad-mm))/N.nansum(mm))
-    bias_obs = 100 * ((N.nansum(retr_rad-obs))/N.nansum(obs))
-    cc_mm = pd.DataFrame({'rad': retr_rad, 'mm': mm}).corr()
-    cc_obs = pd.DataFrame({'rad': retr_rad, 'obs': obs}).corr()
+    bias_mm = 100 * ((N.nansum(mm-obs))/N.nansum(obs))
+    bias_retr = 100 * ((N.nansum(retr_rad-obs))/N.nansum(obs))
+    cc_mm = pd.DataFrame({'mm': mm, 'obs': obs}).corr()
+    print "cc_mm = ", cc_mm
+    cc_retr = pd.DataFrame({'rad': retr_rad, 'obs': obs}).corr()
     fig1=plt.figure(figsize=(8,8))
     ax1=fig1.add_subplot(111)
     ax1.scatter(obs, mm, color='m', marker='.', label='Method Moments')
@@ -214,16 +215,16 @@ def outer_one2one(obs,mm,retr_rad,image_dir,name):
     ax1.set_xlabel('Observed' + label)
     ax1.set_ylabel('Calculated' + label)
     ax1.plot(one_x,one_y,lw=2,color='k')
-    ax1.text(0.6,0.20,'Obs Bias =%2.2f'%bias_obs+'%',transform=ax1.transAxes)
+    ax1.text(0.6,0.20,'Retr Bias =%2.2f'%bias_retr+'%',transform=ax1.transAxes)
     ax1.text(0.6,0.15,'Moments Bias =%2.2f'%bias_mm+'%',transform=ax1.transAxes)
-    ax1.text(0.6,0.10,'Obs. Corr Coeff =%2.3f'%cc_obs.ix[0,1],transform=ax1.transAxes)
+    ax1.text(0.6,0.10,'Retr Corr Coeff =%2.3f'%cc_retr.ix[0,1],transform=ax1.transAxes)
     ax1.text(0.6,0.05,'Moments Corr Coeff =%2.3f'%cc_mm.ix[0,1],transform=ax1.transAxes)
     plt.legend(loc='upper left',numpoints=1,ncol=1,fontsize=12.)
     plt.savefig(image_dir+'one-to-'+name+'.png',dpi=200,bbox_inches='tight')
     plt.close(fig1)
-    
+
 def scatters(obs,mm,retr_dis,retr_rad,ZDR_rad,ZDR,DSDmidtimes,image_dir,dis_name,name):
-    
+
     if(name=='D0'):
         ymin = 0.0
         ymax = 3.5
@@ -240,7 +241,7 @@ def scatters(obs,mm,retr_dis,retr_rad,ZDR_rad,ZDR,DSDmidtimes,image_dir,dis_name
         ymin = -2.5
         ymax = 1.5
         ylabel = 'log(Nt/Zh)'
-    
+
     fig1=plt.figure(figsize=(8,8))
     ax1=fig1.add_subplot(111)
     ax1.scatter(ZDR, retr_dis, color='c', marker='.', label='Dis Retrieval')
@@ -256,7 +257,7 @@ def scatters(obs,mm,retr_dis,retr_rad,ZDR_rad,ZDR,DSDmidtimes,image_dir,dis_name
     plt.close(fig1)
 
 def PIPS(obs_1A,obs_1B,obs_2A,obs_2B,ZDR_1A,ZDR_1B,ZDR_2A,ZDR_2B,ymin,ymax,image_dir,dis_name,name,ylabel):
-    
+
     fig1=plt.figure(figsize=(8,8))
     ax1=fig1.add_subplot(111)
     ax1.scatter(ZDR_1A, obs_1A, marker='.', label='PIPS 1A')

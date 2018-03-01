@@ -1247,6 +1247,7 @@ def calc_DSD(pc, min_size, avg_size, max_size, bin_width, Nc_bin, logNc_bin, rho
         temp_M6 = ((avg_size[:] / 1000.)**6.) * (1000. * Nc_bin[:, t]) * bin_width[:] / 1000.
         temp_M7 = ((avg_size[:] / 1000.)**7.) * (1000. * Nc_bin[:, t]) * bin_width[:] / 1000.
 
+        # Note, this is *observed* rainrate calculated directly from the disdrometer bins
         temp_rainrate = N.sum((6. * 10.**-4.) * N.pi * v *
                               avg_size[:]**3. * Nc_bin[:, t] * bin_width[:])
         rainrate.append(temp_rainrate)
@@ -1484,6 +1485,7 @@ def calc_DSD(pc, min_size, avg_size, max_size, bin_width, Nc_bin, logNc_bin, rho
     mu_tmf=[]
     lamda_tmf=[]
     N0_tmf=[]
+    LDmxlist=[]
 
     for t in range(numtimes):
         LDmx = lam_gam[t]*Dmax[t]
@@ -1510,10 +1512,12 @@ def calc_DSD(pc, min_size, avg_size, max_size, bin_width, Nc_bin, logNc_bin, rho
         mu_tmf.append(mu)
         lamda_tmf.append(lam_tmf)
         N0_tmf.append(N0)
+        LDmxlist.append(LDmx)
 
     mu_tmf = N.array(mu_tmf)
     lamda_tmf = N.array(lamda_tmf)
     N0_tmf = N.array(N0_tmf)
+    LDmx = N.array(LDmxlist)
 ##################################
 
     N_gamDSD = []
@@ -1557,10 +1561,11 @@ def calc_DSD(pc, min_size, avg_size, max_size, bin_width, Nc_bin, logNc_bin, rho
 
     GR1 = special.gamma(1. + mu_gam)
     GR2 = special.gamma(4. + mu_gam)
+    GR3 = special.gamma(4.67 + mu_gam)
 
     qr_gam = (cmr / rho) * N0_gam * GR2 / lamda_gam**(mu_gam + 4.)
     Ntr_gam = N0_gam * GR1 / lamda_gam**(mu_gam + 1.)
-    LWC_gam = cmr * 1000.0 * M3
+    LWC_gam = qr_gam * rho * 1000. # g/m^3
 
     # Compute reflectivity for DSD fit
     Gr_gam = ((6. + mu_gam) * (5. + mu_gam) * (4. + mu_gam)) / \
@@ -1576,16 +1581,44 @@ def calc_DSD(pc, min_size, avg_size, max_size, bin_width, Nc_bin, logNc_bin, rho
     # Mass-weighted mean diameter for gam. dist.
     D_m_gam = N.where(lamda_gam == 0., N.nan, ((4. + mu_gam) / lamda_gam) * 1000.0)
 
+    # Rain rate for gamma distribution
+    # Note, the original coefficient for RR from the Zhang papers is 7.125 x 10^-3
+    # The units of this coefficient are mm hr^-1 m^3 mm^-3.67. We need the coefficient
+    # in units of mm hr^-1 m^3 m^-3.67, because our lamda is in units of m^-1.
+    # Thus we have 7.125e-3*1000.^3.67 = 7.29096257 x 10^8
+    rainrate_gam = 7.29096257e8 * N0_gam * GR3 / lamda_gam**(4.67 + mu_gam)
+
+    # Quantities based on truncated gamma distribution
+
+    GR1 = special.gamma(1. + mu_tmf)
+    GR2 = special.gamma(4. + mu_tmf)
+    GR3 = special.gamma(4.67 + mu_tmf)
+
+    Ntr_tmf = N0_tmf * gammap(1. + mu_tmf, LDmx) * GR1 / lamda_tmf**(mu_tmf + 1.)
+    LWC_tmf = cmr * N0_tmf * gammap(4. + mu_tmf, LDmx) * GR2 / lamda_tmf**(mu_tmf + 4.) * 1000. # g/m^3
+    rainrate_tmf = 7.29096257e8 * N0_tmf * gammap(4.67 + mu_tmf, LDmx) * GR3 / lamda_tmf**(4.67 + mu_tmf)
+
+    print N0_tmf[N.where(~N.isnan(N0_tmf))]
+    print Ntr_tmf[N.where(~N.isnan(Ntr_tmf))]
+    print mu_tmf[N.where(~N.isnan(mu_tmf))]
+    print lamda_tmf[N.where(~N.isnan(lamda_tmf))]
+    print LWC_tmf[N.where(~N.isnan(LWC_tmf))]
+    print rainrate_tmf[N.where(~N.isnan(rainrate_tmf))]
+
+    # TODO: need to compute D0 for truncated gamma distribution a bit differently, since the above
+    # gamma formula is for an untruncated distribution. One possibility is to compute it the same
+    # way we do for the observed DSD, but using the discretized truncated gamma DSD.
+
     # Create several tuples to pack the data, and then return them
     # NOTE: Consider updating these to namedtuples
 
     exp_DSD = (N_expDSD, N0_exp, lamda_exp, mu_exp, qr_exp, Ntr_exp, refl_DSD_exp, D_med_exp,
                D_m_exp)
     gam_DSD = (N_gamDSD, N0_gam, lamda_gam, mu_gam, qr_gam, Ntr_gam, refl_DSD_gam, D_med_gam,
-               D_m_gam, LWC_gam, rainrate)
-    tmf_DSD = (N_tmfDSD,N0_tmf, lamda_tmf, mu_tmf)
+               D_m_gam, LWC_gam, rainrate_gam)
+    tmf_DSD = (N_tmfDSD, N0_tmf, lamda_tmf, mu_tmf, Ntr_tmf, LWC_tmf, rainrate_tmf)
     dis_DSD = (Nc_bin, logNc_bin, D_med_disd, D_m_disd, D_mv_disd, D_ref_disd, QR_disd, refl_disd,
-               LWC_disd, M0)
+               LWC_disd, M0, rainrate)
 
     return synthbins, exp_DSD, gam_DSD, tmf_DSD, dis_DSD
 

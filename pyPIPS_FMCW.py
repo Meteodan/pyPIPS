@@ -57,7 +57,7 @@ fall_bins = dis.fall_bins
 min_fall_bins = dis.min_fall_bins
 
 # Should make this an input parameter
-outer_image_dir = '/Volumes/depot/dawson29/data/VORTEXSE/obsdata/jess_images/CG/'
+outer_image_dir = '/Volumes/depot/dawson29/data/VORTEXSE/obsdata/dan_images/'
 
 # Z, ZDR relation from Cao et al. (2008)
 Zh_Cao = N.arange(20, 61, 1)
@@ -100,7 +100,7 @@ if(not pc.plot_conv_meteo and not pc.plot_DSD_meteo):
 #
 #-----------------------------------------------------------------------
 
-directories = ['/Users/bozell/pyPIPS_work/input/NEXRAD/','/Volumes/depot/dawson29/data/VORTEXSE/obsdata/2017/PIPS/PIPS2A_FMCW/']
+directories = ['/Users/dawson29/pyPIPS_work/input/NEXRAD/','/Volumes/depot/dawson29/data/VORTEXSE/obsdata/2017/PIPS/PIPS2A_FMCW/']
 for directory in directories:
     for root, dirs, files in os.walk(directory):
         for f in files:
@@ -202,9 +202,9 @@ for directory in directories:
                     inputdict['el_req'] = 0.5
                     inputdict['heading'] = None
 
-                    inputdict['image_dir'] = '/Users/bozell/VORTEXSE/testing_new_code/'+radar_date+'/'
-                    inputdict['radar_dir'] = '/Users/bozell/nexrad/PIPS2A_FMCW/'+radar_date+'/CFRadial/'
-                    inputdict['scattdir'] = '/Users/bozell/pyPIPS/tmatrix/S-band/'
+                    inputdict['image_dir'] = '/Users/dawson29/pyPIPS_work/VORTEXSE/PIPS2A_FMCW/NEXRAD/'+radar_date+'/'
+                    inputdict['radar_dir'] = '/Volumes/depot/dawson29/data/VORTEXSE/obsdata/2017/NEXRAD/PIPS2A_FMCW/'+radar_date+'/CFRadial/'
+                    inputdict['scattdir'] = '/Users/dawson29/pyPIPS/tmatrix/S-band/'
 
                     raddate = onesectimestamps[0].strftime(tm.timefmt5).strip().split(',')
                     raddate_int = map(int,raddate)
@@ -357,8 +357,8 @@ for directory in directories:
                     # parameters using the method of moments, after Zhang et al. 2008 and Tokay and
                     # Short 1996
                     if(pc.calc_DSD):
-                        synthbins, exp_DSD, gam_DSD, tmf_DSD, dis_DSD = dis.calc_DSD(pc, 
-                            min_diameter, avg_diameter, max_diameter, bin_width, ND, logND, rho_tDSD, pc.qrQC,
+                        synthbins, exp_DSD, gam_DSD, tmf_DSD, dis_DSD = dis.calc_DSD(pc,
+                            min_diameter, avg_diameter, max_diameter, bin_width, ND, logND, rho_tDSD.values, pc.qrQC,
                             pc.qr_thresh, PSD_df['pcount2'].values, PSD_df['intensity'].values)
 
                         # Unpack needed values from returned tuples
@@ -366,9 +366,9 @@ for directory in directories:
                         ND_expDSD, N0_exp, lamda_exp, mu_exp, qr_exp, Ntr_exp, refl_DSD_exp, D_med_exp, D_m_exp = \
                             exp_DSD
                         ND_gamDSD, N0_gam, lamda_gam, mu_gam, qr_gam, Ntr_gam, refl_DSD_gam, D_med_gam, D_m_gam, \
-                            LWC_gam, rainrate = gam_DSD
-                        ND_tmfDSD, N0_tmf, lamda_tmf, mu_tmf = tmf_DSD
-                        ND, logND, D_med_disd, D_m_disd, D_mv_disd, D_ref_disd, QR_disd, refl_disd, LWC_disd, M0 = \
+                            LWC_gam, rainrate_gam = gam_DSD
+                        ND_tmfDSD, N0_tmf, lamda_tmf, mu_tmf, Ntr_tmf, LWC_tmf, rainrate_tmf = tmf_DSD
+                        ND, logND, D_med_disd, D_m_disd, D_mv_disd, D_ref_disd, QR_disd, refl_disd, LWC_disd, M0, rainrate = \
                             dis_DSD
 
                         ND_expDSD = ND_expDSD.T
@@ -451,7 +451,7 @@ for directory in directories:
                                         var = dp.get(varname, N.empty((0)))
                                         if(var.size):
                                             # If desired, perform centered running averages
-                                            if(pc.avgwindow)
+                                            if(pc.avgwindow):
                                                 var = pd.Series(var).rolling(
                                                     window=window, center=True, win_type='triang',
                                                     min_periods=1).mean().values
@@ -489,8 +489,7 @@ for directory in directories:
                                                 radvars[radvarname] = dualpol_rad_var
                                     if(pc.clean_radar):
                                         # remove non-precipitation echoes from radar data
-                                        gc_mask = N.where((radvars['RHV'] < 0.90) & (radvars['dBZ'] < 15.),
-                                                          True, False)
+                                        gc_mask = N.where((radvars['RHV'] < 0.90), True, False)
                                         for radvarname in ['ZDR', 'dBZ', 'RHV']:
                                                 radvars[radvarname] = ma.masked_array(radvars[radvarname],
                                                                                       mask=gc_mask)
@@ -500,11 +499,14 @@ for directory in directories:
                                 raintimes = PSDmidtimes[rainindex]
                                 plotstarttime = raintimes[0]
                                 plotstoptime = raintimes[-1]
-                                # set radar PPI plot start and end time for FMCW days 
+                                # set radar PPI plot start and end time for FMCW days
                                 sweeptimes = PSDtimestamps[rainindex]
                                 sweepstart = sweeptimes[0]
                                 sweepstop = sweeptimes[-1]
-                                
+                            else:
+                                sweepstart = -1
+                                sweepstop = -1
+
                             if(DSDtype == 'observed'):
                                 # Prepare axis parameters
                                 timelimits = [plotstarttime, plotstoptime]
@@ -526,16 +528,16 @@ for directory in directories:
                             PSDderiveddict = {'PSDmidtimes': PSDmidtimes, 'PSD_plot_df': PSD_plot_df}
 
                             pm.plotDSDderivedmeteograms(index, pc, ib, **PSDderiveddict)
-                            
+
                     # add index == 0 because for IOP days, only want to plot for once, not for each disdrometer?
                     if(pc.plot_radar and index==0):
-                        radar.plotsweeps(pc, ib, sb, sweepstart, sweepstop)
+                        radar.plotsweeps(pc, ib, sb, sweepstart=sweepstart, sweepstop=sweepstop)
 
                     # Extract some needed stuff from dictionary containing disdrometer-derived
                     # polarimetric variables (note, this can be changed if you are interested
                     # instead to compare values from the gamma or exponential fits). Just change
                     # "dualpol_dis" to "dualpol_gam" or "dualpol_exp" below.
-                    Zh = dualpol_dis['Zh']
+                    Zh = dualpol_dis['ZH']
                     ZDR = dualpol_dis['ZDR']
                     dBZ = dualpol_dis['dBZ']
                     RHV = dualpol_dis['RHV']
@@ -605,11 +607,11 @@ for directory in directories:
 
                     name = 'mu_retr'
                     axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],None],'axeslabels':[pc.timelabel,r'mu']}
-                    em.dis_retr_timeseries(mu_gam,mu_rad_retr,mu_dis_retr,pstartindex,pstopindex,PSDmidtimes,axparamdict1,ib.image_dir,dis_name,name)
+                    em.dis_retr_timeseries(mu_tmf,mu_rad_retr,mu_dis_retr,pstartindex,pstopindex,PSDmidtimes,axparamdict1,ib.image_dir,dis_name,name)
 
                     name = 'lam_retr'
                     axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],None],'axeslabels':[pc.timelabel,r'lambda']}
-                    em.dis_retr_timeseries(lamda_gam,lam_rad_retr,lam_dis_retr,pstartindex,pstopindex,PSDmidtimes,axparamdict1,ib.image_dir,dis_name,name)
+                    em.dis_retr_timeseries(lamda_tmf,lam_rad_retr,lam_dis_retr,pstartindex,pstopindex,PSDmidtimes,axparamdict1,ib.image_dir,dis_name,name)
 
                     name = 'dBZ'
                     axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],None],'axeslabels':[pc.timelabel,r'dBZ']}
@@ -692,12 +694,12 @@ for directory in directories:
         ####     Timeseries and Figure 9a-c from Cao et al. and Figure 8a-c from Cao et al.
                     name = 'R'
                     axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[10**0.,10**2.25]],'axeslabels':[pc.timelabel,r'Rain Rate']}
-                    em.retr_timeseries(PSD_df['intensity'].values,rainrate,R_rad_retr,R_dis_retr,pstartindex,pstopindex,PSDmidtimes,axparamdict1,ib.image_dir,dis_name,name)
+                    em.retr_timeseries(rainrate,rainrate_tmf,R_rad_retr,R_dis_retr,pstartindex,pstopindex,PSDmidtimes,axparamdict1,ib.image_dir,dis_name,name)
 
-                    em.one2one(PSD_df['intensity'].values/Zh,rainrate/Zh,R_dis_retr/Zh,R_rad_retr/Zh_rad,ib.image_dir,dis_name,name)
-                    em.scatters(N.log10(PSD_df['intensity'].values/Zh),N.log10(rainrate/Zh),N.log10(R_dis_retr/Zh),N.log10(R_rad_retr/Zh_rad),ZDR_rad,ZDR,PSDmidtimes,ib.image_dir,dis_name,name)
-                    
-                    R_mm.extend(rainrate)
+                    em.one2one(rainrate/Zh,rainrate_tmf/Zh,R_dis_retr/Zh,R_rad_retr/Zh_rad,ib.image_dir,dis_name,name)
+                    em.scatters(N.log10(rainrate/Zh),N.log10(rainrate_tmf/Zh),N.log10(R_dis_retr/Zh),N.log10(R_rad_retr/Zh_rad),ZDR_rad,ZDR,PSDmidtimes,ib.image_dir,dis_name,name)
+
+                    R_mm.extend(rainrate_tmf)
                     R_retr.extend(R_rad_retr)
 
                     name = 'D0'
@@ -706,35 +708,35 @@ for directory in directories:
 
                     em.one2one(D_med_disd,D_med_gam,D0_dis_retr,D0_rad_retr,ib.image_dir,dis_name,name)
                     em.scatters(D_med_disd,D_med_gam,N.array(D0_dis_retr),D0_rad_retr,ZDR_rad,ZDR,PSDmidtimes,ib.image_dir,dis_name,name)
-                   
+
                     D0_mm.extend(D_med_gam)
                     D0_retr.extend(D0_rad_retr)
 
                     name = 'Nt'
                     axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[10**1.,10**5.]],'axeslabels':[pc.timelabel,r'Nt']}
-                    em.retr_timeseries(M0,Ntr_gam,Nt_rad_retr,Nt_dis_retr,pstartindex,pstopindex,PSDmidtimes,axparamdict1,ib.image_dir,dis_name,name)
+                    em.retr_timeseries(M0,Ntr_tmf,Nt_rad_retr,Nt_dis_retr,pstartindex,pstopindex,PSDmidtimes,axparamdict1,ib.image_dir,dis_name,name)
 
-                    em.one2one(M0/Zh,Ntr_gam/Zh,Nt_dis_retr/Zh,Nt_rad_retr/Zh_rad,ib.image_dir,dis_name,name)
-                    em.scatters(N.log10(M0/Zh),N.log10(Ntr_gam/Zh),N.log10(Nt_dis_retr/Zh),N.log10(Nt_rad_retr/Zh_rad),ZDR_rad,ZDR,PSDmidtimes,ib.image_dir,dis_name,name)
+                    em.one2one(M0/Zh,Ntr_tmf/Zh,Nt_dis_retr/Zh,Nt_rad_retr/Zh_rad,ib.image_dir,dis_name,name)
+                    em.scatters(N.log10(M0/Zh),N.log10(Ntr_tmf/Zh),N.log10(Nt_dis_retr/Zh),N.log10(Nt_rad_retr/Zh_rad),ZDR_rad,ZDR,PSDmidtimes,ib.image_dir,dis_name,name)
 
                     Nt_obs.extend(M0)
                     Nt_mm.extend(Ntr_gam)
                     Nt_retr.extend(Nt_rad_retr)
-                    
+
                     name = 'W'
                     axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[0.0,8.0]],'axeslabels':[pc.timelabel,r'LWC']}
-                    em.retr_timeseries(LWC_disd,LWC_gam,W_rad_retr,W_dis_retr,pstartindex,pstopindex,PSDmidtimes,axparamdict1,ib.image_dir,dis_name,name)
+                    em.retr_timeseries(LWC_disd,LWC_tmf,W_rad_retr,W_dis_retr,pstartindex,pstopindex,PSDmidtimes,axparamdict1,ib.image_dir,dis_name,name)
 
-                    em.one2one(LWC_disd/Zh,LWC_gam/Zh,W_dis_retr/Zh,W_rad_retr/Zh_rad,ib.image_dir,dis_name,name)
-                    em.scatters(N.log10(LWC_disd/Zh),N.log10(LWC_gam/Zh),N.log10(W_dis_retr/Zh),N.log10(W_rad_retr/Zh_rad),ZDR_rad,ZDR,PSDmidtimes,ib.image_dir,dis_name,name)
+                    em.one2one(LWC_disd/Zh,LWC_tmf/Zh,W_dis_retr/Zh,W_rad_retr/Zh_rad,ib.image_dir,dis_name,name)
+                    em.scatters(N.log10(LWC_disd/Zh),N.log10(LWC_tmf/Zh),N.log10(W_dis_retr/Zh),N.log10(W_rad_retr/Zh_rad),ZDR_rad,ZDR,PSDmidtimes,ib.image_dir,dis_name,name)
 
                     W_obs.extend(LWC_disd)
-                    W_mm.extend(LWC_gam)
+                    W_mm.extend(LWC_tmf)
                     W_retr.extend(W_rad_retr)
-                    
+
                     Zh_dis.extend(Zh)
                     Zh_retr.extend(Zh_rad)
-                    
+
                     R_list.extend(rainrate)
                     D0_list.extend(D_med_disd)
                     ND = ND.T
@@ -846,10 +848,10 @@ for directory in directories:
 
 name = 'R'
 em.outer_one2one(N.array(R_list)/N.array(Zh_dis),N.array(R_mm)/N.array(Zh_dis),N.array(R_retr)/N.array(Zh_retr),outer_image_dir,name)
- 
+
 name = 'D0'
 em.outer_one2one(N.array(D0_list), N.array(D0_mm), N.array(D0_retr), outer_image_dir,name)
- 
+
 name = 'Nt'
 em.outer_one2one(N.array(Nt_obs)/N.array(Zh_dis),N.array(Nt_mm)/N.array(Zh_dis),N.array(Nt_retr)/N.array(Zh_retr), outer_image_dir,name)
 

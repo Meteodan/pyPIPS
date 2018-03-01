@@ -1303,8 +1303,8 @@ def readsweeps2PIPS(fieldnames, pc, ib):
 
     if(not pc.loadradopt):
 
-        radar_filelist, radtimes = getradarfilelist(radar_dir, pc.radar_save_dir,
-            ib.radar_dir, starttime=ib.starttimerad, stoptime=ib.stoptimerad,
+        radar_filelist, radtimes = getradarfilelist(ib.radar_dir, pc.radar_save_dir,
+            starttime=ib.starttimerad, stoptime=ib.stoptimerad,
             platform=ib.platform, el_req=ib.el_req)
 
         # Read in the radar data, sweep by sweep.
@@ -1359,6 +1359,7 @@ def readsweeps2PIPS(fieldnames, pc, ib):
             fields_D_tlist.append(fields_D)
             dxy_tlist.append(dxy_list)
 
+        sweepdict['radtimes'] = radtimes
         sweepdict['fields_tarr'] = N.array(fields_tlist)
         sweepdict['range_start_tarr'] = N.array(range_start_tlist)
         sweepdict['range_tarr'] = N.array(range_tlist)
@@ -1413,12 +1414,17 @@ def readsweeps2PIPS(fieldnames, pc, ib):
     return utils.Bunch(sweepdict)
 
 
-def plotsweeps(pc, ib, sb, sweepstart, sweepstop):
+def plotsweeps(pc, ib, sb, sweepstart=-1, sweepstop=-1):
     """Plots radar sweeps with overlaid disdrometer locations"""
 
     radar_image_dir = os.path.join(ib.image_dir, 'radar_PPI/')
     if (not os.path.exists(radar_image_dir)):
         os.makedirs(radar_image_dir)
+
+    if(sweepstart == -1):
+        sweepstart = sb.radtimes[0]
+    if(sweepstop == -1):
+        sweepstop = sb.radtimes[-1]
 
     print "Plotting radar sweeps with overlaid disdrometer locations and data."
     for index, path, sweeptime in zip(xrange(len(sb.radar_filelist)), sb.radar_filelist,
