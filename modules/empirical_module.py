@@ -1,6 +1,7 @@
 import matplotlib
 import numpy as N
 import pandas as pd
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 from matplotlib.dates import *
@@ -124,9 +125,8 @@ def zh_zdr_timeseries(obs_rad,obs_dis,pstartindex,pstopindex,DSDmidtimes,axparam
     ax1.legend(bbox_to_anchor=(1.,1.), loc='upper right',ncol=1, fancybox=True, shadow=False, prop = fontP)
     plt.savefig(image_dir+'meteograms/'+dis_name+'_'+name+'.png',dpi=300)
     plt.close(fig)
-
-def one2one(obs,mm,retr_dis,retr_rad,image_dir,dis_name,name):
-
+    
+def one2one(obs,mm,retr_dis,retr_rad,image_dir,dis_name,name,obs_rain):
     if(name=='R'):
         maxlim = 10**-1.
         minlim = 10**-4.
@@ -156,9 +156,11 @@ def one2one(obs,mm,retr_dis,retr_rad,image_dir,dis_name,name):
     cc_rad = pd.DataFrame({'rad': retr_rad, 'obs': obs}).corr()
     fig1=plt.figure(figsize=(8,8))
     ax1=fig1.add_subplot(111)
-    ax1.scatter(obs, retr_rad, color='g', marker='.', label='Rad Retrieval')
-    ax1.scatter(obs, retr_dis, color='c', marker='.', label='Dis Retreival')
-    ax1.scatter(obs, mm, color='m', marker='.', label='Method Moments')
+    plt.scatter(obs, retr_rad, c=obs_rain, marker='.', label='Rad Retrieval')
+    plt.scatter(obs, retr_dis, c=obs_rain, marker='+', label='Dis Retreival')
+    plt.scatter(obs, mm, c=obs_rain, facecolors='None', label='Method Moments')
+    cb=plt.colorbar()
+    cb.set_label('Rainrate (mm/hr)')
     ax1.set_xlim(minlim,maxlim)
     ax1.set_xscale(yscale)
     ax1.set_ylim(minlim,maxlim)
@@ -173,9 +175,8 @@ def one2one(obs,mm,retr_dis,retr_rad,image_dir,dis_name,name):
     plt.legend(loc='upper left',numpoints=1,ncol=1,fontsize=12.)
     plt.savefig(image_dir+'scattergrams/'+dis_name+'_one-to-'+name+'.png',dpi=200,bbox_inches='tight')
     plt.close(fig1)
-
-def outer_one2one(obs,mm,retr_rad,image_dir,name):
-
+    
+def outer_one2one(obs,mm,retr_rad,image_dir,name,obs_rain):
     if(name=='R'):
         maxlim = 10**-1.
         minlim = 10**-4.
@@ -202,12 +203,13 @@ def outer_one2one(obs,mm,retr_rad,image_dir,name):
     bias_mm = 100 * ((N.nansum(mm-obs))/N.nansum(obs))
     bias_retr = 100 * ((N.nansum(retr_rad-obs))/N.nansum(obs))
     cc_mm = pd.DataFrame({'mm': mm, 'obs': obs}).corr()
-    print "cc_mm = ", cc_mm
     cc_retr = pd.DataFrame({'rad': retr_rad, 'obs': obs}).corr()
     fig1=plt.figure(figsize=(8,8))
     ax1=fig1.add_subplot(111)
-    ax1.scatter(obs, mm, color='m', marker='.', label='Method Moments')
-    ax1.scatter(obs, retr_rad, color='g', marker='.', label='Rad Retrieval')
+    plt.scatter(obs, mm, c=obs_rain, facecolors='None',label='Method Moments')
+    plt.scatter(obs, retr_rad, c=obs_rain, marker='.', label='Rad Retrieval')
+    cb=plt.colorbar()
+    cb.set_label('Rainrate (mm/hr)')
     ax1.set_xlim(minlim,maxlim)
     ax1.set_xscale(yscale)
     ax1.set_ylim(minlim,maxlim)
