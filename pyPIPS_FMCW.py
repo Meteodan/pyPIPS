@@ -507,7 +507,7 @@ for directory in directories:
                                                 radvars[radvarname] = dualpol_rad_var
                                     if(pc.clean_radar):
                                         # remove non-precipitation echoes from radar data
-                                        gc_mask = N.where((radvars['RHV'] < 0.90), True, False)
+                                        gc_mask = N.where(radvars['RHV'] < 0.90, True, False)
                                         for radvarname in ['ZDR', 'dBZ', 'RHV']:
                                                 radvars[radvarname] = ma.masked_array(radvars[radvarname],
                                                                                       mask=gc_mask)
@@ -582,10 +582,11 @@ for directory in directories:
                     idx2 = ZDR_rad.index.union(PSDmidtimes)
                     ZDR_rad = N.array(ZDR_rad.reindex(idx2).interpolate(method='index',limit=8).reindex(PSDmidtimes))
 
-                    dBZ_rad = ma.masked_where((ZDR_rad > 4.) | (RHV < 0.6), dBZ_rad)
-                    ZDR_rad = ma.masked_where((ZDR_rad> 4.) | (RHV < 0.6), ZDR_rad)
-                    dBZ_dis = ma.masked_where((ZDR>4.) | (RHV < 0.6), dBZ)
-                    ZDR_dis = ma.masked_where((ZDR>4.) | (RHV < 0.6), ZDR)
+                    precip_mask = (ZDR_rad > 4.) | (RHV < 0.9) | (ZDR > 4.) | (RHV < 0.9)
+                    dBZ_rad = ma.masked_where(precip_mask, dBZ_rad)
+                    ZDR_rad = ma.masked_where(precip_mask, ZDR_rad)
+                    dBZ_dis = ma.masked_where(precip_mask, dBZ)
+                    ZDR_dis = ma.masked_where(precip_mask, ZDR)
 
                     radrettuple = DR.retrieve_DSD(dBZ_rad, ZDR_rad, d, fa2, fb2, intv, ib.wavelength)
                     (R_rad_retr, D0_rad_retr, mu_rad_retr, lam_rad_retr, N0_rad_retr, Nt_rad_retr,
@@ -978,8 +979,8 @@ ax1.set_ylabel('Calculated Sigma')
 ax1.plot(one_x,one_y,lw=2,color='k')
 ax1.text(0.6,0.20,'Dis Retr. Bias =%2.2f'%bias_dis+'%',transform=ax1.transAxes)
 ax1.text(0.6,0.15,'Rad Retr. Bias =%2.2f'%bias_rad+'%',transform=ax1.transAxes)
-ax1.text(0.6,0.10,'Dis Retr. Corr Coeff =%2.3f'%cc_dis.ix[0,1],transform=ax1.transAxes)
-ax1.text(0.6,0.05,'Rad Retr. Corr Coeff =%2.3f'%cc_rad.ix[0,1],transform=ax1.transAxes)
+ax1.text(0.6,0.10,'Dis Retr. Corr Coeff =%2.3f'%cc_dis.iloc[0,1],transform=ax1.transAxes)
+ax1.text(0.6,0.05,'Rad Retr. Corr Coeff =%2.3f'%cc_rad.iloc[0,1],transform=ax1.transAxes)
 plt.legend(loc='upper left',numpoints=1,ncol=1,fontsize=12.)
 plt.savefig(outer_image_dir+'sigma_one2one.png',dpi=200,bbox_inches='tight')
 plt.close(fig1)
@@ -1001,8 +1002,8 @@ ax1.set_ylabel('Calculated Dm')
 ax1.plot(one_x,one_y,lw=2,color='k')
 ax1.text(0.6,0.20,'Dis Retr. Bias =%2.2f'%bias_dis+'%',transform=ax1.transAxes)
 ax1.text(0.6,0.15,'Rad Retr. Bias =%2.2f'%bias_rad+'%',transform=ax1.transAxes)
-ax1.text(0.6,0.10,'Dis Retr. Corr Coeff =%2.3f'%cc_dis.ix[0,1],transform=ax1.transAxes)
-ax1.text(0.6,0.05,'Rad Retr. Corr Coeff =%2.3f'%cc_rad.ix[0,1],transform=ax1.transAxes)
+ax1.text(0.6,0.10,'Dis Retr. Corr Coeff =%2.3f'%cc_dis.iloc[0,1],transform=ax1.transAxes)
+ax1.text(0.6,0.05,'Rad Retr. Corr Coeff =%2.3f'%cc_rad.iloc[0,1],transform=ax1.transAxes)
 plt.legend(loc='upper left',numpoints=1,ncol=1,fontsize=12.)
 plt.savefig(outer_image_dir+'Dm_one2one.png',dpi=200,bbox_inches='tight')
 plt.close(fig1)
