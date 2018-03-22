@@ -32,9 +32,11 @@ plot_DSDderived = True  # Plot some internal derived quantities from the Parsive
 plot_conv_meteo = True  # Plot meteograms of conventional fields?
 plot_radar = True       # Plot radar base scan with disdrometer locations?
 clean_radar = True      # Remove non-precipitation values from radar timeseries?
-plot_scat = True        # Plot scattergrams of Zdr vs Z
+plot_retrieved = True   # Plot meteograms and scattergrams of retrieved variables for individual cases 
+filter_bimodal = False  # Filter out times that have bimodal distributions
 plot_diagnostics = True  # Add diagnostic information to various meteograms (e.g. wind quality flag)
                          # and create additional diagnostic plots (e.g. battery voltage, laser signal amplitude, etc.)
+plot_outer = True       # Plot scattergrams/mu-lambda relation from entire data set and save variables for SATP 
 
 dateformat = '%H:%M' # '%d/%H'
 #dateformat = '%d/%H'

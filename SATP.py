@@ -1,4 +1,5 @@
 import numpy as N
+import os
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib as mpl
@@ -6,8 +7,12 @@ import modules.disdrometer_module as dis
 from numpy import ma as ma
 import pyPIPScontrol as pc
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+from scipy.special import gammainc as gammap
+from scipy.special import gammaln as gammln
 
-outer_image_dir='/Volumes/depot/dawson29/data/VORTEXSE/obsdata/jess_images/SATP/'
+outer_image_dir='/Volumes/depot/dawson29/data/VORTEXSE/obsdata/jess_images/SATP_TMF/'
+if (not os.path.exists(outer_image_dir)):
+    os.makedirs(outer_image_dir)
 
 # Min diameter of bins (mm)
 min_diameter_bins = [0.000,0.125,0.250,0.375,0.500,0.625,0.750,0.875,1.000,1.125,1.250,1.500,1.750,
@@ -56,7 +61,7 @@ for r in N.arange(len(R_bins)-1):
         Nc_bin = Nc_bin_tarr[N.logical_and(R_tarr>=R_bins[r],R_tarr<R_bins[r+1]) & N.logical_and(D0_tarr>=D0_bins[d],D0_tarr<D0_bins[d+1])]
         Nc_bin = N.where(Nc_bin == 0.0, N.nan, Nc_bin)
         Nc_bin_avg[r,d] = N.nanmean(Nc_bin,axis=0)
-        if (len(Nc_bin) > 5):
+        if (len(Nc_bin) > 50):
             fig = plt.figure()
             ax= fig.add_subplot(111)
             ax.plot(avg_diameter,Nc_bin.T,color='0.7',alpha=0.5)
@@ -118,6 +123,9 @@ bin_width = max_diameter-min_diameter
 
 mu = []
 lam = []
+mu_tmf = []
+lamda_tmf = []
+Dmax = []
 for r in N.arange(len(R_bins)-1):
     for d in N.arange(len(D0_bins)-1):
         Nc_bin_use = Nc_bin_avg[r,d]
@@ -132,11 +140,40 @@ for r in N.arange(len(R_bins)-1):
         G =(M4**2.)/(M2*M6)
         G = ma.masked_invalid(G)
         mu_gam = ((7.-11.*G) - ((7.-11.*G)**2. - 4.*(G-1.)*(30.*G-12.))**(1./2.))/(2.*(G-1.))
-        mu_gam = ma.masked_invalid(mu_gam)
         lamda_gam = ((M2*(mu_gam+3.)*(mu_gam+4.))/(M4))**(1./2.)
+        mu_gam = ma.masked_invalid(mu_gam)
         lamda_gam = ma.masked_invalid(lamda_gam)
+        
+        
+        ### TMF 
+        for index, value in reversed(list(enumerate(Nc_bin_use))):
+            if (value > 0.):
+                Dmax = avg_size[index]/1000.
+                break
+        
+        LDmx = lamda_gam*Dmax
+        for x in xrange(10):
+            temp_mu_tmf = mu_gam
+            gm3 = gammap(3.+temp_mu_tmf,LDmx)*N.exp(gammln(3.+temp_mu_tmf))
+            gm5 = gammap(5.+temp_mu_tmf,LDmx)*N.exp(gammln(5.+temp_mu_tmf))
+            gm7 = gammap(7.+temp_mu_tmf,LDmx)*N.exp(gammln(7.+temp_mu_tmf))
+            z0 = G - gm5**2./gm3/gm7
+            z1 = G - gm5**2./gm3/gm7
+            
+            while(z1/z0 > 0.0):
+                temp_mu_tmf = temp_mu_tmf - 0.01
+                gm3 = gammap(3.+temp_mu_tmf,LDmx)*N.exp(gammln(3.+temp_mu_tmf))
+                gm5 = gammap(5.+temp_mu_tmf,LDmx)*N.exp(gammln(5.+temp_mu_tmf))
+                gm7 = gammap(7.+temp_mu_tmf,LDmx)*N.exp(gammln(7.+temp_mu_tmf))
+                z1 = G - gm5**2./gm3/gm7
+                
+            lam_tmf = (M2*gm5/M4/gm3)**0.5
+            LDmx = lam_tmf*Dmax
+            
         mu.append(mu_gam)
         lam.append(lamda_gam/1000.)
+        mu_tmf.append(temp_mu_tmf)
+        lamda_tmf.append(lam_tmf/1000.)
         
 ## Plot the lambda-mu relation and fit with 2nd order polynomial 
 lam = N.array(lam)
@@ -160,14 +197,52 @@ y3 = -0.016*xx**2. + 1.213*xx - 1.957
 		
 fig=plt.figure(figsize=(8,8))
 ax1=fig.add_subplot(111)
-plt.title('Shape-Slope Relation')
+plt.title('SATP Shape-Slope Relation')
 ax1.scatter(Lam,Mu, color='k', marker='.')
 ax1.plot(xx,yy,label='Our Relation')
 ax1.plot(xx,y2,label='Cao Relation')
 ax1.plot(xx,y3,label='Zhang Relation')
 ax1.set_xlabel('Slope parameter')
 ax1.set_ylabel('Shape parameter')
-ax1.text(0.05,0.90,'# of Points: %2.1f'%len(lam), transform=ax1.transAxes, fontsize=12.)
+ax1.text(0.05,0.90,'# of Points: %2.1f'%len(Lam), transform=ax1.transAxes, fontsize=12.)
 ax1.text(0.05,0.85,'%2.4f'%poly[2]+'*lam^2 + %2.4f'%poly[1]+'*lam + %2.4f'%poly[0], transform=ax1.transAxes, fontsize=12.)
+ax1.text(0.05,0.80,'Average mu: %2.2f'%N.mean(Mu), transform=ax1.transAxes, fontsize = 12.)
+ax1.text(0.05,0.75,'Average lambda: %2.2f'%N.mean(Lam), transform=ax1.transAxes, fontsize = 12.)
 plt.legend(loc='upper left',numpoints=1,ncol=3,fontsize=12.)
 plt.savefig(outer_image_dir+'SATP_mu_lam.png',dpi=200,bbox_inches='tight')
+plt.close(fig)
+
+## Plot the TMF lambda-mu relation and fit with 2nd order polynomial 
+lamTMF = N.array(lamda_tmf)
+muTMF = N.array(mu_tmf)
+lamTMF = lamTMF[~N.isnan(lamTMF)]
+muTMF = muTMF[~N.isnan(muTMF)]	
+LamTMF = []
+MuTMF = []
+for n1 in xrange(0,len(lamTMF)):
+    lamda = lamTMF[n1]
+    if(lamda < 20.):
+        LamTMF.append(lamTMF[n1])
+        MuTMF.append(muTMF[n1])
+poly2=N.polynomial.polynomial.polyfit(LamTMF,MuTMF,2)
+polynomial2=N.polynomial.polynomial.Polynomial(poly2)
+ 
+yyTMF = polynomial2(xx)
+		
+fig=plt.figure(figsize=(8,8))
+ax1=fig.add_subplot(111)
+plt.title('Truncated SATP Shape-Slope Relation')
+ax1.scatter(LamTMF,MuTMF, color='k', marker='.')
+ax1.plot(xx,yyTMF,label='Our Relation')
+ax1.plot(xx,y2,label='Cao Relation')
+ax1.plot(xx,y3,label='Zhang Relation')
+ax1.set_xlabel('Slope parameter')
+ax1.set_ylabel('Shape parameter')
+ax1.text(0.05,0.90,'# of Points: %2.1f'%len(LamTMF), transform=ax1.transAxes, fontsize=12.)
+ax1.text(0.05,0.85,'%2.4f'%poly2[2]+'*lam^2 + %2.4f'%poly2[1]+'*lam + %2.4f'%poly2[0], transform=ax1.transAxes, fontsize=12.)
+ax1.text(0.05,0.80,'Average mu: %2.2f'%N.mean(MuTMF), transform=ax1.transAxes, fontsize = 12.)
+ax1.text(0.05,0.75,'Average lambda: %2.2f'%N.mean(LamTMF), transform=ax1.transAxes, fontsize = 12.)
+plt.legend(loc='upper left',numpoints=1,ncol=3,fontsize=12.)
+plt.savefig(outer_image_dir+'SATP_TMF_mu_lam.png',dpi=200,bbox_inches='tight')
+plt.close(fig)
+
