@@ -1355,7 +1355,7 @@ def calc_DSD(pc, min_size, avg_size, max_size, bin_width, Nc_bin, logNc_bin, rho
         rho = ma.masked_array(rho, mask=qrmask1D)
         QR_disd = ma.masked_array(QR_disd, mask=qrmask1D)
         LWC_disd = ma.masked_array(LWC_disd, mask=qrmask1D)
-# 
+#
     # TODO: Make the masking by particle counts adjustable in the pyPIPScontrol file
     # There may be times when we don't want such stringent masking, and it is dependent on the
     # integration interval we choose, anyway.
@@ -1509,7 +1509,7 @@ def calc_DSD(pc, min_size, avg_size, max_size, bin_width, Nc_bin, logNc_bin, rho
             LDmx = lam_tmf*Dmax[t]
         mu_tmf.append(mu)
         lamda_tmf.append(lam_tmf)
-        
+
     mu_tmf = N.array(mu_tmf)
     lamda_tmf = N.array(lamda_tmf)
     LDmx = lamda_tmf*Dmax
@@ -1545,7 +1545,7 @@ def calc_DSD(pc, min_size, avg_size, max_size, bin_width, Nc_bin, logNc_bin, rho
         rain_tmf.append(temp_rain_tmf)
     rain_gam = N.array(rain_gam)
     rain_tmf = N.array(rain_tmf)
-    
+
 
     # Quantities based on exponential distribution
 
@@ -1609,7 +1609,7 @@ def calc_DSD(pc, min_size, avg_size, max_size, bin_width, Nc_bin, logNc_bin, rho
     IGR2 = gammap(4. + mu_tmf, LDmx) * GR2
     IGR3 = gammap(4.67 + mu_tmf, LDmx) * GR3
     IGR4 = gammap(7. + mu_tmf, LDmx) * GR4
-    
+
     Ntr_tmf = N0_tmf * IGR1 / lamda_tmf**(mu_tmf + 1.)
     TM3 = N0_tmf*lamda_tmf**-(mu_tmf+4)*IGR2
     LWC_tmf = cmr * 1000. * TM3 # g/m^3
@@ -1617,7 +1617,7 @@ def calc_DSD(pc, min_size, avg_size, max_size, bin_width, Nc_bin, logNc_bin, rho
     # Can't use Gr in form of untruncated gamma case. Compute Ztr directly using incomplete gamma
     # function instead
     Ztr_tmf = ((rho * qr_tmf)**2.) / (cmr**2. * Ntr_tmf) * (IGR4 * IGR1) / IGR2
-    refl_DSD_tmf = 10.0 * N.log10(1.e18 * Zr_tmf)
+    refl_DSD_tmf = 10.0 * N.log10(1.e18 * Ztr_tmf)
     rainrate_tmf = 7.29096257e8 * N0_tmf * IGR3 / lamda_tmf**(4.67 + mu_tmf)
 
     # TODO: need to compute D0 for truncated gamma distribution a bit differently, since the above
@@ -1625,7 +1625,7 @@ def calc_DSD(pc, min_size, avg_size, max_size, bin_width, Nc_bin, logNc_bin, rho
     # way we do for the observed DSD, but using the discretized truncated gamma DSD.
     # D_med_tmf = N.where(lamda_tmf == 0., N.nan, ((3.67 + mu_tmf) / lamda_tmf) *
     #                     1000.0)    # Median volume diameter for gamma distribution
-    
+
     # Create several tuples to pack the data, and then return them
     # NOTE: Consider updating these to namedtuples
 
@@ -1633,7 +1633,7 @@ def calc_DSD(pc, min_size, avg_size, max_size, bin_width, Nc_bin, logNc_bin, rho
                D_m_exp)
     gam_DSD = (N_gamDSD, N0_gam, lamda_gam, mu_gam, qr_gam, Ntr_gam, refl_DSD_gam, D_med_gam,
                D_m_gam, LWC_gam, rainrate_gam)
-    tmf_DSD = (N_tmfDSD, N0_tmf, lamda_tmf, mu_tmf, qr_tmf, Ntr_tmf, refl_DSD_tmf, 
+    tmf_DSD = (N_tmfDSD, N0_tmf, lamda_tmf, mu_tmf, qr_tmf, Ntr_tmf, refl_DSD_tmf,
                LWC_tmf, rainrate_tmf)
     dis_DSD = (Nc_bin, logNc_bin, D_med_disd, D_m_disd, D_mv_disd, D_ref_disd, QR_disd, refl_disd,
                LWC_disd, M0, rainrate)

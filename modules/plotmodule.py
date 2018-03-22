@@ -349,7 +349,7 @@ def plotonesecmeteograms(dis_index, pc, ib, convmeteodict):
     ax2 = plotmeteogram(ax2, [plottimes], fields, fieldparamdicts)
 
     axparamdict1 = {'majorxlocator': pc.locator, 'majorxformatter': pc.formatter,
-                    'minorxlocator': pc.minorlocator, 'axeslimits': [xaxislimits, [0.0, 30.0]],
+                    'minorxlocator': pc.minorlocator, 'axeslimits': [xaxislimits, pc.meteo_ws_range],
                     'axeslabels': [pc.timelabel, r'wind speed (m s$^{-1}$)']}
     axparamdict2 = {'majorylocator': ticker.MultipleLocator(45.),
                     'axeslimits': [None, [0.0, 360.0]],
@@ -373,7 +373,7 @@ def plotonesecmeteograms(dis_index, pc, ib, convmeteodict):
     ax1.axhline(0.0, ls=':', color='k')
 
     axparamdict1 = {'majorxlocator': pc.locator, 'majorxformatter': pc.formatter,
-                    'minorxlocator': pc.minorlocator, 'axeslimits': [xaxislimits, [15., 40.0]],
+                    'minorxlocator': pc.minorlocator, 'axeslimits': [xaxislimits, pc.meteo_T_Td_range],
                     'axeslabels': [pc.timelabel, r'Temperature ($^{\circ}$C)']}
     axparamdicts = [axparamdict1]
     ax1, = set_meteogram_axes([ax1], axparamdicts)
@@ -771,7 +771,7 @@ def plot_DSD(ib, axdict, PSDdict, PSDfitdict, PSDparamdict):
     ax1.bar(xbin_left, ND * 1000.0,
             xbin_right - xbin_left, 10.**2., align='edge', log=True, color='tan', edgecolor='k')
 
-    ax1.plot(xbin_mid, ND * 1000.0, lw=2, label='obs')
+    # ax1.plot(xbin_mid, ND * 1000.0, lw=2, label='obs')
 
     for fitname, ND_tuple in PSDfitdict.iteritems():
         if ((fitname == 'Dis Retr') | (fitname == 'Rad Retr')):

@@ -9,16 +9,16 @@
 from matplotlib.dates import *
 from matplotlib.ticker import *
 
-saveradopt = False      # Option to save reflectivity at DSD locations to file to avoid unneccessary
+saveradopt = True      # Option to save reflectivity at DSD locations to file to avoid unneccessary
                         # recalculation
-loadradopt = True       # Option to load the above
+loadradopt = False       # Option to load the above
 
 # Plot/analysis control flags
 
 calc_DSD = True         # Calculate DSD fits (exp and gamma)?
 calc_evap = False       # Calculate evaporation rates?
 calc_dualpol = True     # Calculate polarimetric radar variables (currently assumes rain only)?
-comp_radar = True       # Compare with reflectivity from 88D?
+comp_radar = False       # Compare with reflectivity from 88D?
 radar_save_dir = 'radar_files'
 
 
@@ -26,27 +26,29 @@ plot_opt = True        # Plot or not?
 plot_DSD_meteo = True   # Plot meteograms of DSDs?
 avgwindow = 180.        # Averaging window in seconds for plotting of DSD parameters on meteograms
 plot_only_precip = False # Restrict plotting window to start and end of precip in requested period?
-plot_DSDs = True      # Plot individual DSDs and fits?
-DSD_interval = 10.0     # Interval of DSD (Minimum 10 s, multiple of 10 s)
+plot_DSDs = False      # Plot individual DSDs and fits?
+DSD_interval = 60.0     # Interval of DSD (Minimum 10 s, multiple of 10 s)
 plot_DSDderived = True  # Plot some internal derived quantities from the Parsivel?
 plot_conv_meteo = True  # Plot meteograms of conventional fields?
-plot_radar = True       # Plot radar base scan with disdrometer locations?
+meteo_T_Td_range = [-10., 25.]
+meteo_ws_range = [0.0, 15.0]
+plot_radar = False       # Plot radar base scan with disdrometer locations?
 clean_radar = True      # Remove non-precipitation values from radar timeseries?
-plot_scat = True        # Plot scattergrams of Zdr vs Z
+plot_scat = False        # Plot scattergrams of Zdr vs Z
 plot_diagnostics = True  # Add diagnostic information to various meteograms (e.g. wind quality flag)
                          # and create additional diagnostic plots (e.g. battery voltage, laser signal amplitude, etc.)
 
-dateformat = '%H:%M' # '%d/%H'
-#dateformat = '%d/%H'
+#dateformat = '%H:%M' # '%d/%H'
+dateformat = '%d/%H'
 formatter = DateFormatter(dateformat)
 #locator = MinuteLocator(interval=15) # HourLocator(interval=3)
 #minorlocator = MinuteLocator(interval=1)
-locator = MinuteLocator(byminute=[0,15,30,45]) # HourLocator(interval=1)
-minorlocator = MinuteLocator(byminute=range(0,60,5)) # MinuteLocator(byminute=[0,15,30,45])
-#locator = HourLocator(interval=3)
-#minorlocator = HourLocator(interval=1)
-timelabel = 'Time (HH:MM)' # Time (day/hour)'
-#timelabel = 'Time (day/hour) UTC'
+#locator = MinuteLocator(byminute=[0,15,30,45]) # HourLocator(interval=1)
+#minorlocator = MinuteLocator(byminute=range(0,60,5)) # MinuteLocator(byminute=[0,15,30,45])
+locator = HourLocator(interval=3)
+minorlocator = HourLocator(interval=1)
+#timelabel = 'Time (HH:MM)' # Time (day/hour)'
+timelabel = 'Time (day/hour) UTC'
 
 strongwindQC = True      # Remove time records that are contaminated by strong wind?
 splashingQC = False      # Remove drops that result from splashing?
