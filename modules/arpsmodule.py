@@ -228,7 +228,7 @@ class ARPSDataHandler(DataHandler):
             consts['microphys'] = 'MY'
         elif self._microphys[0:3] == 'ZVD':
             micro, consts = self._readarpsmicroZVD()
-            micro['rhos'] = consts['rhoscst']
+            micro['rhos'] = consts['rhoscst']*N.zeros_like(micro['qr'])
             consts['imurain'] = 1
             consts['MPflg'] = 2
             consts['microphys'] = 'ZVD'
@@ -805,7 +805,7 @@ class ARPSDataHandler(DataHandler):
             micro['alphah'] = alphahcst*N.ones_like(pt)
 
         # Snow is never 3-moment in ZVD
-        micro['zs'] = N.zeros_like(qs)
+        micro['zs'] = N.zeros_like(pt)
         micro['alphas'] = alphascst*N.ones_like(pt)
 
         for var, data in micro.iteritems():
