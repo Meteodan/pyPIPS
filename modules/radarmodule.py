@@ -1303,8 +1303,8 @@ def readsweeps2PIPS(fieldnames, pc, ib):
 
     if(not pc.loadradopt):
 
-        radar_filelist, radtimes = getradarfilelist(radar_dir, pc.radar_save_dir,
-            ib.radar_dir, starttime=ib.starttimerad, stoptime=ib.stoptimerad,
+        radar_filelist, radtimes = getradarfilelist(ib.radar_dir, pc.radar_save_dir,
+            starttime=ib.starttimerad, stoptime=ib.stoptimerad,
             platform=ib.platform, el_req=ib.el_req)
 
         # Read in the radar data, sweep by sweep.
@@ -1320,6 +1320,9 @@ def readsweeps2PIPS(fieldnames, pc, ib):
         el_tlist = []
         fields_D_tlist = []
         dxy_tlist = []
+
+        newradtimes = []
+        newradarfilelist = []
 
         for index, path, sweeptime in zip(
                 xrange(len(radar_filelist)), radar_filelist, radtimes):
@@ -1340,25 +1343,37 @@ def readsweeps2PIPS(fieldnames, pc, ib):
                     azimuth_rad, rlat_rad, rlon_rad, ralt, el_rad) = \
                     readUMXPnc(path, sweeptime, fieldnames, heading=ib.heading)
 
-            fields_tlist.append(fields)
-            range_start_tlist.append(range_start)
-            range_tlist.append(radar_range)
-            azimuth_start_tlist.append(azimuth_start_rad)
-            azimuth_tlist.append(azimuth_rad)
-            rlat_tlist.append(rlat_rad)
-            rlon_tlist.append(rlon_rad)
-            ralt_tlist.append(ralt)
-            el_tlist.append(el_rad)
+            # Some NEXRAD files appear to only have a couple fields in them. This creates problems
+            # with casting to arrays below. For now, we'll just
+            # throw out any sweeps that don't have at least 4 ('dBZ', 'ZDR', 'RHV', 'VR') but
+            # will need to come up with a better solution in the future.
 
-            dxy_list, fields_D = dis.rad2DD2(fields, range_start, radar_range,
-                                             azimuth_start_rad, azimuth_rad, rlat_rad,
-                                             rlon_rad, ralt, el_rad, ib.dlocs,
-                                             average_gates=False, Cressman=True,
-                                             roi=1000.)
+            if(len(outfieldnames) >= 4):
+                fields_tlist.append(fields)
+                range_start_tlist.append(range_start)
+                range_tlist.append(radar_range)
+                azimuth_start_tlist.append(azimuth_start_rad)
+                azimuth_tlist.append(azimuth_rad)
+                rlat_tlist.append(rlat_rad)
+                rlon_tlist.append(rlon_rad)
+                ralt_tlist.append(ralt)
+                el_tlist.append(el_rad)
 
-            fields_D_tlist.append(fields_D)
-            dxy_tlist.append(dxy_list)
+                dxy_list, fields_D = dis.rad2DD2(fields, range_start, radar_range,
+                                                 azimuth_start_rad, azimuth_rad, rlat_rad,
+                                                 rlon_rad, ralt, el_rad, ib.dlocs,
+                                                 average_gates=False, Cressman=True,
+                                                 roi=1000.)
+                print "fields_D.shape", fields_D, fields_D.shape
 
+                fields_D_tlist.append(fields_D)
+                dxy_tlist.append(dxy_list)
+                newradtimes.append(sweeptime)
+                newradarfilelist.append(path)
+            else:
+                print "This sweep only has ", len(outfieldnames), " fields. Throwing out!"
+
+        sweepdict['radtimes'] = newradtimes
         sweepdict['fields_tarr'] = N.array(fields_tlist)
         sweepdict['range_start_tarr'] = N.array(range_start_tlist)
         sweepdict['range_tarr'] = N.array(range_tlist)
@@ -1370,6 +1385,8 @@ def readsweeps2PIPS(fieldnames, pc, ib):
         sweepdict['el_tarr'] = N.array(el_tlist)
         sweepdict['fields_D_tarr'] = N.array(fields_D_tlist)
         sweepdict['dxy_tarr'] = N.array(dxy_tlist)
+        sweepdict['outfieldnames'] = outfieldnames
+        sweepdict['radar_filelist'] = newradarfilelist
 
         if(pc.saveradopt):
             if (not os.path.exists(pc.radar_save_dir)):
@@ -1413,12 +1430,17 @@ def readsweeps2PIPS(fieldnames, pc, ib):
     return utils.Bunch(sweepdict)
 
 
-def plotsweeps(pc, ib, sb, sweepstart, sweepstop):
+def plotsweeps(pc, ib, sb, sweepstart=-1, sweepstop=-1):
     """Plots radar sweeps with overlaid disdrometer locations"""
 
     radar_image_dir = os.path.join(ib.image_dir, 'radar_PPI/')
     if (not os.path.exists(radar_image_dir)):
         os.makedirs(radar_image_dir)
+
+    if(sweepstart == -1):
+        sweepstart = sb.radtimes[0]
+    if(sweepstop == -1):
+        sweepstop = sb.radtimes[-1]
 
     print "Plotting radar sweeps with overlaid disdrometer locations and data."
     for index, path, sweeptime in zip(xrange(len(sb.radar_filelist)), sb.radar_filelist,

@@ -23,6 +23,8 @@ import modules.timemodule as tm
 
 mu=[]
 lamda=[]
+muTMF = []
+lamTMF=[]
 sigm_obs=[]
 sigm_dis=[]
 sigm_rad=[]
@@ -57,7 +59,10 @@ fall_bins = dis.fall_bins
 min_fall_bins = dis.min_fall_bins
 
 # Should make this an input parameter
-outer_image_dir = '/Volumes/depot/dawson29/data/VORTEXSE/obsdata/jess_images/CG/'
+outer_image_dir = '/Volumes/depot/dawson29/data/VORTEXSE/obsdata/dan_images/'
+
+if (not os.path.exists(outer_image_dir)):
+    os.makedirs(outer_image_dir)
 
 # Z, ZDR relation from Cao et al. (2008)
 Zh_Cao = N.arange(20, 61, 1)
@@ -100,13 +105,13 @@ if(not pc.plot_conv_meteo and not pc.plot_DSD_meteo):
 #
 #-----------------------------------------------------------------------
 
-directories = ['/Users/bozell/pyPIPS_work/input/NEXRAD/','/Volumes/depot/dawson29/data/VORTEXSE/obsdata/2017/PIPS/PIPS2A_FMCW/']
+directories = ['/Users/dawson29/pyPIPS_work/input/NEXRAD/','/Volumes/depot/dawson29/data/VORTEXSE/obsdata/2017/PIPS/PIPS2A_FMCW/']
 for directory in directories:
     for root, dirs, files in os.walk(directory):
         for f in files:
             if f.endswith(("040517.txt","040417.txt","041717.txt","042017.txt","042417.txt","FMCW.txt")):
                 continue
-            elif f.endswith("040317.txt"):
+            elif f.endswith(".txt"):
                 print directory
                 print f
 
@@ -136,6 +141,7 @@ for directory in directories:
 
                     ND = ND.T
                     ND_onedrop = ND_onedrop.T
+
 
                     logND = N.ma.log10(ND)
                     logND = N.ma.masked_where(ND < ND_onedrop, logND)
@@ -202,9 +208,9 @@ for directory in directories:
                     inputdict['el_req'] = 0.5
                     inputdict['heading'] = None
 
-                    inputdict['image_dir'] = '/Users/bozell/VORTEXSE/testing_new_code/'+radar_date+'/'
-                    inputdict['radar_dir'] = '/Users/bozell/nexrad/PIPS2A_FMCW/'+radar_date+'/CFRadial/'
-                    inputdict['scattdir'] = '/Users/bozell/pyPIPS/tmatrix/S-band/'
+                    inputdict['image_dir'] = '/Users/dawson29/pyPIPS_work/VORTEXSE/PIPS2A_FMCW/NEXRAD/'+radar_date+'/'
+                    inputdict['radar_dir'] = '/Volumes/depot/dawson29/data/VORTEXSE/obsdata/2017/NEXRAD/PIPS2A_FMCW/'+radar_date+'/CFRadial/'
+                    inputdict['scattdir'] = '/Users/dawson29/pyPIPS/tmatrix/S-band/'
 
                     raddate = onesectimestamps[0].strftime(tm.timefmt5).strip().split(',')
                     raddate_int = map(int,raddate)
@@ -319,6 +325,13 @@ for directory in directories:
                                     'PSDtimestampsnums': PSDtimestampsnums, 'PSDtimestamps_edge': PSDtimestamps_edge,
                                     'PSDtimestamps_avg': PSDtimestamps_avg}
 
+                    if(pc.filter_bimodal):
+                        for t in range(N.size(ND, axis=1)):
+                            for d in xrange(14,30):
+                                if (ND[d,t] > ND[d+1,t] and ND[d,t] > ND[d-1,t]):
+                                    ND[:,t] = N.nan
+                                    break
+
                     # TODO: Address this section
                     if(pc.timetospace and pc.comp_radar):
                         delta_t_rad = [(x - centertime).total_seconds() for x in sb.radtimes]
@@ -357,8 +370,8 @@ for directory in directories:
                     # parameters using the method of moments, after Zhang et al. 2008 and Tokay and
                     # Short 1996
                     if(pc.calc_DSD):
-                        synthbins, exp_DSD, gam_DSD, tmf_DSD, dis_DSD = dis.calc_DSD(
-                            min_diameter, avg_diameter, max_diameter, bin_width, ND, logND, rho_tDSD, pc.qrQC,
+                        synthbins, exp_DSD, gam_DSD, tmf_DSD, dis_DSD = dis.calc_DSD(pc,
+                            min_diameter, avg_diameter, max_diameter, bin_width, ND, logND, rho_tDSD.values, pc.qrQC,
                             pc.qr_thresh, PSD_df['pcount2'].values, PSD_df['intensity'].values)
 
                         # Unpack needed values from returned tuples
@@ -366,9 +379,10 @@ for directory in directories:
                         ND_expDSD, N0_exp, lamda_exp, mu_exp, qr_exp, Ntr_exp, refl_DSD_exp, D_med_exp, D_m_exp = \
                             exp_DSD
                         ND_gamDSD, N0_gam, lamda_gam, mu_gam, qr_gam, Ntr_gam, refl_DSD_gam, D_med_gam, D_m_gam, \
-                            LWC_gam, rainrate = gam_DSD
-                        ND_tmfDSD, N0_tmf, lamda_tmf, mu_tmf = tmf_DSD
-                        ND, logND, D_med_disd, D_m_disd, D_mv_disd, D_ref_disd, QR_disd, refl_disd, LWC_disd, M0 = \
+                            LWC_gam, rainrate_gam = gam_DSD
+                        ND_tmfDSD, N0_tmf, lamda_tmf, mu_tmf, qr_tmf, Ntr_tmf, refl_DSD_tmf, \
+                            LWC_tmf, rainrate_tmf = tmf_DSD
+                        ND, logND, D_med_disd, D_m_disd, D_mv_disd, D_ref_disd, QR_disd, refl_disd, LWC_disd, M0, rainrate = \
                             dis_DSD
 
                         ND_expDSD = ND_expDSD.T
@@ -378,6 +392,10 @@ for directory in directories:
                         ND_gamDSD = ND_gamDSD.T
                         logND_gamDSD = N.ma.log10(ND_gamDSD / 1000.)  # Get to log(m^-3 mm^-1)
                         logND_gamDSD = N.ma.masked_where(ND_gamDSD < ND_onedrop, logND_gamDSD)
+
+                        ND_tmfDSD = ND_tmfDSD.T
+                        logND_tmfDSD = N.ma.log10(ND_tmfDSD / 1000.)  # Get to log(m^-3 mm^-1)
+                        logND_tmfDSD = N.ma.masked_where(ND_tmfDSD < ND_onedrop, logND_tmfDSD)
 
                         if(pc.calc_dualpol):
                             # Calculate polarimetric variables using the T-matrix technique
@@ -394,8 +412,8 @@ for directory in directories:
                         PSDplottimes = PSDtimestampsnums[pstartindex: pstopindex + 1]
                         plotPSDindex = pd.DatetimeIndex(PSDtimestamps[pstartindex: pstopindex + 1])
                         PSD_plot_df = PSD_df.loc[plotPSDindex]
-                        # Loop through the observed, exponential, and gamma fits
-                        for DSDtype in ['observed', 'exponential', 'gamma']:
+                        # Loop through the observed, exponential, and untruncated and truncated gamma fits
+                        for DSDtype in ['observed', 'exponential', 'gamma', 'tmf']:
                             if(DSDtype == 'observed'):
                                 logND_plot = logND[:, pstartindex:pstopindex + 1]
                                 if(pc.calc_DSD):
@@ -451,7 +469,7 @@ for directory in directories:
                                         var = dp.get(varname, N.empty((0)))
                                         if(var.size):
                                             # If desired, perform centered running averages
-                                            if(pc.avgwindow)
+                                            if(pc.avgwindow):
                                                 var = pd.Series(var).rolling(
                                                     window=window, center=True, win_type='triang',
                                                     min_periods=1).mean().values
@@ -489,22 +507,10 @@ for directory in directories:
                                                 radvars[radvarname] = dualpol_rad_var
                                     if(pc.clean_radar):
                                         # remove non-precipitation echoes from radar data
-                                        gc_mask = N.where((radvars['RHV'] < 0.90) & (radvars['dBZ'] < 15.),
-                                                          True, False)
+                                        gc_mask = N.where(radvars['RHV'] < 0.90, True, False)
                                         for radvarname in ['ZDR', 'dBZ', 'RHV']:
                                                 radvars[radvarname] = ma.masked_array(radvars[radvarname],
                                                                                       mask=gc_mask)
-                            if(pc.plot_only_precip and pc.calc_dualpol):
-                                # set plot start and end time to the start and end of precipitation
-                                rainindex = N.where(disvars['RHV'] > 0.6)
-                                raintimes = PSDmidtimes[rainindex]
-                                plotstarttime = raintimes[0]
-                                plotstoptime = raintimes[-1]
-                                # set radar PPI plot start and end time for FMCW days 
-                                sweeptimes = PSDtimestamps[rainindex]
-                                sweepstart = sweeptimes[0]
-                                sweepstop = sweeptimes[-1]
-                                
                             if(DSDtype == 'observed'):
                                 # Prepare axis parameters
                                 timelimits = [plotstarttime, plotstoptime]
@@ -515,6 +521,21 @@ for directory in directories:
                                             'axeslimits': [timelimits, diamlimits],
                                             'majorylocator': ticker.MultipleLocator(base=1.0),
                                             'axeslabels': [None, 'D (mm)']}
+                                if(pc.plot_only_precip and pc.calc_dualpol):
+                                    # set plot start and end time to the start and end of precipitation
+                                    rainindex = N.where(disvars['RHV'] > 0.6)
+                                    raintimes = PSDmidtimes[rainindex]
+                                    if (len(raintimes) == 0.0):
+                                        break
+                                    plotstarttime = raintimes[0]
+                                    plotstoptime = raintimes[-1]
+                                    # set radar PPI plot start and end time for FMCW days
+                                    sweeptimes = PSDtimestamps[rainindex]
+                                    sweepstart = sweeptimes[0]
+                                    sweepstop = sweeptimes[-1]
+                                else:
+                                    sweepstart = -1
+                                    sweepstop = -1
 
                             # Ok, now we should have everything ready to go to plot the meteograms.
                             # Let'er rip!
@@ -526,16 +547,16 @@ for directory in directories:
                             PSDderiveddict = {'PSDmidtimes': PSDmidtimes, 'PSD_plot_df': PSD_plot_df}
 
                             pm.plotDSDderivedmeteograms(index, pc, ib, **PSDderiveddict)
-                            
-                    # add index == 0 because for IOP days, only want to plot for once, not for each disdrometer?
+
+                    # add index == 0 because for IOP days, only want to plot for one, not for each disdrometer?
                     if(pc.plot_radar and index==0):
-                        radar.plotsweeps(pc, ib, sb, sweepstart, sweepstop)
+                        radar.plotsweeps(pc, ib, sb, sweepstart=sweepstart, sweepstop=sweepstop)
 
                     # Extract some needed stuff from dictionary containing disdrometer-derived
                     # polarimetric variables (note, this can be changed if you are interested
                     # instead to compare values from the gamma or exponential fits). Just change
                     # "dualpol_dis" to "dualpol_gam" or "dualpol_exp" below.
-                    Zh = dualpol_dis['Zh']
+                    Zh = dualpol_dis['ZH']
                     ZDR = dualpol_dis['ZDR']
                     dBZ = dualpol_dis['dBZ']
                     RHV = dualpol_dis['RHV']
@@ -545,10 +566,13 @@ for directory in directories:
                     intv = dualpol_dis['intv']
 
                     lamda_gam = lamda_gam/1000.
+                    lamda_tmf = lamda_tmf/1000.
 
                 ### Added for shape-slope relation plots
                     mu.extend(mu_gam)
                     lamda.extend(lamda_gam)
+                    muTMF.extend(mu_tmf)
+                    lamTMF.extend(lamda_tmf)
     #
                 ### Interpolate radar values to match disdrometer times before starting retrieval
                     dBZ_rad = pd.Series(N.array(radvars['dBZ']), index=radvars['radmidtimes'])
@@ -558,10 +582,11 @@ for directory in directories:
                     idx2 = ZDR_rad.index.union(PSDmidtimes)
                     ZDR_rad = N.array(ZDR_rad.reindex(idx2).interpolate(method='index',limit=8).reindex(PSDmidtimes))
 
-                    dBZ_rad = ma.masked_where((ZDR_rad > 4.) | (RHV < 0.6), dBZ_rad)
-                    ZDR_rad = ma.masked_where((ZDR_rad> 4.) | (RHV < 0.6), ZDR_rad)
-                    dBZ_dis = ma.masked_where((ZDR>4.) | (RHV < 0.6), dBZ)
-                    ZDR_dis = ma.masked_where((ZDR>4.) | (RHV < 0.6), ZDR)
+                    precip_mask = (ZDR_rad > 4.) | (RHV_rad < 0.9) | (ZDR > 4.) | (RHV < 0.9)
+                    dBZ_rad = ma.masked_where(precip_mask, dBZ_rad)
+                    ZDR_rad = ma.masked_where(precip_mask, ZDR_rad)
+                    dBZ_dis = ma.masked_where(precip_mask, dBZ)
+                    ZDR_dis = ma.masked_where(precip_mask, ZDR)
 
                     radrettuple = DR.retrieve_DSD(dBZ_rad, ZDR_rad, d, fa2, fb2, intv, ib.wavelength)
                     (R_rad_retr, D0_rad_retr, mu_rad_retr, lam_rad_retr, N0_rad_retr, Nt_rad_retr,
@@ -599,36 +624,15 @@ for directory in directories:
                     sigm_obs.extend(sigm_dis_obs)
                     sigm_dis.extend(sigm_dis_retr)
                     sigm_rad.extend(sigm_rad_retr)
-                    Dm_obs.extend(D_m_gam)
+                    Dm_obs.extend(D_m_gam) # Shouldn't this be Dm_dis?
                     Dm_dis.extend(Dm_dis_retr)
                     Dm_rad.extend(Dm_rad_retr)
-
-                    name = 'mu_retr'
-                    axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],None],'axeslabels':[pc.timelabel,r'mu']}
-                    em.dis_retr_timeseries(mu_gam,mu_rad_retr,mu_dis_retr,pstartindex,pstopindex,PSDmidtimes,axparamdict1,ib.image_dir,dis_name,name)
-
-                    name = 'lam_retr'
-                    axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],None],'axeslabels':[pc.timelabel,r'lambda']}
-                    em.dis_retr_timeseries(lamda_gam,lam_rad_retr,lam_dis_retr,pstartindex,pstopindex,PSDmidtimes,axparamdict1,ib.image_dir,dis_name,name)
-
-                    name = 'dBZ'
-                    axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],None],'axeslabels':[pc.timelabel,r'dBZ']}
-                    em.zh_zdr_timeseries(dBZ_rad,dBZ_dis,pstartindex,pstopindex,PSDmidtimes,axparamdict1,ib.image_dir,dis_name,name)
-
-
-                    name = 'ZDR'
-                    axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],None],'axeslabels':[pc.timelabel,r'ZDR']}
-                    em.zh_zdr_timeseries(ZDR_rad,ZDR_dis,pstartindex,pstopindex,PSDmidtimes,axparamdict1,ib.image_dir,dis_name,name)
-
-
                     N_retr=N.array(N_dis_retr)
                     N_retr=N_retr.T
 
                     N_retr2=N.array(N_rad_retr)
                     N_retr2=N_retr2.T
 
-                    ND_tmfDSD=N.array(ND_tmfDSD)
-                    ND_tmfDSD=ND_tmfDSD.T
     #
 
                     if(pc.plot_DSDs):
@@ -665,7 +669,7 @@ for directory in directories:
                                             'dBZ_rad': (dBZ_rad[t], r'Z (radar, dBZ)'),
                                             'ZDR_dis': (ZDR_dis[t], r'$Z_{DR}$ (dis, dB)'),
                                             'ZDR_rad': (ZDR_rad[t], r'$Z_{DR}$ (radar, dB)'),
-                                            'RR_disd': (PSD_df['intensity'].values[t],
+                                            'RR_disd': (rainrate[t],
                                                         r'Rain rate (obs, mm hr$^{-1}$)'),
                                             'Particle count': (PSD_df['pcount2'].values[t],
                                                                r'Particle count (QC)')}
@@ -688,176 +692,190 @@ for directory in directories:
                     ###     Disdrometer measured
                     Nt_dis_emp,D0_dis_emp,W_dis_emp,R_dis_emp = em.empirical(Zh,ZDR_dis)
 
-
+                    print len(raintimes)
+                    pcounts = PSD_df['pcount2'].values
         ####     Timeseries and Figure 9a-c from Cao et al. and Figure 8a-c from Cao et al.
-                    name = 'R'
-                    axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[10**0.,10**2.25]],'axeslabels':[pc.timelabel,r'Rain Rate']}
-                    em.retr_timeseries(PSD_df['intensity'].values,rainrate,R_rad_retr,R_dis_retr,pstartindex,pstopindex,PSDmidtimes,axparamdict1,ib.image_dir,dis_name,name)
+                    if(pc.plot_retrieved and len(raintimes) > 0.0):
+                        name = 'mu_retr'
+                        axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],None],'axeslabels':[pc.timelabel,r'mu']}
+                        em.dis_retr_timeseries(mu_tmf,mu_rad_retr,mu_dis_retr,pstartindex,pstopindex,PSDmidtimes,axparamdict1,ib.image_dir,dis_name,name)
 
-                    em.one2one(PSD_df['intensity'].values/Zh,rainrate/Zh,R_dis_retr/Zh,R_rad_retr/Zh_rad,ib.image_dir,dis_name,name)
-                    em.scatters(N.log10(PSD_df['intensity'].values/Zh),N.log10(rainrate/Zh),N.log10(R_dis_retr/Zh),N.log10(R_rad_retr/Zh_rad),ZDR_rad,ZDR,PSDmidtimes,ib.image_dir,dis_name,name)
-                    
-                    R_mm.extend(rainrate)
+                        name = 'lam_retr'
+                        axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],None],'axeslabels':[pc.timelabel,r'lambda']}
+                        em.dis_retr_timeseries(lamda_tmf,lam_rad_retr,lam_dis_retr,pstartindex,pstopindex,PSDmidtimes,axparamdict1,ib.image_dir,dis_name,name)
+
+                        name = 'dBZ'
+                        axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],None],'axeslabels':[pc.timelabel,r'dBZ']}
+                        em.zh_zdr_timeseries(dBZ_rad,dBZ_dis,pstartindex,pstopindex,PSDmidtimes,axparamdict1,ib.image_dir,dis_name,name)
+
+                        name = 'ZDR'
+                        axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],None],'axeslabels':[pc.timelabel,r'ZDR']}
+                        em.zh_zdr_timeseries(ZDR_rad,ZDR_dis,pstartindex,pstopindex,PSDmidtimes,axparamdict1,ib.image_dir,dis_name,name)
+
+                        name = 'R'
+                        axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[10**0.,10**2.25]],'axeslabels':[pc.timelabel,r'Rain Rate']}
+                        em.retr_timeseries(rainrate,rainrate_tmf,R_rad_retr,R_dis_retr,pstartindex,pstopindex,PSDmidtimes,axparamdict1,ib.image_dir,dis_name,name)
+
+                        em.one2one(rainrate/Zh,rainrate_tmf/Zh,R_dis_retr/Zh,R_rad_retr/Zh_rad,ib.image_dir,dis_name,name)
+                        em.scatters(N.log10(rainrate/Zh),N.log10(rainrate_tmf/Zh),N.log10(R_dis_retr/Zh),N.log10(R_rad_retr/Zh_rad),ZDR_rad,ZDR,PSDmidtimes,ib.image_dir,dis_name,name)
+
+                        name = 'D0'
+                        axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[0.0,5.0]],'axeslabels':[pc.timelabel,r'D0']}
+                        em.retr_timeseries(D_med_disd,D_med_gam,D0_rad_retr,D0_dis_retr,pstartindex,pstopindex,PSDmidtimes,axparamdict1,ib.image_dir,dis_name,name)
+
+                        em.one2one(D_med_disd,D_med_gam,D0_dis_retr,D0_rad_retr,ib.image_dir,dis_name,name,rainrate)
+                        em.scatters(D_med_disd,D_med_gam,N.array(D0_dis_retr),D0_rad_retr,ZDR_rad,ZDR,PSDmidtimes,ib.image_dir,dis_name,name)
+
+                        name = 'Nt'
+                        axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[10**1.,10**5.]],'axeslabels':[pc.timelabel,r'Nt']}
+                        em.retr_timeseries(M0,Ntr_tmf,Nt_rad_retr,Nt_dis_retr,pstartindex,pstopindex,PSDmidtimes,axparamdict1,ib.image_dir,dis_name,name)
+
+                        em.one2one(M0/Zh,Ntr_tmf/Zh,Nt_dis_retr/Zh,Nt_rad_retr/Zh_rad,ib.image_dir,dis_name,name)
+                        em.scatters(N.log10(M0/Zh),N.log10(Ntr_tmf/Zh),N.log10(Nt_dis_retr/Zh),N.log10(Nt_rad_retr/Zh_rad),ZDR_rad,ZDR,PSDmidtimes,ib.image_dir,dis_name,name)
+
+                        name = 'W'
+                        axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[0.0,8.0]],'axeslabels':[pc.timelabel,r'LWC']}
+                        em.retr_timeseries(LWC_disd,LWC_tmf,W_rad_retr,W_dis_retr,pstartindex,pstopindex,PSDmidtimes,axparamdict1,ib.image_dir,dis_name,name)
+
+                        em.one2one(LWC_disd/Zh,LWC_tmf/Zh,W_dis_retr/Zh,W_rad_retr/Zh_rad,ib.image_dir,dis_name,name)
+                        em.scatters(N.log10(LWC_disd/Zh),N.log10(LWC_tmf/Zh),N.log10(W_dis_retr/Zh),N.log10(W_rad_retr/Zh_rad),ZDR_rad,ZDR,PSDmidtimes,ib.image_dir,dis_name,name)
+
+                    #collect variables in order to compute statistics of entire data set
+                    R_mm.extend(rainrate_tmf)
                     R_retr.extend(R_rad_retr)
-
-                    name = 'D0'
-                    axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[0.0,5.0]],'axeslabels':[pc.timelabel,r'D0']}
-                    em.retr_timeseries(D_med_disd,D_med_gam,D0_rad_retr,D0_dis_retr,pstartindex,pstopindex,PSDmidtimes,axparamdict1,ib.image_dir,dis_name,name)
-
-                    em.one2one(D_med_disd,D_med_gam,D0_dis_retr,D0_rad_retr,ib.image_dir,dis_name,name)
-                    em.scatters(D_med_disd,D_med_gam,N.array(D0_dis_retr),D0_rad_retr,ZDR_rad,ZDR,PSDmidtimes,ib.image_dir,dis_name,name)
-                   
                     D0_mm.extend(D_med_gam)
                     D0_retr.extend(D0_rad_retr)
-
-                    name = 'Nt'
-                    axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[10**1.,10**5.]],'axeslabels':[pc.timelabel,r'Nt']}
-                    em.retr_timeseries(M0,Ntr_gam,Nt_rad_retr,Nt_dis_retr,pstartindex,pstopindex,PSDmidtimes,axparamdict1,ib.image_dir,dis_name,name)
-
-                    em.one2one(M0/Zh,Ntr_gam/Zh,Nt_dis_retr/Zh,Nt_rad_retr/Zh_rad,ib.image_dir,dis_name,name)
-                    em.scatters(N.log10(M0/Zh),N.log10(Ntr_gam/Zh),N.log10(Nt_dis_retr/Zh),N.log10(Nt_rad_retr/Zh_rad),ZDR_rad,ZDR,PSDmidtimes,ib.image_dir,dis_name,name)
-
                     Nt_obs.extend(M0)
-                    Nt_mm.extend(Ntr_gam)
+                    Nt_mm.extend(Ntr_tmf)
                     Nt_retr.extend(Nt_rad_retr)
-                    
-                    name = 'W'
-                    axparamdict1 = {'majorxlocator':pc.locator,'majorxformatter':pc.formatter,'minorxlocator':pc.minorlocator,'axeslimits':[[plotstarttime,plotstoptime],[0.0,8.0]],'axeslabels':[pc.timelabel,r'LWC']}
-                    em.retr_timeseries(LWC_disd,LWC_gam,W_rad_retr,W_dis_retr,pstartindex,pstopindex,PSDmidtimes,axparamdict1,ib.image_dir,dis_name,name)
-
-                    em.one2one(LWC_disd/Zh,LWC_gam/Zh,W_dis_retr/Zh,W_rad_retr/Zh_rad,ib.image_dir,dis_name,name)
-                    em.scatters(N.log10(LWC_disd/Zh),N.log10(LWC_gam/Zh),N.log10(W_dis_retr/Zh),N.log10(W_rad_retr/Zh_rad),ZDR_rad,ZDR,PSDmidtimes,ib.image_dir,dis_name,name)
-
                     W_obs.extend(LWC_disd)
-                    W_mm.extend(LWC_gam)
+                    W_mm.extend(LWC_tmf)
                     W_retr.extend(W_rad_retr)
-                    
                     Zh_dis.extend(Zh)
                     Zh_retr.extend(Zh_rad)
-                    
                     R_list.extend(rainrate)
                     D0_list.extend(D_med_disd)
                     ND = ND.T
                     for t in range(N.size(ND,axis=0)):
                         ND_list = N.append(ND_list, [ND[t,:]], axis=0)
 
-
-### not using right now...ignore...need to do with all cases
-#               fig1=plt.figure(figsize=(8,8))
-#               ax1=fig1.add_subplot(111)
-#               ax1.scatter(mu_gam, rainrate, color='m', marker='.', label='Method Moments')
-#               ax1.scatter(mu_dis_retr, R_dis_retr, color='c', marker='.', label='Dis Retrieval')
-#               ax1.scatter(mu_rad_retr, R_rad_retr, color='k', marker='.', label='Rad Retrieval')
-#               ax1.set_xlim(-2.0,15.0)
-#               ax1.set_yscale('log')
-#               ax1.set_ylim(10**-1,10**2)
-#               ax1.set_xlabel('Mu')
-#               ax1.set_ylabel('RainRate')
-#               plt.legend(loc='upper left',numpoints=1,ncol=1,fontsize=8)
-#               plt.savefig(ib.image_dir+'scattergrams/'+dis_name+'_mu_R.png',dpi=200,bbox_inches='tight')
-#               plt.close(fig1)
 #
-#               fig1=plt.figure(figsize=(8,8))
-#               ax1=fig1.add_subplot(111)
-#               ax1.scatter(lamda_gam, rainrate, color='m', marker='.', label='Method Moments')
-#               ax1.scatter(lam_dis_retr, R_dis_retr, color='c', marker='.', label='Dis Retrieval')
-#               ax1.scatter(lam_rad_retr, R_rad_retr, color='k', marker='.', label='Rad Retrieval')
-#               ax1.set_xlim(0.0,15.0)
-#               ax1.set_yscale('log')
-#               ax1.set_ylim(10**-1,10**2)
-#               ax1.set_xlabel('Lamda')
-#               ax1.set_ylabel('RainRate')
-#               plt.legend(loc='upper left',numpoints=1,ncol=1,fontsize=8)
-#               plt.savefig(ib.image_dir+'scattergrams/'+dis_name+'_lam_R.png',dpi=200,bbox_inches='tight')
-#               plt.close(fig1)
 #
-#               fig1=plt.figure(figsize=(8,8))
-#               ax1=fig1.add_subplot(111)
-#               ax1.scatter(D_med_gam, rainrate, color='m', marker='.', label='Method Moments')
-#               ax1.scatter(D0_dis_retr, R_dis_retr, color='c', marker='.', label='Dis Retrieval')
-#               ax1.scatter(D0_rad_retr, R_rad_retr, color='k', marker='.', label='Rad Retrieval')
-#               ax1.set_xlim(0.5,3.)
-#               ax1.set_yscale('log')
-#               ax1.set_ylim(10**-1,10**2)
-#               ax1.set_xlabel('D0')
-#               ax1.set_ylabel('RainRate')
-#               plt.legend(loc='upper left',numpoints=1,ncol=1,fontsize=8)
-#               plt.savefig(ib.image_dir+'scattergrams/'+dis_name+'_D0_R.png',dpi=200,bbox_inches='tight')
-#               plt.close(fig1)
+# ### not using right now...ignore...need to do with all cases
+# #               fig1=plt.figure(figsize=(8,8))
+# #               ax1=fig1.add_subplot(111)
+# #               ax1.scatter(mu_gam, rainrate, color='m', marker='.', label='Method Moments')
+# #               ax1.scatter(mu_dis_retr, R_dis_retr, color='c', marker='.', label='Dis Retrieval')
+# #               ax1.scatter(mu_rad_retr, R_rad_retr, color='k', marker='.', label='Rad Retrieval')
+# #               ax1.set_xlim(-2.0,15.0)
+# #               ax1.set_yscale('log')
+# #               ax1.set_ylim(10**-1,10**2)
+# #               ax1.set_xlabel('Mu')
+# #               ax1.set_ylabel('RainRate')
+# #               plt.legend(loc='upper left',numpoints=1,ncol=1,fontsize=8)
+# #               plt.savefig(ib.image_dir+'scattergrams/'+dis_name+'_mu_R.png',dpi=200,bbox_inches='tight')
+# #               plt.close(fig1)
+# #
+# #               fig1=plt.figure(figsize=(8,8))
+# #               ax1=fig1.add_subplot(111)
+# #               ax1.scatter(lamda_gam, rainrate, color='m', marker='.', label='Method Moments')
+# #               ax1.scatter(lam_dis_retr, R_dis_retr, color='c', marker='.', label='Dis Retrieval')
+# #               ax1.scatter(lam_rad_retr, R_rad_retr, color='k', marker='.', label='Rad Retrieval')
+# #               ax1.set_xlim(0.0,15.0)
+# #               ax1.set_yscale('log')
+# #               ax1.set_ylim(10**-1,10**2)
+# #               ax1.set_xlabel('Lamda')
+# #               ax1.set_ylabel('RainRate')
+# #               plt.legend(loc='upper left',numpoints=1,ncol=1,fontsize=8)
+# #               plt.savefig(ib.image_dir+'scattergrams/'+dis_name+'_lam_R.png',dpi=200,bbox_inches='tight')
+# #               plt.close(fig1)
+# #
+# #               fig1=plt.figure(figsize=(8,8))
+# #               ax1=fig1.add_subplot(111)
+# #               ax1.scatter(D_med_gam, rainrate, color='m', marker='.', label='Method Moments')
+# #               ax1.scatter(D0_dis_retr, R_dis_retr, color='c', marker='.', label='Dis Retrieval')
+# #               ax1.scatter(D0_rad_retr, R_rad_retr, color='k', marker='.', label='Rad Retrieval')
+# #               ax1.set_xlim(0.5,3.)
+# #               ax1.set_yscale('log')
+# #               ax1.set_ylim(10**-1,10**2)
+# #               ax1.set_xlabel('D0')
+# #               ax1.set_ylabel('RainRate')
+# #               plt.legend(loc='upper left',numpoints=1,ncol=1,fontsize=8)
+# #               plt.savefig(ib.image_dir+'scattergrams/'+dis_name+'_D0_R.png',dpi=200,bbox_inches='tight')
+# #               plt.close(fig1)
+# #
+# #               D0dict[dis_name+'_obs'] = D_med_disd
+# #               D0dict[dis_name+'_mom'] = D_med_gam
+# #               D0dict[dis_name+'_dis_retr'] = D0_dis_retr
+# #               D0dict[dis_name+'_rad_retr'] = D0_rad_retr
+# #               ZDRdict[dis_name+'_dis'] = ZDR
+# #               ZDRdict[dis_name+'_rad'] = ZDR_rad
+# #               Zhdict[dis_name+'_dis'] = Zh
+# #               Zhdict[dis_name+'_rad'] = Zh_rad
+# #               dBZdict[dis_name+'_] = dBZ
+# #               Wdict[dis_name+'_obs'] = LWC_disd
+# #               Rdict[dis_name+'_obs'] = intensities
+# #               Ntdict[dis_name+'_obs'] = M0
+# #
+# #               name = 'D0'
+# #               ymin = 0.0
+# #               ymax = 5.0
+# #               ylabel = 'D0'
+# #               em.PIPS(D0dict['PIPS_1A_obs'],D0dict['PIPS_1B_obs'],D0dict['PIPS_2A_obs'],D0dict['PIPS_2B_obs'],ZDRdict['PIPS_1A_obs'],ZDRdict['PIPS_1B_obs'],ZDRdict['PIPS_2A_obs'],ZDRdict['PIPS_2B_obs'],ymin,ymax,ib.image_dir,dis_name,name,ylabel)
+# #
+# #               name = 'W'
+# #               ymin = -6.0
+# #               ymax = -1.0
+# #               ylabel = 'log(W/Zh)'
+# #               em.PIPS(N.log10(Wdict['PIPS_1A_obs']/ZDRdict['PIPS_1A_rad']),N.log10(Wdict['PIPS_1B_obs']/ZDRdict['PIPS_1B_rad']),N.log10(Wdict['PIPS_2A_obs']/ZDRdict['PIPS_2A_rad']),N.log10(Wdict['PIPS_2B_obs']/ZDRdict['PIPS_2B_rad']),ZDRdict['PIPS_1A_obs'],ZDRdict['PIPS_1B_obs'],ZDRdict['PIPS_2A_obs'],ZDRdict['PIPS_2B_obs'],ymin,ymax,ib.image_dir,dis_name,name,ylabel)
+# #
+# #               name = 'R'
+# #               ymin = -5.0
+# #               ymax = 0.0
+# #               ylabel = 'log(R/Zh)'
+# #               em.PIPS(N.log10(Rdict['PIPS_1A_obs']/ZDRdict['PIPS_1A_rad']),N.log10(Rdict['PIPS_1B_obs']/ZDRdict['PIPS_1B_rad']),N.log10(Rdict['PIPS_2A_obs']/ZDRdict['PIPS_2A_rad']),N.log10(Rdict['PIPS_2B_obs']/ZDRdict['PIPS_2B_rad']),ZDRdict['PIPS_1A_obs'],ZDRdict['PIPS_1B_obs'],ZDRdict['PIPS_2A_obs'],ZDRdict['PIPS_2B_obs'],ymin,ymax,ib.image_dir,dis_name,name,ylabel)
+# #
+# #               name = 'Nt'
+# #               ymin = -4.0
+# #               ymax = 2.0
+# #               ylabel = 'log(Nt/Zh)'
+# #               em.PIPS(N.log10(Ntdict['PIPS_1A_obs']/ZDRdict['PIPS_1A_rad']),N.log10(Ntdict['PIPS_1B_obs']/ZDRdict['PIPS_1B_rad']),N.log10(Ntdict['PIPS_2A_obs']/ZDRdict['PIPS_2A_rad']),N.log10(Ntdict['PIPS_2B_obs']/ZDRdict['PIPS_2B_rad']),ZDRdict['PIPS_1A_obs'],ZDRdict['PIPS_1B_obs'],ZDRdict['PIPS_2A_obs'],ZDRdict['PIPS_2B_obs'],ymin,ymax,ib.image_dir,dis_name,name,ylabel)
+# #
 #
-#               D0dict[dis_name+'_obs'] = D_med_disd
-#               D0dict[dis_name+'_mom'] = D_med_gam
-#               D0dict[dis_name+'_dis_retr'] = D0_dis_retr
-#               D0dict[dis_name+'_rad_retr'] = D0_rad_retr
-#               ZDRdict[dis_name+'_dis'] = ZDR
-#               ZDRdict[dis_name+'_rad'] = ZDR_rad
-#               Zhdict[dis_name+'_dis'] = Zh
-#               Zhdict[dis_name+'_rad'] = Zh_rad
-#               dBZdict[dis_name+'_] = dBZ
-#               Wdict[dis_name+'_obs'] = LWC_disd
-#               Rdict[dis_name+'_obs'] = intensities
-#               Ntdict[dis_name+'_obs'] = M0
+# ###    not using right now Figure 2 from Brandes et al. 2004
+# #
+# #           one_x = N.linspace(0.0,60.0)
+# #           upper_y = N.exp(1.01*10**-4*one_x**3 - 7.09*10**-3*one_x**2 + 2.38*10**-1*one_x - 3.44)
+# #           lower_y = N.exp(2.12*10**-4*one_x**2 + 6.48*10**-2*one_x - 3.87)
+# #
+# #           fig1=plt.figure(figsize=(8,8))
+# #           ax1=fig1.add_subplot(111)
+# #           ax1.scatter(ZDRdict['PIPS_1B'], ZDRdict['PIPS_1B_obs'], marker='.', label='PIPS 1B')
+# #           ax1.scatter(ZDRdict['PIPS_2A'], ZDRdict['PIPS_2A_obs'], marker='.', label='PIPS 2A')
+# #           ax1.scatter(ZDRdict['PIPS_2B'], ZDRdict['PIPS_2B_obs'], marker='.', label='PIPS 2B')
+# #           ax1.set_xlim(0.0,60.0)
+# #           ax1.set_ylim(-1.0,4.0)
+# #           ax1.set_xlabel('Reflectivity (dBZ)')
+# #           ax1.set_ylabel('ZDR (dB)')
+# #           ax1.plot(one_x,upper_y,color='k')
+# #           ax1.plot(one_x,lower_y,color='k')
+# #           plt.legend(loc='upper left',numpoints=1,ncol=1,fontsize=8)
+# #           plt.savefig(ib.image_dir+'scattergrams/brandes.png',dpi=200,bbox_inches='tight')
+# #           plt.close(fig1)
 #
-#               name = 'D0'
-#               ymin = 0.0
-#               ymax = 5.0
-#               ylabel = 'D0'
-#               em.PIPS(D0dict['PIPS_1A_obs'],D0dict['PIPS_1B_obs'],D0dict['PIPS_2A_obs'],D0dict['PIPS_2B_obs'],ZDRdict['PIPS_1A_obs'],ZDRdict['PIPS_1B_obs'],ZDRdict['PIPS_2A_obs'],ZDRdict['PIPS_2B_obs'],ymin,ymax,ib.image_dir,dis_name,name,ylabel)
-#
-#               name = 'W'
-#               ymin = -6.0
-#               ymax = -1.0
-#               ylabel = 'log(W/Zh)'
-#               em.PIPS(N.log10(Wdict['PIPS_1A_obs']/ZDRdict['PIPS_1A_rad']),N.log10(Wdict['PIPS_1B_obs']/ZDRdict['PIPS_1B_rad']),N.log10(Wdict['PIPS_2A_obs']/ZDRdict['PIPS_2A_rad']),N.log10(Wdict['PIPS_2B_obs']/ZDRdict['PIPS_2B_rad']),ZDRdict['PIPS_1A_obs'],ZDRdict['PIPS_1B_obs'],ZDRdict['PIPS_2A_obs'],ZDRdict['PIPS_2B_obs'],ymin,ymax,ib.image_dir,dis_name,name,ylabel)
-#
-#               name = 'R'
-#               ymin = -5.0
-#               ymax = 0.0
-#               ylabel = 'log(R/Zh)'
-#               em.PIPS(N.log10(Rdict['PIPS_1A_obs']/ZDRdict['PIPS_1A_rad']),N.log10(Rdict['PIPS_1B_obs']/ZDRdict['PIPS_1B_rad']),N.log10(Rdict['PIPS_2A_obs']/ZDRdict['PIPS_2A_rad']),N.log10(Rdict['PIPS_2B_obs']/ZDRdict['PIPS_2B_rad']),ZDRdict['PIPS_1A_obs'],ZDRdict['PIPS_1B_obs'],ZDRdict['PIPS_2A_obs'],ZDRdict['PIPS_2B_obs'],ymin,ymax,ib.image_dir,dis_name,name,ylabel)
-#
-#               name = 'Nt'
-#               ymin = -4.0
-#               ymax = 2.0
-#               ylabel = 'log(Nt/Zh)'
-#               em.PIPS(N.log10(Ntdict['PIPS_1A_obs']/ZDRdict['PIPS_1A_rad']),N.log10(Ntdict['PIPS_1B_obs']/ZDRdict['PIPS_1B_rad']),N.log10(Ntdict['PIPS_2A_obs']/ZDRdict['PIPS_2A_rad']),N.log10(Ntdict['PIPS_2B_obs']/ZDRdict['PIPS_2B_rad']),ZDRdict['PIPS_1A_obs'],ZDRdict['PIPS_1B_obs'],ZDRdict['PIPS_2A_obs'],ZDRdict['PIPS_2B_obs'],ymin,ymax,ib.image_dir,dis_name,name,ylabel)
-#
-
-###    not using right now Figure 2 from Brandes et al. 2004
-#
-#           one_x = N.linspace(0.0,60.0)
-#           upper_y = N.exp(1.01*10**-4*one_x**3 - 7.09*10**-3*one_x**2 + 2.38*10**-1*one_x - 3.44)
-#           lower_y = N.exp(2.12*10**-4*one_x**2 + 6.48*10**-2*one_x - 3.87)
-#
-#           fig1=plt.figure(figsize=(8,8))
-#           ax1=fig1.add_subplot(111)
-#           ax1.scatter(ZDRdict['PIPS_1B'], ZDRdict['PIPS_1B_obs'], marker='.', label='PIPS 1B')
-#           ax1.scatter(ZDRdict['PIPS_2A'], ZDRdict['PIPS_2A_obs'], marker='.', label='PIPS 2A')
-#           ax1.scatter(ZDRdict['PIPS_2B'], ZDRdict['PIPS_2B_obs'], marker='.', label='PIPS 2B')
-#           ax1.set_xlim(0.0,60.0)
-#           ax1.set_ylim(-1.0,4.0)
-#           ax1.set_xlabel('Reflectivity (dBZ)')
-#           ax1.set_ylabel('ZDR (dB)')
-#           ax1.plot(one_x,upper_y,color='k')
-#           ax1.plot(one_x,lower_y,color='k')
-#           plt.legend(loc='upper left',numpoints=1,ncol=1,fontsize=8)
-#           plt.savefig(ib.image_dir+'scattergrams/brandes.png',dpi=200,bbox_inches='tight')
-#           plt.close(fig1)
-
 name = 'R'
-em.outer_one2one(N.array(R_list)/N.array(Zh_dis),N.array(R_mm)/N.array(Zh_dis),N.array(R_retr)/N.array(Zh_retr),outer_image_dir,name)
- 
+em.outer_one2one(N.array(R_list)/N.array(Zh_dis),N.array(R_mm)/N.array(Zh_dis),N.array(R_retr)/N.array(Zh_retr),outer_image_dir,name,R_list)
+
 name = 'D0'
-em.outer_one2one(N.array(D0_list), N.array(D0_mm), N.array(D0_retr), outer_image_dir,name)
- 
+em.outer_one2one(N.array(D0_list), N.array(D0_mm), N.array(D0_retr), outer_image_dir,name,R_list)
+
 name = 'Nt'
-em.outer_one2one(N.array(Nt_obs)/N.array(Zh_dis),N.array(Nt_mm)/N.array(Zh_dis),N.array(Nt_retr)/N.array(Zh_retr), outer_image_dir,name)
+em.outer_one2one(N.array(Nt_obs)/N.array(Zh_dis),N.array(Nt_mm)/N.array(Zh_dis),N.array(Nt_retr)/N.array(Zh_retr), outer_image_dir,name,R_list)
 
 name = 'W'
-em.outer_one2one(N.array(W_obs)/N.array(Zh_dis),N.array(W_mm)/N.array(Zh_dis),N.array(W_retr)/N.array(Zh_retr),outer_image_dir,name)
+em.outer_one2one(N.array(W_obs)/N.array(Zh_dis),N.array(W_mm)/N.array(Zh_dis),N.array(W_retr)/N.array(Zh_retr),outer_image_dir,name,R_list)
 
-## Plot the lambda-mu relation and fit with 2nd order polynomial
-print len(lamda)
+## Plot the untruncated lambda-mu relation and fit with 2nd order polynomial
 lamda = N.array(lamda)
 mu = N.array(mu)
 lamda = lamda[~N.isnan(lamda)]
@@ -872,25 +890,57 @@ y3 = -0.016*xx**2. + 1.213*xx - 1.957
 
 fig=plt.figure(figsize=(8,8))
 ax1=fig.add_subplot(111)
-plt.title('Shape-Slope Relation')
+plt.title('Untruncated Shape-Slope Relation')
 ax1.scatter(lamda,mu, color='k', marker='.')
 ax1.plot(xx,yy,label='Our Relation')
 ax1.plot(xx,y2,label='Cao Relation')
 ax1.plot(xx,y3,label='Zhang Relation')
-#ax1.set_xlim(0.0,20.0)
-#ax1.set_ylim(-5.0,20.0)
+ax1.set_xlim(0.0,20.0)
+ax1.set_ylim(-5.0,20.0)
 ax1.set_xlabel('Slope parameter')
 ax1.set_ylabel('Shape parameter')
 ax1.text(0.05,0.90,'# of Points: %2.1f'%len(lamda), transform=ax1.transAxes, fontsize=12.)
 ax1.text(0.05,0.85,'%2.4f'%poly[2]+'*lam^2 + %2.4f'%poly[1]+'*lam + %2.4f'%poly[0], transform=ax1.transAxes, fontsize=12.)
+ax1.text(0.05,0.80,'Average mu: %2.2f'%N.mean(mu), transform=ax1.transAxes, fontsize = 12.)
+ax1.text(0.05,0.75,'Average lambda: %2.2f'%N.mean(lamda), transform=ax1.transAxes, fontsize = 12.)
 plt.legend(loc='upper left',numpoints=1,ncol=3,fontsize=12.)
 plt.savefig(outer_image_dir+'shape_slope.png',dpi=200,bbox_inches='tight')
 plt.close(fig)
 
-print(poly)
-print len(lamda)
-#
+## Plot the truncated lambda-mu relation and fit with 2nd order polynomial
+print len(lamTMF)
+print len(muTMF)
+lamTMF = N.array(lamTMF)
+muTMF = N.array(muTMF)
+lamTMF = lamTMF[~N.isnan(lamTMF)]
+muTMF = muTMF[~N.isnan(muTMF)]
+print len(lamTMF)
+print len(muTMF)
+poly2=N.polynomial.polynomial.polyfit(lamTMF,muTMF,2)
+polynomial2=N.polynomial.polynomial.Polynomial(poly2)
 
+yyTMF = polynomial2(xx)
+
+fig=plt.figure(figsize=(8,8))
+ax1=fig.add_subplot(111)
+plt.title('Truncated Shape-Slope Relation')
+ax1.scatter(lamTMF,muTMF, color='k', marker='.')
+ax1.plot(xx,yyTMF,label='Our Relation')
+ax1.plot(xx,y2,label='Cao Relation')
+ax1.plot(xx,y3,label='Zhang Relation')
+ax1.set_xlim(0.0,20.0)
+ax1.set_ylim(-5.0,20.0)
+ax1.set_xlabel('Slope parameter')
+ax1.set_ylabel('Shape parameter')
+ax1.text(0.05,0.90,'# of Points: %2.1f'%len(lamTMF), transform=ax1.transAxes, fontsize=12.)
+ax1.text(0.05,0.85,'%2.4f'%poly2[2]+'*lam^2 + %2.4f'%poly2[1]+'*lam + %2.4f'%poly2[0], transform=ax1.transAxes, fontsize=12.)
+ax1.text(0.05,0.80,'Average mu: %2.2f'%N.mean(muTMF), transform=ax1.transAxes, fontsize = 12.)
+ax1.text(0.05,0.75,'Average lambda: %2.2f'%N.mean(lamTMF), transform=ax1.transAxes, fontsize = 12.)
+plt.legend(loc='upper left',numpoints=1,ncol=3,fontsize=12.)
+plt.savefig(outer_image_dir+'TMF_shape_slope.png',dpi=200,bbox_inches='tight')
+plt.close(fig)
+
+#######################
 Dm_obs = N.array(Dm_obs)
 Dm_rad = N.array(Dm_rad)
 Dm_dis = N.array(Dm_dis)
@@ -903,7 +953,7 @@ fig=plt.figure(figsize=(8,8))
 ax1=fig.add_subplot(111)
 plt.title('D_m-Sigm_m Relation with Slope < 20')
 ax1.scatter(Dm_obs,sigm_obs, color='k', marker='.',label='Dis Obs')
-ax1.plot(Dm_rad,sigm_rad, color='b', marker = '.',label='Radar Retr')
+ax1.scatter(Dm_rad,sigm_rad, color='b', marker = '.',label='Radar Retr')
 #ax1.set_xlim(0.0,5.0)
 #ax1.set_ylim(0.0,5.0)
 ax1.set_xlabel('Dm , mm')
@@ -929,8 +979,8 @@ ax1.set_ylabel('Calculated Sigma')
 ax1.plot(one_x,one_y,lw=2,color='k')
 ax1.text(0.6,0.20,'Dis Retr. Bias =%2.2f'%bias_dis+'%',transform=ax1.transAxes)
 ax1.text(0.6,0.15,'Rad Retr. Bias =%2.2f'%bias_rad+'%',transform=ax1.transAxes)
-ax1.text(0.6,0.10,'Dis Retr. Corr Coeff =%2.3f'%cc_dis.ix[0,1],transform=ax1.transAxes)
-ax1.text(0.6,0.05,'Rad Retr. Corr Coeff =%2.3f'%cc_rad.ix[0,1],transform=ax1.transAxes)
+ax1.text(0.6,0.10,'Dis Retr. Corr Coeff =%2.3f'%cc_dis.iloc[0,1],transform=ax1.transAxes)
+ax1.text(0.6,0.05,'Rad Retr. Corr Coeff =%2.3f'%cc_rad.iloc[0,1],transform=ax1.transAxes)
 plt.legend(loc='upper left',numpoints=1,ncol=1,fontsize=12.)
 plt.savefig(outer_image_dir+'sigma_one2one.png',dpi=200,bbox_inches='tight')
 plt.close(fig1)
@@ -952,26 +1002,23 @@ ax1.set_ylabel('Calculated Dm')
 ax1.plot(one_x,one_y,lw=2,color='k')
 ax1.text(0.6,0.20,'Dis Retr. Bias =%2.2f'%bias_dis+'%',transform=ax1.transAxes)
 ax1.text(0.6,0.15,'Rad Retr. Bias =%2.2f'%bias_rad+'%',transform=ax1.transAxes)
-ax1.text(0.6,0.10,'Dis Retr. Corr Coeff =%2.3f'%cc_dis.ix[0,1],transform=ax1.transAxes)
-ax1.text(0.6,0.05,'Rad Retr. Corr Coeff =%2.3f'%cc_rad.ix[0,1],transform=ax1.transAxes)
+ax1.text(0.6,0.10,'Dis Retr. Corr Coeff =%2.3f'%cc_dis.iloc[0,1],transform=ax1.transAxes)
+ax1.text(0.6,0.05,'Rad Retr. Corr Coeff =%2.3f'%cc_rad.iloc[0,1],transform=ax1.transAxes)
 plt.legend(loc='upper left',numpoints=1,ncol=1,fontsize=12.)
 plt.savefig(outer_image_dir+'Dm_one2one.png',dpi=200,bbox_inches='tight')
 plt.close(fig1)
 
-
-###this is not working right now ...Nc_bin_list is not in the right format or something, need to figure out for SATP.py
-R_tarr = N.array(R_list)
-print R_tarr.shape
-D0_tarr = N.array(D0_list)
-print len(ND_list)
-
-
-radnpz_filename = 'SATP_all.npz'
-savevars={}
-savevars['Nc_bin'] = ND_list
-savevars['R'] = R_tarr
-savevars['D0'] = D0_tarr
-N.savez(radnpz_filename,**savevars)
-
 #
-
+# ###this is not working right now ...Nc_bin_list is not in the right format or something, need to figure out for SATP.py
+# R_tarr = N.array(R_list)
+# D0_tarr = N.array(D0_list)
+#
+# radnpz_filename = 'SATP_all.npz'
+# savevars={}
+# savevars['Nc_bin'] = ND_list
+# savevars['R'] = R_tarr
+# savevars['D0'] = D0_tarr
+# N.savez(radnpz_filename,**savevars)
+#
+# #
+#

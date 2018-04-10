@@ -593,7 +593,7 @@ for index,dis_filename,dis_name,starttime,stoptime,centertime,dloc in \
         # using the method of moments, after Zhang et al. 2008 and Tokay and Short 1996
         
     
-        synthbins,exp_DSD,gam_DSD,dis_DSD = dis.calc_DSD(min_diameter,avg_diameter,
+        synthbins,exp_DSD,gam_DSD,dis_DSD = dis.calc_DSD(pc, min_diameter,avg_diameter,
                         max_diameter,bin_width,Nc_bin,logNc_bin,rho_tDSD,pc.qrQC,pc.qr_thresh,pcounts2)
     
         # Unpack needed values from returned tuples

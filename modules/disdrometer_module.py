@@ -1212,7 +1212,7 @@ def calpolrain(wavelength, filename, Nd, intv):
 
     return dualpol_dict
 
-def calc_DSD(min_size, avg_size, max_size, bin_width, Nc_bin, logNc_bin, rho, qrQC, qr_thresh,
+def calc_DSD(pc, min_size, avg_size, max_size, bin_width, Nc_bin, logNc_bin, rho, qrQC, qr_thresh,
              pcounts, intensities):
     """Fits exponential and gamma DSDs to disdrometer data and returns several DSD related quantities."""
 
@@ -1253,6 +1253,7 @@ def calc_DSD(min_size, avg_size, max_size, bin_width, Nc_bin, logNc_bin, rho, qr
         temp_M6 = ((avg_size[:] / 1000.)**6.) * (1000. * Nc_bin[:, t]) * bin_width[:] / 1000.
         temp_M7 = ((avg_size[:] / 1000.)**7.) * (1000. * Nc_bin[:, t]) * bin_width[:] / 1000.
 
+        # Note, this is *observed* rainrate calculated directly from the disdrometer bins
         temp_rainrate = N.sum((6. * 10.**-4.) * N.pi * v *
                               avg_size[:]**3. * Nc_bin[:, t] * bin_width[:])
         rainrate.append(temp_rainrate)
@@ -1360,32 +1361,33 @@ def calc_DSD(min_size, avg_size, max_size, bin_width, Nc_bin, logNc_bin, rho, qr
         rho = ma.masked_array(rho, mask=qrmask1D)
         QR_disd = ma.masked_array(QR_disd, mask=qrmask1D)
         LWC_disd = ma.masked_array(LWC_disd, mask=qrmask1D)
-
+#
     # TODO: Make the masking by particle counts adjustable in the pyPIPScontrol file
     # There may be times when we don't want such stringent masking, and it is dependent on the
     # integration interval we choose, anyway.
-    nummask1D = N.where((pcounts < 50.) | (intensities > 100.), True, False)
-    num2D = pcounts.reshape(1, numtimes).repeat(32, 0)
-    rain2D = intensities.reshape(1, numtimes).repeat(32, 0)
-    nummask2D = N.where((num2D < 50.) | (rain2D > 100.), True, False)
+    if(pc.masklowcounts):
+        nummask1D = N.where((pcounts < 1000.) | (rainrate < 5.), True, False)
+        num2D = pcounts.reshape(1, numtimes).repeat(32, 0)
+        rain2D = rainrate.reshape(1, numtimes).repeat(32, 0)
+        nummask2D = N.where((num2D < 1000.) | (rain2D < 5.), True, False)
 
-    D_med_disd = ma.masked_array(D_med_disd, mask=nummask1D)
-    Nc_bin = ma.masked_array(Nc_bin, mask=nummask2D)
-    logNc_bin = ma.masked_array(logNc_bin, mask=nummask2D)
-    M0 = ma.masked_array(M0, mask=nummask1D)
-    M1 = ma.masked_array(M1, mask=nummask1D)
-    M2 = ma.masked_array(M2, mask=nummask1D)
-    M3 = ma.masked_array(M3, mask=nummask1D)
-    M4 = ma.masked_array(M4, mask=nummask1D)
-    M6 = ma.masked_array(M6, mask=nummask1D)
-    M7 = ma.masked_array(M7, mask=nummask1D)
-    rho = ma.masked_array(rho, mask=nummask1D)
-    QR_disd = ma.masked_array(QR_disd, mask=nummask1D)
-    LWC_disd = ma.masked_array(LWC_disd, mask=nummask1D)
-    rainrate = ma.masked_array(rainrate, mask = nummask1D)
+        D_med_disd = ma.masked_array(D_med_disd, mask=nummask1D)
+        Nc_bin = ma.masked_array(Nc_bin, mask=nummask2D)
+        logNc_bin = ma.masked_array(logNc_bin, mask=nummask2D)
+        M0 = ma.masked_array(M0, mask=nummask1D)
+        M1 = ma.masked_array(M1, mask=nummask1D)
+        M2 = ma.masked_array(M2, mask=nummask1D)
+        M3 = ma.masked_array(M3, mask=nummask1D)
+        M4 = ma.masked_array(M4, mask=nummask1D)
+        M6 = ma.masked_array(M6, mask=nummask1D)
+        M7 = ma.masked_array(M7, mask=nummask1D)
+        rho = ma.masked_array(rho, mask=nummask1D)
+        QR_disd = ma.masked_array(QR_disd, mask=nummask1D)
+        LWC_disd = ma.masked_array(LWC_disd, mask=nummask1D)
+        rainrate = ma.masked_array(rainrate, mask = nummask1D)
 
     # Compute reflectivity from the 6th moment
-    refl_disd = 10.0 * ma.log10(1e18 * M6)
+    refl_disd = 10.0 * N.log10(1e18 * M6)
     # print 'reflectivity (disdrometer) = ',refl_disd
 
     # Compute the mass-weighted mean diameter (M(4)/M(3) )
@@ -1446,29 +1448,29 @@ def calc_DSD(min_size, avg_size, max_size, bin_width, Nc_bin, logNc_bin, rho, qr
     # Calculate G, mu (shape parameter), lambda, and N0
 
     # Uncomment if you want estimates based on M3,M4,M6
-#     G = (M4**3.)/((M3**2.)*M6)
-#     G = ma.masked_invalid(G)
-#     mu_gam = (11.*G-8.+(G*(G+8.))**(1./2.))/(2.*(1.-G))
-#     mu_gam = ma.masked_invalid(mu_gam)
-#     lamda_gam = (M3*(mu_gam+4.))/M4
-#     lamda_gam = ma.masked_invalid(lamda_gam)
-#     N0_gam = (M3*lamda_gam**(mu_gam+4.))/(special.gamma(mu_gam+4.))
+    G = (M4**3.)/((M3**2.)*M6)
+    G = ma.masked_invalid(G)
+    mu_gam = (11.*G-8.+(G*(G+8.))**(1./2.))/(2.*(1.-G))
+    mu_gam = ma.masked_invalid(mu_gam)
+    lamda_gam = (M3*(mu_gam+4.))/M4
+    lamda_gam = ma.masked_invalid(lamda_gam)
+    N0_gam = (M3*lamda_gam**(mu_gam+4.))/(special.gamma(mu_gam+4.))
 
     # Uncomment if you want estimates based on M2,M4,M6 (old/alternate masking method)
-#     G = N.where((M2 == 0.0) | (M6 == 0.0), 0.0, (M4**2.)/(M2*M6))
-#     mu_gam = N.where(G == 1.0, 0.0, ((7.-11.*G) - ((7.-11.*G)**2. - 4.*(G-1.)*(30.*G-12.))**(1./2.))/(2.*(G-1.)))
-#     mu_gam = N.where(mu_gam <= -4., -3.99, mu_gam)
-#     mu_gam = N.where(mu_gam > 30.,30.,mu_gam)
-#     mu_gam = ma.masked_where(M4 is ma.masked,mu_gam)
-#     lamda_gam = N.where(M4 == 0.0,0.0, ((M2*(mu_gam+3.)*(mu_gam+4.))/(M4))**(1./2.))
-#     N0_gam = (M4*lamda_gam**(mu_gam+5.))/(special.gamma(mu_gam+5.))
+    G = N.where((M2 == 0.0) | (M6 == 0.0), 0.0, (M4**2.)/(M2*M6))
+    mu_gam = N.where(G == 1.0, 0.0, ((7.-11.*G) - ((7.-11.*G)**2. - 4.*(G-1.)*(30.*G-12.))**(1./2.))/(2.*(G-1.)))
+    mu_gam = N.where(mu_gam <= -4., -3.99, mu_gam)
+    mu_gam = N.where(mu_gam > 30.,30.,mu_gam)
+    mu_gam = ma.masked_where(M4 is ma.masked,mu_gam)
+    lamda_gam = N.where(M4 == 0.0,0.0, ((M2*(mu_gam+3.)*(mu_gam+4.))/(M4))**(1./2.))
+    N0_gam = (M4*lamda_gam**(mu_gam+5.))/(special.gamma(mu_gam+5.))
 
     # Uncomment if you want estimates based on M2,M3,M4
-#     mu_gam = (3.*M2*M4 - 4.*M3**2.)/(M3**2. - M2*M4)
-#     mu_gam = ma.masked_invalid(mu_gam)
-#     lamda_gam = (M3*(mu_gam+4.))/(M4)
-#     lamda_gam = ma.masked_invalid(lamda_gam)
-#     N0_gam = (M3*lamda_gam**(mu_gam+4.))/(special.gamma(mu_gam+4.))
+    mu_gam = (3.*M2*M4 - 4.*M3**2.)/(M3**2. - M2*M4)
+    mu_gam = ma.masked_invalid(mu_gam)
+    lamda_gam = (M3*(mu_gam+4.))/(M4)
+    lamda_gam = ma.masked_invalid(lamda_gam)
+    N0_gam = (M3*lamda_gam**(mu_gam+4.))/(special.gamma(mu_gam+4.))
 
 ####### Uncomment if you want estimates based on M2,M4,M6 #######
     G =(M4**2.)/(M2*M6) # moment ratio based on untruncated moments
@@ -1489,6 +1491,7 @@ def calc_DSD(min_size, avg_size, max_size, bin_width, Nc_bin, logNc_bin, rho, qr
     mu_tmf=[]
     lamda_tmf=[]
     N0_tmf=[]
+    LDmxlist=[]
 
     for t in range(numtimes):
         LDmx = lam_gam[t]*Dmax[t]
@@ -1510,19 +1513,20 @@ def calc_DSD(min_size, avg_size, max_size, bin_width, Nc_bin, logNc_bin, rho, qr
 
             lam_tmf= (M2[t]*gm5/M4[t]/gm3)**0.5
             LDmx = lam_tmf*Dmax[t]
-
-        N0 = (M4[t]*lam_tmf**(5.+mu))/(gammap(5.+mu,LDmx)*N.exp(gammln(5.+mu)))
         mu_tmf.append(mu)
         lamda_tmf.append(lam_tmf)
-        N0_tmf.append(N0)
 
     mu_tmf = N.array(mu_tmf)
     lamda_tmf = N.array(lamda_tmf)
-    N0_tmf = N.array(N0_tmf)
+    LDmx = lamda_tmf*Dmax
+    N0_tmf = (M4*lamda_tmf**(5.+mu_tmf))/(gammap(5.+mu,LDmx)*N.exp(gammln(5.+mu_tmf)))
+
 ##################################
 
     N_gamDSD = []
     N_tmfDSD=[]
+    rain_gam=[]
+    rain_tmf=[]
     # refl_gamDSD=[]
 
     for t in range(numtimes):
@@ -1534,9 +1538,20 @@ def calc_DSD(min_size, avg_size, max_size, bin_width, Nc_bin, logNc_bin, rho, qr
         N_gamDSD.append(temp_N_gamDSD)
         N_tmfDSD.append(temp_N_tmfDSD)
         # refl_gamDSD.append(10.0*N.log10(N.sum(temp_Z_gamDSD)))
-
     N_gamDSD = ma.array(N_gamDSD, dtype=N.float64)
     N_tmfDSD = ma.array(N_tmfDSD,dtype=N.float64)
+
+    for t in range(numtimes):
+        # Untruncated and truncated rain rates
+        temp_rain_gam = N.sum((6. * 10.**-4.) * N.pi * v *
+                                  avg_size[:]**3. *N_gamDSD[t,:]/1000. * bin_width[:])
+        temp_rain_tmf = N.sum((6. * 10.**-4.) * N.pi * v *
+                                  avg_size[:]**3. *N_tmfDSD[t,:]/1000. * bin_width[:])
+        rain_gam.append(temp_rain_gam)
+        rain_tmf.append(temp_rain_tmf)
+    rain_gam = N.array(rain_gam)
+    rain_tmf = N.array(rain_tmf)
+
 
     # Quantities based on exponential distribution
 
@@ -1549,7 +1564,7 @@ def calc_DSD(min_size, avg_size, max_size, bin_width, Nc_bin, logNc_bin, rho, qr
     Gr_exp = ((6. + mu_exp) * (5. + mu_exp) * (4. + mu_exp)) / \
         ((3. + mu_exp) * (2. + mu_exp) * (1. + mu_exp))
     Zr_exp = ((1. / cmr)**2.) * Gr_exp * ((rho * qr_exp)**2.) / Ntr_exp
-    refl_DSD_exp = 10.0 * ma.log10(1.e18 * Zr_exp)
+    refl_DSD_exp = 10.0 * N.log10(1.e18 * Zr_exp)
     # print 'reflectivity (exp DSD) = ',refl_DSD
     # print 'reflectivity (gam DSD) = ',refl_gamDSD
 
@@ -1562,16 +1577,17 @@ def calc_DSD(min_size, avg_size, max_size, bin_width, Nc_bin, logNc_bin, rho, qr
 
     GR1 = special.gamma(1. + mu_gam)
     GR2 = special.gamma(4. + mu_gam)
+    GR3 = special.gamma(4.67 + mu_gam)
 
     qr_gam = (cmr / rho) * N0_gam * GR2 / lamda_gam**(mu_gam + 4.)
     Ntr_gam = N0_gam * GR1 / lamda_gam**(mu_gam + 1.)
-    LWC_gam = cmr * 1000.0 * M3
+    LWC_gam = qr_gam * rho * 1000. # g/m^3
 
     # Compute reflectivity for DSD fit
     Gr_gam = ((6. + mu_gam) * (5. + mu_gam) * (4. + mu_gam)) / \
         ((3. + mu_gam) * (2. + mu_gam) * (1. + mu_gam))
     Zr_gam = ((1. / cmr)**2.) * Gr_gam * ((rho * qr_gam)**2.) / Ntr_gam
-    refl_DSD_gam = 10.0 * ma.log10(1.e18 * Zr_gam)
+    refl_DSD_gam = 10.0 * N.log10(1.e18 * Zr_gam)
 
     # print 'reflectivity (exp DSD) = ',refl_DSD
     # print 'reflectivity (gam DSD) = ',refl_gamDSD
@@ -1581,16 +1597,52 @@ def calc_DSD(min_size, avg_size, max_size, bin_width, Nc_bin, logNc_bin, rho, qr
     # Mass-weighted mean diameter for gam. dist.
     D_m_gam = N.where(lamda_gam == 0., N.nan, ((4. + mu_gam) / lamda_gam) * 1000.0)
 
+
+    # Rain rate for gamma distribution
+    # Note, the original coefficient for RR from the Zhang papers is 7.125 x 10^-3
+    # The units of this coefficient are mm hr^-1 m^3 mm^-3.67. We need the coefficient
+    # in units of mm hr^-1 m^3 m^-3.67, because our lamda is in units of m^-1.
+    # Thus we have 7.125e-3*1000.^3.67 = 7.29096257 x 10^8
+    rainrate_gam = 7.29096257e8 * N0_gam * GR3 / lamda_gam**(4.67 + mu_gam)
+
+    # Quantities based on truncated gamma distribution
+
+    GR1 = special.gamma(1. + mu_tmf)
+    GR2 = special.gamma(4. + mu_tmf)
+    GR3 = special.gamma(4.67 + mu_tmf)
+    GR4 = special.gamma(7. + mu_tmf)
+    IGR1 = gammap(1. + mu_tmf, LDmx) * GR1
+    IGR2 = gammap(4. + mu_tmf, LDmx) * GR2
+    IGR3 = gammap(4.67 + mu_tmf, LDmx) * GR3
+    IGR4 = gammap(7. + mu_tmf, LDmx) * GR4
+
+    Ntr_tmf = N0_tmf * IGR1 / lamda_tmf**(mu_tmf + 1.)
+    TM3 = N0_tmf*lamda_tmf**-(mu_tmf+4)*IGR2
+    LWC_tmf = cmr * 1000. * TM3 # g/m^3
+    qr_tmf = LWC_tmf/rho
+    # Can't use Gr in form of untruncated gamma case. Compute Ztr directly using incomplete gamma
+    # function instead
+    Ztr_tmf = ((rho * qr_tmf)**2.) / (cmr**2. * Ntr_tmf) * (IGR4 * IGR1) / IGR2
+    refl_DSD_tmf = 10.0 * N.log10(1.e18 * Ztr_tmf)
+    rainrate_tmf = 7.29096257e8 * N0_tmf * IGR3 / lamda_tmf**(4.67 + mu_tmf)
+
+    # TODO: need to compute D0 for truncated gamma distribution a bit differently, since the above
+    # gamma formula is for an untruncated distribution. One possibility is to compute it the same
+    # way we do for the observed DSD, but using the discretized truncated gamma DSD.
+    # D_med_tmf = N.where(lamda_tmf == 0., N.nan, ((3.67 + mu_tmf) / lamda_tmf) *
+    #                     1000.0)    # Median volume diameter for gamma distribution
+
     # Create several tuples to pack the data, and then return them
     # NOTE: Consider updating these to namedtuples
 
     exp_DSD = (N_expDSD, N0_exp, lamda_exp, mu_exp, qr_exp, Ntr_exp, refl_DSD_exp, D_med_exp,
                D_m_exp)
     gam_DSD = (N_gamDSD, N0_gam, lamda_gam, mu_gam, qr_gam, Ntr_gam, refl_DSD_gam, D_med_gam,
-               D_m_gam, LWC_gam, rainrate)
-    tmf_DSD = (N_tmfDSD,N0_tmf, lamda_tmf, mu_tmf)
+               D_m_gam, LWC_gam, rainrate_gam)
+    tmf_DSD = (N_tmfDSD, N0_tmf, lamda_tmf, mu_tmf, qr_tmf, Ntr_tmf, refl_DSD_tmf,
+               LWC_tmf, rainrate_tmf)
     dis_DSD = (Nc_bin, logNc_bin, D_med_disd, D_m_disd, D_mv_disd, D_ref_disd, QR_disd, refl_disd,
-               LWC_disd, M0)
+               LWC_disd, M0, rainrate)
 
     return synthbins, exp_DSD, gam_DSD, tmf_DSD, dis_DSD
 
@@ -1836,7 +1888,7 @@ def rad2DD2(fieldlist, range_start, range, azimuth_start_rad, azimuth_rad, rlat,
                 srange_index, theta_index = N.unravel_index(distance.argmin(), distance.shape)
                 # print "srange_index,theta_index",srange_index,theta_index
 
-                # print "Distance to closest gate: ",distance[srange_index,theta_index]
+                print "Distance to closest gate: ",distance[srange_index,theta_index]
 
                 # Finally, grab field at closest gate to disdrometer
                 # Average the field in the closest gate and surrounding 8 gates if desired
