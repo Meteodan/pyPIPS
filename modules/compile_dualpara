@@ -1,0 +1,9 @@
+#!/bin/bash
+
+rm dualpara.pyf
+rm dualpara.so
+
+# Note: add --debug-capi for more verbose debugging messages
+
+f2py -m dualpara -h dualpara.pyf global_module.f90 dualpara.f90
+f2py -c --fcompiler=intelem dualpara.pyf global_module.f90 dualpara.f90

@@ -34,7 +34,7 @@ from datetime import datetime,timedelta
 # Location of input files. You should only need to change these for your particular
 # dataset.
 
-_PIPS_data_dir = '/Users/ddawson/Dropbox/PIPS_data/Irma2017/PIPS1A/converted/'
+_PIPS_data_dir = '/Users/ddawson/Dropbox/PIPS_data/031618_031818/PIPS2A/converted/'
 _output_filename = 'PIPS_merged.txt'
 
 fieldnames_onesec = ['TIMESTAMP', 'RECORD', 'BattV', 'PTemp_C', 'WindDir', 'WS_ms',
