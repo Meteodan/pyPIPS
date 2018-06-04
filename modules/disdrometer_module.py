@@ -1366,10 +1366,10 @@ def calc_DSD(pc, min_size, avg_size, max_size, bin_width, Nc_bin, logNc_bin, rho
     # There may be times when we don't want such stringent masking, and it is dependent on the
     # integration interval we choose, anyway.
     if(pc.masklowcounts):
-        nummask1D = N.where((pcounts < 1000.) | (rainrate < 5.), True, False)
+        nummask1D = N.where((pcounts < 50.) | (rainrate < 1.), True, False)
         num2D = pcounts.reshape(1, numtimes).repeat(32, 0)
         rain2D = rainrate.reshape(1, numtimes).repeat(32, 0)
-        nummask2D = N.where((num2D < 1000.) | (rain2D < 5.), True, False)
+        nummask2D = N.where((num2D < 50.) | (rain2D < 1.), True, False)
 
         D_med_disd = ma.masked_array(D_med_disd, mask=nummask1D)
         Nc_bin = ma.masked_array(Nc_bin, mask=nummask2D)
@@ -1448,29 +1448,29 @@ def calc_DSD(pc, min_size, avg_size, max_size, bin_width, Nc_bin, logNc_bin, rho
     # Calculate G, mu (shape parameter), lambda, and N0
 
     # Uncomment if you want estimates based on M3,M4,M6
-    G = (M4**3.)/((M3**2.)*M6)
-    G = ma.masked_invalid(G)
-    mu_gam = (11.*G-8.+(G*(G+8.))**(1./2.))/(2.*(1.-G))
-    mu_gam = ma.masked_invalid(mu_gam)
-    lamda_gam = (M3*(mu_gam+4.))/M4
-    lamda_gam = ma.masked_invalid(lamda_gam)
-    N0_gam = (M3*lamda_gam**(mu_gam+4.))/(special.gamma(mu_gam+4.))
+#     G = (M4**3.)/((M3**2.)*M6)
+#     G = ma.masked_invalid(G)
+#     mu_gam = (11.*G-8.+(G*(G+8.))**(1./2.))/(2.*(1.-G))
+#     mu_gam = ma.masked_invalid(mu_gam)
+#     lamda_gam = (M3*(mu_gam+4.))/M4
+#     lamda_gam = ma.masked_invalid(lamda_gam)
+#     N0_gam = (M3*lamda_gam**(mu_gam+4.))/(special.gamma(mu_gam+4.))
 
     # Uncomment if you want estimates based on M2,M4,M6 (old/alternate masking method)
-    G = N.where((M2 == 0.0) | (M6 == 0.0), 0.0, (M4**2.)/(M2*M6))
-    mu_gam = N.where(G == 1.0, 0.0, ((7.-11.*G) - ((7.-11.*G)**2. - 4.*(G-1.)*(30.*G-12.))**(1./2.))/(2.*(G-1.)))
-    mu_gam = N.where(mu_gam <= -4., -3.99, mu_gam)
-    mu_gam = N.where(mu_gam > 30.,30.,mu_gam)
-    mu_gam = ma.masked_where(M4 is ma.masked,mu_gam)
-    lamda_gam = N.where(M4 == 0.0,0.0, ((M2*(mu_gam+3.)*(mu_gam+4.))/(M4))**(1./2.))
-    N0_gam = (M4*lamda_gam**(mu_gam+5.))/(special.gamma(mu_gam+5.))
+#     G = N.where((M2 == 0.0) | (M6 == 0.0), 0.0, (M4**2.)/(M2*M6))
+#     mu_gam = N.where(G == 1.0, 0.0, ((7.-11.*G) - ((7.-11.*G)**2. - 4.*(G-1.)*(30.*G-12.))**(1./2.))/(2.*(G-1.)))
+#     mu_gam = N.where(mu_gam <= -4., -3.99, mu_gam)
+#     mu_gam = N.where(mu_gam > 30.,30.,mu_gam)
+#     mu_gam = ma.masked_where(M4 is ma.masked,mu_gam)
+#     lamda_gam = N.where(M4 == 0.0,0.0, ((M2*(mu_gam+3.)*(mu_gam+4.))/(M4))**(1./2.))
+#     N0_gam = (M4*lamda_gam**(mu_gam+5.))/(special.gamma(mu_gam+5.))
 
     # Uncomment if you want estimates based on M2,M3,M4
-    mu_gam = (3.*M2*M4 - 4.*M3**2.)/(M3**2. - M2*M4)
-    mu_gam = ma.masked_invalid(mu_gam)
-    lamda_gam = (M3*(mu_gam+4.))/(M4)
-    lamda_gam = ma.masked_invalid(lamda_gam)
-    N0_gam = (M3*lamda_gam**(mu_gam+4.))/(special.gamma(mu_gam+4.))
+#     mu_gam = (3.*M2*M4 - 4.*M3**2.)/(M3**2. - M2*M4)
+#     mu_gam = ma.masked_invalid(mu_gam)
+#     lamda_gam = (M3*(mu_gam+4.))/(M4)
+#     lamda_gam = ma.masked_invalid(lamda_gam)
+#     N0_gam = (M3*lamda_gam**(mu_gam+4.))/(special.gamma(mu_gam+4.))
 
 ####### Uncomment if you want estimates based on M2,M4,M6 #######
     G =(M4**2.)/(M2*M6) # moment ratio based on untruncated moments
@@ -1519,14 +1519,12 @@ def calc_DSD(pc, min_size, avg_size, max_size, bin_width, Nc_bin, logNc_bin, rho
     mu_tmf = N.array(mu_tmf)
     lamda_tmf = N.array(lamda_tmf)
     LDmx = lamda_tmf*Dmax
-    N0_tmf = (M4*lamda_tmf**(5.+mu_tmf))/(gammap(5.+mu,LDmx)*N.exp(gammln(5.+mu_tmf)))
+    N0_tmf = (M4*lamda_tmf**(5.+mu_tmf))/(gammap(5.+mu_tmf,LDmx)*N.exp(gammln(5.+mu_tmf)))
 
 ##################################
 
     N_gamDSD = []
     N_tmfDSD=[]
-    rain_gam=[]
-    rain_tmf=[]
     # refl_gamDSD=[]
 
     for t in range(numtimes):
@@ -1540,18 +1538,7 @@ def calc_DSD(pc, min_size, avg_size, max_size, bin_width, Nc_bin, logNc_bin, rho
         # refl_gamDSD.append(10.0*N.log10(N.sum(temp_Z_gamDSD)))
     N_gamDSD = ma.array(N_gamDSD, dtype=N.float64)
     N_tmfDSD = ma.array(N_tmfDSD,dtype=N.float64)
-
-    for t in range(numtimes):
-        # Untruncated and truncated rain rates
-        temp_rain_gam = N.sum((6. * 10.**-4.) * N.pi * v *
-                                  avg_size[:]**3. *N_gamDSD[t,:]/1000. * bin_width[:])
-        temp_rain_tmf = N.sum((6. * 10.**-4.) * N.pi * v *
-                                  avg_size[:]**3. *N_tmfDSD[t,:]/1000. * bin_width[:])
-        rain_gam.append(temp_rain_gam)
-        rain_tmf.append(temp_rain_tmf)
-    rain_gam = N.array(rain_gam)
-    rain_tmf = N.array(rain_tmf)
-
+    
 
     # Quantities based on exponential distribution
 
