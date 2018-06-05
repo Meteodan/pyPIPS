@@ -15,17 +15,21 @@ import matplotlib.pyplot as plt
 from matplotlib.ticker import *
 import obanmodule as oban
 import radarmodule as radar
+import thermolib as thermo
 import utils
 from scipy import special
 from scipy.special import gammainc as gammap
 from scipy.special import gammaln as gammln
 import pdb
 import pandas as pd
+import xarray as xr
 
 deg2rad = N.pi / 180.
 
 # ID #'s for PIPS 1A,1B,2A,2B
 parsivel_ids = ['304545', '295153', '295166', '304543']
+
+parsivel_names = {'304545':'PIPS1A', '295153':'PIPS1B', '295166':'PIPS2A', '304543':'PIPS2B'}
 
 # Min diameter of bins (mm)
 min_diameter_bins = [0.000, 0.125, 0.250, 0.375, 0.500, 0.625, 0.750, 0.875, 1.000, 1.125, 1.250,
@@ -89,7 +93,7 @@ masklowdiam = False
 highdiamthresh = 9.0
 lowdiamthresh = 1.0
 
-plot_QC = False        # True to plot fallspeed vs. diameter plot with QC information for each DSD
+plot_QC = True        # True to plot fallspeed vs. diameter plot with QC information for each DSD
 plot_splashingQC = False
 plot_marginQC = False
 plot_strongwindQC = False
@@ -131,7 +135,8 @@ def assignfallspeed(d, rhocorrect=False, rho=None):
 
     # Correct fall speed based on air density
     if(rhocorrect and rho is not None):
-        v = v0 * (1.204/rho)**(0.4)
+        print "rho = ", rho
+        v = v * (1.204/rho)**(0.4)
 
     return v
 
@@ -392,7 +397,7 @@ def correctPIPS(serialnum, infile, outfile):
         outdisfile.write(line + '\n')
 
 
-def readPIPS(filename, fixGPS=True, basicqc=False, rainfallqc=False, rainonlyqc=False,
+def readPIPS(filename, fixGPS=True, basicqc=False, rainfallqc=False, rainonlyqc=False, hailonlyqc=False,
              strongwindqc=False, detecthail=True, DSD_interval=10.0):
     """Reads data from Purdue-OU PIPS"""
 
@@ -407,6 +412,8 @@ def readPIPS(filename, fixGPS=True, basicqc=False, rainfallqc=False, rainonlyqc=
     amplitudes = []
     voltages = []
     pvoltages = []
+
+    rhoatpdatetimes = [] # Air density at the PSD times (needed for rain fall speed curve correction)
 
     countsMatrix = []     # Will contain the number of drops in the diameter vs. fall speed matrix for each time
     # i.e. a (numtimes,32,32) array
@@ -547,6 +554,7 @@ def readPIPS(filename, fixGPS=True, basicqc=False, rainfallqc=False, rainonlyqc=
         parsivel_tokens = parsivel_string.strip().split(';')
         serialnum = parsivel_tokens[0]
         if(serialnum in parsivel_ids and len(parsivel_tokens) >= 11):
+            parsivel_name = parsivel_names[serialnum]
             # print timestring
             precipintensity = N.float(parsivel_tokens[1])
             precipaccum = N.float(parsivel_tokens[2])
@@ -584,6 +592,12 @@ def readPIPS(filename, fixGPS=True, basicqc=False, rainfallqc=False, rainonlyqc=
             sensortemps.append(sensor_temp)
             pvoltages.append(pvoltage)
 
+            pt = thermo.caltheta(pressure*100., fasttemp+273.15)
+            qv = thermo.calqv(RH_derived/100., pressure*100.,
+                              fasttemp+273.15)
+            rhoatpdatetimes.append(thermo.calrho(pressure*100., pt, qv))
+
+
             # Now create an array out of the spectrum and reshape it to 32x32
             spectrum = N.array(spectrum, dtype='int')
             if(spectrum.size == 1024):
@@ -616,7 +630,7 @@ def readPIPS(filename, fixGPS=True, basicqc=False, rainfallqc=False, rainonlyqc=
 
     if(use_strongwindQC or basicqc or strongwindqc):
         countsMatrix, flaggedtimes = strongwindQC(countsMatrix)
-        if(detecthail):
+        if(detecthail and False): # This doesn't seem to be working correctly, so disable for now
             # Unflag hail detection for those times where wind contamination was also detected
             hailflag = N.where(flaggedtimes > 0, False, hailflag)
 
@@ -635,11 +649,58 @@ def readPIPS(filename, fixGPS=True, basicqc=False, rainfallqc=False, rainonlyqc=
     if(use_rainonlyQC or rainonlyqc):
         countsMatrix = rainonlyQC(countsMatrix)
 
+    if(use_hailonlyQC or hailonlyqc):
+        countsMatrix, __ = hailonlyQC(countsMatrix)
+
     if(maskhighdiam):
         countsMatrix = maskhighdiamQC(countsMatrix)
 
     if(masklowdiam):
         countsMatrix = masklowdiamQC(countsMatrix)
+
+    if(plot_QC and False):
+        for t in range(N.size(countsMatrix, axis=0)):
+            fig = plt.figure()
+            ax1 = fig.add_subplot(111)
+            plt.title('Fall speed vs. diameter for time ' + '%04d' % t)
+
+            countsplot = ma.masked_where(countsMatrix[t, :] <= 0, countsMatrix[t, :])
+
+            C = ax1.pcolor(min_diameter, min_fall_bins, countsplot, vmin=1, vmax=50, edgecolors='w')
+            rainvd = assignfallspeed(avg_diameter, rhocorrect=True, rho=rhoatpdatetimes[t])
+            ax1.plot(avg_diameter, rainvd, c='r')
+            # ax1.scatter(X[0:10,20:31],Y[0:10,20:31],c='r',marker='x')
+            fig.colorbar(C)
+
+            if(len(flaggedtimes) > 0 and flaggedtimes[t] > 1):
+                ax1.text(0.5, 0.5, 'Flagged for strong wind contamination!',
+                         horizontalalignment='center',
+                         verticalalignment='center', color='y',
+                         transform=ax1.transAxes)
+            if(plot_strongwindQC):
+                ax1.scatter(X[strongwindmask], Y[strongwindmask], c='r', marker='x', alpha=1.0)
+            if(plot_splashingQC):
+                ax1.scatter(X[splashmask], Y[splashmask], c='w', marker='o', alpha=0.75)
+                # ax1.pcolor(min_diameter,min_fall_bins,ma.masked_array(splashmask,mask=-splashmask),cmap=cm.Reds,alpha=0.1)
+            if(plot_marginQC):
+                ax1.scatter(X[marginmask], Y[marginmask], c='g', marker='x', alpha=0.1)
+                # ax1.pcolor(min_diameter,min_fall_bins,ma.masked_array(marginmask,mask=-marginmask),cmap=cm.Reds,alpha=0.1)
+            if(plot_rainfallspeedQC):
+                ax1.scatter(X[fallspeedmask], Y[fallspeedmask], c='k', marker='x', alpha=0.5)
+                # ax1.pcolor(min_diameter,min_fall_bins,ma.masked_array(fallspeedmask,mask=-fallspeedmask),cmap=cm.gray,alpha=0.1)
+            if(plot_rainonlyQC):
+                ax1.scatter(X[rainonlymask], Y[rainonlymask], c='g', marker='x', alpha=0.5)
+
+            ax1.set_xlim(0.0, 26.0)
+            ax1.xaxis.set_major_locator(MultipleLocator(1.0))
+            ax1.set_xlabel('diameter (mm)')
+            ax1.set_ylim(0.0, 20.0)
+            ax1.yaxis.set_major_locator(MultipleLocator(1.0))
+            ax1.set_ylabel('fall speed (m/s)')
+
+            plt.savefig('/Users/ddawson/temp_PIPS/vel_D_plots/'+parsivel_name+'_%04d' % t + '.png')
+            plt.close(fig)
+
 
     # Find total number of non-masked particles
 
@@ -651,6 +712,7 @@ def readPIPS(filename, fixGPS=True, basicqc=False, rainfallqc=False, rainonlyqc=
     # print pcount2,pcount2.shape
     # Now, after QC, compute number concentrations for each size bin for each time
     for t, time in enumerate(pdatetimes):
+        rainvd = assignfallspeed(avg_diameter, rhocorrect=True, rho=rhoatpdatetimes[t])
         spectrum = countsMatrix[t, :]
         # Determine whether to use actual measured fall speeds or assumed fallspeeds
         if(use_measured_fs):
@@ -749,10 +811,14 @@ def readPIPS(filename, fixGPS=True, basicqc=False, rainfallqc=False, rainonlyqc=
 
     PSD_df = pd.DataFrame(PSDdict, index=pdatetimes_corrected)
 
+    # For the countsMatrix, need to use xarray
+    countsMatrix_da = xr.DataArray(countsMatrix, coords=[pdatetimes_corrected, avg_diameter,
+                                   fall_bins], dims=['time', 'diameter', 'velocity'])
+
     # Average and thin the DSD data with the desired interval
 
-    DSD_interval, intervalstr, ND_df, ND_onedrop_df, PSD_df = resamplePSD(DSD_interval, ND_df, ND_onedrop_df,
-                                                             PSD_df)
+    DSD_interval, intervalstr, ND_df, ND_onedrop_df, PSD_df, countsMatrix_da = \
+        resamplePSD(DSD_interval, ND_df, ND_onedrop_df, PSD_df, countsMatrix_da)
 
     # Pandas apparently (gotcha!) converts missing values to NaN when extracting the numpy array representation using .values
     # Since I want the original masked array functionality for now for further computations, I need to remask the array here.
@@ -769,6 +835,8 @@ def readPIPS(filename, fixGPS=True, basicqc=False, rainfallqc=False, rainonlyqc=
     # http://stackoverflow.com/questions/13703720/converting-between-datetime-timestamp-and-datetime64
     pdatetimes_corrected = ND_df.index.to_pydatetime()
     DSD_index = ND_df.index
+    countsMatrix = countsMatrix_da.values
+
 
     # Aggregate everything into a dictionary to return
 
@@ -813,7 +881,7 @@ def resampleonesec(interval, sec_offset, onesec_df, gusts=False, gustintvstr='3S
     return onesec_resampled_df
 
 
-def resamplePSD(DSD_interval, ND_df, ND_onedrop_df, PSD_df):
+def resamplePSD(DSD_interval, ND_df, ND_onedrop_df, PSD_df, countsMatrix_da):
     """Resamples the 10-sec Parsivel data to a longer interval"""
 
     DSD_index_interval = int(DSD_interval / 10.0)
@@ -822,7 +890,7 @@ def resamplePSD(DSD_interval, ND_df, ND_onedrop_df, PSD_df):
     intervalstr = '{:d}S'.format(int(DSD_interval))
 
     if(DSD_interval == 10.0):
-        return DSD_interval, intervalstr, ND_df, ND_onedrop_df, PSD_df
+        return DSD_interval, intervalstr, ND_df, ND_onedrop_df, PSD_df, countsMatrix_da
     else:
         # We need to find the offset corresponding to the starting second and then
         # generate the frequency string. Seems like there should be an easier way...
@@ -849,6 +917,12 @@ def resamplePSD(DSD_interval, ND_df, ND_onedrop_df, PSD_df):
                                 'amplitude': N.mean, 'flaggedtimes': N.any,
                                 'hailflag': N.any}).fillna(0)
 
+        # STOPPED HERE 060318: Need to use xarray for the countsMatrix
+        print countsMatrix_da
+        countsMatrix_da = countsMatrix_da.resample(time=intervalstr, label='right', closed='right',
+                                                   base=sec_offset).sum(dim='time').fillna(0)
+        print countsMatrix_da
+        print countsMatrix_da.values.shape
         # Keep the following code on standby until the above is tested!
 #
 #         # I'm not sure what's going on here. Sometimes I get a valueerror suggesting the data are empty, so the except clause is a temporary
@@ -878,7 +952,7 @@ def resamplePSD(DSD_interval, ND_df, ND_onedrop_df, PSD_df):
 #                     amplitudes_df.values),
 #                 index=amplitudes_df.index)
 
-        return DSD_interval, intervalstr, ND_df, ND_onedrop_df, PSD_df
+        return DSD_interval, intervalstr, ND_df, ND_onedrop_df, PSD_df, countsMatrix_da
 
 
 def readPIPSloc(filename):
@@ -1538,7 +1612,7 @@ def calc_DSD(pc, min_size, avg_size, max_size, bin_width, Nc_bin, logNc_bin, rho
         # refl_gamDSD.append(10.0*N.log10(N.sum(temp_Z_gamDSD)))
     N_gamDSD = ma.array(N_gamDSD, dtype=N.float64)
     N_tmfDSD = ma.array(N_tmfDSD,dtype=N.float64)
-    
+
 
     # Quantities based on exponential distribution
 
@@ -1910,10 +1984,19 @@ def avgwind(winddirs, windspds, avgintv, gusts=True, gustintv=3, center=True):
        compute the vector and scalar average wind speed, and vector average wind direction.
        Optionally also compute gusts."""
 
-    windspdsavg = pd.rolling_mean(windspds, avgintv, center=center, min_periods=1)
+    windspdsavg = pd.Series(windspds).rolling(
+                        window=avgintv,
+                        center=center,
+                        min_periods=1).mean().values
     if(gusts):
-        windgusts = pd.rolling_mean(windspds, gustintv, center=center, min_periods=1)
-        windgustsavg = pd.rolling_max(windgusts, avgintv, center=center, min_periods=1)
+        windgusts = pd.Series(windspds).rolling(
+                        window=gustintv,
+                        center=center,
+                        min_periods=1).mean().values
+        windgustsavg = pd.Series(windgusts).rolling(
+                        window=avgintv,
+                        center=center,
+                        min_periods=1).max().values
     else:
         windgusts = None
         windgustsavg = None
@@ -1927,8 +2010,14 @@ def avgwind(winddirs, windspds, avgintv, gusts=True, gustintv=3, center=True):
     us = interpnan1D(us)
     vs = interpnan1D(vs)
     # Compute averages of wind components
-    usavg = pd.rolling_mean(us, avgintv, center=center, min_periods=1)
-    vsavg = pd.rolling_mean(vs, avgintv, center=center, min_periods=1)
+    usavg = pd.Series(us).rolling(
+                        window=avgintv,
+                        center=center,
+                        min_periods=1).mean().values
+    vsavg = pd.Series(vs).rolling(
+                        window=avgintv,
+                        center=center,
+                        min_periods=1).mean().values
     windspdsavgvec = N.sqrt(usavg**2. + vsavg**2.)
     winddirsavgvec = (270.0 - (180. / N.pi) * N.arctan2(vsavg, usavg)
                       ) % 360.  # Need to use %360 to keep wind dir between 0 and 360 degrees

@@ -129,8 +129,8 @@ for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc in zip(
     filepath = os.path.join(ib.dis_dir, dis_filename)
 
     PIPS_dict = dis.readPIPS(filepath, basicqc=pc.basicQC, rainfallqc=pc.rainfallQC,
-                             rainonlyqc=pc.rainonlyQC, strongwindqc=pc.strongwindQC,
-                             DSD_interval=pc.DSD_interval)
+                             rainonlyqc=pc.rainonlyQC, hailonlyqc=pc.hailonlyQC,
+                             strongwindqc=pc.strongwindQC, DSD_interval=pc.DSD_interval)
 
     # Unpack some stuff from the PIPS_dict
     onesectimestamps = PIPS_dict['onesectimestamps']
@@ -139,6 +139,7 @@ for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc in zip(
     PSD_df = PIPS_dict['PSD_df']
     ND = PIPS_dict['ND']
     ND_onedrop = PIPS_dict['ND_onedrop']
+    countsMatrix = PIPS_dict['countsMatrix']
 
     ND = ND.T
     ND_onedrop = ND_onedrop.T
@@ -431,7 +432,10 @@ for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc in zip(
             if(DSDtype == 'observed'):
                 # Prepare axis parameters
                 timelimits = [plotstarttime, plotstoptime]
-                diamlimits = [0.0, 9.0]
+                try:
+                    diamlimits = pc.DSD_D_range
+                except:
+                    diamlimits = [0.0, 9.0]
 
                 axparams = {'majorxlocator': pc.locator, 'majorxformatter': pc.formatter,
                             'minorxlocator': pc.minorlocator,
@@ -487,3 +491,19 @@ for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc in zip(
             sum = N.ma.sum(ND[:, t])
             if(sum > 0.0):
                 pm.plot_DSD(ib, axdict, PSDdict, PSDfitdict, PSDparamdict)
+
+    if(pc.plot_vel_D):
+        if (not os.path.exists(ib.image_dir + 'vel_D/' + dis_name)):
+            os.makedirs(ib.image_dir + 'vel_D/' + dis_name)
+
+        axdict = {'times': PSDtimestamps, 'min_diameter': min_diameter,
+                  'avg_diameter': avg_diameter, 'min_fall_bins': min_fall_bins,
+                  'xlim': (0.0, 26.0), 'ylim': (0.0, 20.0),
+                  'dis_name': dis_name}
+
+        for t in range(N.size(countsMatrix, axis=0)):
+            if(PSD_df['pcount2'].values[t] > 0):
+                axdict['time'] = t
+                PSDdict = {'countsMatrix': countsMatrix[t, :],
+                           'flaggedtime': PSD_df['flaggedtimes'].values[t]}
+                pm.plot_vel_D(ib, axdict, PSDdict, rho_tDSD[t])

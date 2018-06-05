@@ -795,11 +795,67 @@ def plot_DSD(ib, axdict, PSDdict, PSDfitdict, PSDparamdict):
         ypos = ypos - 0.05
 
     plt.legend(loc='upper left', numpoints=1, ncol=1, fontsize=8)
-    plt.savefig(ib.image_dir + 'DSDs/' + dis_name + '/' + dis_name + '_t' + str(t) + 'DSD_plot.png',
+    plt.savefig(ib.image_dir + 'DSDs/' + dis_name + '/' + dis_name + '_DSD_t{:04d}.png'.format(t),
                 dpi=200, bbox_inches='tight')
     plt.close(fig1)
 
+def plot_vel_D(ib, axdict, PSDdict, rho):
+    """Plots the terminal velocity vs. diameter matrix for a given DSD"""
 
+    times = axdict.get('times', N.empty((0)))
+    dis_name = axdict.get('dis_name', None)
+    t = axdict.get('time', None)
+    xlim = axdict.get('xlim', (0.0, 9.0))
+    ylim = axdict.get('ylim', (0.0, 15.0))
+    min_diameter = axdict.get('min_diameter', None)
+    min_fall_bins = axdict.get('min_fall_bins', None)
+    avg_diameter = axdict.get('avg_diameter', None)
+
+    countsMatrix = PSDdict.get('countsMatrix', None)
+    flaggedtime = PSDdict.get('flaggedtime', 0)
+
+
+    fig1 = plt.figure(figsize=(8, 6))
+    ax1 = fig1.add_subplot(111)
+    plt.title('Fall speed vs. diameter for time {0}'.format(times[t].strftime(tm.timefmt2)))
+
+    countsplot = N.ma.masked_where(countsMatrix[:] <= 0, countsMatrix[:])
+    C = ax1.pcolor(min_diameter, min_fall_bins, countsplot, vmin=1, vmax=50, edgecolors='w')
+    rainvd = dis.assignfallspeed(avg_diameter, rhocorrect=True, rho=rho)
+
+    ax1.plot(avg_diameter, rainvd, c='r')
+    # ax1.scatter(X[0:10,20:31],Y[0:10,20:31],c='r',marker='x')
+    fig1.colorbar(C)
+
+    if(flaggedtime > 1):
+        ax1.text(0.5, 0.5, 'Flagged for strong wind contamination!',
+                 horizontalalignment='center',
+                 verticalalignment='center', color='y',
+                 transform=ax1.transAxes)
+    if(dis.plot_strongwindQC):
+        ax1.scatter(X[dis.strongwindmask], Y[dis.strongwindmask], c='r', marker='x', alpha=1.0)
+    if(dis.plot_splashingQC):
+        ax1.scatter(X[dis.splashmask], Y[dis.splashmask], c='w', marker='o', alpha=0.75)
+        # ax1.pcolor(min_diameter,min_fall_bins,ma.masked_array(splashmask,mask=-splashmask),cmap=cm.Reds,alpha=0.1)
+    if(dis.plot_marginQC):
+        ax1.scatter(X[dis.marginmask], Y[dis.marginmask], c='g', marker='x', alpha=0.1)
+        # ax1.pcolor(min_diameter,min_fall_bins,ma.masked_array(marginmask,mask=-marginmask),cmap=cm.Reds,alpha=0.1)
+    if(dis.plot_rainfallspeedQC):
+        ax1.scatter(X[dis.fallspeedmask], Y[dis.fallspeedmask], c='k', marker='x', alpha=0.5)
+        # ax1.pcolor(min_diameter,min_fall_bins,ma.masked_array(fallspeedmask,mask=-fallspeedmask),cmap=cm.gray,alpha=0.1)
+    if(dis.plot_rainonlyQC):
+        ax1.scatter(X[dis.rainonlymask], Y[dis.rainonlymask], c='g', marker='x', alpha=0.5)
+
+    ax1.set_xlim(xlim[0], xlim[1])
+    ax1.xaxis.set_major_locator(ticker.MultipleLocator(1.0))
+    ax1.set_xlabel('diameter (mm)')
+    ax1.set_ylim(ylim[0], ylim[1])
+    ax1.yaxis.set_major_locator(ticker.MultipleLocator(1.0))
+    ax1.set_ylabel('fall speed (m/s)')
+
+    plt.savefig(ib.image_dir + 'vel_D/' + dis_name + '/' + dis_name + '_vel_D_t{:04d}.png'.format(t),
+                dpi=200, bbox_inches='tight')
+    plt.close(fig1)
 
 # Below is some extra code for DSD plotting with no home right now
 
