@@ -190,7 +190,7 @@ def getradarfilelist(radar_dir, radar_save_dir, starttime=None, stoptime=None, p
         radtime = _getsweeptime(path, CFRadial)
         radtimes.append(radtime)
 
-        # print "Time of sweep = ",radtime.strftime(fmt)
+        #print "Time of sweep = ",radtime.strftime(fmt)
 
     # Sort the list of radar files using the sweep times
     radar_filelist_sorted = [path for (radtime, path) in sorted(zip(radtimes, radar_filelist),

@@ -168,6 +168,9 @@ for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc in zip(
     onesectimestampsnums = dates.date2num(onesectimestamps)
     PSDtimestampsnums = dates.date2num(PSDtimestamps)
 
+    plotstarttime = starttime
+    plotstoptime = stoptime
+
     startindex, stopindex = utils.getTimeWindow(starttime, stoptime, onesectimestampsnums)
     pstartindex, pstopindex = utils.getTimeWindow(starttime, stoptime, PSDtimestampsnums)
 
@@ -176,8 +179,8 @@ for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc in zip(
     pstarttime = PSDtimestampsnums[pstartindex]
     pstoptime = PSDtimestampsnums[pstopindex]
 
-    plotstarttime = starttime
-    plotstoptime = stoptime
+    # plotstarttime = starttime
+#     plotstoptime = stoptime
 
     PSDtimestamps_edge = [x - DSD_interval_td for x in PSDtimestamps]
     # Add an extra 10 sec for the last time bin boundary
@@ -421,7 +424,7 @@ for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc in zip(
                         # remove non-precipitation echoes from radar data
                         gc_mask = N.where((radvars['RHV'] < 0.90), True, False)
                         for radvarname in ['ZDR','dBZ','RHV']:
-                                radvars[radvarname] = ma.masked_array(radvars[radvarname],
+                                radvars[radvarname] = N.ma.masked_array(radvars[radvarname],
                                                                       mask=gc_mask)
             if(pc.plot_only_precip and pc.calc_dualpol):
                 # set plot start and end time to the start and end of precipitation
