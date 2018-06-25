@@ -585,7 +585,6 @@ def plotDSDmeteograms(dis_name, image_dir, axparams, disvars, radvars):
         if(flaggedtimes.size):
             xvals.append(PSDmidtimes)
             plotvars.append(flaggedtimes)
-            print "flagged times", flaggedtimes
             plotparamdict = {'type': 'vertical line', 'linestyle': '-', 'color': 'r',
                              'linewidth': 0.5}
             plotparamdicts.append(plotparamdict)

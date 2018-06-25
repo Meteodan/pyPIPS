@@ -130,7 +130,8 @@ for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc in zip(
 
     PIPS_dict = dis.readPIPS(filepath, basicqc=pc.basicQC, rainfallqc=pc.rainfallQC,
                              rainonlyqc=pc.rainonlyQC, hailonlyqc=pc.hailonlyQC,
-                             strongwindqc=pc.strongwindQC, DSD_interval=pc.DSD_interval)
+                             strongwindqc=pc.strongwindQC, DSD_interval=pc.DSD_interval,
+                             starttime=starttime, stoptime=stoptime)
 
     # Unpack some stuff from the PIPS_dict
     onesectimestamps = PIPS_dict['onesectimestamps']
@@ -421,7 +422,7 @@ for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc in zip(
                         # remove non-precipitation echoes from radar data
                         gc_mask = N.where((radvars['RHV'] < 0.90), True, False)
                         for radvarname in ['ZDR','dBZ','RHV']:
-                                radvars[radvarname] = ma.masked_array(radvars[radvarname],
+                                radvars[radvarname] = N.ma.masked_array(radvars[radvarname],
                                                                       mask=gc_mask)
             if(pc.plot_only_precip and pc.calc_dualpol):
                 # set plot start and end time to the start and end of precipitation
@@ -434,13 +435,15 @@ for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc in zip(
                 timelimits = [plotstarttime, plotstoptime]
                 try:
                     diamlimits = pc.DSD_D_range
+                    diamytick = pc.DSD_D_ytick
                 except:
                     diamlimits = [0.0, 9.0]
+                    diamytick = 1.0
 
                 axparams = {'majorxlocator': pc.locator, 'majorxformatter': pc.formatter,
                             'minorxlocator': pc.minorlocator,
                             'axeslimits': [timelimits, diamlimits],
-                            'majorylocator': ticker.MultipleLocator(base=1.0),
+                            'majorylocator': ticker.MultipleLocator(base=diamytick),
                             'axeslabels': [None, 'D (mm)']}
 
             # Ok, now we should have everything ready to go to plot the meteograms.
@@ -498,7 +501,7 @@ for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc in zip(
 
         axdict = {'times': PSDtimestamps, 'min_diameter': min_diameter,
                   'avg_diameter': avg_diameter, 'min_fall_bins': min_fall_bins,
-                  'xlim': (0.0, 26.0), 'ylim': (0.0, 20.0),
+                  'xlim': pc.D_range, 'ylim': pc.vel_range,
                   'dis_name': dis_name}
 
         for t in range(N.size(countsMatrix, axis=0)):

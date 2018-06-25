@@ -1307,6 +1307,8 @@ def readsweeps2PIPS(fieldnames, pc, ib):
             starttime=ib.starttimerad, stoptime=ib.stoptimerad,
             platform=ib.platform, el_req=ib.el_req)
 
+        print "radar_filelist = ", radar_filelist
+
         # Read in the radar data, sweep by sweep.
 
         fields_tlist = []

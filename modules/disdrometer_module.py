@@ -135,7 +135,6 @@ def assignfallspeed(d, rhocorrect=False, rho=None):
 
     # Correct fall speed based on air density
     if(rhocorrect and rho is not None):
-        print "rho = ", rho
         v = v * (1.204/rho)**(0.4)
 
     return v
@@ -151,9 +150,9 @@ splashingmask = [[True if bottom[j] <= i <= top[j]
 splashingmask = N.array(splashingmask).T
 
 # Create mask for margin falls
-bottom = [0, 7, 13, 16, 19, 20, 21, 22, 23, 24, 25, 25, 26, 26,
-          27, 27, 28, 28, 28, 29, 29, 29, 29, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-top = N.zeros((32), dtype='int')
+bottom = [0, 8, 14, 17, 20, 21, 22, 23, 24, 25, 26, 26, 27, 27,
+          28, 28, 29, 29, 29, 30, 30, 30, 30, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+top = N.arange((32), dtype='int')
 top[:] = 31
 top[23:32] = 0
 marginmask = [[True if bottom[j] <= i <= top[j] else False for i in range(32)] for j in range(32)]
@@ -164,15 +163,15 @@ bottom = [0, 1, 4, 7, 9, 11, 12, 13, 14, 14, 15, 16, 16, 19, 19,
           20, 20, 21, 21, 21, 23, 24, 24, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 top = [0, 8, 14, 17, 20, 21, 22, 23, 24, 25, 26, 26, 27, 27, 28,
        28, 29, 29, 29, 30, 30, 30, 30, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-rainonlymask = [[False if bottom[j] <= i <= top[j] else True for i in range(32)] for j in range(32)]
+rainonlymask = [[False if bottom[j] < i < top[j] else True for i in range(32)] for j in range(32)]
 rainonlymask = N.array(rainonlymask).T
 
 # Create mask for non-hail
 bottom = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
           0, 0, 0, 15, 15, 16, 16, 17, 17, 18, 19, 19, 20, 20, 20]
 top = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-       0, 0, 0, 24, 25, 25, 31, 31, 31, 31, 31, 31, 31, 31, 31]
-hailonlymask = [[False if bottom[j] <= i <= top[j] else True for i in range(32)] for j in range(32)]
+       0, 0, 0, 24, 25, 25, 31, 32, 32, 32, 32, 32, 32, 32, 32]
+hailonlymask = [[False if bottom[j] < i < top[j] else True for i in range(32)] for j in range(32)]
 hailonlymask = N.array(hailonlymask).T
 
 # Create mask for all particles with fall speeds outside of fractional tolerance
@@ -214,17 +213,25 @@ def strongwindQC(countsMatrix):
         baddrops = N.sum(countsMatrix[t, 0:11, 20:32])
         bigdrops = N.sum(countsMatrix[t, :, 23:32])
         totaldrops = N.sum(countsMatrix[t, :])
-        if(baddrops > 0.02 * totaldrops):  # Try relaxing criterion to allow up to 2% of drops
-                                         # to be in mask area
+#         if(baddrops > 0.02 * totaldrops):  # Try relaxing criterion to allow up to 2% of drops
+#                                          # to be in mask area
+#             print "Severe Wind contamination, masking entire PSD!"
+#             countsMatrix[t, :] = -999.
+#             flaggedtimes.append(2)
+#         elif(baddrops > 0):  # Let the PSD through QC, but mask the offending drops
+#             print "Wind contamination!"
+#             countsMatrix[t, 0:11, 20:32] = -999.
+#             flaggedtimes.append(1)
+#         else:
+#             flaggedtimes.append(0)
+
+        if(baddrops > 0):
             print "Severe Wind contamination, masking entire PSD!"
             countsMatrix[t, :] = -999.
             flaggedtimes.append(2)
-        elif(baddrops > 0):  # Let the PSD through QC, but mask the offending drops
-            print "Wind contamination!"
-            countsMatrix[t, 0:11, 20:32] = -999.
-            flaggedtimes.append(1)
         else:
             flaggedtimes.append(0)
+
 
     countsMatrix = ma.masked_array(countsMatrix, mask=N.where(countsMatrix == -999., True, False))
 
@@ -397,8 +404,9 @@ def correctPIPS(serialnum, infile, outfile):
         outdisfile.write(line + '\n')
 
 
-def readPIPS(filename, fixGPS=True, basicqc=False, rainfallqc=False, rainonlyqc=False, hailonlyqc=False,
-             strongwindqc=False, detecthail=True, DSD_interval=10.0):
+def readPIPS(filename, fixGPS=True, basicqc=False, rainfallqc=False, rainonlyqc=False,
+             hailonlyqc=False, strongwindqc=False, detecthail=True, DSD_interval=10.0,
+             starttime=None, stoptime=None):
     """Reads data from Purdue-OU PIPS"""
 
     pdatetimes = []
@@ -624,10 +632,6 @@ def readPIPS(filename, fixGPS=True, basicqc=False, rainfallqc=False, rainonlyqc=
 
     countsMatrix = truncatedspectrumQC(countsMatrix)
 
-    if(detecthail):
-        countsMatrix, hailcounts = hailonlyQC(countsMatrix, returnmasked=False)
-        hailflag = N.where(hailcounts > 0, True, False)
-
     if(use_strongwindQC or basicqc or strongwindqc):
         countsMatrix, flaggedtimes = strongwindQC(countsMatrix)
         if(detecthail and False): # This doesn't seem to be working correctly, so disable for now
@@ -639,6 +643,10 @@ def readPIPS(filename, fixGPS=True, basicqc=False, rainfallqc=False, rainonlyqc=
 
     if(use_marginQC or basicqc):
         countsMatrix = marginQC(countsMatrix)
+
+    if(detecthail):
+        countsMatrix, hailcounts = hailonlyQC(countsMatrix, returnmasked=False)
+        hailflag = N.where(hailcounts > 0, True, False)
 
     if(use_rainfallspeedQC or rainfallqc):
         countsMatrix = rainfallspeedQC(countsMatrix, rainvd, falltol, maskhigh, masklow)
@@ -657,50 +665,6 @@ def readPIPS(filename, fixGPS=True, basicqc=False, rainfallqc=False, rainonlyqc=
 
     if(masklowdiam):
         countsMatrix = masklowdiamQC(countsMatrix)
-
-    if(plot_QC and False):
-        for t in range(N.size(countsMatrix, axis=0)):
-            fig = plt.figure()
-            ax1 = fig.add_subplot(111)
-            plt.title('Fall speed vs. diameter for time ' + '%04d' % t)
-
-            countsplot = ma.masked_where(countsMatrix[t, :] <= 0, countsMatrix[t, :])
-
-            C = ax1.pcolor(min_diameter, min_fall_bins, countsplot, vmin=1, vmax=50, edgecolors='w')
-            rainvd = assignfallspeed(avg_diameter, rhocorrect=True, rho=rhoatpdatetimes[t])
-            ax1.plot(avg_diameter, rainvd, c='r')
-            # ax1.scatter(X[0:10,20:31],Y[0:10,20:31],c='r',marker='x')
-            fig.colorbar(C)
-
-            if(len(flaggedtimes) > 0 and flaggedtimes[t] > 1):
-                ax1.text(0.5, 0.5, 'Flagged for strong wind contamination!',
-                         horizontalalignment='center',
-                         verticalalignment='center', color='y',
-                         transform=ax1.transAxes)
-            if(plot_strongwindQC):
-                ax1.scatter(X[strongwindmask], Y[strongwindmask], c='r', marker='x', alpha=1.0)
-            if(plot_splashingQC):
-                ax1.scatter(X[splashmask], Y[splashmask], c='w', marker='o', alpha=0.75)
-                # ax1.pcolor(min_diameter,min_fall_bins,ma.masked_array(splashmask,mask=-splashmask),cmap=cm.Reds,alpha=0.1)
-            if(plot_marginQC):
-                ax1.scatter(X[marginmask], Y[marginmask], c='g', marker='x', alpha=0.1)
-                # ax1.pcolor(min_diameter,min_fall_bins,ma.masked_array(marginmask,mask=-marginmask),cmap=cm.Reds,alpha=0.1)
-            if(plot_rainfallspeedQC):
-                ax1.scatter(X[fallspeedmask], Y[fallspeedmask], c='k', marker='x', alpha=0.5)
-                # ax1.pcolor(min_diameter,min_fall_bins,ma.masked_array(fallspeedmask,mask=-fallspeedmask),cmap=cm.gray,alpha=0.1)
-            if(plot_rainonlyQC):
-                ax1.scatter(X[rainonlymask], Y[rainonlymask], c='g', marker='x', alpha=0.5)
-
-            ax1.set_xlim(0.0, 26.0)
-            ax1.xaxis.set_major_locator(MultipleLocator(1.0))
-            ax1.set_xlabel('diameter (mm)')
-            ax1.set_ylim(0.0, 20.0)
-            ax1.yaxis.set_major_locator(MultipleLocator(1.0))
-            ax1.set_ylabel('fall speed (m/s)')
-
-            plt.savefig('/Users/ddawson/temp_PIPS/vel_D_plots/'+parsivel_name+'_%04d' % t + '.png')
-            plt.close(fig)
-
 
     # Find total number of non-masked particles
 
@@ -836,6 +800,8 @@ def readPIPS(filename, fixGPS=True, basicqc=False, rainfallqc=False, rainonlyqc=
     pdatetimes_corrected = ND_df.index.to_pydatetime()
     DSD_index = ND_df.index
     countsMatrix = countsMatrix_da.values
+    mask = countsMatrix_da.isnull()
+    countsMatrix = ma.array(countsMatrix, mask=mask)
 
 
     # Aggregate everything into a dictionary to return
@@ -916,13 +882,9 @@ def resamplePSD(DSD_interval, ND_df, ND_onedrop_df, PSD_df, countsMatrix_da):
                                 'reflectivity': N.mean, 'pcount': N.sum, 'pcount2': N.sum,
                                 'amplitude': N.mean, 'flaggedtimes': N.any,
                                 'hailflag': N.any}).fillna(0)
-
-        # STOPPED HERE 060318: Need to use xarray for the countsMatrix
-        print countsMatrix_da
+        # Use xarray for the counts matrix
         countsMatrix_da = countsMatrix_da.resample(time=intervalstr, label='right', closed='right',
                                                    base=sec_offset).sum(dim='time').fillna(0)
-        print countsMatrix_da
-        print countsMatrix_da.values.shape
         # Keep the following code on standby until the above is tested!
 #
 #         # I'm not sure what's going on here. Sometimes I get a valueerror suggesting the data are empty, so the except clause is a temporary
