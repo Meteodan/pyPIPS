@@ -657,7 +657,7 @@ def plotDSDmeteograms(dis_name, image_dir, axparams, disvars, radvars):
             # print xvals,plotvars,plotparamdicts
             ax2 = plotmeteogram(ax2, xvals, plotvars, plotparamdicts)
             axparamdict2 = {'majorylocator': ticker.MultipleLocator(base=axis_intv),
-                            'axeslimits': [None, axis_limits], 'axeslabels': [None, axis_label]}
+                            'axeslimits': [axparams['axeslimits'][0], axis_limits], 'axeslabels': [None, axis_label]}
             axes.append(ax2)
             axparamdicts.append(axparamdict2)
             ax2.legend(bbox_to_anchor=(1., 1.), loc='upper right',

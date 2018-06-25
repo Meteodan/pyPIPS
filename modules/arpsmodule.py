@@ -14,6 +14,7 @@ from mpl_toolkits.basemap import Basemap
 import thermolib as thermo
 import dualpara as dualpol
 import DSDlib as dsd
+import os
 import sys
 import weave
 from weave import converters
@@ -46,7 +47,7 @@ cdict1 = {'red':  ((0.0, 0.0, 0.0),
 blue_red1 = LinearSegmentedColormap('BlueRed1', cdict1)
 
 class ARPSDataHandler(DataHandler):
-    def __init__(self, base_dir, times, microphys=None):
+    def __init__(self, base_dir, times, microphys=None, nproc_x = 1, nproc_y = 1):
         self._base_dir = base_dir
         self._time_list = times
         self._file = None
@@ -54,16 +55,18 @@ class ARPSDataHandler(DataHandler):
         self._grdbas_name = ""
         self._cur_time = -1
         self._microphys = microphys
+        self._nproc_x = nproc_x
+        self._nproc_y = nproc_y
 
         super(ARPSDataHandler, self).__init__('ARPS')
         return
 
-    def setRun(self, file_base, member, time=None):
+    def setRun(self, file_base, member=0, time=None):
         if time is None:
             time = self._time_list[0]
 
-        file_name = self.fileNameBuilder(self._base_dir + file_base, time, member)
-        grdbas_name = self.fileNameBuilder(self._base_dir + file_base, None, member)
+        file_name = self.fileNameBuilder(os.path.join(self._base_dir, file_base), time, member)
+        grdbas_name = self.fileNameBuilder(os.path.join(self._base_dir, file_base), None, member)
         if self._file_name != file_name:
             if self._file:
                 self._file.close()
@@ -183,6 +186,14 @@ class ARPSDataHandler(DataHandler):
         self._timeobjlist = timeobjlist
         self._inittime = inittime
         return
+
+    def loadVars(self, vars):
+        """Loads a list of variables from the current file"""
+        # TODO: add patch reading
+        varlist = []
+        for varindex, varname in enumerate(vars):
+            varlist.append(self._hdfreadvar3d(varname))
+        return varlist
 
     def loadMicrophysics(self):
         # Right now, only read MY or ZVD scheme.  Support for other schemes to be
