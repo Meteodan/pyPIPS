@@ -269,6 +269,11 @@ def plotsingle(fig, axes, ptype, xs, ys, x, y, xlim, ylim, field, clevels, cmap,
                                    colors=ovrfieldcolors[i], lw=2)
     if(gis_info is not None):
         axes.plot([gis_info[1]], [gis_info[2]], 'ko')
+    if xlim is None:
+        xlim = [x.min(), x.max()]
+    if ylim is None:
+        ylim = [y.min(), y.max()]
+    print xlim, ylim
     axes.set_xlim(xlim[0], xlim[1])
     axes.set_ylim(ylim[0], ylim[1])
     if(axesticks[0] < 1000.):
@@ -349,7 +354,8 @@ def plotonesecmeteograms(dis_index, pc, ib, convmeteodict):
     ax2 = plotmeteogram(ax2, [plottimes], fields, fieldparamdicts)
 
     axparamdict1 = {'majorxlocator': pc.locator, 'majorxformatter': pc.formatter,
-                    'minorxlocator': pc.minorlocator, 'axeslimits': [xaxislimits, pc.meteo_ws_range],
+                    'minorxlocator': pc.minorlocator,
+                    'axeslimits': [xaxislimits, pc.meteo_ws_range],
                     'axeslabels': [pc.timelabel, r'wind speed (m s$^{-1}$)']}
     axparamdict2 = {'majorylocator': ticker.MultipleLocator(45.),
                     'axeslimits': [None, [0.0, 360.0]],
@@ -373,7 +379,8 @@ def plotonesecmeteograms(dis_index, pc, ib, convmeteodict):
     ax1.axhline(0.0, ls=':', color='k')
 
     axparamdict1 = {'majorxlocator': pc.locator, 'majorxformatter': pc.formatter,
-                    'minorxlocator': pc.minorlocator, 'axeslimits': [xaxislimits, pc.meteo_T_Td_range],
+                    'minorxlocator': pc.minorlocator,
+                    'axeslimits': [xaxislimits, pc.meteo_T_Td_range],
                     'axeslabels': [pc.timelabel, r'Temperature ($^{\circ}$C)']}
     axparamdicts = [axparamdict1]
     ax1, = set_meteogram_axes([ax1], axparamdicts)
@@ -658,7 +665,8 @@ def plotDSDmeteograms(dis_name, image_dir, axparams, disvars, radvars):
             # print xvals,plotvars,plotparamdicts
             ax2 = plotmeteogram(ax2, xvals, plotvars, plotparamdicts)
             axparamdict2 = {'majorylocator': ticker.MultipleLocator(base=axis_intv),
-                            'axeslimits': [axparams['axeslimits'][0], axis_limits], 'axeslabels': [None, axis_label]}
+                            'axeslimits': [axparams['axeslimits'][0], axis_limits],
+                            'axeslabels': [None, axis_label]}
             axes.append(ax2)
             axparamdicts.append(axparamdict2)
             ax2.legend(bbox_to_anchor=(1., 1.), loc='upper right',
@@ -790,7 +798,7 @@ def plot_DSD(ib, axdict, PSDdict, PSDfitdict, PSDparamdict):
     ax1.set_ylabel(r'N(D) $(m^{-4})$')
     ypos = 0.95
     for paramname, paramtuple in PSDparamdict.iteritems():
-        ax1.text(0.50, ypos, paramtuple[1] + ' = %2.2f'%paramtuple[0],
+        ax1.text(0.50, ypos, paramtuple[1] + ' = %2.2f' % paramtuple[0],
                  transform=ax1.transAxes)
         ypos = ypos - 0.05
 
@@ -798,6 +806,7 @@ def plot_DSD(ib, axdict, PSDdict, PSDfitdict, PSDparamdict):
     plt.savefig(ib.image_dir + 'DSDs/' + dis_name + '/' + dis_name + '_DSD_t{:04d}.png'.format(t),
                 dpi=200, bbox_inches='tight')
     plt.close(fig1)
+
 
 def plot_vel_D(ib, axdict, PSDdict, rho):
     """Plots the terminal velocity vs. diameter matrix for a given DSD"""
@@ -813,7 +822,6 @@ def plot_vel_D(ib, axdict, PSDdict, rho):
 
     countsMatrix = PSDdict.get('countsMatrix', None)
     flaggedtime = PSDdict.get('flaggedtime', 0)
-
 
     fig1 = plt.figure(figsize=(8, 6))
     ax1 = fig1.add_subplot(111)
@@ -857,6 +865,101 @@ def plot_vel_D(ib, axdict, PSDdict, rho):
                 dpi=200, bbox_inches='tight')
     plt.close(fig1)
 
+def computecorners(xe,ye,UM=False):
+    """Given 2D meshes of the coordinates of the grid edges (i.e. xe(Nys,Nxe), ye(Nye,Nxs)
+       where Nxs,Nxe,Nys,Nye are the number of grid points in each direction for the scalar (s)
+       and staggered (e) grid), compute the grid corners as simple horizontal averages of adjacent
+       edge points in each direction.  For the edges of the domain, an optional simple linear extrapolation
+       is performed. Returns xcor and ycor of dimensions (Nye,Nxe)."""
+
+    if(not UM):
+        cor_shp = xe.shape[:-2] + (ye.shape[-2], xe.shape[-1])
+        xcor = N.zeros(cor_shp)
+        ycor = N.zeros(cor_shp)
+
+#       print xcor.shape, ycor.shape, xe.shape, ye.shape
+
+        xcor[...,1:-1,:] = 0.5*(xe[...,1:,:]+xe[...,:-1,:]) # All but south and north edges
+        ycor[...,:,1:-1] = 0.5*(ye[...,:,1:]+ye[...,:,:-1]) # All but west and east edges
+        xcor[...,0,:] = xe[...,2,:] + 1.5*(xe[...,1,:]-xe[...,2,:]) # Extrapolate for south edge
+        xcor[...,-1,:] = xe[...,-2,:] + 1.5*(xe[...,-1,:]-xe[...,-2,:]) # Extrapolate for north edge
+        ycor[...,:,0] = ye[...,:,2] + 1.5*(ye[...,:,1]-ye[...,:,2]) # Extrapolate for west edge
+        ycor[...,:,-1] = ye[...,:,-2] + 1.5*(ye[...,:,-1]-ye[...,:,-2]) # Extrapolate for east edge
+    else:   # Case for UM grid
+        xcor = 0.5*(xe[...,1:,:]+xe[...,:-1,:])
+        ycor = 0.5*(ye[...,:,1:]+ye[...,:,:-1])
+
+    return xcor,ycor
+
+
+# From https://gist.github.com/syrte/592a062c562cd2a98a83
+def circles(x, y, s, c='b', vmin=None, vmax=None, **kwargs):
+    """
+    Make a scatter of circles plot of x vs y, where x and y are sequence
+    like objects of the same lengths. The size of circles are in data scale.
+
+    Parameters
+    ----------
+    x,y : scalar or array_like, shape (n, )
+        Input data
+    s : scalar or array_like, shape (n, )
+        Radius of circle in data unit.
+    c : color or sequence of color, optional, default : 'b'
+        `c` can be a single color format string, or a sequence of color
+        specifications of length `N`, or a sequence of `N` numbers to be
+        mapped to colors using the `cmap` and `norm` specified via kwargs.
+        Note that `c` should not be a single numeric RGB or RGBA sequence
+        because that is indistinguishable from an array of values
+        to be colormapped. (If you insist, use `color` instead.)
+        `c` can be a 2-D array in which the rows are RGB or RGBA, however.
+    vmin, vmax : scalar, optional, default: None
+        `vmin` and `vmax` are used in conjunction with `norm` to normalize
+        luminance data.  If either are `None`, the min and max of the
+        color array is used.
+    kwargs : `~matplotlib.collections.Collection` properties
+        Eg. alpha, edgecolor(ec), facecolor(fc), linewidth(lw), linestyle(ls),
+        norm, cmap, transform, etc.
+
+    Returns
+    -------
+    paths : `~matplotlib.collections.PathCollection`
+
+    Examples
+    --------
+    a = np.arange(11)
+    circles(a, a, a*0.2, c=a, alpha=0.5, edgecolor='none')
+    plt.colorbar()
+
+    License
+    --------
+    This code is under [The BSD 3-Clause License]
+    (http://opensource.org/licenses/BSD-3-Clause)
+    """
+    import numpy as np
+    import matplotlib.pyplot as plt
+    from matplotlib.patches import Circle
+    from matplotlib.collections import PatchCollection
+
+    if np.isscalar(c):
+        kwargs.setdefault('color', c)
+        c = None
+    if 'fc' in kwargs: kwargs.setdefault('facecolor', kwargs.pop('fc'))
+    if 'ec' in kwargs: kwargs.setdefault('edgecolor', kwargs.pop('ec'))
+    if 'ls' in kwargs: kwargs.setdefault('linestyle', kwargs.pop('ls'))
+    if 'lw' in kwargs: kwargs.setdefault('linewidth', kwargs.pop('lw'))
+
+    patches = [Circle((x_, y_), s_) for x_, y_, s_ in np.broadcast(x, y, s)]
+    collection = PatchCollection(patches, **kwargs)
+    if c is not None:
+        collection.set_array(np.asarray(c))
+        collection.set_clim(vmin, vmax)
+
+    ax = plt.gca()
+    ax.add_collection(collection)
+    ax.autoscale_view()
+    if c is not None:
+        plt.sci(collection)
+    return collection
 # Below is some extra code for DSD plotting with no home right now
 
     #

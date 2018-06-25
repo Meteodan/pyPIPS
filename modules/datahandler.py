@@ -1,6 +1,6 @@
 
 
-def getDataHandler(model_name, base_dir, times, microphys=None):
+def getDataHandler(model_name, base_dir, times, microphys=None, multitime=True):
     from wrfmodule import WRFDataHandler
     from commasmodule import COMMASDataHandler
     from arpsmodule import ARPSDataHandler
@@ -8,7 +8,7 @@ def getDataHandler(model_name, base_dir, times, microphys=None):
     if model_name == "WRF":
         return WRFDataHandler(base_dir, times)
     elif model_name == "COMMAS":
-        return COMMASDataHandler(base_dir, times)
+        return COMMASDataHandler(base_dir, times, multitime=multitime)
     elif model_name == "ARPS":
         return ARPSDataHandler(base_dir, times, microphys)
 
