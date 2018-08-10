@@ -332,4 +332,4 @@ if __name__ == "__main__":
         PIPS_data_dir = _PIPS_data_dir
         output_filename = _output_filename
 
-    mergeData(PIPS_data_dir,output_filename)
+    mergeData(PIPS_data_dir, output_filename)

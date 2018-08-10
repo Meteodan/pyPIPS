@@ -11,7 +11,8 @@ import matplotlib.ticker as ticker
 from matplotlib.projections import PolarAxes, register_projection
 from matplotlib.transforms import Affine2D, Bbox, IdentityTransform
 from mpl_toolkits.axes_grid1 import ImageGrid
-import ctablesfrompyesviewer as ctables
+# import ctablesfrompyesviewer as ctables
+from metpy.plots import ctables
 from datetime import datetime, timedelta
 import obanmodule as oban
 import glob
@@ -22,7 +23,7 @@ import timemodule as tm
 import disdrometer_module as dis
 import pickle
 
-clevels_ref = N.arange(5.0, 85.0, 5.0)          # Contour levels for reflectivity (dBZ)
+clevels_ref = N.arange(0.0, 85.0, 5.0)          # Contour levels for reflectivity (dBZ)
 clevels_zdr = N.arange(0.0, 6.25, 0.25)         # Contour levels for Zdr (dB)
 clevels_kdp = N.arange(0.0, 12.5, 0.5)            # Contour levels for Kdp (deg km^-1)
 clevels_rhv = N.arange(0.9, 1.01, 0.01)           # Contour levels for rhv
@@ -36,7 +37,8 @@ clevels_nt = N.arange(-0.5, 4.5, 0.5)         # Contour levels for log total num
 clevels_sigm = N.arange(0.0, 2.0, 0.05)        # Contour levels for sigma
 clevels_mu = N.arange(-2.0, 20.0, 1.0)        # Contour levels for shape parameter
 clevels_lam = N.arange(0.0, 20.0, 1.0)        # Contour levels for slope parameter
-cmapdBZ = ctables.__getattribute__('REF_default')
+# cmapdBZ = ctables.__getattribute__('REF_default')
+normdBZ, cmapdBZ = ctables.registry.get_with_steps('NWSReflectivity', 5., 5.)
 cmapzdr = cm.Reds
 cmapvr = cm.RdBu_r
 cmapkdp = cm.Set1
@@ -1027,6 +1029,8 @@ def plotsweep(radlims, plotlims, fieldnames, fieldlist, masklist, range_start, r
             norm = matplotlib.colors.LogNorm(vmin=0.1, vmax=200.0)
         elif(fieldname == 'W'):
             norm = matplotlib.colors.LogNorm(vmin=0.01, vmax=10.)
+        elif(fieldname == 'dBZ'):
+            norm = normdBZ
         else:
             norm = matplotlib.colors.BoundaryNorm(clevels, cmap.N)
         plot1 = ax.pcolormesh(xplttmp,
@@ -1061,6 +1065,9 @@ def plotsweep(radlims, plotlims, fieldnames, fieldlist, masklist, range_start, r
         if(plotymax == -1):
             plotymax = N.max(yplt)
 
+        # FIXME: something is screwed up with ImageGrid colorbar ticks, but it looks like the
+        # correct behavior can be recovered by reverting to the matplotlib version. (Already
+        # corrected in plotsweep_pyART)
         if(fieldname == 'Rain'):
             clvllocator = ticker.LogLocator(base=10.0,subs=(0.1, 1.0, 3.0, 5.0, 10.0, 15.0, 20.0,
                                                             30.0, 50.0, 75.0, 100.0, 150.0, 200.0))
@@ -1198,9 +1205,11 @@ def plotsweep_pyART(radlims, plotlims, fieldnames, radarsweep, ovrmap, ovrdis, d
 #                 xplttmp = xplt
 #                 xplt_ctmp = xplt_c
 
+        norm = None
         if fieldname in ['dBZ', 'DBZ', 'Z']:
             clevels = clevels_ref
             cmap = cmapdBZ
+            norm = normdBZ
             clvls = 5.0
             disfmtstr = "{:3.1f} dBZ"
         if fieldname in ['Zdr', 'ZDR']:
@@ -1237,7 +1246,8 @@ def plotsweep_pyART(radlims, plotlims, fieldnames, radarsweep, ovrmap, ovrdis, d
             aspect=True,
             label_mode="1")
         ax = grid[0]
-        norm = matplotlib.colors.BoundaryNorm(clevels, cmap.N)
+        if norm is None:
+            norm = matplotlib.colors.BoundaryNorm(clevels, cmap.N)
         plot1 = ax.pcolormesh(xplt, yplt, fieldplt, vmin=clevels[0], vmax=clevels[-1], cmap=cmap,
                               norm=norm, edgecolors='None', antialiased=False)
 
@@ -1264,9 +1274,12 @@ def plotsweep_pyART(radlims, plotlims, fieldnames, radarsweep, ovrmap, ovrdis, d
             plotymax = N.max(yplt)
 
         clvllocator = ticker.MultipleLocator(base=clvls)
-        grid.cbar_axes[0].colorbar(plot1)
-        grid.cbar_axes[0].toggle_label(True)
-        grid.cbar_axes[0].yaxis.set_major_locator(clvllocator)
+        #grid.cbar_axes[0].colorbar(plot1)
+        plt.colorbar(plot1, orientation='vertical', ticks=clvllocator, cax=grid.cbar_axes[0])
+        # FIXME: something is screwed up with ImageGrid colorbar ticks, but it looks like the
+        # correct behavior can be recovered by reverting to the matplotlib version above
+#         grid.cbar_axes[0].toggle_label(True)
+#         grid.cbar_axes[0].yaxis.set_major_locator(clvllocator)
         #plt.title('dBZ at el = %.2f'%(el/deg2rad)+'and time '+time.strftime(fmt))
         ax.set_xlim(plotxmin, plotxmax)
         ax.set_ylim(plotymin, plotymax)
@@ -1325,6 +1338,7 @@ def readsweeps2PIPS(fieldnames, pc, ib):
 
         newradtimes = []
         newradarfilelist = []
+        outfieldnames = []
 
         for index, path, sweeptime in zip(
                 xrange(len(radar_filelist)), radar_filelist, radtimes):
@@ -1350,7 +1364,7 @@ def readsweeps2PIPS(fieldnames, pc, ib):
             # throw out any sweeps that don't have at least 4 ('dBZ', 'ZDR', 'RHV', 'VR') but
             # will need to come up with a better solution in the future.
 
-            if(len(outfieldnames) >= 4):
+            if(len(outfieldnames) >= len(fieldnames)):
                 fields_tlist.append(fields)
                 range_start_tlist.append(range_start)
                 range_tlist.append(radar_range)
@@ -1488,6 +1502,8 @@ def plotsweeps(pc, ib, sb, sweepstart=-1, sweepstop=-1):
             for dloc, dname, dxy in zip(ib.dlocs, ib.dis_name_list, dxy_list):
                 Dx, Dy = dxy
                 print Dx, Dy
+                # FIXME: below calculation of beam height doesn't take into account disdrometer
+                # elevation.
                 h, r = oban.computeheightrangesingle(Dx, Dy, N.deg2rad(ib.el_req))
                 # In most of our cases the radar location isn't going to change with time,
                 # but in the more general case, this may not be true (i.e. if we are dealing

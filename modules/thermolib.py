@@ -17,7 +17,6 @@ p0 = 100000.0  # Reference pressure in Pa
 rho_ref = 1.0  # Reference air density (kg/m^3)
 rhow = 1000.0  # Density of liquid water (kg/m^3)
 
-
 satfwa = 1.0007
 satfwb = 3.46e-8
 satewa = 611.21
@@ -107,6 +106,17 @@ def calTd(p, qv):
 
     A = log(e / (satewa * f))
 
+    Td = (satewc * A - 273.15 * satewb) / (A - satewb)
+    return Td
+
+
+def calTdfromRH(p, T, RH):
+    """ Calculate dewpoint temperature from pressure, temperature, and relative humidity.
+    This uses the forumulae from Buck (1981, JAM) as used in ARPS thermolib3d.f90. """
+    f = satfwa + satfwb * p
+    es = cales(p, T)
+    e = cale(RH, es)
+    A = log(e / (satewa * f))
     Td = (satewc * A - 273.15 * satewb) / (A - satewb)
     return Td
 

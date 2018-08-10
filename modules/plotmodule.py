@@ -10,7 +10,8 @@ from matplotlib.artist import allow_rasterization
 from matplotlib.colors import ListedColormap, BoundaryNorm
 import matplotlib.transforms as mtransforms
 from matplotlib.font_manager import FontProperties
-import ctablesfrompyesviewer as ctables
+# import ctablesfrompyesviewer as ctables
+from metpy.plots import ctables
 import disdrometer_module as dis
 import timemodule as tm
 from itertools import cycle
@@ -24,10 +25,11 @@ fontP = FontProperties()
 fontP.set_size('small')
 
 # Contour levels for reflectivity (dBZ)
-clevels_ref = N.arange(5.0, 85.0, 5.0)
+clevels_ref = N.arange(0.0, 85.0, 5.0)
 clevels_zdr = N.arange(0.0, 6.25, 0.25)         # Contour levels for Zdr (dB)
 clevels_vr = N.arange(-40.0, 41.0, 1.0)        # Contour levels for Vr (m/s)
-cmapdBZ = ctables.__getattribute__('REF_default')
+# cmapdBZ = ctables.__getattribute__('REF_default')
+normdBZ, cmapdBZ = ctables.registry.get_with_steps('NWSReflectivity', 5., 5.)
 cmapzdr = cm.Reds
 cmapvr = cm.RdBu_r
 
@@ -72,6 +74,10 @@ RH_params = {'type': 'fill_between', 'linestyle': '-',
 
 battery_params = {'type': 'fill_between', 'linestyle': '-',
                   'color': 'brown', 'alpha': 1.0, 'plotmin': 8}
+
+# GPS speed
+
+GPS_speed_params = {'type': 'line', 'linestyle': '-', 'color': 'b'}
 
 # Pressure
 
@@ -309,11 +315,112 @@ def plotsingle(fig, axes, ptype, xs, ys, x, y, xlim, ylim, field, clevels, cmap,
 
     return fig, axes
 
+def plotsingle2(fig, axes, ptype, xs, ys, x, y, xlim, ylim, field, clevels, cmap, fieldnorm,
+               cbarlevels, clabel, cformat, ovrmap, gis_info, numovr, ovrx, ovry, ovrfields,
+               ovrfieldlvls, ovrfieldcolors, axesticks, rasterized=True):
+    """Plot a single-paneled figure from model output (possibly staggered grid).
+       This version is set up to use ImageGrid with a single panel and is provided
+       only to attempt to match the dimensions of the resulting figure with that
+       produced by plotsweep_PyArt in radarmodule.py. Clearly need to refactor some
+       of this code..."""
+    if(fig is None):
+        fig = plt.figure()
+        grid = ImageGrid(
+            fig,
+            111,
+            nrows_ncols=(
+                1,
+                1),
+            axes_pad=0.0,
+            cbar_mode="single",
+            cbar_location="right",
+            aspect=True,
+            label_mode="1")
+        axes = grid[0]
+    if(rasterized):
+        axes.set_rasterization_zorder(2)
+    norm = fieldnorm
+    if(ptype == 1):  # Contour plot
+        plot = axes.contourf(xs, ys, field, levels=clevels, cmap=cmap, norm=norm, zorder=1)
+    elif(ptype == 2):  # pcolor plot
+        # Mask values below lower bounds
+        field = N.ma.masked_where(field < clevels[0], field)
+        # norm = matplotlib.colors.BoundaryNorm(clevels,cmap.N)
+        # This is a hack to force masked areas to be white.  By default masked areas are
+        # transparent, but the Agg backends apparently have problems when converting pcolor images
+        # to eps and changes the transparent color to black.
+        cmap.set_bad('white', alpha=None)
+        plot = axes.pcolormesh(x, y, field, vmin=clevels[0], vmax=clevels[-1], cmap=cmap, norm=norm,
+                               edgecolors='None', antialiased=False, rasterized=rasterized)
+    # Find a nice number of ticks for the colorbar
 
-def plotonesecmeteograms(dis_index, pc, ib, convmeteodict):
+    if(cbarlevels is None):
+        cintv = clevels[1] - clevels[0]
+        cintvs = N.arange(clevels[0], clevels[-1], cintv)
+        while True:
+            if(cintvs.size > 20):
+                cintv = (cintvs[1] - cintvs[0]) * 2.
+                cintvs = N.arange(cintvs[0], cintvs[-1], cintv)
+            else:
+                break
+        cbarlevels = ticker.MultipleLocator(base=cintv)
+
+    grid.cbar_axes[0].colorbar(plot)
+    grid.cbar_axes[0].toggle_label(True)
+    grid.cbar_axes[0].yaxis.set_major_locator(cbarlevels)
+    if(clabel is not None):
+        grid.cbar_axes[0].set_ylabel(clabel)
+    if(numovr > 0):
+        for i in xrange(numovr):
+            #             if(i != 1): # Hack!
+            plotovr = axes.contour(ovrx[i], ovry[i], ovrfields[i], levels=ovrfieldlvls[i],
+                                   colors=ovrfieldcolors[i], lw=2)
+    if(gis_info is not None):
+        axes.plot([gis_info[1]], [gis_info[2]], 'ko')
+    if xlim is None:
+        xlim = [x.min(), x.max()]
+    if ylim is None:
+        ylim = [y.min(), y.max()]
+    print xlim, ylim
+    axes.set_xlim(xlim[0], xlim[1])
+    axes.set_ylim(ylim[0], ylim[1])
+    if(axesticks[0] < 1000.):
+        if(axesticks[0] < 500.):
+            formatter = ticker.FuncFormatter(mtokmr2)
+        else:
+            formatter = ticker.FuncFormatter(mtokmr1)
+    else:
+        formatter = ticker.FuncFormatter(mtokm)
+    axes.xaxis.set_major_formatter(formatter)
+    if(axesticks[1] < 1000.):
+        if(axesticks[0] < 500.):
+            formatter = ticker.FuncFormatter(mtokmr2)
+        else:
+            formatter = ticker.FuncFormatter(mtokmr1)
+    else:
+        formatter = ticker.FuncFormatter(mtokm)
+    axes.yaxis.set_major_formatter(formatter)
+    print axesticks[0], axesticks[1]
+    axes.xaxis.set_major_locator(ticker.MultipleLocator(base=axesticks[0]))
+    axes.yaxis.set_major_locator(ticker.MultipleLocator(base=axesticks[1]))
+    axes.set_xlabel('km')
+    axes.set_ylabel('km')
+    if(axesticks[1] == axesticks[0]):
+        axes.set_aspect('equal')
+    else:
+        axes.set_aspect('auto')
+
+#     if(ovrmap): # Overlay map
+#         readshapefile(track_shapefile_location,'track',drawbounds=True,linewidth=0.5,color='black',ax=axes)
+# readshapefile(county_shapefile_location,'counties',drawbounds=True,
+# linewidth=0.5, color='gray',ax=axes)  #Draws US county boundaries.
+
+    return fig, axes, grid
+
+def plotconvmeteograms(dis_index, pc, ib, convmeteodict):
     """Plots meteograms of the one-second PIPS data"""
     plottimes = convmeteodict.get('plottimes')
-    onesec_plot_df = convmeteodict.get('onesec_plot_df')
+    conv_plot_df = convmeteodict.get('conv_plot_df')
     windavgintv = convmeteodict.get('windavgintv')
     windgustintv = convmeteodict.get('windgustintv')
 
@@ -321,13 +428,39 @@ def plotonesecmeteograms(dis_index, pc, ib, convmeteodict):
     dis_name = ib.dis_name_list[dis_index]
 
     # Plot wind meteogram
+    if ib.type[dis_index] == 'PIPS':
+        winddirstr = 'winddirabs'
+        windspdstr = 'windspd'
+        tempstr = 'fasttemp'
+        RHstr = 'RH_derived'
+    elif ib.type[dis_index] == 'CU':
+        winddirstr = 'bwinddirabs'
+        windspdstr = 'bwindspd'
+        tempstr = 'slowtemp'
+        RHstr = 'RH'
+    elif ib.type[dis_index] == 'NV2':
+        winddirstr = 'swinddirabs'
+        windspdstr = 'swindspd'
+        tempstr = 'slowtemp'
+        RHstr = 'RH'
 
-    winddirabs = onesec_plot_df['winddirabs'].values
-    windspd = onesec_plot_df['windspd'].values
+    winddirabs = conv_plot_df[winddirstr].values
+    windspd = conv_plot_df[windspdstr].values
 
     # Compute wind speed and direction, and wind gusts
-    windspdavg, windspdavgvec, winddiravgvec, windgust, windgustavg = dis.avgwind(
-        winddirabs, windspd, windavgintv, gusts=True, gustintv=windgustintv, center=False)
+    # For the NV2 probes, the data are already at 60-s intervals and gust information is
+    # provided, so does not need to be computed. In the future, need to make a more general
+    # interface to allow for averaging of NV2 data at longer intervals.
+    if ib.type[dis_index] == 'NV2':
+        windspdavg = windspd
+        windspdavgvec = windspd
+        windgustavg = conv_plot_df['swindgust'].values
+        # TODO: Check that wind directions from NV2 probes are vector averages
+        winddiravgvec = winddirabs
+    else:
+        windspdavg, windspdavgvec, winddiravgvec, windgust, windgustavg = dis.avgwind(
+            winddirabs, windspd, windavgintv, gusts=True, gustintv=windgustintv, center=False)
+
 
     fig = plt.figure(figsize=(5, 3))
     ax1 = fig.add_subplot(111)
@@ -338,8 +471,8 @@ def plotonesecmeteograms(dis_index, pc, ib, convmeteodict):
     fieldparamdicts = [windspeed_params, windgust_params]
 
     # Add vertical lines to indicate bad wind values if desired
-    if(pc.plot_diagnostics):
-        winddiag = onesec_plot_df['winddiag']
+    if(pc.plot_diagnostics and ib.type[dis_index] == 'PIPS'):
+        winddiag = conv_plot_df['winddiag']
         # Extract indices for "bad" wind data
         winddiag_index = N.where(N.any([winddiag > 0, N.isnan(winddiag)], axis=0))[0]
         # These are the times with bad wind data
@@ -372,7 +505,7 @@ def plotonesecmeteograms(dis_index, pc, ib, convmeteodict):
     fig = plt.figure(figsize=(5, 3))
     ax1 = fig.add_subplot(111)
 
-    fields = [onesec_plot_df['fasttemp'].values, onesec_plot_df['dewpoint'].values]
+    fields = [conv_plot_df[tempstr].values, conv_plot_df['dewpoint'].values]
     fieldparamdicts = [temp_params, dewpoint_params]
     ax1 = plotmeteogram(ax1, [plottimes], fields, fieldparamdicts)
 
@@ -394,7 +527,7 @@ def plotonesecmeteograms(dis_index, pc, ib, convmeteodict):
     fig = plt.figure(figsize=(5, 3))
     ax1 = fig.add_subplot(111)
 
-    fields = [onesec_plot_df['RH_derived'].values]
+    fields = [conv_plot_df[RHstr].values]
     fieldparamdicts = [RH_params]
     ax1 = plotmeteogram(ax1, [plottimes], fields, fieldparamdicts)
 
@@ -410,15 +543,15 @@ def plotonesecmeteograms(dis_index, pc, ib, convmeteodict):
 
     # Plot station pressure
 
-    pmin = onesec_plot_df['pressure'].values.min()
-    pmax = onesec_plot_df['pressure'].values.max()
-    pmean = onesec_plot_df['pressure'].values.mean()
+    pmin = conv_plot_df['pressure'].values.min()
+    pmax = conv_plot_df['pressure'].values.max()
+    pmean = conv_plot_df['pressure'].values.mean()
     avgintv = 1  # Currently not used
 
     fig = plt.figure(figsize=(5, 3))
     ax1 = fig.add_subplot(111)
 
-    fields = [onesec_plot_df['pressure'].values]
+    fields = [conv_plot_df['pressure'].values]
     fieldparamdicts = [pressure_params]
     ax1 = plotmeteogram(ax1, [plottimes], fields, fieldparamdicts)
 
@@ -432,12 +565,12 @@ def plotonesecmeteograms(dis_index, pc, ib, convmeteodict):
     plt.close(fig)
 
     # Plot some additional diagnostic time series
-    if(pc.plot_diagnostics):
+    if(pc.plot_diagnostics and ib.type[dis_index] not in 'NV2'):
         # Battery voltages
         fig = plt.figure(figsize=(5, 3))
         ax1 = fig.add_subplot(111)
 
-        fields = [onesec_plot_df['voltage'].values]
+        fields = [conv_plot_df['voltage'].values]
         fieldparamdicts = [battery_params]
         ax1 = plotmeteogram(ax1, [plottimes], fields, fieldparamdicts)
 
@@ -448,6 +581,23 @@ def plotonesecmeteograms(dis_index, pc, ib, convmeteodict):
         ax1, = set_meteogram_axes([ax1], axparamdicts)
 
         plt.savefig(ib.image_dir + 'meteograms/' + dis_name + '_voltage.png', dpi=300)
+
+        # GPS-derived speed
+        fig = plt.figure(figsize=(5, 3))
+        ax1 = fig.add_subplot(111)
+
+        fields = [conv_plot_df['GPS_speed'].values]
+        N.set_printoptions(threshold=N.inf)
+        fieldparamdicts = [GPS_speed_params]
+        ax1 = plotmeteogram(ax1, [plottimes], fields, fieldparamdicts)
+
+        axparamdict1 = {'majorxlocator': pc.locator, 'majorxformatter': pc.formatter,
+                        'minorxlocator': pc.minorlocator, 'axeslimits': [xaxislimits, [0.0, 20.0]],
+                        'axeslabels': [pc.timelabel, r'GPS speed (m s$^{-1}$)']}
+        axparamdicts = [axparamdict1]
+        ax1, = set_meteogram_axes([ax1], axparamdicts)
+
+        plt.savefig(ib.image_dir + 'meteograms/' + dis_name + '_GPS_speed.png', dpi=300)
 
 
 def plotDSDderivedmeteograms(dis_index, pc, ib, **PSDderiveddict):
@@ -476,28 +626,33 @@ def plotDSDderivedmeteograms(dis_index, pc, ib, **PSDderiveddict):
     plt.close(fig)
 
     # Reflectivity
-    fig = plt.figure(figsize=(5, 3))
-    ax1 = fig.add_subplot(111)
+    if ib.type[dis_index] != 'NV2':
+        fig = plt.figure(figsize=(5, 3))
+        ax1 = fig.add_subplot(111)
 
-    fields = [PSD_plot_df['reflectivity'].values]
-    fieldparamdicts = [reflectivity_params]
-    ax1 = plotmeteogram(ax1, [PSDmidtimes], fields, fieldparamdicts)
+        fields = [PSD_plot_df['reflectivity'].values]
+        fieldparamdicts = [reflectivity_params]
+        ax1 = plotmeteogram(ax1, [PSDmidtimes], fields, fieldparamdicts)
 
-    axparamdict1 = {'majorxlocator': pc.locator, 'majorxformatter': pc.formatter,
-                    'minorxlocator': pc.minorlocator, 'axeslimits': [xaxislimits, [0.0, 80.0]],
-                    'axeslabels': [pc.timelabel, r'Radar reflectivity (dBZ)']}
-    axparamdicts = [axparamdict1]
-    ax1, = set_meteogram_axes([ax1], axparamdicts)
+        axparamdict1 = {'majorxlocator': pc.locator, 'majorxformatter': pc.formatter,
+                        'minorxlocator': pc.minorlocator, 'axeslimits': [xaxislimits, [0.0, 80.0]],
+                        'axeslabels': [pc.timelabel, r'Radar reflectivity (dBZ)']}
+        axparamdicts = [axparamdict1]
+        ax1, = set_meteogram_axes([ax1], axparamdicts)
 
-    plt.savefig(ib.image_dir + 'meteograms/' + dis_name + '_reflectivity.png', dpi=300)
-    plt.close(fig)
+        plt.savefig(ib.image_dir + 'meteograms/' + dis_name + '_reflectivity.png', dpi=300)
+        plt.close(fig)
 
     # Particle counts
     fig = plt.figure(figsize=(5, 3))
     ax1 = fig.add_subplot(111)
 
-    fields = [PSD_plot_df['pcount'].values, PSD_plot_df['pcount2'].values]
-    fieldparamdicts = [pcount_params, pcount2_params]
+    fields = [PSD_plot_df['pcount'].values]
+    fieldparamdicts = [pcount_params]
+    if ib.type[dis_index] != 'NV2':
+        fields.append(PSD_plot_df['pcount2'].values)
+        fieldparamdicts.append(pcount2_params)
+
     ax1 = plotmeteogram(ax1, [PSDmidtimes], fields, fieldparamdicts)
 
     axparamdict1 = {'majorxlocator': pc.locator, 'majorxformatter': pc.formatter,
@@ -511,21 +666,22 @@ def plotDSDderivedmeteograms(dis_index, pc, ib, **PSDderiveddict):
     plt.close(fig)
 
     # Signal amplitude
-    fig = plt.figure(figsize=(5, 3))
-    ax1 = fig.add_subplot(111)
+    if ib.type[dis_index] == 'PIPS':
+        fig = plt.figure(figsize=(5, 3))
+        ax1 = fig.add_subplot(111)
 
-    fields = [PSD_plot_df['amplitude'].values]
-    fieldparamdicts = [amplitude_params]
-    ax1 = plotmeteogram(ax1, [PSDmidtimes], fields, fieldparamdicts)
+        fields = [PSD_plot_df['amplitude'].values]
+        fieldparamdicts = [amplitude_params]
+        ax1 = plotmeteogram(ax1, [PSDmidtimes], fields, fieldparamdicts)
 
-    axparamdict1 = {'majorxlocator': pc.locator, 'majorxformatter': pc.formatter,
-                    'minorxlocator': pc.minorlocator, 'axeslimits': [xaxislimits, [0.0,  30000.0]],
-                    'axeslabels': [pc.timelabel, r'Signal amplitude']}
-    axparamdicts = [axparamdict1]
-    ax1, = set_meteogram_axes([ax1], axparamdicts)
+        axparamdict1 = {'majorxlocator': pc.locator, 'majorxformatter': pc.formatter,
+                        'minorxlocator': pc.minorlocator, 'axeslimits': [xaxislimits, [0.0,  30000.0]],
+                        'axeslabels': [pc.timelabel, r'Signal amplitude']}
+        axparamdicts = [axparamdict1]
+        ax1, = set_meteogram_axes([ax1], axparamdicts)
 
-    plt.savefig(ib.image_dir + 'meteograms/' + dis_name + '_amplitude.png', dpi=300)
-    plt.close(fig)
+        plt.savefig(ib.image_dir + 'meteograms/' + dis_name + '_amplitude.png', dpi=300)
+        plt.close(fig)
 
 
 def plotDSDmeteograms(dis_name, image_dir, axparams, disvars, radvars):

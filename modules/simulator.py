@@ -20,19 +20,20 @@ def samplegammaDSD(Nt, lamda, alpha, bins=None):
 
 def create_random_gamma_DSD(Nt, lamda, alpha, Vt, sampling_length, sampling_width, Dl, Dmid, Dr,
                             Dmin=0, Dmax=20.0, sampling_interval=10., remove_margins=False,
-                            verbose=False):
+                            verbose=False, rhocorrect=False, rho=None, mask_lowest=True):
     """Given Nt, lamda, alpha, create a spatial distribution in a volume"""
     # First, determine the sampling volume. Use the sampling area A multiplied by the
     # depth that the fasted falling particle would cover in the time given by sampling_interval
     Dmax_index = np.searchsorted(Dr, Dmax / 1000.)
     if verbose:
         print "Dmax_index = ", Dmax_index
+    Vt = dis.assignfallspeed(Dmid*1000., rhocorrect=rhocorrect, rho=rho)
     Vtmax = Vt[Dmax_index]
     sampling_height = Vtmax * sampling_interval
     sampling_area = sampling_length * sampling_width
     sampling_volume = sampling_area * sampling_height  # Maximum sampling volume
-    sampling_volumes_D = Vt[:Dmax_index + 1] * sampling_interval * \
-        sampling_area  # Sampling volumes as a function of diameter D
+    # Sampling volumes as a function of diameter D
+    sampling_volumes_D = calc_sampling_volumes_D(Vt, Dr, Dmax, sampling_interval, sampling_area)
 
     if verbose:
         print "sampling height = ", sampling_height
@@ -52,20 +53,32 @@ def create_random_gamma_DSD(Nt, lamda, alpha, Vt, sampling_length, sampling_widt
     # distribution given by n, lamda, and alpha
 
     diameters = samplegammaDSD(n, lamda, alpha)
+    if verbose:
+        print "minimum, maximum diameter in sample = ", diameters.min(), diameters.max()
+        print "maximumm allowed diameter = ", Dmax / 1000.
     # Restrict diameters to be less than Dmax
-    diameter_mask = np.where(diameters <= Dmax / 1000.)
+    diameter_mask = diameters <= Dmax / 1000.
+    if verbose:
+        print "number of particles less than Dmax = ", diameter_mask.sum()
+    # Mask the lowest two diameter bins by default (the real Parsivel does this owing to low SNR)
+    if mask_lowest:
+        low_mask = diameters > dis.max_diameter[1] / 1000.
+        if verbose:
+            print "number of particles above the lowest two bins = ", low_mask.sum()
+        diameter_mask = diameter_mask & low_mask
     diameters = diameters[diameter_mask]
     xpos = xpos[diameter_mask]
     ypos = ypos[diameter_mask]
     zpos = zpos[diameter_mask]
 
     if verbose:
-        print "number of particles less than Dmax = ", xpos.size
+        print "number of particles within allowable diameter range = ", diameter_mask.sum()
+        print "minimum, maximum particle diameter in truncated sample = ", diameters.min(), diameters.max()
 
     # Now, figure out which drops in the volume won't fall through the sensor
     # area in the given time, and remove them
 
-    velocities = dis.assignfallspeed(diameters * 1000.)
+    velocities = dis.assignfallspeed(diameters * 1000., rhocorrect=rhocorrect, rho=rho)
     depths = velocities * sampling_interval
     keepers = np.where(zpos.squeeze() - depths <= 0.)
 
@@ -108,9 +121,22 @@ def create_random_gamma_DSD(Nt, lamda, alpha, Vt, sampling_length, sampling_widt
     pcount_binned, _ = np.histogram(diameters, Dedges)
     # Compute ND of sample in original Parsivel diameter and velocity bins
     # Gets particle count/unit volume/diameter interval
-    ND = pcount_binned / (sampling_volumes_D * (Dr[:Dmax_index + 1] - Dl[:Dmax_index + 1]))
+    ND = calc_ND(pcount_binned, sampling_volumes_D, Dr, Dl, Dmax)
 
     positions = np.hstack((xpos, ypos, zpos))
     sample_dict = {'positions': positions, 'diameters': diameters, 'velocities': velocities,
-                   'ND': ND, 'margin_mask': margin_mask}
+                   'ND': ND, 'margin_mask': margin_mask, 'pcount_binned': pcount_binned,
+                   'sampling_volumes_D': sampling_volumes_D}
     return sample_dict
+
+
+def calc_ND(pcount_binned, sampling_volumes_D, Dr, Dl, Dmax):
+    """Calculate the number density ND for diameter bins bounded by Dr, Dl
+       given the particle counts in each bin (pcount_binned)"""
+    Dmax_index = np.searchsorted(Dr, Dmax / 1000.)
+    return pcount_binned / (sampling_volumes_D * (Dr[:Dmax_index + 1] - Dl[:Dmax_index + 1]))
+
+def calc_sampling_volumes_D(Vt, Dr, Dmax, sampling_interval, sampling_area):
+    """Calculate the sampling volumes as a function of terminal velocity."""
+    Dmax_index = np.searchsorted(Dr, Dmax / 1000.)
+    return Vt[:Dmax_index + 1] * sampling_interval * sampling_area

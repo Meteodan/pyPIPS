@@ -18,8 +18,6 @@ import modules.utils as utils
 import modules.DSDretrieval as DR
 import modules.empirical_module as em
 
-fieldnames = ['dBZ', 'ZDR', 'KDP', 'RHV', 'Vr']
-
 min_diameter = dis.min_diameter
 max_diameter = dis.max_diameter
 bin_width = max_diameter - min_diameter
@@ -80,13 +78,22 @@ if (not os.path.exists(ib.image_dir)):
 # We need the disdrometer locations. If they aren't supplied in the input control file, find them
 # from the GPS data
 
-for index, dis_name, dis_filename, dloc in \
-        zip(xrange(0, ib.numdis), ib.dis_name_list, ib.dis_list, ib.dlocs):
+for index, dis_name, dis_filename, starttime, stoptime, dloc, type in \
+        zip(xrange(0, ib.numdis), ib.dis_name_list, ib.dis_list, ib.starttimes, ib.stoptimes,
+        ib.dlocs, ib.type):
 
     if(N.int(dloc[0]) == -1):
         filepath = os.path.join(ib.dis_dir, dis_filename)
-        GPS_lats, GPS_lons, GPS_stats, GPS_alts, dloc = dis.readPIPSloc(
-            filepath)
+        if(type == 'PIPS'):
+            GPS_lats, GPS_lons, GPS_stats, GPS_alts, dloc = dis.readPIPSloc(filepath)
+        elif(type == 'CU'):
+            filepath = os.path.join(ib.dis_dir, dis_filename[:-8]+'CU'+dis_filename[-5]+'.dat')
+            GPS_lats, GPS_lons, GPS_stats, GPS_alts, dloc = dis.readCUloc(filepath,
+                                                                          starttime=starttime,
+                                                                          stoptime=stoptime)
+        elif(type == 'NV2'):
+            dloc = dis.readNV2loc(filepath)
+
         ib.dlocs[index] = dloc
 
     print "Lat/Lon/alt of " + dis_name + ": " + str(dloc)
@@ -95,6 +102,11 @@ for index, dis_name, dis_filename, dloc in \
 # Grab radar data for comparison if desired
 
 if(pc.comp_radar):
+    if(pc.comp_dualpol):
+        fieldnames = ['dBZ', 'ZDR', 'KDP', 'RHV', 'Vr']
+    else:
+        fieldnames = ['dBZ', 'Vr']
+
     sb = radar.readsweeps2PIPS(fieldnames, pc, ib)
 
     if(pc.plot_radar):
@@ -111,9 +123,9 @@ Wdict = {}
 Rdict = {}
 Ntdict = {}
 
-for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc in zip(xrange(
+for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc, type in zip(xrange(
         0, len(ib.dis_list)), ib.dis_list, ib.dis_name_list, ib.starttimes, ib.stoptimes,
-        ib.centertimes, ib.dlocs):
+        ib.centertimes, ib.dlocs, ib.type):
 
     # Is this necessary?
     if(pc.timetospace):
@@ -125,22 +137,45 @@ for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc in zip(
         if (not os.path.exists(meteogram_image_dir)):
             os.makedirs(meteogram_image_dir)
 
-    # Read in the disdrometer data file
-    filepath = os.path.join(ib.dis_dir, dis_filename)
+    # Read in the disdrometer data file and any auxiliary files
+    dis_filepath = os.path.join(ib.dis_dir, dis_filename)
+    if type == 'PIPS':
+        PIPS_dict = dis.readPIPS(dis_filepath, basicqc=pc.basicQC, rainfallqc=pc.rainfallQC,
+                                 rainonlyqc=pc.rainonlyQC, hailonlyqc=pc.hailonlyQC,
+                                 strongwindqc=pc.strongwindQC, requested_interval=pc.DSD_interval,
+                                 starttime=starttime, stoptime=stoptime)
+        pcountstr = 'pcount2'
+    elif type == 'CU':
+        conv_filename = dis_filename[:-8]+'CU'+dis_filename[-5]+'.dat'
+        conv_filepath = os.path.join(ib.dis_dir, conv_filename)
 
-    PIPS_dict = dis.readPIPS(filepath, basicqc=pc.basicQC, rainfallqc=pc.rainfallQC,
-                             rainonlyqc=pc.rainonlyQC, hailonlyqc=pc.hailonlyQC,
-                             strongwindqc=pc.strongwindQC, DSD_interval=pc.DSD_interval,
-                             starttime=starttime, stoptime=stoptime)
+        PIPS_dict = dis.readCU(conv_filepath, dis_filepath, basicqc=pc.basicQC,
+                               rainfallqc=pc.rainfallQC, rainonlyqc=pc.rainonlyQC,
+                               hailonlyqc=pc.hailonlyQC, strongwindqc=pc.strongwindQC,
+                               requested_interval=pc.DSD_interval, starttime=starttime,
+                               stoptime=stoptime)
+        pcountstr = 'pcount2'
+    elif type == 'NV2':
+        conv_filename = dis_filename.replace('DIS', 'TRP')
+        conv_filepath = os.path.join(ib.dis_dir, conv_filename)
+
+        PIPS_dict = dis.readNV2netCDF(conv_filepath, dis_filepath,
+                                      requested_interval=pc.DSD_interval, starttime=starttime,
+                                      stoptime=stoptime)
+        pcountstr = 'pcount'
+
 
     # Unpack some stuff from the PIPS_dict
-    onesectimestamps = PIPS_dict['onesectimestamps']
+    convtimestamps = PIPS_dict['convtimestamps']
     PSDtimestamps = PIPS_dict['PSDtimestamps']
-    onesec_df = PIPS_dict['onesec_df']
+    conv_df = PIPS_dict['conv_df']
     PSD_df = PIPS_dict['PSD_df']
     ND = PIPS_dict['ND']
     ND_onedrop = PIPS_dict['ND_onedrop']
-    countsMatrix = PIPS_dict['countsMatrix']
+    try:
+        countsMatrix = PIPS_dict['countsMatrix']
+    except Exception:
+        countsMatrix = None
 
     ND = ND.T
     ND_onedrop = ND_onedrop.T
@@ -157,31 +192,24 @@ for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc in zip(
     DSD_interval_td = timedelta(seconds=DSD_interval)
     DSD_halfinterval_td = timedelta(seconds=DSD_interval / 2.)
 
-    # Compute potential temperature, water vapor mixing ratio, and density
-
-    onesec_df['pt'] = thermo.caltheta(onesec_df['pressure']*100., onesec_df['fasttemp']+273.15)
-    onesec_df['qv'] = thermo.calqv(onesec_df['RH_derived']/100., onesec_df['pressure']*100.,
-                                   onesec_df['fasttemp']+273.15)
-    onesec_df['rho'] = thermo.calrho(onesec_df['pressure']*100., onesec_df['pt'], onesec_df['qv'])
-
     # Determine start and end times/indices for analysis
 
-    onesectimestampsnums = dates.date2num(onesectimestamps)
+    convtimestampsnums = dates.date2num(convtimestamps)
     PSDtimestampsnums = dates.date2num(PSDtimestamps)
 
-    plotstarttime = starttime
-    plotstoptime = stoptime
+#     plotstarttime = starttime
+#     plotstoptime = stoptime
 
-    startindex, stopindex = utils.getTimeWindow(starttime, stoptime, onesectimestampsnums)
+    startindex, stopindex = utils.getTimeWindow(starttime, stoptime, convtimestampsnums)
     pstartindex, pstopindex = utils.getTimeWindow(starttime, stoptime, PSDtimestampsnums)
 
-    starttime = onesectimestampsnums[startindex]
-    stoptime = onesectimestampsnums[stopindex]
+    starttime = convtimestampsnums[startindex]
+    stoptime = convtimestampsnums[stopindex]
     pstarttime = PSDtimestampsnums[pstartindex]
     pstoptime = PSDtimestampsnums[pstopindex]
 
-    # plotstarttime = starttime
-#     plotstoptime = stoptime
+    plotstarttime = starttime
+    plotstoptime = stoptime
 
     PSDtimestamps_edge = [x - DSD_interval_td for x in PSDtimestamps]
     # Add an extra 10 sec for the last time bin boundary
@@ -193,8 +221,8 @@ for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc in zip(
     # Store all time-related parameters in a dictionary (not actually used right now)
     timedict = {'startindex': startindex, 'stopindex': stopindex, 'pstartindex': pstartindex,
                 'starttime': starttime, 'stoptime': stoptime, 'pstarttime': pstarttime,
-                'pstoptime': pstoptime, 'onesectimestamps': onesectimestamps,
-                'onesectimestampnums': onesectimestampsnums, 'PSDtimestamps': PSDtimestamps,
+                'pstoptime': pstoptime, 'convtimestamps': convtimestamps,
+                'convtimestampnums': convtimestampsnums, 'PSDtimestamps': PSDtimestamps,
                 'PSDtimestampsnums': PSDtimestampsnums, 'PSDtimestamps_edge': PSDtimestamps_edge,
                 'PSDtimestamps_avg': PSDtimestamps_avg}
 
@@ -248,42 +276,40 @@ for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc in zip(
     # given DSD interval). Note, most of these aren't used for right now.
     sec_offset = PSDtimestamps[0].second
 
-    onesec_resampled_df = dis.resampleonesec(DSD_interval, sec_offset, onesec_df)
-    onesec_resampled_df = onesec_resampled_df.loc[DSD_index]
-    rho_tDSD = onesec_resampled_df['rho']
-
+    conv_resampled_df = dis.resampleconv(type, DSD_interval, sec_offset, conv_df)
+    conv_resampled_df = conv_resampled_df.loc[conv_resampled_df.index.intersection(DSD_index)]
+    rho_tDSD = conv_resampled_df['rho']
     # Conventional data meteogram plotting
     if(pc.plot_conv_meteo):
         # Interval for plotting in seconds.  Setting to larger intervals is useful to avoid
         # plot clutter for long datasets, but information will be lost.
         plotinterval = 1
         plotintervalstr = '{:d}S'.format(int(plotinterval))
-        sec_offset = onesectimestamps[0].second
+        sec_offset = convtimestamps[0].second
 
         # Plot wind meteogram
         windavgintv = 60
         windgustintv = 3
 
-        plottimes = onesectimestampsnums[startindex:stopindex + 1:plotinterval]
+        plottimes = convtimestampsnums[startindex:stopindex + 1:plotinterval]
         plottimeindex = pd.DatetimeIndex(
-            onesectimestamps[startindex:stopindex + 1:plotinterval])
-
-        onesec_plot_df = onesec_df.loc[plottimeindex]
-
+            convtimestamps[startindex:stopindex + 1:plotinterval])
+        conv_plot_df = conv_df.loc[conv_df.index.intersection(plottimeindex)]
         # Resample wind diagnostics array to flag as bad any time in the interval given by
         # plotinterval. Note, have to use numpy max() as a lambda function because the
         # pandas resample.max() does not propagate NaN's!
-        if(pc.plot_diagnostics):
-            onesec_plot_df['winddiag'] = onesec_df['winddiag'].resample(
-                plotintervalstr, label='right', closed='right', base=sec_offset,
-                how=lambda x: utils.trymax(x.values)).loc[plottimeindex]
+        if(pc.plot_diagnostics and type == 'PIPS'):
+            winddiag_resampled = conv_df['winddiag'].resample(plotintervalstr, label='right',
+                closed='right', base=sec_offset, how=lambda x: utils.trymax(x.values))
+            conv_plot_df['winddiag'] = winddiag_resampled.loc[
+                                            winddiag_resampled.index.intersection(plottimeindex)]
 
         # Organize a bunch of stuff in a dictionary
         convmeteodict = {'plotinterval': plotinterval, 'plottimes': plottimes,
                          'windavgintv': windavgintv, 'windgustintv': windgustintv,
-                         'onesec_plot_df': onesec_plot_df}
+                         'conv_plot_df': conv_plot_df}
 
-        pm.plotonesecmeteograms(index, pc, ib, convmeteodict)
+        pm.plotconvmeteograms(index, pc, ib, convmeteodict)
 
     # N.savetxt('ND1minavg.txt', ND1minavg) # Commented out for now
 
@@ -291,10 +317,9 @@ for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc in zip(
     # parameters using the method of moments, after Zhang et al. 2008 and Tokay and
     # Short 1996
     if(pc.calc_DSD):
-
         synthbins, exp_DSD, gam_DSD, tmf_DSD, dis_DSD = dis.calc_DSD(pc,
             min_diameter, avg_diameter, max_diameter, bin_width, ND, logND, rho_tDSD.values, pc.qrQC,
-            pc.qr_thresh, PSD_df['pcount2'].values, PSD_df['intensity'].values)
+            pc.qr_thresh, PSD_df[pcountstr].values, PSD_df['intensity'].values)
 
         # Unpack needed values from returned tuples
 
@@ -327,7 +352,7 @@ for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc in zip(
     if(pc.plot_DSD_meteo):
         PSDplottimes = PSDtimestampsnums[pstartindex: pstopindex + 1]
         plotPSDindex = pd.DatetimeIndex(PSDtimestamps[pstartindex: pstopindex + 1])
-        PSD_plot_df = PSD_df.loc[plotPSDindex]
+        PSD_plot_df = PSD_df.loc[PSD_df.index.intersection(plotPSDindex)]
         # Loop through the observed, exponential, and gamma fits
         for DSDtype in ['observed', 'exponential', 'gamma']:
             if(DSDtype == 'observed'):
@@ -392,7 +417,8 @@ for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc in zip(
                             disvars[varname] = var[pstartindex:pstopindex + 1]
 
             # Mark flagged times with vertical lines, if desired
-            if(pc.plot_diagnostics):
+            # TODO: set up separate criteria for NSSL V2 probes?
+            if(pc.plot_diagnostics and type not in 'NV2'):
                 if(DSDtype == 'observed'):
                     # Extract indices for flagged times
                     flaggedtimes_index = N.where(
@@ -414,7 +440,7 @@ for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc in zip(
                 dBZ_D_plt = sb.fields_D_tarr[:, index, indexrad]
                 radvars = {'radmidtimes': plotx_rad, 'dBZ': dBZ_D_plt}
                 # Add other polarimetric fields
-                if(pc.calc_dualpol):
+                if(pc.comp_dualpol):
                     for radvarname in ['ZDR', 'KDP', 'RHV']:
                         if radvarname in sb.outfieldnames:
                             indexrad = sb.outfieldnames.index(radvarname)
@@ -488,7 +514,7 @@ for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc in zip(
                             'dBZ_dis': (refl_disd[t], r'Z (obs, dBZ)'),
                             'RR_disd': (PSD_df['intensity'].values[t],
                                         r'Rain rate (obs, mm hr$^{-1}$)'),
-                            'Particle count': (PSD_df['pcount2'].values[t],
+                            'Particle count': (PSD_df[pcountstr].values[t],
                                                r'Particle count (QC)')}
 
             if(pc.calc_dualpol):
@@ -498,7 +524,7 @@ for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc in zip(
             if(sum > 0.0):
                 pm.plot_DSD(ib, axdict, PSDdict, PSDfitdict, PSDparamdict)
 
-    if(pc.plot_vel_D):
+    if(pc.plot_vel_D and type not in 'NV2'):
         if (not os.path.exists(ib.image_dir + 'vel_D/' + dis_name)):
             os.makedirs(ib.image_dir + 'vel_D/' + dis_name)
 
@@ -507,7 +533,7 @@ for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc in zip(
                   'xlim': pc.D_range, 'ylim': pc.vel_range,
                   'dis_name': dis_name}
 
-        for t in range(N.size(countsMatrix, axis=0)):
+        for t in xrange(PSD_df.index.size):
             if(PSD_df['pcount2'].values[t] > 0):
                 axdict['time'] = t
                 PSDdict = {'countsMatrix': countsMatrix[t, :],

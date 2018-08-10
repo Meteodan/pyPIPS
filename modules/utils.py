@@ -50,7 +50,8 @@ def import_all_from(module_path):
 
 
 def readpyPIPSinput(path):
-    """Reads and parses a pyPIPS text input file"""
+    """Reads and parses a pyPIPS text input file
+       TODO: Rewrite this to use configparser?"""
     inputdict = {}
     with open(path, 'r') as inputfile:
         # Read and discard header
@@ -73,6 +74,7 @@ def readpyPIPSinput(path):
         starttimes = []
         stoptimes = []
         centertimes = []
+        types = []
         for l in xrange(inputdict['numdis']):
             line = inputfile.readline().strip().split(',')
             dname = line[0]  # Disdrometer name
@@ -83,6 +85,10 @@ def readpyPIPSinput(path):
             lat = N.float(line[5])
             lon = N.float(line[6])
             alt = N.float(line[7])
+            try:
+                type = line[8]
+            except Exception:
+                type = 'PIPS'
             # Append to appropriate lists
             dis_list.append(dfile)
             dis_name_list.append(dname)
@@ -90,6 +96,7 @@ def readpyPIPSinput(path):
             stoptimes.append(stoptime)
             centertimes.append(centertime)
             dlocs.append((lat, lon, alt))
+            types.append(type)
 
         # In the future, need to think about making a Disdrometer class to encapsulate
         # this stuff
@@ -99,6 +106,7 @@ def readpyPIPSinput(path):
         inputdict['stoptimes'] = stoptimes
         inputdict['centertimes'] = centertimes
         inputdict['dlocs'] = dlocs
+        inputdict['type'] = types
 
         inputfile.readline()
         inputfile.readline()

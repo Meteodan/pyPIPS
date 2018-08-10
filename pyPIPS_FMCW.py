@@ -132,9 +132,9 @@ for directory in directories:
                                          DSD_interval=pc.DSD_interval)
 
                      # Unpack some stuff from the PIPS_dict
-                    onesectimestamps = PIPS_dict['onesectimestamps']
+                    convtimestamps = PIPS_dict['convtimestamps']
                     PSDtimestamps = PIPS_dict['PSDtimestamps']
-                    onesec_df = PIPS_dict['onesec_df']
+                    conv_df = PIPS_dict['conv_df']
                     PSD_df = PIPS_dict['PSD_df']
                     ND = PIPS_dict['ND']
                     ND_onedrop = PIPS_dict['ND_onedrop']
@@ -153,10 +153,10 @@ for directory in directories:
 
                     # Compute potential temperature, water vapor mixing ratio, and density
 
-                    onesec_df['pt'] = thermo.caltheta(onesec_df['pressure']*100., onesec_df['fasttemp']+273.15)
-                    onesec_df['qv'] = thermo.calqv(onesec_df['RH_derived']/100., onesec_df['pressure']*100.,
-                                                   onesec_df['fasttemp']+273.15)
-                    onesec_df['rho'] = thermo.calrho(onesec_df['pressure']*100., onesec_df['pt'], onesec_df['qv'])
+                    conv_df['pt'] = thermo.caltheta(conv_df['pressure']*100., conv_df['fasttemp']+273.15)
+                    conv_df['qv'] = thermo.calqv(conv_df['RH_derived']/100., conv_df['pressure']*100.,
+                                                   conv_df['fasttemp']+273.15)
+                    conv_df['rho'] = thermo.calrho(conv_df['pressure']*100., conv_df['pt'], conv_df['qv'])
 
                     max_ref = N.max(PSD_df['reflectivity'].values)
 
@@ -168,20 +168,20 @@ for directory in directories:
 
                     # Determine start and end times/indices for analysis
 
-                    onesectimestampsnums = dates.date2num(onesectimestamps)
+                    convtimestampsnums = dates.date2num(convtimestamps)
                     PSDtimestampsnums = dates.date2num(PSDtimestamps)
 
                     startindex = 0
                     pstartindex = 0
-                    starttime = onesectimestampsnums[startindex]
+                    starttime = convtimestampsnums[startindex]
                     inputdict['starttimes'] = [starttime]
                     pstarttime = PSDtimestampsnums[startindex]
                     plotstarttime = starttime
-                    radar_date = onesectimestamps[0].strftime(tm.timefmt4).strip()
+                    radar_date = convtimestamps[0].strftime(tm.timefmt4).strip()
 
-                    stopindex = N.size(onesectimestampsnums)-1
+                    stopindex = N.size(convtimestampsnums)-1
                     pstopindex = N.size(PSDtimestampsnums)-1
-                    stoptime = onesectimestampsnums[stopindex]
+                    stoptime = convtimestampsnums[stopindex]
                     inputdict['stoptimes'] = [stoptime]
                     pstoptime = PSDtimestampsnums[pstopindex]
                     plotstoptime = stoptime
@@ -212,7 +212,7 @@ for directory in directories:
                     inputdict['radar_dir'] = '/Volumes/depot/dawson29/data/VORTEXSE/obsdata/2017/NEXRAD/PIPS2A_FMCW/'+radar_date+'/CFRadial/'
                     inputdict['scattdir'] = '/Users/dawson29/pyPIPS/tmatrix/S-band/'
 
-                    raddate = onesectimestamps[0].strftime(tm.timefmt5).strip().split(',')
+                    raddate = convtimestamps[0].strftime(tm.timefmt5).strip().split(',')
                     raddate_int = map(int,raddate)
                     # Read in start and end times for the radar data analysis (int)
                     inputdict['starttimerad'] = datetime(raddate_int[0],raddate_int[1],raddate_int[2],int(00),int(00),int(00))
@@ -269,9 +269,9 @@ for directory in directories:
                                                  strongwindqc=pc.strongwindQC,
                                                  DSD_interval=pc.DSD_interval)
                         # Unpack some stuff from the PIPS_dict
-                        onesectimestamps = PIPS_dict['onesectimestamps']
+                        convtimestamps = PIPS_dict['convtimestamps']
                         PSDtimestamps = PIPS_dict['PSDtimestamps']
-                        onesec_df = PIPS_dict['onesec_df']
+                        conv_df = PIPS_dict['conv_df']
                         PSD_df = PIPS_dict['PSD_df']
                         ND = PIPS_dict['ND']
                         ND_onedrop = PIPS_dict['ND_onedrop']
@@ -289,21 +289,21 @@ for directory in directories:
 
                         # Compute potential temperature, water vapor mixing ratio, and density
 
-                        onesec_df['pt'] = thermo.caltheta(onesec_df['pressure']*100., onesec_df['fasttemp']+273.15)
-                        onesec_df['qv'] = thermo.calqv(onesec_df['RH_derived']/100., onesec_df['pressure']*100.,
-                                                       onesec_df['fasttemp']+273.15)
-                        onesec_df['rho'] = thermo.calrho(onesec_df['pressure']*100., onesec_df['pt'], onesec_df['qv'])
+                        conv_df['pt'] = thermo.caltheta(conv_df['pressure']*100., conv_df['fasttemp']+273.15)
+                        conv_df['qv'] = thermo.calqv(conv_df['RH_derived']/100., conv_df['pressure']*100.,
+                                                       conv_df['fasttemp']+273.15)
+                        conv_df['rho'] = thermo.calrho(conv_df['pressure']*100., conv_df['pt'], conv_df['qv'])
 
                         # Determine start and end times/indices for analysis
 
-                        onesectimestampsnums = dates.date2num(onesectimestamps)
+                        convtimestampsnums = dates.date2num(convtimestamps)
                         PSDtimestampsnums = dates.date2num(PSDtimestamps)
 
-                        startindex, stopindex = utils.getTimeWindow(starttime, stoptime, onesectimestampsnums)
+                        startindex, stopindex = utils.getTimeWindow(starttime, stoptime, convtimestampsnums)
                         pstartindex, pstopindex = utils.getTimeWindow(starttime, stoptime, PSDtimestampsnums)
 
-                        starttime = onesectimestampsnums[startindex]
-                        stoptime = onesectimestampsnums[stopindex]
+                        starttime = convtimestampsnums[startindex]
+                        stoptime = convtimestampsnums[stopindex]
                         pstarttime = PSDtimestampsnums[pstartindex]
                         pstoptime = PSDtimestampsnums[pstopindex]
 
@@ -320,8 +320,8 @@ for directory in directories:
                         # Store all time-related parameters in a dictionary (not actually used right now)
                         timedict = {'startindex': startindex, 'stopindex': stopindex, 'pstartindex': pstartindex,
                                     'starttime': starttime, 'stoptime': stoptime, 'pstarttime': pstarttime,
-                                    'pstoptime': pstoptime, 'onesectimestamps': onesectimestamps,
-                                    'onesectimestampnums': onesectimestampsnums, 'PSDtimestamps': PSDtimestamps,
+                                    'pstoptime': pstoptime, 'convtimestamps': convtimestamps,
+                                    'convtimestampnums': convtimestampsnums, 'PSDtimestamps': PSDtimestamps,
                                     'PSDtimestampsnums': PSDtimestampsnums, 'PSDtimestamps_edge': PSDtimestamps_edge,
                                     'PSDtimestamps_avg': PSDtimestamps_avg}
 
@@ -362,9 +362,9 @@ for directory in directories:
                     # given DSD interval). Note, most of these aren't used for right now.
                     sec_offset = PSDtimestamps[0].second
 
-                    onesec_resampled_df = dis.resampleonesec(DSD_interval, sec_offset, onesec_df)
-                    onesec_resampled_df = onesec_resampled_df.loc[DSD_index]
-                    rho_tDSD = onesec_resampled_df['rho']
+                    conv_resampled_df = dis.resampleconv(DSD_interval, sec_offset, conv_df)
+                    conv_resampled_df = conv_resampled_df.loc[DSD_index]
+                    rho_tDSD = conv_resampled_df['rho']
 
                     # Now for the fun part.  Calculate exponential and gamma distribution size distribution
                     # parameters using the method of moments, after Zhang et al. 2008 and Tokay and
