@@ -810,6 +810,7 @@ def readPIPS(filename, fixGPS=True, basicqc=False, rainfallqc=False, rainonlyqc=
     ND_onedrop = ma.array(ND_onedrop, mask=mask)
     # Argh, have to convert back to datetime objects.  This one from
     # http://stackoverflow.com/questions/13703720/converting-between-datetime-timestamp-and-datetime64
+    datetimes_corrected = datetimes_corrected.to_pydatetime()
     pdatetimes_corrected = ND_df.index.to_pydatetime()
     DSD_index = ND_df.index
     countsMatrix = countsMatrix_da.values
@@ -827,7 +828,7 @@ def readPIPS(filename, fixGPS=True, basicqc=False, rainfallqc=False, rainonlyqc=
 
     return PIPS_dict
 
-def readCU(filename_conv, filename_dsd, fixGPS=True, basicqc=False, rainfallqc=False, rainonlyqc=False,
+def readCU(filename_conv, filename_dsd, fixGPS=True, basicqc=False, rainfallqc=False, rainonlyqc=True,
              hailonlyqc=False, strongwindqc=False, detecthail=True, requested_interval=60.0,
              starttime=None, stoptime=None, matchtimes=True):
     """Reads data from the CU VORTEX-2 disdrometer probes. Currently only works for 2009 data"""
@@ -1283,6 +1284,7 @@ def readCU(filename_conv, filename_dsd, fixGPS=True, basicqc=False, rainfallqc=F
     ND_onedrop = ma.array(ND_onedrop, mask=mask)
     # Argh, have to convert back to datetime objects.  This one from
     # http://stackoverflow.com/questions/13703720/converting-between-datetime-timestamp-and-datetime64
+    datetimes_corrected = datetimes_corrected.to_pydatetime()
     pdatetimes_corrected = ND_df.index.to_pydatetime()
     DSD_index = ND_df.index
     countsMatrix = countsMatrix_da.values
@@ -1897,8 +1899,35 @@ def calpolrain(wavelength, filename, Nd, intv):
 
     return dualpol_dict
 
-def calc_DSD(pc, min_size, avg_size, max_size, bin_width, Nc_bin, logNc_bin, rho, qrQC, qr_thresh,
-             pcounts, intensities):
+
+def calc_D0_bin(D, Dl, Dr, ND, bin_width):
+    """Calculate D0 for a binned distribution"""
+    temp_M3 = (D**3.) * ND * bin_width
+    temp_M3_cumsum = np.cumsum(temp_M3)  # Cumulative sum of M3 with increasing bin size
+    temp_M3_sum = np.sum(temp_M3)
+    pro = temp_M3 / np.sum(temp_M3_sum)  # Proportion of M3 in each bin
+    pro_cumsum = temp_M3_cumsum / np.sum(temp_M3_sum)  # Cumulative proportion of M3 in each bin
+    # Compute median volume diameter using a linear interpolation within the "mass-midpoint" bin.
+    # Source: http://www.dropletmeasurement.com/PADS_Help/MVD_(um).htm
+    # (originally from FAA Electronic Aircraft Icing Handbook)
+    try:
+        # Find index of bin where cumulative sum exceeds 1/2 of total
+        medindex = np.where(pro_cumsum > 0.5)[0][0]
+        b1 = Dl[medindex]  # Lower boundary of mass-midpoint bin
+        b2 = Dr[medindex]  # Upper boundary of mass-midpoint bin
+        if(medindex == 0):
+            pro_cumsum_medindexm1 = 0.0
+        else:
+            pro_cumsum_medindexm1 = pro_cumsum[medindex - 1]
+        # Linearly-interpolated (within mass-midpoint bin) D0
+        D0 = b1 + ((0.5 - pro_cumsum_medindexm1) / pro[medindex]) * (b2 - b1)
+    except Exception:
+        medindex = 0
+        D0 = np.nan
+    return D0
+
+def calc_DSD(pc, min_size, avg_size, max_size, bin_width, Nc_bin, rho, qrQC=False, qr_thresh=None,
+             pcounts=None, intensities=None):
     """Fits exponential and gamma DSDs to disdrometer data and returns several DSD related quantities."""
 
     min_size = N.array(min_size)
@@ -1924,6 +1953,7 @@ def calc_DSD(pc, min_size, avg_size, max_size, bin_width, Nc_bin, logNc_bin, rho
         numtimes = 1
         Nc_bin = Nc_bin[:, N.newaxis]
 
+    # FIXME: Change this to use functioned defined above with air density correction!
     v = -0.1021 + 4.932 * avg_size - 0.9551 * avg_size**2. + \
         0.07934 * avg_size**3. - 0.002362 * avg_size**4.
     rainrate = []
@@ -2035,7 +2065,7 @@ def calc_DSD(pc, min_size, avg_size, max_size, bin_width, Nc_bin, logNc_bin, rho
 
         D_med_disd = ma.masked_array(D_med_disd, mask=qrmask1D)
         Nc_bin = ma.masked_array(Nc_bin, mask=qrmask2D)
-        logNc_bin = ma.masked_array(logNc_bin, mask=qrmask2D)
+        # logNc_bin = ma.masked_array(logNc_bin, mask=qrmask2D)
         M0 = ma.masked_array(M0, mask=qrmask1D)
         M1 = ma.masked_array(M1, mask=qrmask1D)
         M2 = ma.masked_array(M2, mask=qrmask1D)
@@ -2058,7 +2088,7 @@ def calc_DSD(pc, min_size, avg_size, max_size, bin_width, Nc_bin, logNc_bin, rho
 
         D_med_disd = ma.masked_array(D_med_disd, mask=nummask1D)
         Nc_bin = ma.masked_array(Nc_bin, mask=nummask2D)
-        logNc_bin = ma.masked_array(logNc_bin, mask=nummask2D)
+        # logNc_bin = ma.masked_array(logNc_bin, mask=nummask2D)
         M0 = ma.masked_array(M0, mask=nummask1D)
         M1 = ma.masked_array(M1, mask=nummask1D)
         M2 = ma.masked_array(M2, mask=nummask1D)
@@ -2313,7 +2343,7 @@ def calc_DSD(pc, min_size, avg_size, max_size, bin_width, Nc_bin, logNc_bin, rho
                D_m_gam, LWC_gam, rainrate_gam)
     tmf_DSD = (N_tmfDSD, N0_tmf, lamda_tmf, mu_tmf, qr_tmf, Ntr_tmf, refl_DSD_tmf,
                LWC_tmf, rainrate_tmf)
-    dis_DSD = (Nc_bin, logNc_bin, D_med_disd, D_m_disd, D_mv_disd, D_ref_disd, QR_disd, refl_disd,
+    dis_DSD = (Nc_bin, D_med_disd, D_m_disd, D_mv_disd, D_ref_disd, QR_disd, refl_disd,
                LWC_disd, M0, rainrate)
 
     return synthbins, exp_DSD, gam_DSD, tmf_DSD, dis_DSD
@@ -3234,6 +3264,7 @@ def readNV2netCDF(filename_conv, filename_dsd, fixGPS=True, basicqc=False, rainf
     ND_onedrop = ma.array(ND_onedrop, mask=mask)
     # Argh, have to convert back to datetime objects.  This one from
     # http://stackoverflow.com/questions/13703720/converting-between-datetime-timestamp-and-datetime64
+    datetimes_corrected = datetimes_corrected.to_pydatetime()
     pdatetimes_corrected = ND_df.index.to_pydatetime()
     DSD_index = ND_df.index
 
