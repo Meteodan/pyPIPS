@@ -4,6 +4,7 @@ import numpy as np
 from scipy.stats import gamma, uniform
 from . import disdrometer_module as dis
 from . import plotmodule as pm
+from . import DSDlib as dsd
 from shapely.geometry import MultiLineString, LineString
 from matplotlib.collections import LineCollection
 from datetime import datetime, timedelta
@@ -14,11 +15,30 @@ import os
 from . import radarmodule as radar
 from . import thermolib as thermo
 from .datahandler import getDataHandler
+from . import dualpara as dualpol
 import pyart as pyart
 import matplotlib.pyplot as plt
 from shapely.geometry import MultiLineString, LineString
 from matplotlib.collections import LineCollection
 from metpy.plots import ctables
+import matplotlib.cm as cm
+import matplotlib.ticker as ticker
+
+# Some global parameters to make my life easier
+rhoacst = 1.0 # kg m^-3
+rhorcst = 1000. # kg m^-3
+cr = rhorcst*np.pi/6.
+mur = 1./3. # FIXME: Assume rain is gamma-diameter for now!
+
+sampling_area = dis.sensor_area
+sampling_width = dis.sensor_width
+sampling_length = dis.sensor_length
+
+D = dis.avg_diameter/1000.
+Dl = dis.min_diameter/1000.
+Dr = dis.max_diameter/1000.
+Dedges = np.append(Dl,Dr[-1])
+bin_width = Dr - Dl
 
 def samplegammaDSD(Nt, lamda, alpha, bins=None):
     """Randomly samples a gamma DSD given Nt, lamda, and alpha."""
@@ -39,7 +59,10 @@ def create_random_gamma_DSD(Nt, lamda, alpha, Vt, sampling_length, sampling_widt
     """Given Nt, lamda, alpha, create a spatial distribution in a volume"""
     # First, determine the sampling volume. Use the sampling area A multiplied by the
     # depth that the fasted falling particle would cover in the time given by sampling_interval
-    Dmax_index = np.searchsorted(Dr, Dmax / 1000.)
+    if Dmax is None:
+        Dmax_index = np.size(Dr)
+    else:
+        Dmax_index = np.searchsorted(Dr, Dmax / 1000., side='right')
     if verbose:
         print "Dmax_index = ", Dmax_index
     Vt = dis.assignfallspeed(Dmid*1000., rhocorrect=rhocorrect, rho=rho)
@@ -132,7 +155,7 @@ def create_random_gamma_DSD(Nt, lamda, alpha, Vt, sampling_length, sampling_widt
     # Bin up particles into the Parsivel diameter bins (later will add velocity too; right now all
     # particles are assumed to fall strictly along theoretical/empirical fall speed curve)
     Dedges = np.append(Dl, Dr[-1])
-    Dedges = Dedges[:Dmax_index + 2]
+    Dedges = Dedges[:Dmax_index + 1]
     pcount_binned, _ = np.histogram(diameters, Dedges)
     # Compute ND of sample in original Parsivel diameter and velocity bins
     # Gets particle count/unit volume/diameter interval
@@ -148,14 +171,20 @@ def create_random_gamma_DSD(Nt, lamda, alpha, Vt, sampling_length, sampling_widt
 def calc_ND(pcount_binned, sampling_volumes_D, Dr, Dl, Dmax):
     """Calculate the number density ND for diameter bins bounded by Dr, Dl
        given the particle counts in each bin (pcount_binned)"""
-    Dmax_index = np.searchsorted(Dr, Dmax / 1000.)
-    return pcount_binned / (sampling_volumes_D * (Dr[:Dmax_index + 1] - Dl[:Dmax_index + 1]))
+    if Dmax is None:
+        Dmax_index = np.size(Dr)
+    else:
+        Dmax_index = np.searchsorted(Dr, Dmax / 1000., side='right')
+    return pcount_binned / (sampling_volumes_D * (Dr[:Dmax_index] - Dl[:Dmax_index]))
 
 
 def calc_sampling_volumes_D(Vt, Dr, Dmax, sampling_interval, sampling_area):
     """Calculate the sampling volumes as a function of terminal velocity."""
-    Dmax_index = np.searchsorted(Dr, Dmax / 1000.)
-    return Vt[:Dmax_index + 1] * sampling_interval * sampling_area
+    if Dmax is None:
+        Dmax_index = np.size(Dr)
+    else:
+        Dmax_index = np.searchsorted(Dr, Dmax / 1000., side='right')
+    return Vt[:Dmax_index] * sampling_interval * sampling_area
 
 def uniquetol(a, tol=1.e-3):
     """Returns an array with duplicates removed within a given tolerance.
@@ -211,7 +240,7 @@ def find_transect_grid_intersections(casedate, grid_dict, dis_dict, model_dict, 
         fixed_time = True
     else:
         dis_x, dis_y = model_dict[casedate]['ref_coords']
-        model_times_rel = np.array(model_times - reference_time_sec)
+        model_times_rel = np.array(model_times) - reference_time_sec
         if model_times_rel.size == 1:
             fixed_time = True
         else:
@@ -398,7 +427,7 @@ def find_transect_grid_intersections(casedate, grid_dict, dis_dict, model_dict, 
                 vars_at_ts.append(vardict)
             elif fixed_time:
                 if t == 0:
-                    time = modeltimeref_sec
+                    time = reference_time_sec
                     vars_at_ts.append(vardict)
                 else:
                     vars_at_ts.append(vars_at_ts[-1])
@@ -877,7 +906,7 @@ def get_dis_locs_relative_to_radar(casedate, dis_dict, radar_dict):
 
 
 
-def set_dh(casedate, model_dict, radar_dict, fixed_time=True, multitime=True):
+def set_dh(casedate, model_dict, radar_dict, fixed_time=True):
     """Reads a DataHandler instance for COMMAS simulation output given information in model_dict, using
        casedate as the key. Puts the DataHandler instance into model_dict. Also associates
        the reference time of the model simulation with that of the reference sweep in radar_dict"""
@@ -890,6 +919,7 @@ def set_dh(casedate, model_dict, radar_dict, fixed_time=True, multitime=True):
         model_times = model_dict[casedate]['model_times']
     else:
         model_times = [modeltimesec_ref]
+    multitime = model_dict[casedate]['multitime']
     microphys = model_dict[casedate]['microphys']
     dh = getDataHandler(modelname, dirname, model_times, microphys, multitime=multitime)
     dh.setRun(runname, 0)
@@ -1021,11 +1051,21 @@ def read_vardict(casedate, model_dict, varlists, varlistv, varlist_derived):
     """Reads in variables from the model files listed in model_dict and returns a list of
        dictionaries containing the variables for each time."""
     model_times = model_dict[casedate]['model_times']
+    dh = model_dict[casedate]['DataHandler']
     vardictlist = []
     for t, time in enumerate(model_times):
         vardict = dh.loadVars(varlists)
         temp = dh.loadVars(varlistv)
         vardict.update(temp)
+        # Extract only lowest model level here
+        for key, var in vardict.iteritems():
+            vardict[key] = var[0, ...]
+        # Now read in the microphysics scalars
+        mp_data, consts = dh.loadMicrophysics()
+        # Extract the lowest model level and store in mp_data_2D
+        mp_data_2D = {}
+        for key, dat in mp_data.iteritems():
+            vardict[key] = dat.T[0, ...]
         if 'U' in varlistv:
             vardict['UC'] = 0.5*(vardict['U'][:-1, :-1] + vardict['U'][:-1, 1:])
         if 'V' in varlistv:
@@ -1080,14 +1120,19 @@ def build_composite(casedate, model_dict, compositedict, dh, plotlocs=True):
     tflag = True
     for t, time in enumerate(model_times):
         if t == 0:
-            searchboxlims = None
-            guesscoords = None
+            # Choose center of domain to start
+            iref = int((igend - igbgn) / 2.)
+            jref = int((jgend - jgbgn) / 2.)
+            searchboxlims = [iref-ishw*2, iref+ishw*2+1, jref-jshw*2, jref+jshw*2+1]
+            guesscoords = [iref, jref]
 
         #print "guesscoords = ",guesscoords
         #print "searchboxlims = ",searchboxlims
 
         print "The model time is {:d} s".format(int(time))
         dh.setTime(time)
+        if not model_dict[casedate]['multitime']:
+            dh.setRun(model_dict[casedate]['runname'], 0, time=time)
         # Right now, only vortz or w for tracking variable
         if tracking_varname == 'w':
             print "Reading variable " + tracking_varname
@@ -1124,6 +1169,8 @@ def build_composite(casedate, model_dict, compositedict, dh, plotlocs=True):
             # Read in variables to composite (separate grid dimensions for scalars vs. vector wind components)
             compositeboxindices = [iref-ichw+igbgn, iref+ichw+1+igbgn, jref-jchw+jgbgn, jref+jchw+1+jgbgn, 0, 1]
             compositeboxindices_uv = [iref-ichw+igbgn, iref+ichw+1+igbgn+1, jref-jchw+jgbgn, jref+jchw+1+jgbgn+1, 0, 1]
+            print compositeboxindices
+            print compositeboxindices_uv
 
             vardict = dh.loadVars(varlists, compositeboxindices)
             temp = dh.loadVars(varlistv, compositeboxindices_uv)
@@ -1164,3 +1211,287 @@ def build_composite(casedate, model_dict, compositedict, dh, plotlocs=True):
         figcl.savefig(model_dict[casedate]['runname'] + '_sfcvortloc_{:06d}_{:06d}.png'.format(int(model_times[0]), int(model_times[-1])), dpi=200)
 
     return varcompdict
+
+def interp_model_to_transect(casedate, dis_dict, model_dict, dis_ts_model_dict,
+                               sampling_interval=60., add_hail=False, use_bins_for_interp=False,
+                               use_Parsivel_simulator=False, Dmax=None, plot_transects=False):
+    """Interpolates model variables, including bulk DSDs, to a simulated disdrometer transect.
+       Also bins the resulting DSDs using the Parsivel diameter bins. Options:
+       add_hail: if True, add hail and graupel to the rain distribution
+       use_bins_for_resample: if True, discretize the model gamma DSDs to the Parsivel bins
+       first, and then interpolate (at sampling_interval) along the transect. If False, directly
+       interpolate the moments (using weighted averages), and then discretize.
+       use_Parsivel_simulator: if True, sample the model DSDs using the Parsivel simulator. If
+       False, keep the raw DSDs."""
+
+    if Dmax is not None:
+        Dmax_index = np.searchsorted(Dr, Dmax/1000., side='right')
+    else:
+        Dmax_index = np.size(Dr)
+
+    # TODO: allow for adding hail but still
+    if not use_bins_for_interp and add_hail:
+        print ("Directly using moments for resampling (instead of discretizing to bins first) \n"
+               "is currently not working with the add hail option, sorry! Setting add_hail to False!")
+        add_hail = False
+
+    # FIXME: should probably rearrange things so that the timeseries for each variable is contained in the
+    # dictionary of variables rather than the other way around
+    D0r_mod = []
+    if use_Parsivel_simulator:
+        D0r_mod_ps = []
+    for d, dis_name in enumerate(dis_dict[casedate]['dis_names']):
+        sampling_times = dis_ts_model_dict['dis_ts_stimes'][d]
+        all_times = dis_ts_model_dict['dis_ts_times'][d]
+        dt = all_times[1:]-all_times[:-1]
+        sample_xlocs = np.array([xylocs[0] for xylocs in dis_ts_model_dict['dis_ts_xyslocs'][d]])
+        sample_ylocs = np.array([xylocs[1] for xylocs in dis_ts_model_dict['dis_ts_xyslocs'][d]])
+        vars_at_ts_points = dis_ts_model_dict['dis_ts_vars_points'][d]
+        ntimes = len(vars_at_ts_points)
+
+        rhoa = np.array([vars_at_ts_points[t]['rhoa'] for t in xrange(ntimes)])
+        qr = np.array([vars_at_ts_points[t]['qr'] for t in xrange(ntimes)])
+        ntr = np.array([vars_at_ts_points[t]['ntr'] for t in xrange(ntimes)])
+        zr = np.array([vars_at_ts_points[t]['zr'] for t in xrange(ntimes)])
+        # TODO: maybe change arguments of calls to cal_N0, cal_lambda, etc. to optionally directly
+        # read in Z moments and calculate alpha within
+        if use_bins_for_interp:
+            alphar = np.array([vars_at_ts_points[t]['alphar'] for t in xrange(ntimes)])
+            N0r, _ = dsd.cal_N0(rhoa, qr, ntr, cr, alphar)
+            lamdar = dsd.cal_lamda(rhoa, qr, ntr, cr, alphar)
+        dBZ = np.array([vars_at_ts_points[t]['DBZ'] for t in xrange(ntimes)])
+
+        if add_hail:
+            qh = np.array([vars_at_ts_points[t]['qh'] for t in xrange(ntimes)])
+            nth = np.array([vars_at_ts_points[t]['nth'] for t in xrange(ntimes)])
+            zh = np.array([vars_at_ts_points[t]['zh'] for t in xrange(ntimes)])
+            alphah = np.array([vars_at_ts_points[t]['alphah'] for t in xrange(ntimes)])
+            rhoh = np.array([vars_at_ts_points[t]['rhoh'] for t in xrange(ntimes)])
+            ch = rhoh * np.pi / 6.
+
+            qg = np.array([vars_at_ts_points[t]['qg'] for t in xrange(ntimes)])
+            ntg = np.array([vars_at_ts_points[t]['ntg'] for t in xrange(ntimes)])
+            zg = np.array([vars_at_ts_points[t]['zg'] for t in xrange(ntimes)])
+            alphag = np.array([vars_at_ts_points[t]['alphag'] for t in xrange(ntimes)])
+            rhog = np.array([vars_at_ts_points[t]['rhog'] for t in xrange(ntimes)])
+            cg = rhog * np.pi / 6.
+
+            N0h, _ = dsd.cal_N0(rhoa, qh, nth, ch, alphah)
+            lamdah = dsd.cal_lamda(rhoa, qh, nth, ch, alphah)
+            N0g, _ = dsd.cal_N0(rhoa, qg, ntg, cg, alphag)
+            lamdag = dsd.cal_lamda(rhoa, qg, ntg, cg, alphag)
+
+        # If sampling the model DSD with the Parsivel simulator, we need the array of assumed
+        # fall speeds vs. diameter, with the appropriate correction for air density
+        if use_Parsivel_simulator:
+            Vtr = []
+            for t in xrange(ntimes):
+                Vtr.append(dis.assignfallspeed(dis.avg_diameter, rhocorrect=True, rho=rhoa[t]))
+            Vtr = np.array(Vtr)
+            Vtr = Vtr[:, :Dmax_index]
+
+        Nc_bin_tmp = np.empty((np.size(N0r), np.size(D[:Dmax_index])))
+        Nc_bin = np.zeros((np.size(np.array(sampling_times)), np.size(D[:Dmax_index])))
+
+        if use_bins_for_interp:
+            for index, _ in np.ndenumerate(N0r):
+                Nc_bin_tmp[index, :] = 1.e-3*N0r[index]*(D[:Dmax_index])**alphar[index]*np.exp(-lamdar[index]*(D[:Dmax_index]))
+                if add_hail:
+                    Nc_bin_tmp[index, :] = Nc_bin_tmp[index, :] + 1.e-3*N0h[index]*(D[:Dmax_index])**alphah[index]*np.exp(-lamdah[index]*(D[:Dmax_index]))
+                    Nc_bin_tmp[index, :] = Nc_bin_tmp[index, :] + 1.e-3*N0g[index]*(D[:Dmax_index])**alphag[index]*np.exp(-lamdag[index]*(D[:Dmax_index]))
+        else:
+            qr_stimes = np.zeros((np.size(np.array(sampling_times))))
+            ntr_stimes = np.zeros_like(qr_stimes)
+            zr_stimes = np.zeros_like(qr_stimes)
+            N0r_stimes = np.zeros_like(qr_stimes)
+            lamdar_stimes = np.zeros_like(qr_stimes)
+            alphar_stimes = np.zeros_like(qr_stimes)
+            rhoa_stimes = np.zeros_like(qr_stimes)
+
+            # Just first sampling time
+            Nc_bin_tmp[0, :] = 1.e-3*N0r[0]*(D[:Dmax_index])**alphar[0]*np.exp(-lamdar[0]*(D[:Dmax_index]))
+            if add_hail: # Not working right now for this option
+                Nc_bin_tmp[0, :] = Nc_bin_tmp[0, :] + 1.e-3*N0h[0]*(D[:Dmax_index])**alphah[0]*np.exp(-lamdah[0]*(D[:Dmax_index]))
+                Nc_bin_tmp[0, :] = Nc_bin_tmp[0, :] + 1.e-3*N0g[0]*(D[:Dmax_index])**alphag[0]*np.exp(-lamdag[0]*(D[:Dmax_index]))
+
+        Nc_bin_tmp = np.ma.masked_invalid(Nc_bin_tmp)
+
+        # Now loop through and "resample" the number concentrations as weighted averages
+        # for the case that the disdrometer crosses a grid edge or the model DSD changes during the sampling interval.
+        sample_indices = np.searchsorted(all_times, sampling_times, side='left')
+        if use_Parsivel_simulator:
+            Nc_bin_tmp_ps = np.empty((np.size(lamdar), np.size(D[:Dmax_index])))
+            Nc_bin_ps = np.zeros((np.size(np.array(sampling_times)), np.size(D[:Dmax_index])))
+            # Special treatment for first sampling time. Just assume DSD valid at that time was constant for the previous
+            # sampling interval
+            sample_dict = create_random_gamma_DSD(ntr[0], lamdar[0],
+                                          alphar[0], Vtr[0], sampling_length,
+                                          sampling_width, Dl, D, Dr, Dmax=Dmax, sampling_interval=sampling_interval,
+                                          remove_margins=True, rhocorrect=True, rho=rhoa[0])
+            ND_sample = sample_dict['ND']
+            pcount_binned_sample = sample_dict['pcount_binned']
+            if add_hail:
+                sample_dict_h = create_random_gamma_DSD(nth[0], lamdah[0],
+                                                  alphah[0], Vtr[0], sampling_length,
+                                                  sampling_width, Dl, D, Dr, Dmax=Dmax, sampling_interval=sampling_interval,
+                                                  remove_margins=True, rhocorrect=True, rho=rhoa[0])
+
+                sample_dict_g = create_random_gamma_DSD(ntg[0], lamdag[0],
+                                                  alphag[0], Vtr[0], sampling_length,
+                                                  sampling_width, Dl, D, Dr, Dmax=Dmax, sampling_interval=sampling_interval,
+                                                  remove_margins=True, rhocorrect=True, rho=rhoa[0])
+
+                ND_sample = ND_sample + sample_dict_h['ND'] + sample_dict_g['ND']
+                pcount_binned_sample = pcount_binned_sample + sample_dict_h['pcount_binned'] + sample_dict_g['pcount_binned']
+
+            Nc_bin_tmp_ps[0, :] = 1.e-3*ND_sample
+            Nc_bin_ps[0, :] = Nc_bin_tmp_ps[0, :]
+
+            pcount_binned_samples = []
+            for index, _ in np.ndenumerate(lamdar[:-1]):
+                sample_dict = create_random_gamma_DSD(ntr[index], lamdar[index],
+                                                      alphar[index], Vtr[index], sampling_length,
+                                                      sampling_width, Dl, D, Dr, Dmax=Dmax, sampling_interval=dt[index],
+                                                      remove_margins=True, rhocorrect=True, rho=rhoa[index])
+                ND_sample = sample_dict['ND']
+                pcount_binned_sample = sample_dict['pcount_binned']
+
+                if add_hail:
+                    sample_dict_h = create_random_gamma_DSD(nth[index], lamdah[index],
+                                                      alphah[index], Vtr[index], sampling_length,
+                                                      sampling_width, Dl, D, Dr, Dmax=Dmax, sampling_interval=dt[index],
+                                                      remove_margins=True, rhocorrect=True, rho=rhoa[index])
+
+                    sample_dict_g = create_random_gamma_DSD(ntg[index], lamdag[index],
+                                                  alphag[index], Vtr[index], sampling_length,
+                                                  sampling_width, Dl, D, Dr, Dmax=Dmax, sampling_interval=sampling_interval,
+                                                  remove_margins=True, rhocorrect=True, rho=rhoa[index])
+                    ND_sample = ND_sample + sample_dict_h['ND'] + sample_dict_g['ND']
+                    pcount_binned_sample = pcount_binned_sample + sample_dict_h['pcount_binned'] + sample_dict_g['pcount_binned']
+
+                pcount_binned_samples.append(sample_dict['pcount_binned'])
+                Nc_bin_tmp_ps[index, :] = 1.e-3*ND_sample
+
+            pcount_binned_samples = np.array(pcount_binned_samples)
+            Nc_bin_tmp_ps = np.ma.masked_invalid(Nc_bin_tmp_ps)
+        else:
+            # Special treatment for first sampling time. Just assume DSD valid at that time was constant for the previous
+            # sampling interval
+            Nc_bin[0, :] = Nc_bin_tmp[sample_indices[0], :]
+
+
+        for s, sample_index in enumerate(sample_indices[:-1]):
+            sample_index_end = sample_indices[s+1]
+            current_sample_indices = slice(sample_index, sample_index_end, None)
+
+            if use_bins_for_interp:
+                Nc_bin[s+1, :] = np.sum(Nc_bin_tmp[current_sample_indices, :] *
+                                    dt[current_sample_indices, None], axis = 0) / sampling_interval
+            else:
+                # Weighted average of moments
+                qr_stimes[s+1] = np.sum(qr[current_sample_indices] *
+                                   dt[current_sample_indices]) / sampling_interval
+                ntr_stimes[s+1] = np.sum(ntr[current_sample_indices] *
+                                    dt[current_sample_indices]) / sampling_interval
+                zr_stimes[s+1] = np.sum(zr[current_sample_indices] *
+                                   dt[current_sample_indices]) / sampling_interval
+                rhoa_stimes[s+1] = np.sum(rhoa[current_sample_indices] *
+                                   dt[current_sample_indices]) / sampling_interval
+                # Re-compute N0r, lamdar, and alphar for weighted average DSD
+                alphar_stimes[s+1] = dualpol.solve_alpha_iter(rhoa_stimes[s+1], mur, qr_stimes[s+1],
+                                        ntr_stimes[s+1], zr_stimes[s+1], rhorcst)
+                N0r_stimes[s+1], _ = dsd.cal_N0(rhoa_stimes[s+1], qr_stimes[s+1], ntr_stimes[s+1], cr,
+                                                alphar_stimes[s+1])
+                lamdar_stimes[s+1] = dsd.cal_lamda(rhoa_stimes[s+1], qr_stimes[s+1],
+                                                   ntr_stimes[s+1], alphar_stimes[s+1])
+                # Now compute discretized distribution
+                Nc_bin[s+1, :] = 1.e-3*N0r_stimes[s+1]*(D[:Dmax_index])**alphar_stimes[s+1]* \
+                                    np.exp(-lamdar_stimes[s+1]*(D[:Dmax_index]))
+            if use_Parsivel_simulator:
+                # Take weighted average of Vtr over each sample interval for now and use that to calculate the
+                # sampling volumes
+                Vtr_mean = np.sum(Vtr[current_sample_indices, :] * dt[current_sample_indices, None], axis=0) / sampling_interval
+                sampling_volumes_D = calc_sampling_volumes_D(Vtr_mean, Dr, Dmax, sampling_interval,
+                                                         sampling_area)
+
+                pcount_binned = np.sum(pcount_binned_samples[current_sample_indices], axis=0)
+                Nc_bin_ps[s+1, :] = 1.e-3*calc_ND(pcount_binned, sampling_volumes_D, Dr, Dl, Dmax)
+
+        logNc_bin = np.log10(Nc_bin)
+        logNc_bin = np.ma.masked_where(logNc_bin <= -1.0,logNc_bin)
+
+        if use_Parsivel_simulator:
+            Nc_bin_ps = np.ma.masked_invalid(Nc_bin_ps)
+            logNc_bin_ps = np.log10(Nc_bin_ps)
+            logNc_bin_ps = np.ma.masked_where(logNc_bin_ps <= -1.0, logNc_bin_ps)
+
+
+        # Calculate median volume diameter
+        D0r = np.zeros((np.size(np.array(sampling_times))))
+        if use_Parsivel_simulator:
+            D0r_ps =  np.zeros_like(D0r)
+        for t in xrange(sampling_times.size):
+            D0r[t] = dis.calc_D0_bin(D[:Dmax_index], Dl[:Dmax_index], Dr[:Dmax_index], Nc_bin[t, :],
+                                 bin_width[:Dmax_index])
+            if use_Parsivel_simulator:
+                D0r_ps[t] = dis.calc_D0_bin(D[:Dmax_index], Dl[:Dmax_index], Dr[:Dmax_index], Nc_bin_ps[t, :],
+                                 bin_width[:Dmax_index])
+
+        D0r_mod.append(D0r)
+        if use_Parsivel_simulator:
+            D0r_mod_ps.append(D0r_ps)
+
+        if plot_transects:
+            # Set up the figure for whether or not we are using the Parsivel simulator
+            if use_Parsivel_simulator:
+                plotcbar = False
+                fig = plt.figure(figsize=(8, 6))
+                ax = fig.add_subplot(211)
+            else:
+                plotcbar = True
+                fig = plt.figure(figsize=(8, 3))
+                ax = fig.add_subplot(111)
+
+            plotparamdicts = [{'type': 'pcolor', 'vlimits': (-1.0, 3.0), 'clabel': r'log[N ($m^{-3} mm^{-1}$)]',
+                               'plotcbar': plotcbar}]
+            xvals = [sample_xlocs/1000.]
+        #     print "xvals = ", xvals
+            yvals = [Dl[:Dmax_index]*1000.]
+            zvals = [logNc_bin.T]
+            ax = pm.plotmeteogram(ax, xvals, zvals, plotparamdicts, yvals=yvals)
+            axparamdicts = [{'majorxlocator': ticker.MultipleLocator(base=1.0),
+                             'majorylocator': ticker.MultipleLocator(base=2.0),
+                             'axeslimits': [None, (0.0, Dmax)],
+                             'axeslabels': ['x position', 'D (mm)'],
+                             'axesautofmt': False}]
+            if not use_Parsivel_simulator:
+                axlist = pm.set_meteogram_axes([ax], axparamdicts)
+            ax.plot(xvals[0], D0r*1000., c='k', ls='-', lw=1)
+
+            # Plot an additional panel for the sampled DSD from the Parsivel simulator
+            if use_Parsivel_simulator:
+                ax2 = fig.add_subplot(212)
+                plotparamdicts = [{'type': 'pcolor', 'vlimits': (-1.0, 3.0), 'clabel': r'log[N ($m^{-3} mm^{-1}$)]',
+                                   'plotcbar': True}]
+                xvals = [sample_xlocs/1000.]
+            #     print "xvals = ", xvals
+                yvals = [Dl[:Dmax_index]*1000.]
+                zvals = [logNc_bin_ps.T]
+                ax2 = pm.plotmeteogram(ax2, xvals, zvals, plotparamdicts, yvals=yvals)
+                axparamdicts.append({'majorxlocator': ticker.MultipleLocator(base=1.0),
+                                 'majorylocator': ticker.MultipleLocator(base=2.0),
+                                 'axeslimits': [None, (0.0, Dmax)],
+                                 'axeslabels': ['x position', 'D (mm)'],
+                                 'axesautofmt': False})
+                axlist = pm.set_meteogram_axes([ax, ax2], axparamdicts)
+                ax2.plot(xvals[0], D0r_ps*1000., c='k', ls='-', lw=1)
+        #     for ax in axlist:
+        #         ax.invert_xaxis()
+            # plt.savefig('raw_modelDSD.png',dpi=300)
+
+    # Compile all return items into a convenient dictionary
+    transect_DSD_dict = {'ND': Nc_bin, 'logND': logNc_bin, 'D0r': D0r_mod}
+    if use_Parsivel_simulator:
+        transect_DSD_dict.update({'ND_ps': Nc_bin_ps, 'logND_ps': logNc_bin_ps, 'D0r_ps': D0r_mod_ps})
+
+    return transect_DSD_dict

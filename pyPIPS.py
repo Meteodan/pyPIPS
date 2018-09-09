@@ -318,7 +318,7 @@ for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc, type i
     # Short 1996
     if(pc.calc_DSD):
         synthbins, exp_DSD, gam_DSD, tmf_DSD, dis_DSD = dis.calc_DSD(pc,
-            min_diameter, avg_diameter, max_diameter, bin_width, ND, logND, rho_tDSD.values, pc.qrQC,
+            min_diameter, avg_diameter, max_diameter, bin_width, ND, rho_tDSD.values, pc.qrQC,
             pc.qr_thresh, PSD_df[pcountstr].values, PSD_df['intensity'].values)
 
         # Unpack needed values from returned tuples
@@ -327,8 +327,9 @@ for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc, type i
             exp_DSD
         ND_gamDSD, N0_gam, lamda_gam, mu_gam, qr_gam, Ntr_gam, refl_DSD_gam, D_med_gam, D_m_gam, \
             LWC_gam, rainrate_gam = gam_DSD
-        ND, logND, D_med_disd, D_m_disd, D_mv_disd, D_ref_disd, QR_disd, refl_disd, LWC_disd, M0, rainrate = \
+        ND, D_med_disd, D_m_disd, D_mv_disd, D_ref_disd, QR_disd, refl_disd, LWC_disd, M0, rainrate = \
             dis_DSD
+        logND = N.ma.log10(ND)
 
         ND_expDSD = ND_expDSD.T
         logND_expDSD = N.ma.log10(ND_expDSD / 1000.)  # Get to log(m^-3 mm^-1)
