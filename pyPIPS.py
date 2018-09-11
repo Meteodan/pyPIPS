@@ -103,7 +103,7 @@ for index, dis_name, dis_filename, starttime, stoptime, dloc, type in \
 
 if(pc.comp_radar):
     if(pc.comp_dualpol):
-        fieldnames = ['dBZ', 'ZDR', 'KDP', 'RHV', 'Vr']
+        fieldnames = ['dBZ', 'ZDR', 'RHV', 'Vr'] # Removed KDP for now
     else:
         fieldnames = ['dBZ', 'Vr']
 
@@ -361,21 +361,24 @@ for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc, type i
                 if(pc.calc_DSD):
                     D_0_plot = D_med_disd
                     refl_ray_plot = refl_disd
-                    dp = dualpol_dis
+                    if pc.calc_dualpol:
+                        dp = dualpol_dis
                     #Zh, Zv, Zhv, dBZ, ZDR, KDP, RHV, intv, d, fa2, fb2 = dualpol_dis
             elif(DSDtype == 'exponential'):
                 logND_plot = logND_expDSD[:, pstartindex:pstopindex + 1]
                 if(pc.calc_DSD):
                     D_0_plot = D_med_exp
                     refl_ray_plot = refl_DSD_exp
-                    dp = dualpol_exp
+                    if pc.calc_dualpol:
+                        dp = dualpol_exp
                     #Zh, Zv, Zhv, dBZ, ZDR, KDP, RHV, intv, d, fa2, fb2 = dualpol_exp
             elif(DSDtype == 'gamma'):
                 logND_plot = logND_gamDSD[:, pstartindex:pstopindex + 1]
                 if(pc.calc_DSD):
                     D_0_plot = D_med_gam
                     refl_ray_plot = refl_DSD_gam
-                    dp = dualpol_gam
+                    if pc.calc_dualpol:
+                        dp = dualpol_gam
                     #Zh, Zv, Zhv, dBZ, ZDR, KDP, RHV, intv, d, fa2, fb2 = dualpol_gam
 
             disvars = {'min_diameter': min_diameter, 'PSDstarttimes': PSDstarttimes,

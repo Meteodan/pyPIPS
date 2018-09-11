@@ -561,11 +561,11 @@ def readPIPS(filename, fixGPS=True, basicqc=False, rainfallqc=False, rainonlyqc=
 
         pt = thermo.caltheta(pressure*100., fasttemp+273.15)
         qv = thermo.calqv(RH_derived/100., pressure*100., fasttemp+273.15)
-        rhos = thermo.calrho(pressure*100., pt, qv)
+        rho = thermo.calrho(pressure*100., pt, qv)
 
         pts.append(pt)
         qvs.append(qv)
-        rhos.append(rhos)
+        rhos.append(rho)
 
         parsivel_string = tokens[26]
         parsivel_tokens = parsivel_string.strip().split(';')
@@ -628,7 +628,7 @@ def readPIPS(filename, fixGPS=True, basicqc=False, rainfallqc=False, rainonlyqc=
 
     # Find indices in conventional time list that match those in the Parsivel time list
     pindices = np.searchsorted(datetimes, pdatetimes)
-    rhoatpdatetimes = rhos[pindices]
+    rhoatpdatetimes = np.array(rhos)[pindices]
 
     # Recast countsMatrix as numpy array
 
@@ -810,7 +810,7 @@ def readPIPS(filename, fixGPS=True, basicqc=False, rainfallqc=False, rainonlyqc=
     ND_onedrop = ma.array(ND_onedrop, mask=mask)
     # Argh, have to convert back to datetime objects.  This one from
     # http://stackoverflow.com/questions/13703720/converting-between-datetime-timestamp-and-datetime64
-    datetimes_corrected = datetimes_corrected.to_pydatetime()
+    datetimes_corrected = conv_df.index.to_pydatetime()
     pdatetimes_corrected = ND_df.index.to_pydatetime()
     DSD_index = ND_df.index
     countsMatrix = countsMatrix_da.values

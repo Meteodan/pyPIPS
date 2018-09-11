@@ -691,7 +691,10 @@ def read_convdata_at_sweeptimes(casedate, dis_dict, radar_dict):
     # Extract stuff from dictionary
     dis_types = dis_dict[casedate]['dis_types']
     disfilenames = dis_dict[casedate]['disfilenames']
-    convfilenames = dis_dict[casedate]['convfilenames']
+    try:
+        convfilenames = dis_dict[casedate]['convfilenames']
+    except:
+        convfilenames = [None] * len(dis_types)
     starttimes = dis_dict[casedate]['starttimes']
     stoptimes = dis_dict[casedate]['stoptimes']
     dis_dir = dis_dict[casedate]['dis_dir']
@@ -700,7 +703,8 @@ def read_convdata_at_sweeptimes(casedate, dis_dict, radar_dict):
                                                                         starttimes, stoptimes):
 
         dis_filepath = os.path.join(dis_dir, disfilename)
-        conv_filepath = os.path.join(dis_dir, convfilename)
+        if convfilename is not None:
+            conv_filepath = os.path.join(dis_dir, convfilename)
 
         if dis_type in 'CU':
 
@@ -708,17 +712,25 @@ def read_convdata_at_sweeptimes(casedate, dis_dict, radar_dict):
                                    starttime=starttime, stoptime=stoptime)
             windspdstr = 'bwindspd'
             winddirstr = 'bwinddirabs'
+            tempstr = 'slowtemp'
         elif dis_type in 'NV2':
             DSD_dict = dis.readNV2netCDF(conv_filepath, dis_filepath, requested_interval=60.0,
                                           starttime=starttime, stoptime=stoptime)
             windspdstr = 'swindspd'
             winddirstr = 'swinddirabs'
+            tempstr = 'slowtemp'
+        elif dis_type in 'PIPS':
+            DSD_dict = dis.readPIPS(dis_filepath, requested_interval=60.0,
+                                 starttime=starttime, stoptime=stoptime)
+            windspdstr = 'windspd'
+            winddirstr = 'winddirabs'
+            tempstr = 'fasttemp'
 
         # Extract conventional data timeseries
         conv_df = DSD_dict['conv_df']
         windspds = conv_df[windspdstr].values
         winddirabss = conv_df[winddirstr].values
-        temps = conv_df['slowtemp'].values
+        temps = conv_df[tempstr].values
         dewpoints = conv_df['dewpoint'].values
         pressures = conv_df['pressure'].values
 
@@ -735,6 +747,9 @@ def read_convdata_at_sweeptimes(casedate, dis_dict, radar_dict):
         elif dis_type in 'CU':
             windspdsavg,windspdsavgvec,winddirsavgvec,windgusts,windgustsavg = dis.avgwind(winddirabss,
                 windspds,windavgintv,gusts=True,gustintv=windgustintv,center=False)
+        elif dis_type in 'PIPS':
+            windspdsavg, windspdsavgvec, winddirsavgvec, windgusts, windgustsavg = dis.avgwind(
+                winddirabss, windspds, windavgintv, gusts=True, gustintv=windgustintv, center=False)
     #     offset = 0
     #     windspdsavg,windspdsavgvec,winddirsavgvec,winddirsunitavgvec,windgusts,windgustsavg,usavg,vsavg,unit_usavg,unit_vsavg = \
     #     dis.resamplewind(datetimesUTC,offset,winddirabss,windspds,'60S',gusts=True,gustintvstr='3S',center=False)
@@ -867,7 +882,10 @@ def get_dis_locs_relative_to_radar(casedate, dis_dict, radar_dict):
     dis_names = dis_dict[casedate]['dis_names']
     dis_types = dis_dict[casedate]['dis_types']
     disfilenames = dis_dict[casedate]['disfilenames']
-    convfilenames = dis_dict[casedate]['convfilenames']
+    try:
+        convfilenames = dis_dict[casedate]['convfilenames']
+    except:
+        convfilenames = [None] * len(dis_names)
     starttimes = dis_dict[casedate]['starttimes']
     stoptimes = dis_dict[casedate]['stoptimes']
     dis_dir = dis_dict[casedate]['dis_dir']
