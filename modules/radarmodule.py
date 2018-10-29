@@ -500,6 +500,9 @@ def readCFRadial(nexrad, el, radlat, radlon, radalt, file, sweeptime, fieldnames
     # print "index = ",index
     swp_start_index = sweep_start_ray_index[index]
     swp_end_index = sweep_end_ray_index[index] + 1
+    # DTD, some sweeps seem to have problems where there aren't enough times in the file so limit
+    # the swp_end_index here to the number of times available.
+    swp_end_index = min(swp_end_index, numtimes - 1)
     el = elevs[swp_start_index]
     # print elevs[swp_start_index:swp_end_index]
     print "Actual elevation angle at start of sweep: ", el
@@ -1108,7 +1111,7 @@ def plotsweep(radlims, plotlims, fieldnames, fieldlist, masklist, range_start, r
 
 
 def plotsweep_pyART(radlims, plotlims, fieldnames, radarsweep, ovrmap, ovrdis, dis_name_list,
-                    dxy_list, fields_D_list):
+                    dxy_list, fields_D_list, xoffset=0.0, yoffset=0.0):
     """Plots an individual radar sweep, with an option to overlay a map.  This version uses pyART routines and assumes
        the radar sweep has been read in using readCFRadial_pyART."""
 
@@ -1172,6 +1175,8 @@ def plotsweep_pyART(radlims, plotlims, fieldnames, radarsweep, ovrmap, ovrdis, d
     xplt, yplt, zplt = radarsweep.get_gate_x_y_z(0, edges=True)
     xplt = xplt[minazimindex:maxazimindex + 1, minrangeindex:maxrangeindex]
     yplt = yplt[minazimindex:maxazimindex + 1, minrangeindex:maxrangeindex]
+    xplt = xplt + xoffset
+    yplt = yplt + yoffset
 
     figlist = []
     gridlist = []
@@ -1256,8 +1261,8 @@ def plotsweep_pyART(radlims, plotlims, fieldnames, radarsweep, ovrmap, ovrdis, d
         if(ovrdis):
             fields_D = fields_D_dict[fieldname]
             for dname, dloc, field_D in zip(dis_name_list, dxy_list, fields_D):
-                Dx = dloc[0]
-                Dy = dloc[1]
+                Dx = dloc[0] + xoffset
+                Dy = dloc[1] + yoffset
                 ax.plot(Dx, Dy, 'k*', ms=8)
                 ax.annotate(dname, (Dx + 250., Dy + 250.), clip_on=True)
                 if(field_D is not None):

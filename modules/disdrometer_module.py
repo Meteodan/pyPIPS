@@ -60,6 +60,7 @@ sampling_period = 10.0  # (s)
 min_diameter = np.array(min_diameter_bins)
 avg_diameter = np.array(avg_diameter_bins)
 max_diameter = np.array(max_diameter_bins)
+bin_width = max_diameter - min_diameter
 fall_bins = np.array(fall_bins)
 min_fall_bins = np.array(min_fall_bins)
 
@@ -72,7 +73,7 @@ use_DD_QC = False   # Use my QC methods (see below)
 use_measured_fs = True     # If True, use the raw measured fall speeds to compute number concentration
 # If False, use the fall speed curve of Terry Schuur
 
-use_strongwindQC = False      # Remove time records that are contaminated by strong wind?
+use_strongwindQC = True      # Remove time records that are contaminated by strong wind?
 use_splashingQC = False      # Remove drops that result from splashing?
 use_marginQC = False         # Remove drops that result from margin falls?
 use_rainonlyQC = False       # Remove all particles that are probably not rain?
@@ -135,7 +136,9 @@ def assignfallspeed(d, rhocorrect=False, rho=None):
 
     # Correct fall speed based on air density
     if(rhocorrect and rho is not None):
-        v = v * (1.204/rho)**(0.4)
+        v = v[:, None] * (1.204/rho)**(0.4)
+        v = v.squeeze()
+        v = np.atleast_1d(v)
 
     return v
 
@@ -561,11 +564,11 @@ def readPIPS(filename, fixGPS=True, basicqc=False, rainfallqc=False, rainonlyqc=
 
         pt = thermo.caltheta(pressure*100., fasttemp+273.15)
         qv = thermo.calqv(RH_derived/100., pressure*100., fasttemp+273.15)
-        rhos = thermo.calrho(pressure*100., pt, qv)
+        rho = thermo.calrho(pressure*100., pt, qv)
 
         pts.append(pt)
         qvs.append(qv)
-        rhos.append(rhos)
+        rhos.append(rho)
 
         parsivel_string = tokens[26]
         parsivel_tokens = parsivel_string.strip().split(';')
@@ -628,7 +631,7 @@ def readPIPS(filename, fixGPS=True, basicqc=False, rainfallqc=False, rainonlyqc=
 
     # Find indices in conventional time list that match those in the Parsivel time list
     pindices = np.searchsorted(datetimes, pdatetimes)
-    rhoatpdatetimes = rhos[pindices]
+    rhoatpdatetimes = np.array(rhos)[pindices]
 
     # Recast countsMatrix as numpy array
 
@@ -810,7 +813,7 @@ def readPIPS(filename, fixGPS=True, basicqc=False, rainfallqc=False, rainonlyqc=
     ND_onedrop = ma.array(ND_onedrop, mask=mask)
     # Argh, have to convert back to datetime objects.  This one from
     # http://stackoverflow.com/questions/13703720/converting-between-datetime-timestamp-and-datetime64
-    datetimes_corrected = datetimes_corrected.to_pydatetime()
+    datetimes_corrected = conv_df.index.to_pydatetime()
     pdatetimes_corrected = ND_df.index.to_pydatetime()
     DSD_index = ND_df.index
     countsMatrix = countsMatrix_da.values
@@ -1163,6 +1166,10 @@ def readCU(filename_conv, filename_dsd, fixGPS=True, basicqc=False, rainfallqc=F
         # Units are #/m^3/mm
 #         if time == '171320':
 #             print spectrum.size,spectrum,countsMatrix.data[t,:],spectrum.data
+        onedropvel = rainvd
+        onedrop_concentration = counts_1drop / \
+            (onedropvel * sample_interval * eff_sensor_area * (max_diameter - min_diameter))
+
         if(spectrum.size == 1024 and flaggedtimes[t] < 2):
             concentration = dspectrum / \
                 (vspectrum * sample_interval * eff_sensor_area * (max_diameter - min_diameter))
@@ -1171,9 +1178,6 @@ def readCU(filename_conv, filename_dsd, fixGPS=True, basicqc=False, rainfallqc=F
 #                 onedropvel = np.ma.average(vspectrum,axis=0,weights=dspectrum)
 #             else:
 #                 onedropvel = rainvd
-            onedropvel = rainvd
-            onedrop_concentration = counts_1drop / \
-                (onedropvel * sample_interval * eff_sensor_area * (max_diameter - min_diameter))
             # print "concentration.shape"
             # print concentration.shape
         elif(flaggedtimes[t] < 2):
@@ -1181,6 +1185,7 @@ def readCU(filename_conv, filename_dsd, fixGPS=True, basicqc=False, rainfallqc=F
         else:
             concentration = -999. * np.ones_like(avg_diameter)
             concentration = ma.masked_where(concentration == -999., concentration)
+
 
         # Throw out particles above and below a certain diameter if desired
 
@@ -1926,14 +1931,9 @@ def calc_D0_bin(D, Dl, Dr, ND, bin_width):
         D0 = np.nan
     return D0
 
-def calc_DSD(pc, min_size, avg_size, max_size, bin_width, Nc_bin, rho, qrQC=False, qr_thresh=None,
-             pcounts=None, intensities=None):
+def calc_DSD(Nc_bin, rho, qrQC=False, qr_thresh=None,
+             pcounts=None, intensities=None, pc=None):
     """Fits exponential and gamma DSDs to disdrometer data and returns several DSD related quantities."""
-
-    min_size = np.array(min_size)
-    avg_size = np.array(avg_size)
-    max_size = np.array(max_size)
-    bin_width = np.array(bin_width)
 
     # First calculate the required moment estimators
     M0 = []   # Not used in moment estimator, but used for mean diameter calculation
@@ -1954,23 +1954,26 @@ def calc_DSD(pc, min_size, avg_size, max_size, bin_width, Nc_bin, rho, qrQC=Fals
         Nc_bin = Nc_bin[:, np.newaxis]
 
     # FIXME: Change this to use functioned defined above with air density correction!
-    v = -0.1021 + 4.932 * avg_size - 0.9551 * avg_size**2. + \
-        0.07934 * avg_size**3. - 0.002362 * avg_size**4.
+#     v = -0.1021 + 4.932 * avg_size - 0.9551 * avg_size**2. + \
+#         0.07934 * avg_size**3. - 0.002362 * avg_size**4.
+
+    v = assignfallspeed(avg_diameter, rhocorrect=True, rho=rho)
+    v = v.T
     rainrate = []
 
     for t in range(numtimes):
 
         temp_M0 = (1000. * Nc_bin[:, t]) * bin_width[:] / 1000.
-        temp_M1 = ((avg_size[:] / 1000.)) * (1000. * Nc_bin[:, t]) * bin_width[:] / 1000.
-        temp_M2 = ((avg_size[:] / 1000.)**2.) * (1000. * Nc_bin[:, t]) * bin_width[:] / 1000.
-        temp_M3 = ((avg_size[:] / 1000.)**3.) * (1000. * Nc_bin[:, t]) * bin_width[:] / 1000.
-        temp_M4 = ((avg_size[:] / 1000.)**4.) * (1000. * Nc_bin[:, t]) * bin_width[:] / 1000.
-        temp_M6 = ((avg_size[:] / 1000.)**6.) * (1000. * Nc_bin[:, t]) * bin_width[:] / 1000.
-        temp_M7 = ((avg_size[:] / 1000.)**7.) * (1000. * Nc_bin[:, t]) * bin_width[:] / 1000.
+        temp_M1 = ((avg_diameter[:] / 1000.)) * (1000. * Nc_bin[:, t]) * bin_width[:] / 1000.
+        temp_M2 = ((avg_diameter[:] / 1000.)**2.) * (1000. * Nc_bin[:, t]) * bin_width[:] / 1000.
+        temp_M3 = ((avg_diameter[:] / 1000.)**3.) * (1000. * Nc_bin[:, t]) * bin_width[:] / 1000.
+        temp_M4 = ((avg_diameter[:] / 1000.)**4.) * (1000. * Nc_bin[:, t]) * bin_width[:] / 1000.
+        temp_M6 = ((avg_diameter[:] / 1000.)**6.) * (1000. * Nc_bin[:, t]) * bin_width[:] / 1000.
+        temp_M7 = ((avg_diameter[:] / 1000.)**7.) * (1000. * Nc_bin[:, t]) * bin_width[:] / 1000.
 
         # Note, this is *observed* rainrate calculated directly from the disdrometer bins
         temp_rainrate = np.sum((6. * 10.**-4.) * np.pi * v *
-                              avg_size[:]**3. * Nc_bin[:, t] * bin_width[:])
+                              avg_diameter[:]**3. * Nc_bin[:, t] * bin_width[:])
         rainrate.append(temp_rainrate)
 
         # Before summing up the 3rd moment, use the bin information to find the
@@ -1991,8 +1994,8 @@ def calc_DSD(pc, min_size, avg_size, max_size, bin_width, Nc_bin, rho, qrQC=Fals
         try:
             # Find index of bin where cumulative sum exceeds 1/2 of total
             medindex = np.where(pro_cumsum > 0.5)[0][0]
-            b1 = min_size[medindex]  # Lower boundary of mass-midpoint bin
-            b2 = max_size[medindex]  # Upper boundary of mass-midpoint bin
+            b1 = min_diameter[medindex]  # Lower boundary of mass-midpoint bin
+            b2 = max_diameter[medindex]  # Upper boundary of mass-midpoint bin
             if(medindex == 0):
                 pro_cumsum_medindexm1 = 0.0
             else:
@@ -2008,11 +2011,11 @@ def calc_DSD(pc, min_size, avg_size, max_size, bin_width, Nc_bin, rho, qrQC=Fals
 
         for index, value in reversed(list(enumerate(Nc_bin[:,t]))):
             if (value > 0.):
-                temp_Dmax = avg_size[index]
+                temp_Dmax = avg_diameter[index]
                 break
         for index2,value2 in list(enumerate(Nc_bin[:,t])):
             if (value2 > 0.):
-                temp_Dmin = avg_size[index2]
+                temp_Dmin = avg_diameter[index2]
                 break
 
         temp_M0_2 = ma.sum(temp_M0)
@@ -2080,7 +2083,12 @@ def calc_DSD(pc, min_size, avg_size, max_size, bin_width, Nc_bin, rho, qrQC=Fals
     # TODO: Make the masking by particle counts adjustable in the pyPIPScontrol file
     # There may be times when we don't want such stringent masking, and it is dependent on the
     # integration interval we choose, anyway.
-    if(pc.masklowcounts):
+    try:
+        masklowcounts = pc.masklowcounts
+    except:
+        masklowcounts = False
+
+    if(masklowcounts):
         nummask1D = np.where((pcounts < 50.) | (rainrate < 1.), True, False)
         num2D = pcounts.reshape(1, numtimes).repeat(32, 0)
         rain2D = rainrate.reshape(1, numtimes).repeat(32, 0)
@@ -2151,7 +2159,7 @@ def calc_DSD(pc, min_size, avg_size, max_size, bin_width, Nc_bin, rho, qrQC=Fals
     # Construct the derived DSD
     for t in range(numtimes):
         # temp_N_expDSD = N0_exp[t] * np.exp(-lamda_exp[t] * synthbins / 1000.0)
-        temp_N_expDSD = N0_exp[t] * np.exp(-lamda_exp[t] * avg_size / 1000.0)
+        temp_N_expDSD = N0_exp[t] * np.exp(-lamda_exp[t] * avg_diameter / 1000.0)
         N_expDSD.append(temp_N_expDSD)
 
     N_expDSD = ma.array(N_expDSD)
@@ -2244,9 +2252,9 @@ def calc_DSD(pc, min_size, avg_size, max_size, bin_width, Nc_bin, rho, qrQC=Fals
 
     for t in range(numtimes):
         #temp_N_gamDSD = N0_gam[t]*((synthbins/1000.0)**mu_gam[t])*np.exp(-lamda_gam[t]*synthbins/1000.0)
-        temp_N_gamDSD = N0_gam[t] * ((avg_size / 1000.0)**mu_gam[t]) * \
-            np.exp(-lamda_gam[t] * avg_size / 1000.)    # Use disdrometer bins
-        temp_N_tmfDSD = N0_tmf[t]*((avg_size/1000.0)**mu_tmf[t])*np.exp(-lamda_tmf[t]*avg_size/1000.)
+        temp_N_gamDSD = N0_gam[t] * ((avg_diameter / 1000.0)**mu_gam[t]) * \
+            np.exp(-lamda_gam[t] * avg_diameter / 1000.)    # Use disdrometer bins
+        temp_N_tmfDSD = N0_tmf[t]*((avg_diameter/1000.0)**mu_tmf[t])*np.exp(-lamda_tmf[t]*avg_diameter/1000.)
         #temp_Z_gamDSD = ((synthbins/1000.)**6.)*(1000.*temp_N_gamDSD)*0.1/1000.
         N_gamDSD.append(temp_N_gamDSD)
         N_tmfDSD.append(temp_N_tmfDSD)
@@ -2328,7 +2336,7 @@ def calc_DSD(pc, min_size, avg_size, max_size, bin_width, Nc_bin, rho, qrQC=Fals
     refl_DSD_tmf = 10.0 * np.log10(1.e18 * Ztr_tmf)
     rainrate_tmf = 7.29096257e8 * N0_tmf * IGR3 / lamda_tmf**(4.67 + mu_tmf)
 
-    # TODO: need to compute D0 for truncated gamma distribution a bit differently, since the above
+    # FIXME: need to compute D0 for truncated gamma distribution a bit differently, since the above
     # gamma formula is for an untruncated distribution. One possibility is to compute it the same
     # way we do for the observed DSD, but using the discretized truncated gamma DSD.
     # D_med_tmf = np.where(lamda_tmf == 0., np.nan, ((3.67 + mu_tmf) / lamda_tmf) *
