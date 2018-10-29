@@ -41,12 +41,21 @@ fieldnames_onesec = ['TIMESTAMP', 'RECORD', 'BattV', 'PTemp_C', 'WindDir', 'WS_m
                      'WSDiag', 'FastTemp', 'SlowTemp', 'RH', 'Pressure(1)', 'FluxDirection',
                      'GPSTime', 'GPSStatus', 'GPSLat', 'GPSLon', 'GPSSpd', 'GPSDir',
                      'GPSDate', 'GPSMagVar', 'GPSAlt']
+
+fieldnames_onesec_TriPIPS = fieldnames_onesec[:]
+fieldnames_onesec_TriPIPS.remove('FastTemp')
+
+print fieldnames_onesec_TriPIPS
+
 fieldnames_tensec = ['TIMESTAMP', 'RECORD', 'ParsivelStr']
 
 fieldnames_output = ['TIMESTAMP','RECORD','BattV','PTemp_C','WindDir','WS_ms','WSDiag',
                      'FastTemp','SlowTemp','RH','Pressure(1)','FluxDirection','GPSTime',
                      'GPSStatus','GPSLat','GPSLatHem','GPSLon','GPSLonHem','GPSSpd','GPSDir',
                      'GPSDate','GPSMagVar','GPSAlt','WindDirAbs','Dewpoint','RHDer','ParsivelStr']
+
+fieldnames_output_TriPIPS = fieldnames_output[:]
+fieldnames_output_TriPIPS.remove('FastTemp')
 
 # Function definitions
 
@@ -175,7 +184,13 @@ def readData(PIPS_data_dir):
         with open(file) as f:
             f.next() # Read and discard first header line
             fieldnames = f.next().strip().replace('"','').split(',') # The field names are contained in the second header line
-            if (fieldnames != fieldnames_onesec):
+            if fieldnames == fieldnames_onesec:
+                print "We are dealing with an original PIPS data file!"
+                TriPIPS = False
+            elif fieldnames == fieldnames_onesec_TriPIPS:
+                print "We are dealing with a TriPIPS data file (no FastTemp)!"
+                TriPIPS = True
+            else:
                 sys.exit("Something's wrong with this file, aborting!")
             #print fieldnames
             f.next() # Read and discard third header line
@@ -217,12 +232,17 @@ def readData(PIPS_data_dir):
                 for column, value in row.iteritems():
                     dict_tensec.setdefault(column, []).append(value)
             #print dict_tensec
-    return dict_onesec,dict_tensec
+    return dict_onesec,dict_tensec,TriPIPS
 
 def mergeData(PIPS_data_dir,output_filename):
 
     # First, read the data from the files
-    dict_onesec,dict_tensec = readData(PIPS_data_dir)
+    dict_onesec,dict_tensec,TriPIPS = readData(PIPS_data_dir)
+
+    if TriPIPS:
+        output_fields = fieldnames_output_TriPIPS
+    else:
+        output_fields = fieldnames_output
 
     # Now for the fun part! Merge all the records into a single 1-s file, matching the Parsivel
     # records with the corresponding 1-s record as we go
@@ -233,7 +253,7 @@ def mergeData(PIPS_data_dir,output_filename):
     PIPS_outputfile = os.path.join(PIPS_data_dir,output_filename)
 
     with open(PIPS_outputfile, 'w') as f:
-        writer = csv.DictWriter(f,fieldnames=fieldnames_output)
+        writer = csv.DictWriter(f,fieldnames=output_fields)
         writer.writeheader()
         j = 0 # the j-index is for the Parsivel (10-s) records
         #firstRecord = True
@@ -260,7 +280,8 @@ def mergeData(PIPS_data_dir,output_filename):
 
             RH = dict_onesec['RH'][i]
             SlowT = dict_onesec['SlowTemp'][i]
-            FastT = dict_onesec['FastTemp'][i]
+            if not TriPIPS:
+                FastT = dict_onesec['FastTemp'][i]
 
             try:
                 dewpoint = 243.04*(N.log(RH/100.)+((17.625*SlowT)/(243.04+SlowT)))/ \

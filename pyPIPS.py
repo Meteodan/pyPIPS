@@ -317,9 +317,8 @@ for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc, type i
     # parameters using the method of moments, after Zhang et al. 2008 and Tokay and
     # Short 1996
     if(pc.calc_DSD):
-        synthbins, exp_DSD, gam_DSD, tmf_DSD, dis_DSD = dis.calc_DSD(pc,
-            min_diameter, avg_diameter, max_diameter, bin_width, ND, rho_tDSD.values, pc.qrQC,
-            pc.qr_thresh, PSD_df[pcountstr].values, PSD_df['intensity'].values)
+        synthbins, exp_DSD, gam_DSD, tmf_DSD, dis_DSD = dis.calc_DSD(ND, rho_tDSD.values, pc.qrQC,
+            pc.qr_thresh, PSD_df[pcountstr].values, PSD_df['intensity'].values, pc=pc)
 
         # Unpack needed values from returned tuples
 
