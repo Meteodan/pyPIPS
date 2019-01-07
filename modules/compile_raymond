@@ -1,7 +1,0 @@
-#!/bin/bash
-
-rm raymond_lowpass.pyf
-rm raymond_lowpass.so
-
-f2py -m raymond_lowpass -h raymond_lowpass.pyf raymond_lowpass.f
-f2py -c raymond_lowpass.pyf raymond_lowpass.f
