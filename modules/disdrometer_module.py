@@ -1424,11 +1424,11 @@ def resamplePSD(requested_interval, actual_interval, ND_df, ND_onedrop_df, PSD_d
 #                 index=amplitudes_df.index)
 
         return DSD_interval, intervalstr, ND_df, ND_onedrop_df, PSD_df, countsMatrix_da
-        
+
 
 def readPIPSdf(filename,fixGPS=True,basicqc=False,rainfallqc=False,rainonlyqc=False,strongwindqc=False,DSD_interval=10.0):
     """Reads data from Purdue-OU PIPS. This version returns pandas dataframes"""
-    
+
     pdatetimes=[]
     intensities=[]
     preciptots=[]
@@ -1440,18 +1440,18 @@ def readPIPSdf(filename,fixGPS=True,basicqc=False,rainfallqc=False,rainonlyqc=Fa
     amplitudes=[]
     voltages=[]
     pvoltages=[]
-    
+
     countsMatrix=[]     # Will contain the number of drops in the diameter vs. fall speed matrix for each time
                         # i.e. a (numtimes,32,32) array
-                
+
     concentrations=[]   # Will contain computed number concentrations for each size bin for each time
                         # i.e. a (numtimes,32) array
-                        
+
     onedrop_concentrations=[]
-                  
+
     dates=[]
     times=[]
-    datetimes=[]             
+    datetimes=[]
     windspds=[]
     winddirrels=[]
     winddirabss=[]
@@ -1467,20 +1467,20 @@ def readPIPSdf(filename,fixGPS=True,basicqc=False,rainfallqc=False,rainonlyqc=Fa
     GPS_lons=[]
     GPS_stats=[]
     GPS_alts=[]
-    
+
     disfile = open(filename,'r')
-    
+
     firstgoodGPS = False
-    
+
     for line in disfile:
         tokens = line.strip().split(',')
         timestamp = tokens[0]
         timestring = timestamp.strip().split()
         date = timestring[0] # .strip('-')
         time = timestring[1] # .strip(':')
-        
+
         #2016-03-31 22:19:02
-        
+
         #Construct datetime object
         year = N.int(date[:4])
         month = N.int(date[5:7])
@@ -1490,7 +1490,7 @@ def readPIPSdf(filename,fixGPS=True,basicqc=False,rainfallqc=False,rainonlyqc=Fa
         sec = N.int(time[6:])
 
         datetimelogger = datetime(year,month,day,hour,min,sec)
-        
+
         recordnum = N.int(tokens[1])
         voltage = N.float(tokens[2])
         paneltemp = N.float(tokens[3])
@@ -1515,7 +1515,7 @@ def readPIPSdf(filename,fixGPS=True,basicqc=False,rainfallqc=False,rainonlyqc=Fa
         GPS_date = tokens[20]
         GPS_magvar = N.float(tokens[21])
         GPS_alt = N.float(tokens[22])
-        
+
         winddirabs = N.float(tokens[23])
         try:
             dewpoint = N.float(tokens[24])
@@ -1525,16 +1525,16 @@ def readPIPSdf(filename,fixGPS=True,basicqc=False,rainfallqc=False,rainonlyqc=Fa
             RH_derived = N.float(tokens[25])
         except:
             RH_derived = N.nan
-                 
+
         # Find the first good GPS time and date and use that
         # to construct the time offset for the data logger
         if(not N.isnan(GPS_alt) and not firstgoodGPS and GPS_status == 'A'):
             firstgoodGPS = True
             print GPS_date,GPS_time
             print date,time
-            
+
             print year,month,day,hour,min,sec
-            
+
             #Construct datetime object
             gyear = N.int('20'+GPS_date[4:])
             gmonth = N.int(GPS_date[2:4])
@@ -1547,7 +1547,7 @@ def readPIPSdf(filename,fixGPS=True,basicqc=False,rainfallqc=False,rainonlyqc=Fa
             GPS_offset = datetimeGPS-datetimelogger
             print datetimeGPS,datetimelogger
             print "GPS Offset",GPS_offset
-    
+
         datetimes.append(datetimelogger)
         windspds.append(windspd)
         winddirrels.append(winddirrel)
@@ -1565,7 +1565,7 @@ def readPIPSdf(filename,fixGPS=True,basicqc=False,rainfallqc=False,rainonlyqc=Fa
         GPS_stats.append(GPS_status)
         GPS_alts.append(GPS_alt)
         voltages.append(voltage)
-            
+
         parsivel_string = tokens[26]
         parsivel_tokens = parsivel_string.strip().split(';')
         serialnum = parsivel_tokens[0]
@@ -1593,10 +1593,10 @@ def readPIPSdf(filename,fixGPS=True,basicqc=False,rainfallqc=False,rainonlyqc=Fa
             else:
                 if(len(spectrum) == 1025):
                     spectrum = spectrum[:-1] # Strip off bogus last value
-        
+
 #             if(GPS_time):
 #                 print GPS_date,GPS_time
-#             
+#
             pdatetimes.append(datetimelogger)
             preciptots.append(precipaccum)
             intensities.append(precipintensity)
@@ -1606,7 +1606,7 @@ def readPIPSdf(filename,fixGPS=True,basicqc=False,rainfallqc=False,rainonlyqc=Fa
             pcounts.append(pcount)
             sensortemps.append(sensor_temp)
             pvoltages.append(pvoltage)
-        
+
             # Now create an array out of the spectrum and reshape it to 32x32
             spectrum = N.array(spectrum,dtype='int')
             if(spectrum.size == 1024):
@@ -1617,12 +1617,12 @@ def readPIPSdf(filename,fixGPS=True,basicqc=False,rainfallqc=False,rainonlyqc=Fa
             # Append spectrum (corrected or not) to spectrum time list
 
             countsMatrix.append(spectrum)
-        
+
     # Recast countsMatrix as numpy array
-    
+
     countsMatrix = N.dstack(countsMatrix)
     countsMatrix = N.rollaxis(countsMatrix,2,0)
-    
+
     # Perform Katja's QC routines if desired (should not be used in combination with my methods above,
     # most are redundant anyway).
 
@@ -1630,15 +1630,15 @@ def readPIPSdf(filename,fixGPS=True,basicqc=False,rainfallqc=False,rainonlyqc=Fa
     flaggedtimes=N.zeros(len(pdatetimes),dtype=bool)
     splashmask=N.zeros_like(countsMatrix)
     marginmask=N.zeros_like(countsMatrix)
-    
+
     countsMatrix = truncatedspectrumQC(countsMatrix)
-    
+
     if(use_strongwindQC or basicqc or strongwindqc):
         countsMatrix,flaggedtimes = strongwindQC(countsMatrix)
-    
+
     if(use_splashingQC or basicqc):
         countsMatrix = splashingQC(countsMatrix)
-    
+
     if(use_marginQC or basicqc):
         countsMatrix = marginQC(countsMatrix)
 
@@ -1657,12 +1657,12 @@ def readPIPSdf(filename,fixGPS=True,basicqc=False,rainfallqc=False,rainonlyqc=Fa
     if(masklowdiam):
         countsMatrix = masklowdiamQC(countsMatrix)
     # Find total number of non-masked particles
-    
+
     pcount2 = countsMatrix.sum(axis=2)
     pcounts2 = pcount2.sum(axis=1)
-    
+
     counts_1drop = N.ones_like(avg_diameter)
-    
+
     #print pcount2,pcount2.shape
     # Now, after QC, compute number concentrations for each size bin for each time
     for t,time in enumerate(pdatetimes):
@@ -1674,11 +1674,11 @@ def readPIPSdf(filename,fixGPS=True,basicqc=False,rainfallqc=False,rainonlyqc=Fa
         else:
             vspectrum = rainvd
             dspectrum = spectrum.sum(axis=0)   # Sum up particles for each diameter bin
-            
+
             # print "time = ",time
 #             for i,diam in enumerate(min_diameter):
 #                 print diam,dspectrum[i]
-    
+
         # Now compute the number concentration using the assumed fall speeds, sensor area, and sampling interval
         # Units are #/m^3/mm
 #         if time == '171320':
@@ -1695,31 +1695,31 @@ def readPIPSdf(filename,fixGPS=True,basicqc=False,rainfallqc=False,rainonlyqc=Fa
         else:
             concentration = -999.*N.ones_like(avg_diameter)
             concentration = ma.masked_where(concentration == -999.,concentration)
-        
+
         # Throw out particles above and below a certain diameter if desired
-        
+
 #         if(maskhighdiam):
 #             concentration = ma.masked_where(avg_diameter > highdiamthresh, concentration)
 #             #print "avg_diameter,concentration",avg_diameter,concentration
 #         if(masklowdiam):
 #             concentration = ma.masked_where(avg_diameter < lowdiamthresh, concentration)
-        
+
         #print "Number of particles counted vs. summed number: "
         #print N.int(line[7]),N.sum(dspectrum)
-        
+
         #print concentration
-        
+
         concentrations.append(concentration)
         onedrop_concentrations.append(onedrop_concentration)
-        
+
     concentrations = ma.array(concentrations)
     onedrop_concentrations = ma.array(onedrop_concentrations)
     #print "concentrations: ",concentrations
     pcounts = N.array(pcounts)
     #pcounts2 = ma.array(pcounts2)
-    
+
     # Correct the logger time and date using the GPS time
-    
+
     datetimes_corrected = []
     pdatetimes_corrected = []
     for datetimelogger in datetimes:
@@ -1738,251 +1738,38 @@ def readPIPSdf(filename,fixGPS=True,basicqc=False,rainfallqc=False,rainonlyqc=Fa
                       'voltage':voltages}
 
     conv_data_df = pd.DataFrame(conv_data_dict,index=pd.Index(datetimes_corrected,name='Time'))
-    
+
     # Average and thin the DSD data with the desired interval
-    DSD_index_interval = int(DSD_interval/10.0)    
+    DSD_index_interval = int(DSD_interval/10.0)
     print "Requested DSD interval: {:.1f}. Actual DSD interval: {:.1f}".format(DSD_interval,DSD_index_interval*10.0)
     DSD_interval = DSD_index_interval*10.0
     # We need to find the offset corresponding to the starting second and then generate the frequency string
     sec_offset = pdatetimes_corrected[0].second
     intervalstr = '{:d}S'.format(int(DSD_interval))
-    
+
     #Create dataframes for the Parsivel data
     #One dataframe for the 3D concentration array, one for the 3D "one-drop" concentration array,
     #and one to contain all the other derived data
-    
+
     derived_DSD_dict = {'Precipitation intensity':intensities,'Precipitation totals':preciptots,
                         'Radar reflectivity':reflectivities,'Particle counts':pcounts,
                         'Derived particle counts':pcounts2,'Bad wind flagged times':flaggedtimes}
-    
+
     concentrations_df = pd.DataFrame(data=concentrations,index=pd.Index(pdatetimes_corrected,name='Time'),columns=avg_diameter)
     onedrop_concentrations_df = pd.DataFrame(data=onedrop_concentrations,index=pd.Index(pdatetimes_corrected,name='Time'),columns=avg_diameter)
     derived_DSD_df = pd.DataFrame(derived_DSD_dict,index=pd.Index(pdatetimes_corrected,name='Time'))
-    
+
     if(DSD_interval > 10.0):
         # Resample at the new interval filling in missing values with zeros
-    
+
         concentrations_df = concentrations_df.resample(intervalstr,label='right',closed='right',base=sec_offset).mean().fillna(0)
         onedrop_concentrations_df = onedrop_concentrations_df.resample(intervalstr,label='right',closed='right',base=sec_offset).mean().fillna(0)
         derived_DSD_df = derived_DSD_df.resample(intervalstr,label='right',closed='right',base=sec_offset).mean().fillna(0)
-        
+
     return conv_data_df,concentrations_df,onedrop_concentrations_df,derived_DSD_df,DSD_interval,intervalstr
 
-        
+
 def readPIPSloc(filename, starttime=None, stoptime=None):
-        dewpoints.append(dewpoint)
-        RHs_derived.append(RH_derived)
-        RHs.append(RH)
-        pressures.append(pressure)
-        compass_dirs.append(compass_dir)
-        GPS_lats.append(GPS_lat)
-        GPS_lons.append(GPS_lon)
-        GPS_stats.append(GPS_status)
-        GPS_alts.append(GPS_alt)
-        voltages.append(voltage)
-            
-        parsivel_string = tokens[26]
-        parsivel_tokens = parsivel_string.strip().split(';')
-        serialnum = parsivel_tokens[0]
-        if(serialnum in parsivel_ids and len(parsivel_tokens) >= 11):
-            #print timestring
-            precipintensity = N.float(parsivel_tokens[1])
-            precipaccum = N.float(parsivel_tokens[2])
-            parsivel_dBZ = N.float(parsivel_tokens[3])
-            sample_interval = N.float(parsivel_tokens[4])
-            signal_amplitude = N.float(parsivel_tokens[5])
-            pcount = N.int(parsivel_tokens[6])
-            sensor_temp = N.float(parsivel_tokens[7])
-            pvoltage = N.float(parsivel_tokens[8])
-            sensor_time = parsivel_tokens[9]
-            sensor_date = parsivel_tokens[10]
-            try:
-                spectrum = [float(x) if x!= '' else 0 for x in parsivel_tokens[11:]]
-            except:
-                spectrum = [-999 for i in xrange(1025)]
-            #print "spectrum length = ",len(spectrum)
-            if(len(spectrum) < 1024):
-                print "Problem with Parsivel spectrum.  Flagging as bad!"
-                print "Time: ",timestring
-#                 spectrum = [N.nan for i in xrange(1025)]
-            else:
-                if(len(spectrum) == 1025):
-                    spectrum = spectrum[:-1] # Strip off bogus last value
-        
-#             if(GPS_time):
-#                 print GPS_date,GPS_time
-#             
-            pdatetimes.append(datetimelogger)
-            preciptots.append(precipaccum)
-            intensities.append(precipintensity)
-            reflectivities.append(parsivel_dBZ)
-            sampleintervals.append(sample_interval)
-            amplitudes.append(signal_amplitude)
-            pcounts.append(pcount)
-            sensortemps.append(sensor_temp)
-            pvoltages.append(pvoltage)
-        
-            # Now create an array out of the spectrum and reshape it to 32x32
-            spectrum = N.array(spectrum,dtype='int')
-            if(spectrum.size == 1024):
-                spectrum = spectrum.reshape((32,32))
-            else:
-                spectrum = -999*N.ones((32,32),dtype='int')
-                print spectrum.size
-            # Append spectrum (corrected or not) to spectrum time list
-
-            countsMatrix.append(spectrum)
-        
-    # Recast countsMatrix as numpy array
-    
-    countsMatrix = N.dstack(countsMatrix)
-    countsMatrix = N.rollaxis(countsMatrix,2,0)
-    
-    # Perform Katja's QC routines if desired (should not be used in combination with my methods above,
-    # most are redundant anyway).
-
-    X,Y = N.meshgrid(avg_diameter,fall_bins)
-    flaggedtimes=N.zeros(len(pdatetimes),dtype=bool)
-    splashmask=N.zeros_like(countsMatrix)
-    marginmask=N.zeros_like(countsMatrix)
-    
-    countsMatrix = truncatedspectrumQC(countsMatrix)
-    
-    if(use_strongwindQC or basicqc or strongwindqc):
-        countsMatrix,flaggedtimes = strongwindQC(countsMatrix)
-    
-    if(use_splashingQC or basicqc):
-        countsMatrix = splashingQC(countsMatrix)
-    
-    if(use_marginQC or basicqc):
-        countsMatrix = marginQC(countsMatrix)
-
-    if(use_rainfallspeedQC or rainfallqc):
-        countsMatrix = rainfallspeedQC(countsMatrix,rainvd,falltol,maskhigh,masklow)
-
-    # if(use_strongwindQC):
-#         countsMatrix,flaggedtimes = strongwindQC(countsMatrix)
-
-    if(use_rainonlyQC or rainonlyqc):
-        countsMatrix = rainonlyQC(countsMatrix)
-
-    if(maskhighdiam):
-        countsMatrix = maskhighdiamQC(countsMatrix)
-
-    if(masklowdiam):
-        countsMatrix = masklowdiamQC(countsMatrix)
-    # Find total number of non-masked particles
-    
-    pcount2 = countsMatrix.sum(axis=2)
-    pcounts2 = pcount2.sum(axis=1)
-    
-    counts_1drop = N.ones_like(avg_diameter)
-    
-    #print pcount2,pcount2.shape
-    # Now, after QC, compute number concentrations for each size bin for each time
-    for t,time in enumerate(pdatetimes):
-        spectrum = countsMatrix[t,:]
-        # Determine whether to use actual measured fall speeds or assumed fallspeeds
-        if(use_measured_fs):
-            dummy,vspectrum = N.meshgrid(avg_diameter,fall_bins)
-            dspectrum = spectrum
-        else:
-            vspectrum = rainvd
-            dspectrum = spectrum.sum(axis=0)   # Sum up particles for each diameter bin
-            
-            # print "time = ",time
-#             for i,diam in enumerate(min_diameter):
-#                 print diam,dspectrum[i]
-    
-        # Now compute the number concentration using the assumed fall speeds, sensor area, and sampling interval
-        # Units are #/m^3/mm
-#         if time == '171320':
-#             print spectrum.size,spectrum,countsMatrix.data[t,:],spectrum.data
-        if(spectrum.size == 1024 and not flaggedtimes[t]):
-            concentration = dspectrum/(vspectrum*sampleintervals[t]*eff_sensor_area*(max_diameter-min_diameter))
-            onedrop_concentration = counts_1drop/(rainvd*sampleintervals[t]*eff_sensor_area*(max_diameter-min_diameter))
-            if(use_measured_fs):    # Sum up # concentration for each velocity bin
-                concentration = concentration.sum(axis=0)
-            #print "concentration.shape"
-            #print concentration.shape
-        elif(not flaggedtimes[t]):
-            concentration = N.zeros_like(avg_diameter)
-        else:
-            concentration = -999.*N.ones_like(avg_diameter)
-            concentration = ma.masked_where(concentration == -999.,concentration)
-        
-        # Throw out particles above and below a certain diameter if desired
-        
-#         if(maskhighdiam):
-#             concentration = ma.masked_where(avg_diameter > highdiamthresh, concentration)
-#             #print "avg_diameter,concentration",avg_diameter,concentration
-#         if(masklowdiam):
-#             concentration = ma.masked_where(avg_diameter < lowdiamthresh, concentration)
-        
-        #print "Number of particles counted vs. summed number: "
-        #print N.int(line[7]),N.sum(dspectrum)
-        
-        #print concentration
-        
-        concentrations.append(concentration)
-        onedrop_concentrations.append(onedrop_concentration)
-        
-    concentrations = ma.array(concentrations)
-    onedrop_concentrations = ma.array(onedrop_concentrations)
-    #print "concentrations: ",concentrations
-    pcounts = N.array(pcounts)
-    #pcounts2 = ma.array(pcounts2)
-    
-    # Correct the logger time and date using the GPS time
-    
-    datetimes_corrected = []
-    pdatetimes_corrected = []
-    for datetimelogger in datetimes:
-        datetimes_corrected.append(datetimelogger+GPS_offset)
-    for pdatetimelogger in pdatetimes:
-        pdatetimes_corrected.append(pdatetimelogger+GPS_offset)
-
-    # Create a DataFrame for the conventional data
-
-    conv_data_dict = {'wind speed':windspds,'relative wind direction':winddirrels,
-                      'absolute wind direction':winddirabss,'wind diagnostic':winddiags,
-                      'fast temperature':fasttemps,'slow temperature':slowtemps,
-                      'dewpoint':dewpoints,'derived RH':RHs_derived,'measured RH':RHs,
-                      'pressure':pressures,'compass direction':compass_dirs,'GPS lat':GPS_lats,
-                      'GPS lon':GPS_lons,'GPS status':GPS_stats,'GPS altitude':GPS_alts,
-                      'voltage':voltages}
-
-    conv_data_df = pd.DataFrame(conv_data_dict,index=pd.Index(datetimes_corrected,name='Time'))
-    
-    # Average and thin the DSD data with the desired interval
-    DSD_index_interval = int(DSD_interval/10.0)    
-    print "Requested DSD interval: {:.1f}. Actual DSD interval: {:.1f}".format(DSD_interval,DSD_index_interval*10.0)
-    DSD_interval = DSD_index_interval*10.0
-    # We need to find the offset corresponding to the starting second and then generate the frequency string
-    sec_offset = pdatetimes_corrected[0].second
-    intervalstr = '{:d}S'.format(int(DSD_interval))
-    
-    #Create dataframes for the Parsivel data
-    #One dataframe for the 3D concentration array, one for the 3D "one-drop" concentration array,
-    #and one to contain all the other derived data
-    
-    derived_DSD_dict = {'Precipitation intensity':intensities,'Precipitation totals':preciptots,
-                        'Radar reflectivity':reflectivities,'Particle counts':pcounts,
-                        'Derived particle counts':pcounts2,'Bad wind flagged times':flaggedtimes}
-    
-    concentrations_df = pd.DataFrame(data=concentrations,index=pd.Index(pdatetimes_corrected,name='Time'),columns=avg_diameter)
-    onedrop_concentrations_df = pd.DataFrame(data=onedrop_concentrations,index=pd.Index(pdatetimes_corrected,name='Time'),columns=avg_diameter)
-    derived_DSD_df = pd.DataFrame(derived_DSD_dict,index=pd.Index(pdatetimes_corrected,name='Time'))
-    
-    if(DSD_interval > 10.0):
-        # Resample at the new interval filling in missing values with zeros
-    
-        concentrations_df = concentrations_df.resample(intervalstr,label='right',closed='right',base=sec_offset).mean().fillna(0)
-        onedrop_concentrations_df = onedrop_concentrations_df.resample(intervalstr,label='right',closed='right',base=sec_offset).mean().fillna(0)
-        derived_DSD_df = derived_DSD_df.resample(intervalstr,label='right',closed='right',base=sec_offset).mean().fillna(0)
-        
-    return conv_data_df,concentrations_df,onedrop_concentrations_df,derived_DSD_df,DSD_interval,intervalstr
-
     """Reads the location of the PIPS from the data file.  Averages all valid GPS lat/lons"""
 
     if starttime is not None:
