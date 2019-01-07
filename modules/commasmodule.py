@@ -20,6 +20,7 @@ class COMMASDataHandler(DataHandler):
         self._file_name = ""
         self._cur_time = -1
         self._multitime = multitime
+        self.vardict = None
 
         super(COMMASDataHandler, self).__init__('COMMAS')
         return
@@ -68,6 +69,25 @@ class COMMASDataHandler(DataHandler):
         ze = N.lib.stride_tricks.as_strided(ze1d, strides=(ze1d.strides + (0, 0)), shape=(ze1d.shape + (nym, nxm)))
 
         return xc, yc, zc, zc1d, xe, ye, ze, ze1d, None
+
+
+    def loadVars(self, varnamelist, boxindices=None, squeeze=True):
+        vardict = {}
+        for varname in varnamelist:
+            try:
+                if boxindices is not None:
+                    var = self._file.variables[varname][self._timeindex,
+                                                        boxindices[4]:boxindices[5],
+                                                        boxindices[2]:boxindices[3],
+                                                        boxindices[0]:boxindices[1]]
+                    if squeeze:
+                        var = var.squeeze()
+                else:
+                    var = self._file.variables[varname][self._timeindex,...]
+                vardict[varname] = var
+            except:
+                warning('Variable '+varname+' not found in file!')
+        return vardict
 
 
     def loadTimes(self):
@@ -391,7 +411,6 @@ class COMMASDataHandler(DataHandler):
            for use by other applications."""
 
         fortran = True
-
         # Calculate moist air density, needed for computation of graupel and hail density below
 
         pt = self._file.variables['TH'][self._timeindex,:,:,:]

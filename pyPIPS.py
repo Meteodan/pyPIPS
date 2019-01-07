@@ -103,7 +103,7 @@ for index, dis_name, dis_filename, starttime, stoptime, dloc, type in \
 
 if(pc.comp_radar):
     if(pc.comp_dualpol):
-        fieldnames = ['dBZ', 'ZDR', 'KDP', 'RHV', 'Vr']
+        fieldnames = ['dBZ', 'ZDR', 'RHV', 'Vr'] # Removed KDP for now
     else:
         fieldnames = ['dBZ', 'Vr']
 
@@ -317,9 +317,8 @@ for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc, type i
     # parameters using the method of moments, after Zhang et al. 2008 and Tokay and
     # Short 1996
     if(pc.calc_DSD):
-        synthbins, exp_DSD, gam_DSD, tmf_DSD, dis_DSD = dis.calc_DSD(pc,
-            min_diameter, avg_diameter, max_diameter, bin_width, ND, logND, rho_tDSD.values, pc.qrQC,
-            pc.qr_thresh, PSD_df[pcountstr].values, PSD_df['intensity'].values)
+        synthbins, exp_DSD, gam_DSD, tmf_DSD, dis_DSD = dis.calc_DSD(ND, rho_tDSD.values, pc.qrQC,
+            pc.qr_thresh, PSD_df[pcountstr].values, PSD_df['intensity'].values, pc=pc)
 
         # Unpack needed values from returned tuples
 
@@ -327,8 +326,9 @@ for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc, type i
             exp_DSD
         ND_gamDSD, N0_gam, lamda_gam, mu_gam, qr_gam, Ntr_gam, refl_DSD_gam, D_med_gam, D_m_gam, \
             LWC_gam, rainrate_gam = gam_DSD
-        ND, logND, D_med_disd, D_m_disd, D_mv_disd, D_ref_disd, QR_disd, refl_disd, LWC_disd, M0, rainrate = \
+        ND, D_med_disd, D_m_disd, D_mv_disd, D_ref_disd, QR_disd, refl_disd, LWC_disd, M0, rainrate = \
             dis_DSD
+        logND = N.ma.log10(ND)
 
         ND_expDSD = ND_expDSD.T
         logND_expDSD = N.ma.log10(ND_expDSD / 1000.)  # Get to log(m^-3 mm^-1)
@@ -360,21 +360,24 @@ for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc, type i
                 if(pc.calc_DSD):
                     D_0_plot = D_med_disd
                     refl_ray_plot = refl_disd
-                    dp = dualpol_dis
+                    if pc.calc_dualpol:
+                        dp = dualpol_dis
                     #Zh, Zv, Zhv, dBZ, ZDR, KDP, RHV, intv, d, fa2, fb2 = dualpol_dis
             elif(DSDtype == 'exponential'):
                 logND_plot = logND_expDSD[:, pstartindex:pstopindex + 1]
                 if(pc.calc_DSD):
                     D_0_plot = D_med_exp
                     refl_ray_plot = refl_DSD_exp
-                    dp = dualpol_exp
+                    if pc.calc_dualpol:
+                        dp = dualpol_exp
                     #Zh, Zv, Zhv, dBZ, ZDR, KDP, RHV, intv, d, fa2, fb2 = dualpol_exp
             elif(DSDtype == 'gamma'):
                 logND_plot = logND_gamDSD[:, pstartindex:pstopindex + 1]
                 if(pc.calc_DSD):
                     D_0_plot = D_med_gam
                     refl_ray_plot = refl_DSD_gam
-                    dp = dualpol_gam
+                    if pc.calc_dualpol:
+                        dp = dualpol_gam
                     #Zh, Zv, Zhv, dBZ, ZDR, KDP, RHV, intv, d, fa2, fb2 = dualpol_gam
 
             disvars = {'min_diameter': min_diameter, 'PSDstarttimes': PSDstarttimes,

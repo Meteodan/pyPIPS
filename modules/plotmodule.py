@@ -852,6 +852,7 @@ def plotmeteogram(ax, xvals, zvals, plotparamdicts, yvals=None):
         plotlabel = plotparamdict.get('label', None)
         vlimits = plotparamdict.get('vlimits', None)
         clabel = plotparamdict.get('clabel', None)
+        plotcbar = plotparamdict.get('plotcbar', True)
 
         if(type == 'fill_between'):
             ax.plot_date(xval, zval, ls=linestyle, lw=linewidth, marker=marker, color=color,
@@ -861,9 +862,15 @@ def plotmeteogram(ax, xvals, zvals, plotparamdicts, yvals=None):
             divider = make_axes_locatable(ax)
             C = ax.pcolor(xval, yvals[idx], zval, vmin=vlimits[0], vmax=vlimits[1])
             cax = divider.append_axes("bottom", size="5%", pad=0.40)
-            cb = ax.get_figure().colorbar(C, cax=cax, orientation='horizontal')
-            if(clabel):
-                cb.set_label(clabel)
+            # Go ahead and create the appended axes, but simply shut it off if we don't
+            # want it. This is so that if we are plotting subplots and only want one colorbar
+            # between them, they all end up the same size.
+            if not plotcbar:
+                cax.axis('off')
+            else:
+                cb = ax.get_figure().colorbar(C, cax=cax, orientation='horizontal')
+                if(clabel):
+                    cb.set_label(clabel)
         elif(type == 'vertical line'):  # For flagging times with bad data, etc.
                                         # zval is interpreted as a list of x-indices
             for x in zval:
@@ -885,6 +892,7 @@ def set_meteogram_axes(axes, axparamdicts):
         minorxlocator = axparamdict.get('minorxlocator', None)
         axeslimits = axparamdict.get('axeslimits', [None, None])
         axeslabels = axparamdict.get('axeslabels', [None, None])
+        axesautofmt = axparamdict.get('axesautofmt', True)
 
         if(majorxlocator):
             ax.xaxis.set_major_locator(majorxlocator)
@@ -903,7 +911,7 @@ def set_meteogram_axes(axes, axparamdicts):
         if(majorylocator):
             ax.yaxis.set_major_locator(majorylocator)
 
-    if(axes[0]):
+    if(axes[0] and axesautofmt):
         axes[0].get_figure().autofmt_xdate()
 
     return axes
