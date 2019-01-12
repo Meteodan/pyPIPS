@@ -3,11 +3,9 @@
 # This script analyzes and plots data from the Portable Integrated Precipitation Stations (PIPS)
 
 import numpy as N
-import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import matplotlib.dates as dates
 from datetime import timedelta
-import modules.thermolib as thermo
 import os
 import modules.disdrometer_module as dis
 import sys
@@ -15,8 +13,6 @@ import modules.radarmodule as radar
 import pandas as pd
 import modules.plotmodule as pm
 import modules.utils as utils
-import modules.DSDretrieval as DR
-import modules.empirical_module as em
 
 min_diameter = dis.min_diameter
 max_diameter = dis.max_diameter
@@ -80,14 +76,15 @@ if (not os.path.exists(ib.image_dir)):
 
 for index, dis_name, dis_filename, starttime, stoptime, dloc, type in \
         zip(range(0, ib.numdis), ib.dis_name_list, ib.dis_list, ib.starttimes, ib.stoptimes,
-        ib.dlocs, ib.type):
+            ib.dlocs, ib.type):
 
     if(N.int(dloc[0]) == -1):
         filepath = os.path.join(ib.dis_dir, dis_filename)
         if(type == 'PIPS'):
             GPS_lats, GPS_lons, GPS_stats, GPS_alts, dloc = dis.readPIPSloc(filepath)
         elif(type == 'CU'):
-            filepath = os.path.join(ib.dis_dir, dis_filename[:-8]+'CU'+dis_filename[-5]+'.dat')
+            filepath = os.path.join(ib.dis_dir,
+                                    dis_filename[:-8] + 'CU' + dis_filename[-5] + '.dat')
             GPS_lats, GPS_lons, GPS_stats, GPS_alts, dloc = dis.readCUloc(filepath,
                                                                           starttime=starttime,
                                                                           stoptime=stoptime)
@@ -103,7 +100,7 @@ for index, dis_name, dis_filename, starttime, stoptime, dloc, type in \
 
 if(pc.comp_radar):
     if(pc.comp_dualpol):
-        fieldnames = ['dBZ', 'ZDR', 'RHV', 'Vr'] # Removed KDP for now
+        fieldnames = ['dBZ', 'ZDR', 'RHV', 'Vr']  # Removed KDP for now
     else:
         fieldnames = ['dBZ', 'Vr']
 
@@ -146,7 +143,7 @@ for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc, type i
                                  starttime=starttime, stoptime=stoptime)
         pcountstr = 'pcount2'
     elif type == 'CU':
-        conv_filename = dis_filename[:-8]+'CU'+dis_filename[-5]+'.dat'
+        conv_filename = dis_filename[:-8] + 'CU' + dis_filename[-5] + '.dat'
         conv_filepath = os.path.join(ib.dis_dir, conv_filename)
 
         PIPS_dict = dis.readCU(conv_filepath, dis_filepath, basicqc=pc.basicQC,
@@ -163,7 +160,6 @@ for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc, type i
                                       requested_interval=pc.DSD_interval, starttime=starttime,
                                       stoptime=stoptime)
         pcountstr = 'pcount'
-
 
     # Unpack some stuff from the PIPS_dict
     convtimestamps = PIPS_dict['convtimestamps']
@@ -185,7 +181,7 @@ for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc, type i
     # exponential fits, *not* for the actual data. (You can't observe a fraction of a drop! and the
     # way it's computed (using the theoretical fall speed instead of measured) may actually end up
     # zeroing out some bins.)
-    #logND = N.ma.masked_where(ND < ND_onedrop, logND)
+    # logND = N.ma.masked_where(ND < ND_onedrop, logND)
 
     DSD_index = PIPS_dict['DSD_index']
     DSD_interval = PIPS_dict['DSD_interval']
@@ -300,9 +296,10 @@ for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc, type i
         # pandas resample.max() does not propagate NaN's!
         if(pc.plot_diagnostics and type == 'PIPS'):
             winddiag_resampled = conv_df['winddiag'].resample(plotintervalstr, label='right',
-                closed='right', base=sec_offset, how=lambda x: utils.trymax(x.values))
+                                                              closed='right', base=sec_offset,
+                                                              how=lambda x: utils.trymax(x.values))
             conv_plot_df['winddiag'] = winddiag_resampled.loc[
-                                            winddiag_resampled.index.intersection(plottimeindex)]
+                winddiag_resampled.index.intersection(plottimeindex)]
 
         # Organize a bunch of stuff in a dictionary
         convmeteodict = {'plotinterval': plotinterval, 'plottimes': plottimes,
@@ -318,16 +315,19 @@ for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc, type i
     # Short 1996
     if(pc.calc_DSD):
         synthbins, exp_DSD, gam_DSD, tmf_DSD, dis_DSD = dis.calc_DSD(ND, rho_tDSD.values, pc.qrQC,
-            pc.qr_thresh, PSD_df[pcountstr].values, PSD_df['intensity'].values, pc=pc)
+                                                                     pc.qr_thresh,
+                                                                     PSD_df[pcountstr].values,
+                                                                     PSD_df['intensity'].values,
+                                                                     pc=pc)
 
         # Unpack needed values from returned tuples
 
-        ND_expDSD, N0_exp, lamda_exp, mu_exp, qr_exp, Ntr_exp, refl_DSD_exp, D_med_exp, D_m_exp = \
-            exp_DSD
-        ND_gamDSD, N0_gam, lamda_gam, mu_gam, qr_gam, Ntr_gam, refl_DSD_gam, D_med_gam, D_m_gam, \
-            LWC_gam, rainrate_gam = gam_DSD
-        ND, D_med_disd, D_m_disd, D_mv_disd, D_ref_disd, QR_disd, refl_disd, LWC_disd, M0, rainrate = \
-            dis_DSD
+        (ND_expDSD, N0_exp, lamda_exp, mu_exp, qr_exp, Ntr_exp, refl_DSD_exp, D_med_exp,
+         D_m_exp) = exp_DSD
+        (ND_gamDSD, N0_gam, lamda_gam, mu_gam, qr_gam, Ntr_gam, refl_DSD_gam, D_med_gam, D_m_gam,
+         LWC_gam, rainrate_gam) = gam_DSD
+        (ND, D_med_disd, D_m_disd, D_mv_disd, D_ref_disd, QR_disd, refl_disd, LWC_disd, M0,
+         rainrate) = dis_DSD
         logND = N.ma.log10(ND)
 
         ND_expDSD = ND_expDSD.T
@@ -362,7 +362,7 @@ for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc, type i
                     refl_ray_plot = refl_disd
                     if pc.calc_dualpol:
                         dp = dualpol_dis
-                    #Zh, Zv, Zhv, dBZ, ZDR, KDP, RHV, intv, d, fa2, fb2 = dualpol_dis
+                    # Zh, Zv, Zhv, dBZ, ZDR, KDP, RHV, intv, d, fa2, fb2 = dualpol_dis
             elif(DSDtype == 'exponential'):
                 logND_plot = logND_expDSD[:, pstartindex:pstopindex + 1]
                 if(pc.calc_DSD):
@@ -370,7 +370,7 @@ for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc, type i
                     refl_ray_plot = refl_DSD_exp
                     if pc.calc_dualpol:
                         dp = dualpol_exp
-                    #Zh, Zv, Zhv, dBZ, ZDR, KDP, RHV, intv, d, fa2, fb2 = dualpol_exp
+                    # Zh, Zv, Zhv, dBZ, ZDR, KDP, RHV, intv, d, fa2, fb2 = dualpol_exp
             elif(DSDtype == 'gamma'):
                 logND_plot = logND_gamDSD[:, pstartindex:pstopindex + 1]
                 if(pc.calc_DSD):
@@ -378,7 +378,7 @@ for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc, type i
                     refl_ray_plot = refl_DSD_gam
                     if pc.calc_dualpol:
                         dp = dualpol_gam
-                    #Zh, Zv, Zhv, dBZ, ZDR, KDP, RHV, intv, d, fa2, fb2 = dualpol_gam
+                    # Zh, Zv, Zhv, dBZ, ZDR, KDP, RHV, intv, d, fa2, fb2 = dualpol_gam
 
             disvars = {'min_diameter': min_diameter, 'PSDstarttimes': PSDstarttimes,
                        'PSDmidtimes': PSDmidtimes, 'logND': logND_plot}
@@ -453,22 +453,23 @@ for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc, type i
                     if(pc.clean_radar):
                         # remove non-precipitation echoes from radar data
                         gc_mask = N.where((radvars['RHV'] < 0.90), True, False)
-                        for radvarname in ['ZDR','dBZ','RHV']:
-                                radvars[radvarname] = N.ma.masked_array(radvars[radvarname],
-                                                                      mask=gc_mask)
+                        for radvarname in ['ZDR', 'dBZ', 'RHV']:
+                            radvars[radvarname] = N.ma.masked_array(radvars[radvarname],
+                                                                    mask=gc_mask)
             if(pc.plot_only_precip and pc.calc_dualpol):
                 # set plot start and end time to the start and end of precipitation
                 rainindex = N.where(disvars['RHV'] > 0.1)
-                raintimes = DSDmidtimes[rainindex]
-                plotstarttime = raintimes[0]
-                plotstoptime = raintimes[len(raintimes)-1]
+                # FIXME: DSDmidtimes should be something else now
+                # raintimes = DSDmidtimes[rainindex]
+                # plotstarttime = raintimes[0]
+                # plotstoptime = raintimes[len(raintimes) - 1]
             if(DSDtype == 'observed'):
                 # Prepare axis parameters
                 timelimits = [plotstarttime, plotstoptime]
                 try:
                     diamlimits = pc.DSD_D_range
                     diamytick = pc.DSD_D_ytick
-                except:
+                except BaseException:
                     diamlimits = [0.0, 9.0]
                     diamytick = 1.0
 
@@ -480,7 +481,7 @@ for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc, type i
 
             # Ok, now we should have everything ready to go to plot the meteograms.
             # Let'er rip!
-            dis_plot_name = dis_name+'_'+DSDtype
+            dis_plot_name = dis_name + '_' + DSDtype
             pm.plotDSDmeteograms(dis_plot_name, meteogram_image_dir,
                                  axparams, disvars, radvars.copy())
 
