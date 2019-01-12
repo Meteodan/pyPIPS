@@ -38,7 +38,7 @@ Nc_bin_tarr = radnpz_file['Nc_bin']
 R_tarr = radnpz_file['R']
 D0_tarr = radnpz_file['D0']
 mm = N.nanmax(R_tarr)
-print len(R_tarr)
+print(len(R_tarr))
 rain_bins = []
 D0_bins = N.arange(0.0,4.05,0.05)
 D0_bins = N.array(D0_bins)
@@ -49,8 +49,8 @@ while rainrate < mm:
     rainrate = old_rainrate + (old_rainrate * 0.1)
 R_bins = N.array(rain_bins)
 
-print len(R_bins) 
-print len(D0_bins)
+print(len(R_bins)) 
+print(len(D0_bins))
 Nc_bin =[]
 Nc_bin_avg = N.zeros((len(R_bins)-1,len(D0_bins)-1),dtype=object)
 
@@ -152,7 +152,7 @@ for r in N.arange(len(R_bins)-1):
                 break
         
         LDmx = lamda_gam*Dmax
-        for x in xrange(10):
+        for x in range(10):
             temp_mu_tmf = mu_gam
             gm3 = gammap(3.+temp_mu_tmf,LDmx)*N.exp(gammln(3.+temp_mu_tmf))
             gm5 = gammap(5.+temp_mu_tmf,LDmx)*N.exp(gammln(5.+temp_mu_tmf))
@@ -182,7 +182,7 @@ lam = lam[~N.isnan(lam)]
 mu = mu[~N.isnan(mu)]	
 Lam = []
 Mu = []
-for n1 in xrange(0,len(lam)):
+for n1 in range(0,len(lam)):
     lamda = lam[n1]
     if(lamda < 20.):
         Lam.append(lam[n1])
@@ -219,7 +219,7 @@ lamTMF = lamTMF[~N.isnan(lamTMF)]
 muTMF = muTMF[~N.isnan(muTMF)]	
 LamTMF = []
 MuTMF = []
-for n1 in xrange(0,len(lamTMF)):
+for n1 in range(0,len(lamTMF)):
     lamda = lamTMF[n1]
     if(lamda < 20.):
         LamTMF.append(lamTMF[n1])

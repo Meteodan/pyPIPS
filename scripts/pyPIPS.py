@@ -79,7 +79,7 @@ if (not os.path.exists(ib.image_dir)):
 # from the GPS data
 
 for index, dis_name, dis_filename, starttime, stoptime, dloc, type in \
-        zip(xrange(0, ib.numdis), ib.dis_name_list, ib.dis_list, ib.starttimes, ib.stoptimes,
+        zip(range(0, ib.numdis), ib.dis_name_list, ib.dis_list, ib.starttimes, ib.stoptimes,
         ib.dlocs, ib.type):
 
     if(N.int(dloc[0]) == -1):
@@ -96,7 +96,7 @@ for index, dis_name, dis_filename, starttime, stoptime, dloc, type in \
 
         ib.dlocs[index] = dloc
 
-    print "Lat/Lon/alt of " + dis_name + ": " + str(dloc)
+    print("Lat/Lon/alt of " + dis_name + ": " + str(dloc))
 
 # ------
 # Grab radar data for comparison if desired
@@ -123,7 +123,7 @@ Wdict = {}
 Rdict = {}
 Ntdict = {}
 
-for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc, type in zip(xrange(
+for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc, type in zip(range(
         0, len(ib.dis_list)), ib.dis_list, ib.dis_name_list, ib.starttimes, ib.stoptimes,
         ib.centertimes, ib.dlocs, ib.type):
 
@@ -536,7 +536,7 @@ for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc, type i
                   'xlim': pc.D_range, 'ylim': pc.vel_range,
                   'dis_name': dis_name}
 
-        for t in xrange(PSD_df.index.size):
+        for t in range(PSD_df.index.size):
             if(PSD_df['pcount2'].values[t] > 0):
                 axdict['time'] = t
                 PSDdict = {'countsMatrix': countsMatrix[t, :],

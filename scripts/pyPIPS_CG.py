@@ -1,5 +1,6 @@
 # Plot_Disdrometer
-# Runs through all of the IOPs in the input folder and does meteograms and scattergrams and calculates overall lam-mu relation
+# Runs through all of the IOPs in the input folder and does meteograms and scattergrams and
+# calculates overall lam-mu relation
 # This script plots several quantities based on disdrometer data from the Parsivel laser disdrometer
 # command line: python pyPIPS_CG.py pyPIPScontrol.py
 
@@ -8,7 +9,7 @@ from numpy import ma as ma
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import matplotlib.dates as dates
-from datetime import datetime, timedelta
+from datetime import timedelta
 import modules.thermolib as thermo
 import os
 import modules.disdrometer_module as dis
@@ -20,8 +21,8 @@ import modules.utils as utils
 import modules.DSDretrieval as DR
 import modules.empirical_module as em
 
-mu=[]
-lamda=[]
+mu = []
+lamda = []
 
 fieldnames = ['dBZ', 'ZDR', 'KDP', 'RHV', 'Vr']
 
@@ -70,11 +71,11 @@ if(not pc.plot_DSD_meteo):
 if(not pc.plot_conv_meteo and not pc.plot_DSD_meteo):
     pc.plot_diagnostics = False
 
-#-----------------------------------------------------------------------
+# -----------------------------------------------------------------------
 #
 #   Loop to run through each IOP.
 #
-#-----------------------------------------------------------------------
+# -----------------------------------------------------------------------
 
 # Should make this an input parameter (not hardcoded)
 indir = '/Users/bozell/pyPIPS_work/input/NEXRAD/'
@@ -83,13 +84,13 @@ for root, dirs, filenames in os.walk(indir):
         if f.endswith("FMCW.txt"):
             continue
         elif f.endswith(".txt"):
-            print f
+            print(f)
 
-            filepath = os.path.join(root,f)
+            filepath = os.path.join(root, f)
 
             # Parse command line argument and read in disdrometer/radar information from text file
-            # Maybe in the future can find a more efficient way, such as checking to see if there is a pickled
-            # version first, and if not, reading the textfile and pickling the read-in
+            # Maybe in the future can find a more efficient way, such as checking to see if there
+            # is a pickled version first, and if not, reading the textfile and pickling the read-in
             # variables for future read-ins.  Think about this.
 
             if(len(sys.argv) == 1):
@@ -104,11 +105,11 @@ for root, dirs, filenames in os.walk(indir):
             if (not os.path.exists(ib.image_dir)):
                 os.makedirs(ib.image_dir)
 
-            # We need the disdrometer locations. If they aren't supplied in the input control file, find them
-            # from the GPS data
+            # We need the disdrometer locations. If they aren't supplied in the input control file,
+            # find them from the GPS data
 
             for index, dis_name, dis_filename, dloc in \
-                    zip(xrange(0, ib.numdis), ib.dis_name_list, ib.dis_list, ib.dlocs):
+                    zip(range(0, ib.numdis), ib.dis_name_list, ib.dis_list, ib.dlocs):
 
                 if(N.int(dloc[0]) == -1):
                     filepath = os.path.join(ib.dis_dir, dis_filename)
@@ -116,7 +117,7 @@ for root, dirs, filenames in os.walk(indir):
                         filepath)
                     ib.dlocs[index] = dloc
 
-                print "Lat/Lon/alt of " + dis_name + ": " + str(dloc)
+                print("Lat/Lon/alt of " + dis_name + ": " + str(dloc))
 
             # ------
             # Grab radar data for comparison if desired
@@ -138,11 +139,9 @@ for root, dirs, filenames in os.walk(indir):
             MuDict = {}
             LamDict = {}
 
-            for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc in zip(xrange(
+            for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc in zip(range(
                     0, len(ib.dis_list)), ib.dis_list, ib.dis_name_list, ib.starttimes,
                     ib.stoptimes, ib.centertimes, ib.dlocs):
-                #				if(dis_name == 'PIPS_2B'):
-                #					continue
                 if(pc.timetospace):
                     centertime = ib.centertimes[index]
 
@@ -183,18 +182,23 @@ for root, dirs, filenames in os.walk(indir):
 
                 # Compute potential temperature, water vapor mixing ratio, and density
 
-                conv_df['pt'] = thermo.caltheta(conv_df['pressure']*100., conv_df['fasttemp']+273.15)
-                conv_df['qv'] = thermo.calqv(conv_df['RH_derived']/100., conv_df['pressure']*100.,
-                                               conv_df['fasttemp']+273.15)
-                conv_df['rho'] = thermo.calrho(conv_df['pressure']*100., conv_df['pt'], conv_df['qv'])
+                conv_df['pt'] = thermo.caltheta(
+                    conv_df['pressure'] * 100., conv_df['fasttemp'] + 273.15)
+                conv_df['qv'] = thermo.calqv(conv_df['RH_derived'] / 100.,
+                                             conv_df['pressure'] * 100.,
+                                             conv_df['fasttemp'] + 273.15)
+                conv_df['rho'] = thermo.calrho(
+                    conv_df['pressure'] * 100., conv_df['pt'], conv_df['qv'])
 
                 # Determine start and end times/indices for analysis
 
                 convtimestampsnums = dates.date2num(convtimestamps)
                 PSDtimestampsnums = dates.date2num(PSDtimestamps)
 
-                startindex, stopindex = utils.getTimeWindow(starttime, stoptime, convtimestampsnums)
-                pstartindex, pstopindex = utils.getTimeWindow(starttime, stoptime, PSDtimestampsnums)
+                startindex, stopindex = utils.getTimeWindow(
+                    starttime, stoptime, convtimestampsnums)
+                pstartindex, pstopindex = utils.getTimeWindow(
+                    starttime, stoptime, PSDtimestampsnums)
 
                 starttime = convtimestampsnums[startindex]
                 stoptime = convtimestampsnums[stopindex]
@@ -212,12 +216,21 @@ for root, dirs, filenames in os.walk(indir):
                 PSDmidtimes = dates.date2num(PSDtimestamps_avg[pstartindex:pstopindex + 1])
 
                 # Store all time-related parameters in a dictionary (not actually used right now)
-                timedict = {'startindex': startindex, 'stopindex': stopindex, 'pstartindex': pstartindex,
-                            'starttime': starttime, 'stoptime': stoptime, 'pstarttime': pstarttime,
-                            'pstoptime': pstoptime, 'convtimestamps': convtimestamps,
-                            'convtimestampnums': convtimestampsnums, 'PSDtimestamps': PSDtimestamps,
-                            'PSDtimestampsnums': PSDtimestampsnums, 'PSDtimestamps_edge': PSDtimestamps_edge,
-                            'PSDtimestamps_avg': PSDtimestamps_avg}
+                timedict = {
+                    'startindex': startindex,
+                    'stopindex': stopindex,
+                    'pstartindex': pstartindex,
+                    'starttime': starttime,
+                    'stoptime': stoptime,
+                    'pstarttime': pstarttime,
+                    'pstoptime': pstoptime,
+                    'convtimestamps': convtimestamps,
+                    'convtimestampnums': convtimestampsnums,
+                    'PSDtimestamps': PSDtimestamps,
+                    'PSDtimestampsnums': PSDtimestampsnums,
+                    'PSDtimestamps_edge': PSDtimestamps_edge,
+                    'PSDtimestamps_avg': PSDtimestamps_avg
+                }
 
                 # TODO: Address this section
                 if(pc.timetospace and pc.comp_radar):
@@ -253,22 +266,23 @@ for root, dirs, filenames in os.walk(indir):
                 conv_resampled_df = conv_resampled_df.loc[DSD_index]
                 rho_tDSD = conv_resampled_df['rho']
 
-                # Now for the fun part.  Calculate exponential and gamma distribution size distribution
-                # parameters using the method of moments, after Zhang et al. 2008 and Tokay and
-                # Short 1996
+                # Now for the fun part.  Calculate exponential and gamma distribution size
+                # distribution parameters using the method of moments, after Zhang et al. 2008 and
+                # Tokay and Short 1996
                 if(pc.calc_DSD):
-                    synthbins, exp_DSD, gam_DSD, tmf_DSD, dis_DSD = dis.calc_DSD(pc,
-                        min_diameter, avg_diameter, max_diameter, bin_width, ND, logND, rho_tDSD, pc.qrQC,
-                        pc.qr_thresh, PSD_df['pcount2'].values, PSD_df['intensity'].values)
+                    synthbins, exp_DSD, gam_DSD, tmf_DSD, dis_DSD = \
+                        dis.calc_DSD(pc, min_diameter, avg_diameter, max_diameter, bin_width, ND,
+                                     logND, rho_tDSD, pc.qrQC, pc.qr_thresh,
+                                     PSD_df['pcount2'].values, PSD_df['intensity'].values)
 
                     # Unpack needed values from returned tuples
 
-                    ND_expDSD, N0_exp, lamda_exp, mu_exp, qr_exp, Ntr_exp, refl_DSD_exp, D_med_exp, D_m_exp = \
-                        exp_DSD
-                    ND_gamDSD, N0_gam, lamda_gam, mu_gam, qr_gam, Ntr_gam, refl_DSD_gam, D_med_gam, D_m_gam, \
-                        LWC_gam, rainrate_gam = gam_DSD
-                    ND, logND, D_med_disd, D_m_disd, D_mv_disd, D_ref_disd, QR_disd, refl_disd, LWC_disd, M0, rainrate = \
-                        dis_DSD
+                    (ND_expDSD, N0_exp, lamda_exp, mu_exp, qr_exp, Ntr_exp, refl_DSD_exp, D_med_exp,
+                     D_m_exp) = exp_DSD
+                    (ND_gamDSD, N0_gam, lamda_gam, mu_gam, qr_gam, Ntr_gam, refl_DSD_gam, D_med_gam,
+                     D_m_gam, LWC_gam, rainrate_gam) = gam_DSD
+                    (ND, logND, D_med_disd, D_m_disd, D_mv_disd, D_ref_disd, QR_disd, refl_disd,
+                     LWC_disd, M0, rainrate) = dis_DSD
 
                     ND_expDSD = ND_expDSD.T
                     logND_expDSD = N.ma.log10(ND_expDSD / 1000.)  # Get to log(m^-3 mm^-1)
@@ -282,12 +296,15 @@ for root, dirs, filenames in os.walk(indir):
                         # Calculate polarimetric variables using the T-matrix technique
                         # Note, may try to use pyDSD for this purpose.
                         scattfile = ib.scattdir + 'SCTT_RAIN_fw100.dat'
-                        # Observed DSD: TODO, need to make ND, ND_expDSD, and ND_gamDSD have consistent units!
+                        # Observed DSD: TODO, need to make ND, ND_expDSD, and ND_gamDSD have
+                        # consistent units!
                         dualpol_dis = dis.calpolrain(ib.wavelength, scattfile, ND, bin_width)
                         # Exponential DSD
-                        dualpol_exp = dis.calpolrain(ib.wavelength, scattfile, (ND_expDSD / 1000.), bin_width)
+                        dualpol_exp = dis.calpolrain(
+                            ib.wavelength, scattfile, (ND_expDSD / 1000.), bin_width)
                         # Gamma DSD
-                        dualpol_gam = dis.calpolrain(ib.wavelength, scattfile, (ND_gamDSD / 1000.), bin_width)
+                        dualpol_gam = dis.calpolrain(
+                            ib.wavelength, scattfile, (ND_gamDSD / 1000.), bin_width)
 
                 if(pc.plot_DSD_meteo):
                     PSDplottimes = PSDtimestampsnums[pstartindex: pstopindex + 1]
@@ -301,30 +318,32 @@ for root, dirs, filenames in os.walk(indir):
                                 D_0_plot = D_med_disd
                                 refl_ray_plot = refl_disd
                                 dp = dualpol_dis
-                                #Zh, Zv, Zhv, dBZ, ZDR, KDP, RHV, intv, d, fa2, fb2 = dualpol_dis
+                                # Zh, Zv, Zhv, dBZ, ZDR, KDP, RHV, intv, d, fa2, fb2 = dualpol_dis
                         elif(DSDtype == 'exponential'):
                             logND_plot = logND_expDSD[:, pstartindex:pstopindex + 1]
                             if(pc.calc_DSD):
                                 D_0_plot = D_med_exp
                                 refl_ray_plot = refl_DSD_exp
                                 dp = dualpol_exp
-                                #Zh, Zv, Zhv, dBZ, ZDR, KDP, RHV, intv, d, fa2, fb2 = dualpol_exp
+                                # Zh, Zv, Zhv, dBZ, ZDR, KDP, RHV, intv, d, fa2, fb2 = dualpol_exp
                         elif(DSDtype == 'gamma'):
                             logND_plot = logND_gamDSD[:, pstartindex:pstopindex + 1]
                             if(pc.calc_DSD):
                                 D_0_plot = D_med_gam
                                 refl_ray_plot = refl_DSD_gam
                                 dp = dualpol_gam
-                                #Zh, Zv, Zhv, dBZ, ZDR, KDP, RHV, intv, d, fa2, fb2 = dualpol_gam
+                                # Zh, Zv, Zhv, dBZ, ZDR, KDP, RHV, intv, d, fa2, fb2 = dualpol_gam
 
                         disvars = {'min_diameter': min_diameter, 'PSDstarttimes': PSDstarttimes,
                                    'PSDmidtimes': PSDmidtimes, 'logND': logND_plot}
 
-                        # Plot one meteogram for each dualpol variable, otherwise just plot a meteogram for
-                        # reflectivity based on 6th moment of disdrometer DSD (Rayleigh approximation).
-                        # Important! Currently the dualpol calculation for the disdrometer data assumes rain
-                        # only and otherwise ignores data in all bins larger than 9 mm.  For this reason it is
-                        # recommended to first set the "rain_only_QC" flag to True in disdrometer_module.py
+                        # Plot one meteogram for each dualpol variable, otherwise just plot a
+                        # meteogram for reflectivity based on 6th moment of disdrometer DSD
+                        # (Rayleigh approximation).
+                        # Important! Currently the dualpol calculation for the disdrometer data
+                        # assumes rain only and otherwise ignores data in all bins larger than 9 mm.
+                        # For this reason it is recommended to first set the "rain_only_QC" flag to
+                        # True in disdrometer_module.py
 
                         if(pc.calc_DSD):
                             # If desired, perform centered running averages
@@ -390,28 +409,31 @@ for root, dirs, filenames in os.walk(indir):
                                     # remove non-precipitation echoes from radar data
                                     gc_mask = N.where((radvars['RHV'] < 0.90), True, False)
                                     for radvarname in ['ZDR', 'dBZ', 'RHV']:
-                                            radvars[radvarname] = ma.masked_array(radvars[radvarname],
-                                                                                  mask=gc_mask)
+                                        radvars[radvarname] = ma.masked_array(radvars[radvarname],
+                                                                              mask=gc_mask)
                         if(pc.plot_only_precip and pc.calc_dualpol):
                             # set plot start and end time to the start and end of precipitation
                             rainindex = N.where(disvars['RHV'] > 0.6)
                             raintimes = PSDmidtimes[rainindex]
                             plotstarttime = raintimes[0]
-                            plotstoptime = raintimes[len(raintimes)-1]
+                            plotstoptime = raintimes[len(raintimes) - 1]
                         if(DSDtype == 'observed'):
                             # Prepare axis parameters
                             timelimits = [plotstarttime, plotstoptime]
                             diamlimits = [0.0, 9.0]
 
-                            axparams = {'majorxlocator': pc.locator, 'majorxformatter': pc.formatter,
-                                        'minorxlocator': pc.minorlocator,
-                                        'axeslimits': [timelimits, diamlimits],
-                                        'majorylocator': ticker.MultipleLocator(base=1.0),
-                                        'axeslabels': [None, 'D (mm)']}
+                            axparams = {
+                                'majorxlocator': pc.locator,
+                                'majorxformatter': pc.formatter,
+                                'minorxlocator': pc.minorlocator,
+                                'axeslimits': [timelimits, diamlimits],
+                                'majorylocator': ticker.MultipleLocator(base=1.0),
+                                'axeslabels': [None, 'D (mm)']
+                            }
 
                         # Ok, now we should have everything ready to go to plot the meteograms.
                         # Let'er rip!
-                        dis_plot_name = dis_name+'_'+DSDtype
+                        dis_plot_name = dis_name + '_' + DSDtype
                         pm.plotDSDmeteograms(dis_plot_name, meteogram_image_dir,
                                              axparams, disvars, radvars.copy())
 
@@ -507,8 +529,8 @@ for root, dirs, filenames in os.walk(indir):
                                 'axeslimits': [[plotstarttime, plotstoptime], None],
                                 'axeslabels': [pc.timelabel, r'lambda']}
                 em.dis_retr_timeseries(lamda_gam, lam_rad_retr, lam_dis_retr, pstartindex,
-                                       pstopindex, PSDmidtimes, axparamdict1, ib.image_dir, dis_name,
-                                       name)
+                                       pstopindex, PSDmidtimes, axparamdict1, ib.image_dir,
+                                       dis_name, name)
 
                 name = 'dBZ'
                 axparamdict1 = {'majorxlocator': pc.locator, 'majorxformatter': pc.formatter,
@@ -538,10 +560,16 @@ for root, dirs, filenames in os.walk(indir):
 
                     maxd_idx = d.size
 
-                    axdict = {'times': PSDtimestamps, 'xbin_left': min_diameter[:maxd_idx],
-                              'xbin_mid': avg_diameter[:maxd_idx], 'xbin_right': max_diameter[:maxd_idx],
-                              'xlim': (0.0, 9.0), 'ylim': (10.**2., 10.**8.5), 'interval': int(DSD_interval),
-                              'dis_name': dis_name}
+                    axdict = {
+                        'times': PSDtimestamps,
+                        'xbin_left': min_diameter[:maxd_idx],
+                        'xbin_mid': avg_diameter[:maxd_idx],
+                        'xbin_right': max_diameter[:maxd_idx],
+                        'xlim': (0.0, 9.0),
+                        'ylim': (10.**2., 10.**8.5),
+                        'interval': int(DSD_interval),
+                        'dis_name': dis_name
+                    }
 
                     for t in range(N.size(ND, axis=1)):
 
@@ -574,7 +602,6 @@ for root, dirs, filenames in os.walk(indir):
                         if(sum > 0.0):
                             pm.plot_DSD(ib, axdict, PSDdict, PSDfitdict, PSDparamdict)
 
-
                 if (not os.path.exists(ib.image_dir + 'scattergrams/')):
                     os.makedirs(ib.image_dir + 'scattergrams/')
             #
@@ -595,21 +622,24 @@ for root, dirs, filenames in os.walk(indir):
                                 'minorxlocator': pc.minorlocator,
                                 'axeslimits': [[plotstarttime, plotstoptime], [0.0, 250.0]],
                                 'axeslabels': [pc.timelabel, r'Rain Rate']}
-                em.retr_timeseries(PSD_df['intensity'].values, rainrate, R_rad_retr, R_dis_retr, pstartindex,
-                                   pstopindex, PSDmidtimes, axparamdict1, ib.image_dir, dis_name,
-                                   name)
+                em.retr_timeseries(PSD_df['intensity'].values, rainrate, R_rad_retr, R_dis_retr,
+                                   pstartindex, pstopindex, PSDmidtimes, axparamdict1,
+                                   ib.image_dir, dis_name, name)
 
-                em.one2one(PSD_df['intensity'].values / Zh, rainrate / Zh, R_dis_retr / Zh, R_rad_retr / Zh_rad,
-                           ib.image_dir, dis_name, name)
+                em.one2one(PSD_df['intensity'].values / Zh, rainrate / Zh, R_dis_retr / Zh,
+                           R_rad_retr / Zh_rad, ib.image_dir, dis_name, name)
                 em.scatters(N.log10(PSD_df['intensity'].values / Zh), N.log10(rainrate / Zh),
                             N.log10(R_dis_retr / Zh), N.log10(R_rad_retr / Zh_rad), ZDR_rad, ZDR,
                             PSDmidtimes, ib.image_dir, dis_name, name)
 
                 name = 'D0'
-                axparamdict1 = {'majorxlocator': pc.locator, 'majorxformatter': pc.formatter,
-                                'minorxlocator': pc.minorlocator,
-                                'axeslimits': [[plotstarttime, plotstoptime], [0.0, 5.0]],
-                                'axeslabels': [pc.timelabel, r'D0']}
+                axparamdict1 = {
+                    'majorxlocator': pc.locator,
+                    'majorxformatter': pc.formatter,
+                    'minorxlocator': pc.minorlocator,
+                    'axeslimits': [[plotstarttime, plotstoptime], [0.0, 5.0]],
+                    'axeslabels': [pc.timelabel, r'D0']
+                }
                 em.retr_timeseries(D_med_disd, D_med_gam, D0_rad_retr, D0_dis_retr, pstartindex,
                                    pstopindex, PSDmidtimes, axparamdict1, ib.image_dir, dis_name,
                                    name)
@@ -627,8 +657,8 @@ for root, dirs, filenames in os.walk(indir):
                 em.retr_timeseries(M0, Ntr_gam, Nt_rad_retr, Nt_dis_retr, pstartindex, pstopindex,
                                    PSDmidtimes, axparamdict1, ib.image_dir, dis_name, name)
 
-                em.one2one(M0 / Zh, Ntr_gam / Zh, Nt_dis_retr / Zh, Nt_rad_retr / Zh_rad, ib.image_dir,
-                           dis_name, name)
+                em.one2one(M0 / Zh, Ntr_gam / Zh, Nt_dis_retr / Zh, Nt_rad_retr / Zh_rad,
+                           ib.image_dir, dis_name, name)
                 em.scatters(N.log10(M0 / Zh), N.log10(Ntr_gam / Zh), N.log10(Nt_dis_retr / Zh),
                             N.log10(Nt_rad_retr / Zh_rad), ZDR_rad, ZDR, PSDmidtimes, ib.image_dir,
                             dis_name, name)
@@ -639,7 +669,8 @@ for root, dirs, filenames in os.walk(indir):
                                 'axeslimits': [[plotstarttime, plotstoptime], [0.0, 10.0]],
                                 'axeslabels': [pc.timelabel, r'LWC']}
                 em.retr_timeseries(LWC_disd, LWC_gam, W_rad_retr, W_dis_retr, pstartindex,
-                                   pstopindex, PSDmidtimes, axparamdict1, ib.image_dir, dis_name, name)
+                                   pstopindex, PSDmidtimes, axparamdict1, ib.image_dir, dis_name,
+                                   name)
 
                 em.one2one(LWC_disd / Zh, LWC_gam / Zh, W_dis_retr / Zh, W_rad_retr / Zh_rad,
                            ib.image_dir, dis_name, name)
@@ -751,7 +782,7 @@ for root, dirs, filenames in os.walk(indir):
 
 
 # Plot the lambda-mu relation and fit with 2nd order polynomial
-print len(lamda)
+print(len(lamda))
 # Lam = []
 # Mu = []
 # for n1 in xrange(0,len(lamda)):
@@ -770,7 +801,7 @@ xx = N.linspace(0.0, 30.0)
 yy = polynomial(xx)
 y2 = -0.0201 * xx**2. + 0.902 * xx - 1.718
 y3 = -0.016 * xx**2. + 1.213 * xx - 1.957
-#yy2 = polynomial2(xx)
+# yy2 = polynomial2(xx)
 
 fig = plt.figure(figsize=(8, 8))
 ax1 = fig.add_subplot(111)
@@ -793,12 +824,12 @@ plt.savefig('shape_slope.png', dpi=200, bbox_inches='tight')
 plt.close(fig)
 
 print(poly)
-print len(lamda)
+print(len(lamda))
 
 Lam = []
 Mu = []
 
-for n1 in xrange(0, len(lamda)):
+for n1 in range(0, len(lamda)):
     lam = lamda[n1]
     if(lam < 15.):
         Lam.append(lamda[n1])
@@ -811,7 +842,7 @@ xx = N.linspace(0.0, 30.0)
 yy = polynomial2(xx)
 y2 = -0.0201 * xx**2. + 0.902 * xx - 1.718
 y3 = -0.016 * xx**2. + 1.213 * xx - 1.957
-#yy2 = polynomial2(xx)
+# yy2 = polynomial2(xx)
 
 fig = plt.figure(figsize=(8, 8))
 ax1 = fig.add_subplot(111)
@@ -834,4 +865,4 @@ plt.savefig('shape_slope_15under.png', dpi=200, bbox_inches='tight')
 plt.close(fig)
 
 print(poly2)
-print len(Lam)
+print(len(Lam))

@@ -34,14 +34,14 @@ LAM = []
 W = []
 SIGM = []
 
-for i in xrange(N.size(dbz)):
+for i in range(N.size(dbz)):
     R2 = []
     D0_2 = []
     MU2 = []
     LAM2 = []
     W2 = []
     SIGM2 = []
-    for j in xrange(N.size(zdr)):
+    for j in range(N.size(zdr)):
         R_retr,D0_retr,mu_retr,lam_retr,N0_retr,Nt_retr,W_retr,sigm_retr,Dm_retr,N_retr = DR.retrieve_DSD(dbz[i],zdr[j],d,fa2,fb2,intv)
         R2.append(R_retr)
         D0_2.append(D0_retr)

@@ -112,8 +112,8 @@ for directory in directories:
             if f.endswith(("040517.txt","040417.txt","041717.txt","042017.txt","042417.txt","FMCW.txt")):
                 continue
             elif f.endswith(".txt"):
-                print directory
-                print f
+                print(directory)
+                print(f)
 
                 filepath = os.path.join(root,f)
 
@@ -124,7 +124,7 @@ for directory in directories:
                     inputdict['dis_name_list'] = [dis_name]
                     GPS_lats,GPS_lons,GPS_stats,GPS_alts,dloc = dis.readPIPSloc(filepath)
                     inputdict['dlocs'] = [dloc]
-                    print "Lat/Lon/alt of "+dis_name+": "+str(dloc)
+                    print("Lat/Lon/alt of "+dis_name+": "+str(dloc))
 
                     # Read in the disdrometer data file
                     PIPS_dict = dis.readPIPS(filepath, basicqc=pc.basicQC, rainfallqc=pc.rainfallQC,
@@ -160,10 +160,10 @@ for directory in directories:
 
                     max_ref = N.max(PSD_df['reflectivity'].values)
 
-                    print max_ref
-                    print N.sum(PSD_df['pcount2'].values)
+                    print(max_ref)
+                    print(N.sum(PSD_df['pcount2'].values))
                     if(max_ref <= 20.):
-                        print "SKIPPING NON-RAIN DAY"
+                        print("SKIPPING NON-RAIN DAY")
                         continue
 
                     # Determine start and end times/indices for analysis
@@ -213,12 +213,12 @@ for directory in directories:
                     inputdict['scattdir'] = '/Users/dawson29/pyPIPS/tmatrix/S-band/'
 
                     raddate = convtimestamps[0].strftime(tm.timefmt5).strip().split(',')
-                    raddate_int = map(int,raddate)
+                    raddate_int = list(map(int,raddate))
                     # Read in start and end times for the radar data analysis (int)
                     inputdict['starttimerad'] = datetime(raddate_int[0],raddate_int[1],raddate_int[2],int(00),int(00),int(00))
                     inputdict['stoptimerad'] = datetime(raddate_int[0],raddate_int[1],raddate_int[2],int(23),int(59),int(59))
-                    print "radar starttime:", inputdict['starttimerad']
-                    print "radar stoptime:", inputdict['stoptimerad']
+                    print("radar starttime:", inputdict['starttimerad'])
+                    print("radar stoptime:", inputdict['stoptimerad'])
                     inputdict['radlims'] = [0.0,250000.0,0.,360.]
                     plotxmin = -1
                     inputdict['plotlims'] = [-1,-1,-1,-1]
@@ -230,7 +230,7 @@ for directory in directories:
                     # from the GPS data
 
                     for index, dis_name, dis_filename, dloc in \
-                            zip(xrange(0, ib.numdis), ib.dis_name_list, ib.dis_list, ib.dlocs):
+                            zip(range(0, ib.numdis), ib.dis_name_list, ib.dis_list, ib.dlocs):
 
                         if(N.int(dloc[0]) == -1):
                             filepath = os.path.join(ib.dis_dir, dis_filename)
@@ -238,7 +238,7 @@ for directory in directories:
                                 filepath)
                             ib.dlocs[index] = dloc
 
-                        print "Lat/Lon/alt of " + dis_name + ": " + str(dloc)
+                        print("Lat/Lon/alt of " + dis_name + ": " + str(dloc))
 
                 if (not os.path.exists(ib.image_dir)):
                     os.makedirs(ib.image_dir)
@@ -255,7 +255,7 @@ for directory in directories:
                     sb = radar.readsweeps2PIPS(fieldnames, pc, ib)
 
                     # Outer disdrometer (and deployment) loop
-                for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc in zip(xrange(
+                for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc in zip(range(
                         0, len(ib.dis_list)), ib.dis_list, ib.dis_name_list, ib.starttimes, ib.stoptimes,
                         ib.centertimes, ib.dlocs):
 
@@ -327,7 +327,7 @@ for directory in directories:
 
                     if(pc.filter_bimodal):
                         for t in range(N.size(ND, axis=1)):
-                            for d in xrange(16,30):
+                            for d in range(16,30):
                                 if (ND[d,t] > ND[d+1,t]*0.5+ND[d+1,t] and ND[d,t] > ND[d-1,t]):
                                     ND[:,t] = N.nan
                                     break
@@ -913,14 +913,14 @@ if (pc.plot_outer):
     plt.close(fig)
 
     ## Plot the truncated lambda-mu relation and fit with 2nd order polynomial
-    print len(lamTMF)
-    print len(muTMF)
+    print(len(lamTMF))
+    print(len(muTMF))
     lamTMF = N.array(lamTMF)
     muTMF = N.array(muTMF)
     lamTMF = lamTMF[~N.isnan(lamTMF)]
     muTMF = muTMF[~N.isnan(muTMF)]
-    print len(lamTMF)
-    print len(muTMF)
+    print(len(lamTMF))
+    print(len(muTMF))
     poly2=N.polynomial.polynomial.polyfit(lamTMF,muTMF,2)
     polynomial2=N.polynomial.polynomial.Polynomial(poly2)
 

@@ -45,7 +45,7 @@ fieldnames_onesec = ['TIMESTAMP', 'RECORD', 'BattV', 'PTemp_C', 'WindDir', 'WS_m
 fieldnames_onesec_TriPIPS = fieldnames_onesec[:]
 fieldnames_onesec_TriPIPS.remove('FastTemp')
 
-print fieldnames_onesec_TriPIPS
+print(fieldnames_onesec_TriPIPS)
 
 fieldnames_tensec = ['TIMESTAMP', 'RECORD', 'ParsivelStr']
 
@@ -61,7 +61,7 @@ fieldnames_output_TriPIPS.remove('FastTemp')
 
 def process_onesec_record(row):
     """Processes a single row from a 1-s data file"""
-    for field,value in row.iteritems():
+    for field,value in row.items():
         value = value.strip()
         # First, strip out all quotes from each field
         value = value.replace('"','')
@@ -98,7 +98,7 @@ def process_onesec_record(row):
 
 def process_tensec_record(row):
     """Processes a single row from a 10-s data file"""
-    for field,value in row.iteritems():
+    for field,value in row.items():
         # First, strip out all quotes from each field
         value = value.replace('"','')
         # Convert strings to numeric values where appropriate
@@ -180,21 +180,21 @@ def readData(PIPS_data_dir):
 
     dict_onesec = {}
     for i,file in enumerate(filelist_onesec):
-        print "Reading 1-s data file: ",os.path.basename(file)
+        print("Reading 1-s data file: ",os.path.basename(file))
         with open(file) as f:
-            f.next() # Read and discard first header line
+            next(f) # Read and discard first header line
             fieldnames = f.next().strip().replace('"','').split(',') # The field names are contained in the second header line
             if fieldnames == fieldnames_onesec:
-                print "We are dealing with an original PIPS data file!"
+                print("We are dealing with an original PIPS data file!")
                 TriPIPS = False
             elif fieldnames == fieldnames_onesec_TriPIPS:
-                print "We are dealing with a TriPIPS data file (no FastTemp)!"
+                print("We are dealing with a TriPIPS data file (no FastTemp)!")
                 TriPIPS = True
             else:
                 sys.exit("Something's wrong with this file, aborting!")
             #print fieldnames
-            f.next() # Read and discard third header line
-            f.next() # Read and discard fourth header line
+            next(f) # Read and discard third header line
+            next(f) # Read and discard fourth header line
 
             # The remaining lines contain all the data. Read and parse them into a dictionary
             # using the field names as keys
@@ -204,22 +204,22 @@ def readData(PIPS_data_dir):
                 #print row
                 # Process the dictionary of values in each row
                 row = process_onesec_record(row)
-                for column, value in row.iteritems():
+                for column, value in row.items():
                     dict_onesec.setdefault(column, []).append(value)
 
     # Now read the 10-s files
 
     dict_tensec = {}
     for i,file in enumerate(filelist_tensec):
-        print "Reading 10-s data file: ",os.path.basename(file)
+        print("Reading 10-s data file: ",os.path.basename(file))
         with open(file) as f:
-            f.next() # Read and discard first header line
+            next(f) # Read and discard first header line
             fieldnames = f.next().strip().replace('"','').split(',') # The field names are contained in the second header line
             if (fieldnames != fieldnames_tensec):
                 sys.exit("Something's wrong with this file, aborting!")
             #print fieldnames
-            f.next() # Read and discard third header line
-            f.next() # Read and discard fourth header line
+            next(f) # Read and discard third header line
+            next(f) # Read and discard fourth header line
 
             # The remaining lines contain all the data. Read and parse them into a dictionary
             # using the field names as keys
@@ -229,7 +229,7 @@ def readData(PIPS_data_dir):
                 #print row
                 # Process the dictionary of values in each row
                 row = process_tensec_record(row)
-                for column, value in row.iteritems():
+                for column, value in row.items():
                     dict_tensec.setdefault(column, []).append(value)
             #print dict_tensec
     return dict_onesec,dict_tensec,TriPIPS
@@ -257,13 +257,13 @@ def mergeData(PIPS_data_dir,output_filename):
         writer.writeheader()
         j = 0 # the j-index is for the Parsivel (10-s) records
         #firstRecord = True
-        for i in xrange(numrecords): # Loop through the 1-s records
+        for i in range(numrecords): # Loop through the 1-s records
             # Parse the timestamp for the 1-s records and create a datetime object out of it
             timestring_onesec = dict_onesec['TIMESTAMP'][i].strip().split()
             datetime_onesec = parseTimeStamp(timestring_onesec)
 
             # Fill in known 1-s values into output row dictionary
-            outputrow = {key: value[i] for key,value in dict_onesec.iteritems()}
+            outputrow = {key: value[i] for key,value in dict_onesec.items()}
             # Derive absolute wind direction, dewpoint, and RH
             # Note, the output of the string "NaN" instead of just letting it output
             # the float version is not really needed, but is done just for consistency with
@@ -341,7 +341,7 @@ def mergeData(PIPS_data_dir,output_filename):
                 outputrow['ParsivelStr'] = 'NaN'
 
             #Write the output record
-            print "Writing output record # ",i+1," of ",numrecords
+            print("Writing output record # ",i+1," of ",numrecords)
             writer.writerow(outputrow)
 
 if __name__ == "__main__":

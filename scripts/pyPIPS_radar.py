@@ -66,7 +66,7 @@ fmt3 = '%Y%m%d%H%M%S'
 def interpnan1D(a):
     """Replaces NaN's in a 1D array by interpolating from good values on either side"""
     ind = N.where(~N.isnan(a))[0] # indices of valid values
-    return N.interp(range(len(a)),ind,a[ind]) # Use valid values to interpolate to invalid values
+    return N.interp(list(range(len(a))),ind,a[ind]) # Use valid values to interpolate to invalid values
 
 def trymax(a,default=0):
     """Tries to take a maximum of an array and returns 0 if the array is empty"""
@@ -176,7 +176,7 @@ with open(sys.argv[argindex],'r') as inputfile:
     starttimes = []
     stoptimes = []
     centertimes = []
-    for l in xrange(numdis):
+    for l in range(numdis):
         line = inputfile.readline().strip().split(',')
         dname = line[0] # Disdrometer name
         dfile = line[1] # Disdrometer filename
@@ -208,16 +208,16 @@ with open(sys.argv[argindex],'r') as inputfile:
      # Read in start and end times for the radar data analysis
     inputfile.readline()
     line = inputfile.readline().strip().split(',')
-    line_int = map(int,line)
+    line_int = list(map(int,line))
     starttimerad = datetime(line_int[0],line_int[1],line_int[2],line_int[3],line_int[4],line_int[5])
     line = inputfile.readline().strip().split(',')
-    line_int = map(int,line)
+    line_int = list(map(int,line))
     stoptimerad = datetime(line_int[0],line_int[1],line_int[2],line_int[3],line_int[4],line_int[5])
     
     # Read in plot window bounds
     inputfile.readline()
     line = inputfile.readline().strip().split(',')
-    line_float = map(float,line)
+    line_float = list(map(float,line))
     plotxmin = line_float[0]
     plotxmax = line_float[1]
     plotymin = line_float[2]
@@ -244,20 +244,20 @@ with open(sys.argv[argindex],'r') as inputfile:
     #print N.float(line[4])
     try:
         el_req = N.float(line[4])
-        print "requested elevation angle",el_req
+        print("requested elevation angle",el_req)
     except:
         el_req = 0.5    # Default to 0.5 degrees
 
     try:
         heading = N.float(line[5])
-        print "Radar heading: ",heading
+        print("Radar heading: ",heading)
     except:
         heading = None
 
     # Read in min range,max range, min azimuth, and max azimuth for radar plotting (may deprecate this)
     inputfile.readline()
     line = inputfile.readline().strip().split(',')
-    line_float = map(float,line)
+    line_float = list(map(float,line))
     minrange = line_float[0]
     maxrange = line_float[1]
     minazim = line_float[2]
@@ -270,14 +270,14 @@ with open(sys.argv[argindex],'r') as inputfile:
 # from the GPS data
 
 for index,dis_name,dis_filename,dloc in \
-    zip(xrange(0,len(dis_list)),dis_name_list,dis_list,dlocs):
+    zip(range(0,len(dis_list)),dis_name_list,dis_list,dlocs):
     
     if(N.int(dloc[0]) == -1):
         filepath = dis_dir+dis_filename
         GPS_lats,GPS_lons,GPS_stats,GPS_alts,dloc = dis.readPIPSloc(filepath)
         dlocs[index] = dloc
     
-    print "Lat/Lon/alt of "+dis_name+": "+str(dloc)
+    print("Lat/Lon/alt of "+dis_name+": "+str(dloc))
 
 # ------
 # Grab radar data for comparison if desired
@@ -301,8 +301,8 @@ if(pc.comp_radar):
         fields_D_tlist = []
         dxy_tlist = []
 
-        for index,path,sweeptime in zip(xrange(len(radar_filelist)),radar_filelist,radtimes):
-            print "Processing file: "+path
+        for index,path,sweeptime in zip(range(len(radar_filelist)),radar_filelist,radtimes):
+            print("Processing file: "+path)
             if(platform == 'NEXRAD'):
                 outfieldnames,fields,range_start,radar_range,azimuth_start_rad,azimuth_rad,rlat_rad,rlon_rad,ralt,el_rad = \
                 radar.readCFRadial(True,el_req,rlat,rlon,ralt,path,sweeptime,fieldnames)
@@ -394,8 +394,8 @@ if(pc.comp_radar):
         if (not os.path.exists(image_dir+'radar_PPI/')):
             os.makedirs(image_dir+'radar_PPI/')
 
-        print "Plotting radar scans with overlaid disdrometer locations and data."
-        for index,path,sweeptime in zip(xrange(len(radar_filelist)),radar_filelist,radtimes):
+        print("Plotting radar scans with overlaid disdrometer locations and data.")
+        for index,path,sweeptime in zip(range(len(radar_filelist)),radar_filelist,radtimes):
         
             fields_arr = fields_tarr[index]
             fields_D_arr = fields_D_tarr[index]
@@ -419,7 +419,7 @@ if(pc.comp_radar):
             # In most of our cases the radar location isn't going to change with time, but in the more
             # general case, this may not be true (i.e. if we are dealing with a mobile radar).        
             #print "sweeptime,rlat_rad,rlon_rad,ralt,el_rad",sweeptime.strftime(fmt),rlat_rad,rlon_rad,ralt,el_rad
-            print "Radar sweep time: ",sweeptime.strftime(fmt)
+            print("Radar sweep time: ",sweeptime.strftime(fmt))
             # Prepare masks for fields by reflectivity < some threshold
     
             for field,fieldname in zip(fields_list,outfieldnames):   # Probably should do this using a dictionary
@@ -431,12 +431,12 @@ if(pc.comp_radar):
             # Compute height and range of radar beam above disdrometer (assumes lambert conformal like plotsweep for now)
             for dloc,dname,dxy in zip(dlocs,dis_name_list,dxy_list):
                 Dx,Dy = dxy
-                print Dx,Dy
+                print(Dx,Dy)
                 h,r = oban.computeheightrangesingle(Dx,Dy,el_req*deg2rad)
                 # In most of our cases the radar location isn't going to change with time, but in the more
                 # general case, this may not be true (i.e. if we are dealing with a mobile radar). 
-                print "Disdrometer name,x,y,radar elevation angle,slant range, approximate beam height:"
-                print dname,Dx,Dy,el_rad/deg2rad,r,h
+                print("Disdrometer name,x,y,radar elevation angle,slant range, approximate beam height:")
+                print(dname,Dx,Dy,el_rad/deg2rad,r,h)
                 if(dloc == dlocs[0] and plotxmin == -1):
                     plotlims = [Dx-25000.,Dx+25000.,Dy-30000.,Dy+20000.]
 
@@ -463,7 +463,7 @@ Rdict={}
 Ntdict={}
 
 for index,dis_filename,dis_name,starttime,stoptime,centertime,dloc in \
-    zip(xrange(0,len(dis_list)),dis_list,dis_name_list,starttimes,stoptimes,centertimes,dlocs):
+    zip(range(0,len(dis_list)),dis_list,dis_name_list,starttimes,stoptimes,centertimes,dlocs):
 
     if(pc.timetospace):
         centertime = centertimes[index]
@@ -683,7 +683,7 @@ if (pc.plot_retr_PPI):
     if (not os.path.exists(image_dir+'radar_PPI/')):
         os.makedirs(image_dir+'radar_PPI/')
 
-    for index,path,sweeptime in zip(xrange(len(radar_filelist)),radar_filelist,radtimes):
+    for index,path,sweeptime in zip(range(len(radar_filelist)),radar_filelist,radtimes):
 
         fields_arr = fields_tarr[index]
         fields_D_arr = fields_D_tarr[index]
@@ -708,7 +708,7 @@ if (pc.plot_retr_PPI):
         # In most of our cases the radar location isn't going to change with time, but in the more
         # general case, this may not be true (i.e. if we are dealing with a mobile radar).        
         #print "sweeptime,rlat_rad,rlon_rad,ralt,el_rad",sweeptime.strftime(fmt),rlat_rad,rlon_rad,ralt,el_rad
-        print "Radar sweep time: ",sweeptime.strftime(fmt)
+        print("Radar sweep time: ",sweeptime.strftime(fmt))
         # Prepare masks for fields by reflectivity < some threshold
 
         for field,fieldname,field_D in zip(fields_list,outfieldnames,fields_D_list): # Probably should do this using a dictionary
@@ -716,12 +716,12 @@ if (pc.plot_retr_PPI):
                 mask = N.where(field > 5.0,False,True)
                 rad_dBZ = field
                 dis_dBZ = field_D
-                print "DBZ DIS", dis_dBZ
+                print("DBZ DIS", dis_dBZ)
             if(fieldname == 'ZDR'):
                 rad_ZDR = field
                 dis_ZDR = field_D
-                print "ZDR DIS", dis_ZDR
-        print rad_dBZ.shape
+                print("ZDR DIS", dis_ZDR)
+        print(rad_dBZ.shape)
         masklist = [mask,mask,mask,mask,mask,mask]
     
         columns = N.arange(0.0,6.0,0.01)
@@ -743,14 +743,14 @@ if (pc.plot_retr_PPI):
 
         rad_ZDR = N.where(rad_ZDR >= 5.99, 5.99,rad_ZDR)
         rad_dBZ = N.where(rad_dBZ >= 69.9, 69.9, rad_dBZ)
-        for n1 in xrange(0,ng):
+        for n1 in range(0,ng):
             r_retr = []
             d0_retr = []
             w_retr = []
             sigm = []
             mu = []
             lam = []
-            for n2 in xrange(0,na):
+            for n2 in range(0,na):
                 dbz = rad_dBZ[n1,n2]
                 zdr = rad_ZDR[n1,n2]
                 if(dbz >= 0.0 and zdr >= 0.0):
@@ -801,7 +801,7 @@ if (pc.plot_retr_PPI):
         sigm_dis = []
         mu_dis = []
         lam_dis = []
-        for n2 in xrange(0,ng):
+        for n2 in range(0,ng):
             r_retr,d0_retr,mu_retr,lam_retr,n0_retr,nt_retr,w_retr,sigm_retr,dm_retr,n_retr = DR.retrieve_DSD(dis_dBZ[n2],dis_ZDR[n2],d,fa2,fb2,intv,wavelength)
             r_dis.extend(r_retr)
             d0_dis.extend(d0_retr)

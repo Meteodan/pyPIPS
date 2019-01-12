@@ -60,7 +60,7 @@ fmt3 = '%Y%m%d%H%M%S'
 def interpnan1D(a):
     """Replaces NaN's in a 1D array by interpolating from good values on either side"""
     ind = N.where(~N.isnan(a))[0] # indices of valid values
-    return N.interp(range(len(a)),ind,a[ind]) # Use valid values to interpolate to invalid values
+    return N.interp(list(range(len(a))),ind,a[ind]) # Use valid values to interpolate to invalid values
 
 def trymax(a,default=0):
     """Tries to take a maximum of an array and returns 0 if the array is empty"""
@@ -170,7 +170,7 @@ with open(sys.argv[argindex],'r') as inputfile:
     starttimes = []
     stoptimes = []
     centertimes = []
-    for l in xrange(numdis):
+    for l in range(numdis):
         line = inputfile.readline().strip().split(',')
         dname = line[0] # Disdrometer name
         dfile = line[1] # Disdrometer filename
@@ -202,16 +202,16 @@ with open(sys.argv[argindex],'r') as inputfile:
      # Read in start and end times for the radar data analysis
     inputfile.readline()
     line = inputfile.readline().strip().split(',')
-    line_int = map(int,line)
+    line_int = list(map(int,line))
     starttimerad = datetime(line_int[0],line_int[1],line_int[2],line_int[3],line_int[4],line_int[5])
     line = inputfile.readline().strip().split(',')
-    line_int = map(int,line)
+    line_int = list(map(int,line))
     stoptimerad = datetime(line_int[0],line_int[1],line_int[2],line_int[3],line_int[4],line_int[5])
     
     # Read in plot window bounds
     inputfile.readline()
     line = inputfile.readline().strip().split(',')
-    line_float = map(float,line)
+    line_float = list(map(float,line))
     plotxmin = line_float[0]
     plotxmax = line_float[1]
     plotymin = line_float[2]
@@ -238,20 +238,20 @@ with open(sys.argv[argindex],'r') as inputfile:
     #print N.float(line[4])
     try:
         el_req = N.float(line[4])
-        print "requested elevation angle",el_req
+        print("requested elevation angle",el_req)
     except:
         el_req = 0.5    # Default to 0.5 degrees
     
     try:
         heading = N.float(line[5])
-        print "Radar heading: ",heading
+        print("Radar heading: ",heading)
     except:
         heading = None
     
     # Read in min range,max range, min azimuth, and max azimuth for radar plotting (may deprecate this)
     inputfile.readline()
     line = inputfile.readline().strip().split(',')
-    line_float = map(float,line)
+    line_float = list(map(float,line))
     minrange = line_float[0]
     maxrange = line_float[1]
     minazim = line_float[2]
@@ -264,19 +264,19 @@ with open(sys.argv[argindex],'r') as inputfile:
 # from the GPS data
 
 for index,dis_name,dis_filename,dloc in \
-    zip(xrange(0,len(dis_list)),dis_name_list,dis_list,dlocs):
+    zip(range(0,len(dis_list)),dis_name_list,dis_list,dlocs):
     
     if(N.int(dloc[0]) == -1):
         filepath = dis_dir+dis_filename
         GPS_lats,GPS_lons,GPS_stats,GPS_alts,dloc = dis.readPIPSloc(filepath)
         dlocs[index] = dloc
     
-    print "Lat/Lon/alt of "+dis_name+": "+"{:7.4f}".format(dloc[0])+" {:7.4f}".format(dloc[1])+ \
-                                          " {:3.0f}".format(dloc[2])
+    print("Lat/Lon/alt of "+dis_name+": "+"{:7.4f}".format(dloc[0])+" {:7.4f}".format(dloc[1])+ \
+                                          " {:3.0f}".format(dloc[2]))
                                           
     # Return time range of disdrometer deployment
     
     first,last = dis.readPIPStimerange(filepath)
     #print first[0],first[1],last[0],last[1]
-    print "Start/End time of deployment for "+dis_name+": "+first[0]+" "+first[1]+" to "+ \
-                                             last[0]+" "+last[1]
+    print("Start/End time of deployment for "+dis_name+": "+first[0]+" "+first[1]+" to "+ \
+                                             last[0]+" "+last[1])
