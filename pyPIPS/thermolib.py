@@ -1,7 +1,7 @@
 # thermolib.py
 # A collection of thermodynamic functions
 
-from numpy import *
+import numpy as np
 
 Rd = 287.0  # Gas constant for dry air (J/kg/K)
 Rv = 461.51  # Gas constant for water vapor (J/kg/K)
@@ -104,7 +104,7 @@ def calTd(p, qv):
     # Calculate vapor pressure from pressure and water vapor specific humidity
     e = p * qv / (rddrv + (1.0 - rddrv) * qv)
 
-    A = log(e / (satewa * f))
+    A = np.log(e / (satewa * f))
 
     Td = (satewc * A - 273.15 * satewb) / (A - satewb)
     return Td
@@ -116,7 +116,7 @@ def calTdfromRH(p, T, RH):
     f = satfwa + satfwb * p
     es = cales(p, T)
     e = cale(RH, es)
-    A = log(e / (satewa * f))
+    A = np.log(e / (satewa * f))
     Td = (satewc * A - 273.15 * satewb) / (A - satewb)
     return Td
 
@@ -131,22 +131,24 @@ def calpte(p, pt, qv):
 
     # Calculate temperature at LCL
 
-    Tl = 1.0 / ((1.0 / (Td - 56.)) + log(T / Td) / 800.0) + 56.0
+    Tl = 1.0 / ((1.0 / (Td - 56.)) + np.log(T / Td) / 800.0) + 56.0
 
     # Convert qv to water vapor mixing ratio
-
-    qvm = qv / (1.0 - qv)
+    # TODO: this isn't used right now. Should it be?
+    # qvm = qv / (1.0 - qv)
 
     # Finally compute theta_e
 
     pte = (T * (p0 / p)**(0.2854 * (1.0 - (0.28e-3) * 1000.0 * qv))) * \
-        exp((3.376 / Tl - 0.00254) * 1000.0 * qv * (1.0 + (0.81e-3) * 1000.0 * qv))
+        np.exp((3.376 / Tl - 0.00254) * 1000.0 * qv * (1.0 + (0.81e-3) * 1000.0 * qv))
 
     return pte
 
 
 def calptefromRHpT(RH, p, T):
-    """ Calculate equivalent potential temperature given pressure, temperature, and relative humidity."""
+    """
+    Calculate equivalent potential temperature given pressure, temperature, and relative humidity.
+    """
     # Compute qv
 
     qv = calqv(RH, p, T)
@@ -157,16 +159,16 @@ def calptefromRHpT(RH, p, T):
 
     # Calculate temperature at LCL
 
-    Tl = 1.0 / ((1.0 / (Td - 56.)) + log(T / Td) / 800.0) + 56.0
+    Tl = 1.0 / ((1.0 / (Td - 56.)) + np.log(T / Td) / 800.0) + 56.0
 
     # Convert qv to water vapor mixing ratio
-
-    qvm = qv / (1.0 - qv)
+    # TODO: this isn't used right now. Should it be?
+    # qvm = qv / (1.0 - qv)
 
     # Finally compute theta_e
 
     pte = (T * (p0 / p)**(0.2854 * (1.0 - (0.28e-3) * 1000.0 * qv))) * \
-        exp((3.376 / Tl - 0.00254) * 1000.0 * qv * (1.0 + (0.81e-3) * 1000.0 * qv))
+        np.exp((3.376 / Tl - 0.00254) * 1000.0 * qv * (1.0 + (0.81e-3) * 1000.0 * qv))
 
     return pte
 
@@ -176,7 +178,7 @@ def calqvs(p, T):
     # First calculate saturation vapor pressure
 
     f = satfwa + satfwb * p
-    es = f * satewa * exp(satewb * (T - 273.15) / (T - satewc))
+    es = f * satewa * np.exp(satewb * (T - 273.15) / (T - satewc))
 
     # Now calculate saturation water vapor mixing ratio
 
@@ -190,7 +192,7 @@ def cales(p, T):
     # First calculate saturation vapor pressure
 
     f = satfwa + satfwb * p
-    es = f * satewa * exp(satewb * (T - 273.15) / (T - satewc))
+    es = f * satewa * np.exp(satewb * (T - 273.15) / (T - satewc))
 
     return es
 

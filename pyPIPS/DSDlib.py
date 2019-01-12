@@ -1,7 +1,7 @@
 # This is a library of functions to calculate various DSD-related parameters
 # These were originally written in fortran but re-written using python and numpy
 
-import numpy as N
+import numpy as np
 from scipy.special import gamma as gamma_
 from . import thermolib as thermo
 
@@ -73,7 +73,7 @@ def cal_lamda(rhoa, q, Ntx, cx, alpha):
     gamma4 = gamma_(4.0 + alpha)
 
     lamda = ((gamma4 / gamma1) * cx * Ntx / (rhoa * q))**(1.0 / 3.0)
-    lamda = N.where(rhoa * q > 0.0, lamda, 0.0)
+    lamda = np.where(rhoa * q > 0.0, lamda, 0.0)
 
     return lamda
 
@@ -108,9 +108,9 @@ def cal_N0(rhoa, q, Ntx, cx, alpha):
     gamma4 = gamma_(4.0 + alpha)
 
     lamda = cal_lamda(rhoa, q, Ntx, cx, alpha)
-    lamda = lamda.astype(N.float64)
+    lamda = lamda.astype(np.float64)
     try:
-        alpha = alpha.astype(N.float64)
+        alpha = alpha.astype(np.float64)
     except BaseException:
         pass
 
@@ -120,8 +120,8 @@ def cal_N0(rhoa, q, Ntx, cx, alpha):
     N0_norm = N0 * (((4.0 + alpha) / lamda) **
                     alpha) * gamma4 * (128.0 / 3.0) / \
         ((4.0 + alpha)**(4.0 + alpha))
-    N0 = N.where(lamda >= 0.0, N0, 0.0)
-    N0_norm = N.where(lamda >= 0.0, N0_norm, 0.0)
+    N0 = np.where(lamda >= 0.0, N0, 0.0)
+    N0_norm = np.where(lamda >= 0.0, N0_norm, 0.0)
     return N0, N0_norm
 
 
@@ -142,7 +142,7 @@ def cal_Dm(rhoa, q, Ntx, cx):
     !     """
 
     Dm = (rhoa * q / (cx * Ntx))**(1. / 3.)
-    Dm = N.where(Ntx > 0.0, Dm, 0.0)
+    Dm = np.where(Ntx > 0.0, Dm, 0.0)
 
     return Dm
 
@@ -189,10 +189,10 @@ def diag_alpha(rhoa, varid_qscalar, Dm):
 
     alphaMAX = 80.0
 
-    c1 = N.array([19.0, 12.0, 4.5, 5.5, 3.7])
-    c2 = N.array([0.6, 0.7, 0.5, 0.7, 0.3])
-    c3 = N.array([1.8, 1.7, 5.0, 4.5, 9.0])
-    c4 = N.array([17.0, 11.0, 5.5, 8.5, 6.5])
+    c1 = np.array([19.0, 12.0, 4.5, 5.5, 3.7])
+    c2 = np.array([0.6, 0.7, 0.5, 0.7, 0.3])
+    c3 = np.array([1.8, 1.7, 5.0, 4.5, 9.0])
+    c4 = np.array([17.0, 11.0, 5.5, 8.5, 6.5])
 
     if(varid_qscalar == 'qr'):
         nq = 0
@@ -205,11 +205,11 @@ def diag_alpha(rhoa, varid_qscalar, Dm):
     elif(varid_qscalar == 'qh'):
         nq = 4
 
-    alpha = c1[nq] * N.tanh(c2[nq] * (1.e3 * Dm - c3[nq])) + c4[nq]
+    alpha = c1[nq] * np.tanh(c2[nq] * (1.e3 * Dm - c3[nq])) + c4[nq]
     if(nq == 4):
-        alpha = N.where(Dm > 0.008, 1.e3 * Dm - 2.6, alpha)
+        alpha = np.where(Dm > 0.008, 1.e3 * Dm - 2.6, alpha)
 
-    alpha = N.minimum(alpha, alphaMAX)
+    alpha = np.minimum(alpha, alphaMAX)
 
     return alpha
 
@@ -239,23 +239,23 @@ def solve_alpha(rhoa, cx, q, Ntx, Z):
 
     tmp1 = cx / (rhoa * q)
     g = tmp1 * Z * tmp1 * Ntx
-    g = N.where((q > epsQ) & (Ntx > epsN) & (Z > epsZ), g, -99.0)
+    g = np.where((q > epsQ) & (Ntx > epsN) & (Z > epsZ), g, -99.0)
 
-    a = N.empty_like(q)
-    a = N.where(g == -99.0, 0.0, a)
-    a = N.where(g >= 20.0, 0.0, a)
+    a = np.empty_like(q)
+    a = np.where(g == -99.0, 0.0, a)
+    a = np.where(g >= 20.0, 0.0, a)
     g2 = g * g
 
-    a = N.where((g < 20.0) & (g >= 13.31), 3.3638e-3 * g2 - 1.7152e-1 * g + 2.0857e+0, a)
-    a = N.where((g < 13.31) & (g >= 7.123), 1.5900e-2 * g2 - 4.8202e-1 * g + 4.0108e+0, a)
-    a = N.where((g < 7.123) & (g >= 4.200), 1.0730e-1 * g2 - 1.7481e+0 * g + 8.4246e+0, a)
-    a = N.where((g < 4.200) & (g >= 2.946), 5.9070e-1 * g2 - 5.7918e+0 * g + 1.6919e+1, a)
-    a = N.where((g < 2.946) & (g >= 1.793), 4.3966e+0 * g2 - 2.6659e+1 * g + 4.5477e+1, a)
-    a = N.where((g < 1.793) & (g >= 1.405), 4.7552e+1 * g2 - 1.7958e+2 * g + 1.8126e+2, a)
-    a = N.where((g < 1.405) & (g >= 1.230), 3.0889e+2 * g2 - 9.0854e+2 * g + 6.8995e+2, a)
-    a = N.where(g < 1.230, alphaMax, a)
+    a = np.where((g < 20.0) & (g >= 13.31), 3.3638e-3 * g2 - 1.7152e-1 * g + 2.0857e+0, a)
+    a = np.where((g < 13.31) & (g >= 7.123), 1.5900e-2 * g2 - 4.8202e-1 * g + 4.0108e+0, a)
+    a = np.where((g < 7.123) & (g >= 4.200), 1.0730e-1 * g2 - 1.7481e+0 * g + 8.4246e+0, a)
+    a = np.where((g < 4.200) & (g >= 2.946), 5.9070e-1 * g2 - 5.7918e+0 * g + 1.6919e+1, a)
+    a = np.where((g < 2.946) & (g >= 1.793), 4.3966e+0 * g2 - 2.6659e+1 * g + 4.5477e+1, a)
+    a = np.where((g < 1.793) & (g >= 1.405), 4.7552e+1 * g2 - 1.7958e+2 * g + 1.8126e+2, a)
+    a = np.where((g < 1.405) & (g >= 1.230), 3.0889e+2 * g2 - 9.0854e+2 * g + 6.8995e+2, a)
+    a = np.where(g < 1.230, alphaMax, a)
 
-    alpha = N.maximum(0., N.minimum(a, alphaMax))
+    alpha = np.maximum(0., np.minimum(a, alphaMax))
 
     return alpha
 
@@ -273,7 +273,7 @@ def calc_evap(rho, T, p, RH, N0, lamda, mu):
 
     # Correction for fallspeeds at different pressures
     rho_ref = 1.225
-    gamma_factor = N.sqrt(rho_ref / rho)
+    gamma_factor = np.sqrt(rho_ref / rho)
 
     # Calculate a bunch of quantities in the ventilation coefficient for the bulk evaporation rate
     # Ventilation coefficients (Ferrier 1994)
@@ -301,7 +301,7 @@ def calc_evap(rho, T, p, RH, N0, lamda, mu):
 
     # Now we can calculate the bulk ventilation coefficient for rain (Woohoo!)
     VENTr = Avx * GR16 / (lamda**cexr5) + Bvx * ScTHRD * \
-        N.sqrt(gamma_factor * afr / MUkin) * GR17 / (lamda + ffr)**cexr6
+        np.sqrt(gamma_factor * afr / MUkin) * GR17 / (lamda + ffr)**cexr6
 
     # Calculate the thermodynamic function in the denominator of the bulk evaporation rate
     # Thermal conductivity of air
@@ -320,7 +320,7 @@ def calc_evap(rho, T, p, RH, N0, lamda, mu):
     S = qv / QSS - 1.0
 
     # With the above quantities, we can calculate the bulk evaporation rate (Yay!)
-    QREVP = 2. * N.pi * S * N0 * VENTr / ABw
+    QREVP = 2. * np.pi * S * N0 * VENTr / ABw
 
     # With QREVP we can calculate the latent cooling rate
     COOL_RATE = (Lv / cp) * QREVP
@@ -453,15 +453,15 @@ def gammaDSD(rhoa, D, cx, q, Nt=None, N0=None, alpha=0):
     """Given cx, q, Nt or N0, and alpha, compute the gamma DSD for the sequence of diameters in D"""
     if(N0 is None):
         try:
-            N0, _ = cal_N0(rhoa, q/1000., Nt, cx, alpha)
+            N0, _ = cal_N0(rhoa, q / 1000., Nt, cx, alpha)
         except Exception:
             return None
     else:
         try:
-            Nt = cal_Nt(rhoa, q/1000., N0, cx, alpha)
+            Nt = cal_Nt(rhoa, q / 1000., N0, cx, alpha)
         except Exception:
             return None
 
-    lamda = cal_lamda(rhoa, q/1000., Nt, cx, alpha)
+    lamda = cal_lamda(rhoa, q / 1000., Nt, cx, alpha)
 
-    return N0*D**alpha*N.exp(-lamda*D), Nt, lamda, alpha
+    return N0 * D**alpha * np.exp(-lamda * D), Nt, lamda, alpha

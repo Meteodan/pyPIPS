@@ -1,9 +1,9 @@
 
 
 def getDataHandler(model_name, base_dir, times, microphys=None, multitime=True):
-    from wrfmodule import WRFDataHandler
-    from commasmodule import COMMASDataHandler
-    from arpsmodule import ARPSDataHandler
+    from .wrfmodule import WRFDataHandler
+    from .commasmodule import COMMASDataHandler
+    from .arpsmodule import ARPSDataHandler
 
     if model_name == "WRF":
         return WRFDataHandler(base_dir, times)
@@ -11,6 +11,7 @@ def getDataHandler(model_name, base_dir, times, microphys=None, multitime=True):
         return COMMASDataHandler(base_dir, times, multitime=multitime)
     elif model_name == "ARPS":
         return ARPSDataHandler(base_dir, times, microphys)
+
 
 class DataHandler(object):
     def __init__(self, model_name):
@@ -52,7 +53,7 @@ class DataHandler(object):
         return
 
     def dumpToFile(self, format='npz'):
-        if format not in [ 'npz', 'nc' ]:
+        if format not in ['npz', 'nc']:
             raise ValueError("Keyword format ('%s') must be one of 'npz' or 'nc'" % format)
 
         if format == 'npz':
@@ -62,7 +63,7 @@ class DataHandler(object):
         return
 
     def slice(self, coord, axis='x'):
-        if axis not in [ 'x', 'y', 'z', 'e' ]:
+        if axis not in ['x', 'y', 'z', 'e']:
             raise ValueError("Keyword axis ('%s') must be one of 'x', 'y', 'z', or 'e'" % axis)
 
         return
@@ -83,4 +84,5 @@ class DataHandler(object):
         return
 
     def _abstract(self, func_name):
-        raise NotImplementedError("'%s()' is an abstract function that needs to be overridden in a subclass!" % func_name)
+        raise NotImplementedError("""'%s()' is an abstract function that needs to be overridden in a
+                                  subclass!""" % func_name)

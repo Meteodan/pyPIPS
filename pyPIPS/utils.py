@@ -31,7 +31,7 @@ def interpnan1D(a):
     """Replaces NaN's in a 1D array by interpolating from good values on either side"""
     ind = N.where(~N.isnan(a))[0]  # indices of valid values
     # Use valid values to interpolate to invalid values
-    return N.interp(range(len(a)), ind, a[ind])
+    return N.interp(list(range(len(a))), ind, a[ind])
 
 
 def trymax(a, default=0):
@@ -66,16 +66,16 @@ def readpyPIPSinput(path):
 
         # Read in disdrometer locations and names
         dis_list = []
-        dis_ftype_list = []
-        tprh_filenames = []
-        wind_filenames = []
+        # dis_ftype_list = []
+        # tprh_filenames = []
+        # wind_filenames = []
         dlocs = []
         dis_name_list = []
         starttimes = []
         stoptimes = []
         centertimes = []
         types = []
-        for l in xrange(inputdict['numdis']):
+        for l in range(inputdict['numdis']):
             line = inputfile.readline().strip().split(',')
             dname = line[0]  # Disdrometer name
             dfile = line[1]  # Disdrometer filename
@@ -122,18 +122,18 @@ def readpyPIPSinput(path):
         # Read in start and end times for the radar data analysis
         inputfile.readline()
         line = inputfile.readline().strip().split(',')
-        line_int = map(int, line)
+        line_int = list(map(int, line))
         inputdict['starttimerad'] = datetime(line_int[0], line_int[1], line_int[2], line_int[3],
                                              line_int[4], line_int[5])
         line = inputfile.readline().strip().split(',')
-        line_int = map(int, line)
+        line_int = list(map(int, line))
         inputdict['stoptimerad'] = datetime(line_int[0], line_int[1], line_int[2], line_int[3],
                                             line_int[4], line_int[5])
 
         # Read in plot window bounds
         inputfile.readline()
         line = inputfile.readline().strip().split(',')
-        line_float = map(float, line)
+        line_float = list(map(float, line))
         plotxmin = line_float[0]
         plotxmax = line_float[1]
         plotymin = line_float[2]
@@ -160,13 +160,13 @@ def readpyPIPSinput(path):
         inputdict['ralt'] = ralt
         try:
             el_req = N.float(line[4])
-            print "requested elevation angle", el_req
+            print("requested elevation angle", el_req)
         except BaseException:
             el_req = 0.5    # Default to 0.5 degrees
         inputdict['el_req'] = el_req
         try:
             heading = N.float(line[5])
-            print "Radar heading: ", heading
+            print("Radar heading: ", heading)
         except BaseException:
             heading = None
         inputdict['heading'] = heading
@@ -175,7 +175,7 @@ def readpyPIPSinput(path):
         # plotting (may deprecate this)
         inputfile.readline()
         line = inputfile.readline().strip().split(',')
-        line_float = map(float, line)
+        line_float = list(map(float, line))
         minrange = line_float[0]
         maxrange = line_float[1]
         minazim = line_float[2]

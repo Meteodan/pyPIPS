@@ -1,15 +1,12 @@
 # simulator.py: a collection of functions related to the Parsivel simulator
 
 import numpy as np
-from scipy.stats import gamma, uniform, norm
+from scipy.stats import gamma, uniform
 from . import disdrometer_module as dis
 from . import plotmodule as pm
 from . import DSDlib as dsd
 from shapely.geometry import MultiLineString, LineString
-from matplotlib.collections import LineCollection
-from datetime import datetime, timedelta
-import matplotlib.dates as dates
-import pandas as pd
+from datetime import datetime
 import glob
 import os
 from . import radarmodule as radar
@@ -18,31 +15,29 @@ from .datahandler import getDataHandler
 from . import dualpara as dualpol
 import pyart as pyart
 import matplotlib.pyplot as plt
-from shapely.geometry import MultiLineString, LineString
-from matplotlib.collections import LineCollection
 from metpy.plots import ctables
-import matplotlib.cm as cm
 import matplotlib.ticker as ticker
 
 # Some global parameters to make my life easier
-rhoacst = 1.0 # kg m^-3
-rhorcst = 1000. # kg m^-3
-cr = rhorcst*np.pi/6.
-mur = 1./3. # FIXME: Assume rain is gamma-diameter for now!
+rhoacst = 1.0  # kg m^-3
+rhorcst = 1000.  # kg m^-3
+cr = rhorcst * np.pi / 6.
+mur = 1. / 3.  # FIXME: Assume rain is gamma-diameter for now!
 
 sampling_area = dis.sensor_area
 sampling_width = dis.sensor_width
 sampling_length = dis.sensor_length
 
-D = dis.avg_diameter/1000.
-Dl = dis.min_diameter/1000.
-Dr = dis.max_diameter/1000.
-Dedges = np.append(Dl,Dr[-1])
+D = dis.avg_diameter / 1000.
+Dl = dis.min_diameter / 1000.
+Dr = dis.max_diameter / 1000.
+Dedges = np.append(Dl, Dr[-1])
 bin_width = Dr - Dl
+
 
 def get_Dmax_index(Dmax):
     if Dmax is not None:
-        Dmax_index = np.searchsorted(Dr, Dmax/1000., side='right')
+        Dmax_index = np.searchsorted(Dr, Dmax / 1000., side='right')
     else:
         Dmax_index = np.size(Dr)
     return Dmax_index
@@ -73,8 +68,8 @@ def create_random_gamma_DSD(Nt, lamda, alpha, Vt, sampling_length, sampling_widt
     else:
         Dmax_index = np.searchsorted(Dr, Dmax / 1000., side='right')
     if verbose:
-        print "Dmax_index = ", Dmax_index
-    Vt = dis.assignfallspeed(Dmid*1000., rhocorrect=rhocorrect, rho=rho)
+        print("Dmax_index = ", Dmax_index)
+    Vt = dis.assignfallspeed(Dmid * 1000., rhocorrect=rhocorrect, rho=rho)
     Vtmax = Vt[Dmax_index]
     sampling_height = Vtmax * sampling_interval
     sampling_area = sampling_length * sampling_width
@@ -83,15 +78,15 @@ def create_random_gamma_DSD(Nt, lamda, alpha, Vt, sampling_length, sampling_widt
     sampling_volumes_D = calc_sampling_volumes_D(Vt, Dr, Dmax, sampling_interval, sampling_area)
 
     if verbose:
-        print "sampling height = ", sampling_height
-        print "sampling volume = ", sampling_volume
+        print("sampling height = ", sampling_height)
+        print("sampling volume = ", sampling_volume)
 
     # Next, create a uniform distribution of n=Nt*sampling_volume drops within
     # the volume given by sampling_volume
     n = int(Nt * sampling_volume)
     if verbose:
-        print "number concentration = ", Nt
-        print "number of particles in sampling volume = ", n
+        print("number concentration = ", Nt)
+        print("number of particles in sampling volume = ", n)
     xpos = uniform.rvs(0., sampling_length, ((n, 1)))
     ypos = uniform.rvs(0., sampling_width, ((n, 1)))
     zpos = uniform.rvs(0., sampling_height, ((n, 1)))
@@ -101,17 +96,17 @@ def create_random_gamma_DSD(Nt, lamda, alpha, Vt, sampling_length, sampling_widt
 
     diameters = samplegammaDSD(n, lamda, alpha)
     if verbose:
-        print "minimum, maximum diameter in sample = ", diameters.min(), diameters.max()
-        print "maximumm allowed diameter = ", Dmax / 1000.
+        print("minimum, maximum diameter in sample = ", diameters.min(), diameters.max())
+        print("maximumm allowed diameter = ", Dmax / 1000.)
     # Restrict diameters to be less than Dmax
     diameter_mask = diameters <= Dmax / 1000.
     if verbose:
-        print "number of particles less than Dmax = ", diameter_mask.sum()
+        print("number of particles less than Dmax = ", diameter_mask.sum())
     # Mask the lowest two diameter bins by default (the real Parsivel does this owing to low SNR)
     if mask_lowest:
         low_mask = diameters > dis.max_diameter[1] / 1000.
         if verbose:
-            print "number of particles above the lowest two bins = ", low_mask.sum()
+            print("number of particles above the lowest two bins = ", low_mask.sum())
         diameter_mask = diameter_mask & low_mask
     diameters = diameters[diameter_mask]
     xpos = xpos[diameter_mask]
@@ -119,8 +114,11 @@ def create_random_gamma_DSD(Nt, lamda, alpha, Vt, sampling_length, sampling_widt
     zpos = zpos[diameter_mask]
 
     if verbose:
-        print "number of particles within allowable diameter range = ", diameter_mask.sum()
-        print "minimum, maximum particle diameter in truncated sample = ", diameters.min(), diameters.max()
+        print("number of particles within allowable diameter range = ", diameter_mask.sum())
+        print(
+            "minimum, maximum particle diameter in truncated sample = ",
+            diameters.min(),
+            diameters.max())
 
     # Now, figure out which drops in the volume won't fall through the sensor
     # area in the given time, and remove them
@@ -149,12 +147,12 @@ def create_random_gamma_DSD(Nt, lamda, alpha, Vt, sampling_length, sampling_widt
     margin_mask = margins_xl | margins_xr | margins_yl | margins_yr
 
     if verbose:
-        print "number of particles that fall through sampling area = ", xpos.size
-        print "number of these that are margin fallers = ", margin_mask.sum()
+        print("number of particles that fall through sampling area = ", xpos.size)
+        print("number of these that are margin fallers = ", margin_mask.sum())
 
     if remove_margins:
         if verbose:
-            print "Removing margin fallers!"
+            print("Removing margin fallers!")
         xpos = xpos[~margin_mask]
         ypos = ypos[~margin_mask]
         zpos = zpos[~margin_mask]
@@ -195,6 +193,7 @@ def calc_sampling_volumes_D(Vt, Dr, Dmax, sampling_interval, sampling_area):
         Dmax_index = np.searchsorted(Dr, Dmax / 1000., side='right')
     return Vt[:Dmax_index] * sampling_interval * sampling_area
 
+
 def uniquetol(a, tol=1.e-3):
     """Returns an array with duplicates removed within a given tolerance.
        This one assumes the array is already sorted in either
@@ -205,10 +204,10 @@ def uniquetol(a, tol=1.e-3):
     d = np.append(True, np.abs(np.diff(b)))
     return b[d > tol]
 
-def find_transect_grid_intersections(casedate, grid_dict, dis_dict, model_dict, radar_dict,
-                                     vardict, plot_locations=True,  debug=False):
-    """Find intersections of probe transects with the model grid"""
 
+def find_transect_grid_intersections(casedate, grid_dict, dis_dict, model_dict, radar_dict,
+                                     vardict, plot_locations=True, debug=False):
+    """Find intersections of probe transects with the model grid"""
 
     dx = grid_dict['dx']
     dy = grid_dict['dy']
@@ -221,7 +220,7 @@ def find_transect_grid_intersections(casedate, grid_dict, dis_dict, model_dict, 
     xcorplot = grid_dict['xcorplot']
     ycorplot = grid_dict['ycorplot']
 
-    lines=[]
+    lines = []
     for x in xe1d:
         lines.append(((x, ye1d[0]), (x, ye1d[-1])))
 
@@ -230,10 +229,12 @@ def find_transect_grid_intersections(casedate, grid_dict, dis_dict, model_dict, 
 
     grid = MultiLineString(lines)
 
-    dh = model_dict[casedate]['DataHandler']
+    # dh = model_dict[casedate]['DataHandler']
     model_times = model_dict[casedate]['model_times']
     reference_time_sec = model_dict[casedate]['modeltimesec_ref']
     reference_time = model_dict[casedate]['modeltime_ref']
+    # TODO: Make sure that there is a "model_dt" key in model_dict
+    model_dt = model_dict['model_dt']
     umove, vmove = radar_dict[casedate]['feature_motion']
     # Grab locations of disdrometers relative to radars and use the
     # last disdrometer in the list as the "reference"
@@ -259,7 +260,7 @@ def find_transect_grid_intersections(casedate, grid_dict, dis_dict, model_dict, 
     if fixed_time:
         try:
             vardict = vardict[0]
-        except:
+        except BaseException:
             pass
 
     # Below, we figure out where the disdrometers are relative to the model grid
@@ -282,27 +283,28 @@ def find_transect_grid_intersections(casedate, grid_dict, dis_dict, model_dict, 
     dis_ts_times = []
     dis_ts_stimes = []
 
-    for dis in xrange(len(dxlist)):
+    for disnum in range(len(dxlist)):
         # Calculate the range of times and the x and y locations at the end of each sampling window
         # of the virtual disdrometer
         # sampling_times contains the times relative to the reference time using the actual
         # disdrometer sampling times
 
-        sampling_times = np.array([(PSDtime - reference_time).total_seconds() for PSDtime in PSDtimes[dis]])
+        sampling_times = np.array([(PSDtime - reference_time).total_seconds()
+                                   for PSDtime in PSDtimes[dis]])
         if fixed_time:
             combined_times = sampling_times
-            sample_xlocs = dxmodlist[dis] - umove*sampling_times
-            sample_ylocs = dymodlist[dis] - vmove*sampling_times
+            sample_xlocs = dxmodlist[dis] - umove * sampling_times
+            sample_ylocs = dymodlist[dis] - vmove * sampling_times
             dis_xlocs = sample_xlocs
             dis_ylocs = sample_ylocs
         else:
             # Combine the sampling times and model times into a single array
             combined_times = np.concatenate((sampling_times, model_times_rel))
             combined_times = np.unique(combined_times)
-            sample_xlocs = dxmodlist[dis] - umove*sampling_times
-            sample_ylocs = dymodlist[dis] - vmove*sampling_times
-            dis_xlocs = dxmodlist[dis] - umove*combined_times
-            dis_ylocs = dymodlist[dis] - vmove*combined_times
+            sample_xlocs = dxmodlist[dis] - umove * sampling_times
+            sample_ylocs = dymodlist[dis] - vmove * sampling_times
+            dis_xlocs = dxmodlist[dis] - umove * combined_times
+            dis_ylocs = dymodlist[dis] - vmove * combined_times
 #
 #     # Sampling interval of the virtual disdrometer
 #     sampling_interval = 60.
@@ -312,10 +314,10 @@ def find_transect_grid_intersections(casedate, grid_dict, dis_dict, model_dict, 
 #     sampling_stop = 1500.
 
         if debug:
-            print "sampling_times = ", sampling_times
-            print "combined_times = ", combined_times
-            print "dis_xlocs = ", dis_xlocs
-            print "dis_ylocs = ", dis_ylocs
+            print("sampling_times = ", sampling_times)
+            print("combined_times = ", combined_times)
+            print("dis_xlocs = ", dis_xlocs)
+            print("dis_ylocs = ", dis_ylocs)
 
         line = LineString(np.c_[dis_xlocs, dis_ylocs])
 
@@ -337,7 +339,7 @@ def find_transect_grid_intersections(casedate, grid_dict, dis_dict, model_dict, 
         #     plt.text(np.mean(x), np.mean(y), str(i))
 
             # compute times of each crossing (relative to reference time)
-            t = (dxmodlist[dis] - np.array(x))/umove
+            t = (dxmodlist[dis] - np.array(x)) / umove
         #     print "t = ", t
             xlocs = xlocs + list(x)
             ylocs = ylocs + list(y)
@@ -348,14 +350,14 @@ def find_transect_grid_intersections(casedate, grid_dict, dis_dict, model_dict, 
         # ax.set_aspect('equal')
 
         if debug:
-            print "xlocs = ", xlocs
-            print "ylocs = ", ylocs
-            print "all_times = ", all_times
+            print("xlocs = ", xlocs)
+            print("ylocs = ", ylocs)
+            print("all_times = ", all_times)
 
-        # In some cases, just using pandas unique can lead to problems when one list has two values that are
-        # very close but not quite the same, and the other has precisely the same. I encountered
-        # this problem with P2 for the June 5th case. Need to figure out how to handle it. Does
-        # pd.unique have a tolerance parameter?
+        # In some cases, just using pandas unique can lead to problems when one list has two values
+        # that are very close but not quite the same, and the other has precisely the same.
+        # I encountered this problem with P2 for the June 5th case. Need to figure out how to
+        # handle it. Does pd.unique have a tolerance parameter?
         # Answer, use this approach from https://stackoverflow.com/questions/5426908/
         # find-unique-elements-of-floating-point-array-in-numpy-with-comparison-using-a-d
 #         xlocs = pd.unique(xlocs)
@@ -364,53 +366,58 @@ def find_transect_grid_intersections(casedate, grid_dict, dis_dict, model_dict, 
         xlocs = uniquetol(xlocs)
         ylocs = uniquetol(ylocs)
         all_times = uniquetol(all_times)
-        # This creates another problem. Sometimes the above operation removes the wrong "duplicates".
-        # We need it to remove those values that are not the ones that coincide with the ones in
-        # sampling_times. So we'll go through the all_times array and set any times that are very
-        # close to times in sampling_times equal to those corresponding values in sampling_times
+        # This creates another problem. Sometimes the above operation removes the wrong
+        # "duplicates". We need it to remove those values that are not the ones that coincide with
+        # the ones in sampling_times. So we'll go through the all_times array and set any times
+        # that are very close to times in sampling_times equal to those corresponding values in
+        # sampling_times
         # FIXME: maybe try to improve efficiency of algorithm? (probably not worth it)
         for sidx, stime in np.ndenumerate(sampling_times):
             for aidx, atime in np.ndenumerate(all_times):
-                if np.abs(atime-stime) <= 1.e-3:
+                if np.abs(atime - stime) <= 1.e-3:
                     all_times[aidx] = stime
 
         if debug:
-            print "xlocs = ", xlocs
-            print "ylocs = ", ylocs
-            print "all_times = ", all_times
+            print("xlocs = ", xlocs)
+            print("ylocs = ", ylocs)
+            print("all_times = ", all_times)
 
-        # Calculate the fractional i and j indices relative to grid edges corresponding to the x, y locations
-        ilocs = (xlocs-xeplot[0,0])/dx
-        jlocs = (ylocs-yeplot[0,0])/dy
+        # Calculate the fractional i and j indices relative to grid edges
+        # corresponding to the x, y locations
+        ilocs = (xlocs - xeplot[0, 0]) / dx
+        jlocs = (ylocs - yeplot[0, 0]) / dy
         if debug:
-            print "ilocs = ", ilocs
-            print "jlocs = ", jlocs
+            print("ilocs = ", ilocs)
+            print("jlocs = ", jlocs)
         # Calculate the fractional time indices corresponding to each point
         if not fixed_time:
-            tlocs = (all_times-model_times_rel[0])/model_dt
+            tlocs = (all_times - model_times_rel[0]) / model_dt
             tlocs = np.where(tlocs < 0.0, 0.0, tlocs)
         else:
             tlocs = np.array(len(all_times) * [0.0])
         if debug:
-            print "tlocs = ", tlocs
-        # Find the indices of the edges of the grid boxes that the disdrometer traverses during the sampling time
+            print("tlocs = ", tlocs)
+        # Find the indices of the edges of the grid boxes that the disdrometer
+        # traverses during the sampling time
         igllocs = ilocs.astype(int)
         jgllocs = jlocs.astype(int)
         if debug:
-            print "igllocs = ", igllocs
-            print "jgllocs = ", jgllocs
-        # The -1 below is because we want to identify the right edges with the next lowest grid centers
-        igrlocs = np.ceil(ilocs).astype(int)-1
-        jgrlocs = np.ceil(jlocs).astype(int)-1
+            print("igllocs = ", igllocs)
+            print("jgllocs = ", jgllocs)
+        # The -1 below is because we want to identify the right edges with the
+        # next lowest grid centers
+        igrlocs = np.ceil(ilocs).astype(int) - 1
+        jgrlocs = np.ceil(jlocs).astype(int) - 1
         if debug:
-            print "igrlocs = ", igrlocs
-            print "jgrlocs = ", jgrlocs
+            print("igrlocs = ", igrlocs)
+            print("jgrlocs = ", jgrlocs)
     #     if not fixed_time:
         tgblocs = tlocs.astype(int)
         if debug:
-            print "tgblocs = ", tgblocs
+            print("tgblocs = ", tgblocs)
 
-        # The grid edge indices we want to use for calculating the sampling depend on the grid motion
+        # The grid edge indices we want to use for calculating the sampling depend
+        # on the grid motion
         if umove > 0 and vmove > 0:
             locs = [jgrlocs, igrlocs]
         elif umove < 0 and vmove > 0:
@@ -422,15 +429,15 @@ def find_transect_grid_intersections(casedate, grid_dict, dis_dict, model_dict, 
 
         # For plotting we want the indices of the west and south edges. EDIT: Or do we? I don't
         # think so...This way shows the actual grid boxes that are used in the sampling.
-        plocs = locs # [jgllocs, igllocs]
+        plocs = locs  # [jgllocs, igllocs]
         if debug:
-            print zip(plocs[0], plocs[1])
-            print zip(xcplot[plocs], ycplot[plocs])
+            print(list(zip(plocs[0], plocs[1])))
+            print(list(zip(xcplot[plocs], ycplot[plocs])))
 
         vars_at_ts = []
         time = None
-        # TODO: Fix convoluted logic below. Just doing it this way right now for backwards-compatibility
-        # with original notebook cell
+        # TODO: Fix convoluted logic below. Just doing it this way right now for
+        # backwards-compatibility with original notebook cell
         for t, tloc in enumerate(tgblocs):
             if model_dict[casedate]['composite']:
                 vars_at_ts.append(vardict)
@@ -465,13 +472,14 @@ def find_transect_grid_intersections(casedate, grid_dict, dis_dict, model_dict, 
                 numovr = 0
                 axesticks = [2000., 2000.]
 
-                fig, ax = pm.plotsingle(fig, ax, ptype, xcplot, ycplot, xcorplot, ycorplot, xlim, ylim, Zmodplot, clevels, cmap, norm,
-                                    clevels, clabel, cformat, ovrmap, gis_info, numovr, None, None, None, None, None,
-                                    axesticks)
+                fig, ax = pm.plotsingle(fig, ax, ptype, xcplot, ycplot, xcorplot, ycorplot, xlim,
+                                        ylim, Zmodplot, clevels, cmap, norm, clevels, clabel,
+                                        cformat, ovrmap, gis_info, numovr, None, None, None, None,
+                                        None, axesticks)
 
                 # Plot the locations of the disdrometer at each time in the sampling period
-                #ax.plot(dis_xlocs, dis_ylocs, 'ko', ms=2)
-                print "x, y = ", xlocs[t], ylocs[t]
+                # ax.plot(dis_xlocs, dis_ylocs, 'ko', ms=2)
+                print("x, y = ", xlocs[t], ylocs[t])
                 ax.plot(xlocs[t], ylocs[t], 'ko', ms=4)
                 ax.plot(dxmodlist[dis], dymodlist[dis], 'bo', ms=4)
                 ax.plot(xcplot[plocs], ycplot[plocs], 'kx', ms=5, alpha=0.5)
@@ -489,12 +497,12 @@ def find_transect_grid_intersections(casedate, grid_dict, dis_dict, model_dict, 
         for t, vard in enumerate(vars_at_ts):
             vard_points = {}
             loc = (locs[0][t], locs[1][t])
-            for key, var in vard.iteritems():
+            for key, var in vard.items():
                 vard_points[key] = var[loc]
             vars_at_ts_points.append(vard_points)
 
-        dis_ts_xylocs.append(zip(xlocs, ylocs))
-        dis_ts_xyslocs.append(zip(sample_xlocs, sample_ylocs))
+        dis_ts_xylocs.append(list(zip(xlocs, ylocs)))
+        dis_ts_xyslocs.append(list(zip(sample_xlocs, sample_ylocs)))
         dis_ts_ijlocs.append(locs)
         dis_ts_times.append(all_times)
         dis_ts_stimes.append(sampling_times)
@@ -508,6 +516,7 @@ def find_transect_grid_intersections(casedate, grid_dict, dis_dict, model_dict, 
                          'dis_ts_vars_points': dis_ts_vars_points,
                          'dis_ts_xyslocs': dis_ts_xyslocs}
     return dis_ts_model_dict
+
 
 def init_composite(compositedict, grid_dict):
     # Extract stuff from dictionaries
@@ -531,45 +540,47 @@ def init_composite(compositedict, grid_dict):
     jgbgn = np.searchsorted(yc1d, gridlims[2], side='left')
     jgend = np.searchsorted(yc1d, gridlims[3], side='right')
 
-    gridlimindices = [igbgn, igend+1, jgbgn, jgend+1]
+    gridlimindices = [igbgn, igend + 1, jgbgn, jgend + 1]
 
     xe1dg = xe1d[igbgn:igend]
     ye1dg = ye1d[jgbgn:jgend]
     xc1dg = xc1d[igbgn:igend]
     yc1dg = yc1d[jgbgn:jgend]
 
-    xckm = xc1dg/1000.
-    yckm = yc1dg/1000.
+    xckm = xc1dg / 1000.
+    yckm = yc1dg / 1000.
 
-    nxg = igend - igbgn + 1
-    nyg = jgend - jgbgn + 1
+    # nxg = igend - igbgn + 1
+    # nyg = jgend - jgbgn + 1
 
-    print """Starting and ending grid coordinates are:
-             igbgn = {:d}, igend = {:d}, jgbgn = {:d}, jgend = {:d}""".format(igbgn, igend, jgbgn, jgend)
+    print("""Starting and ending grid coordinates are:
+             igbgn = {:d}, igend = {:d}, jgbgn = {:d}, jgend = {:d}""".format(igbgn, igend, jgbgn,
+                                                                              jgend))
 
     zeagl1d = ze1d[:] - ze1d[0]
     zcagl1d = zc1d[:] - zc1d[0]
 
-    print zeagl1d, zcagl1d
+    print(zeagl1d, zcagl1d)
 
     # Halfwidths of composite box in grid points
-    ichw = int(compositewidthx/(2.*dx))
-    jchw = int(compositewidthy/(2.*dy))
+    ichw = int(compositewidthx / (2. * dx))
+    jchw = int(compositewidthy / (2. * dy))
 
-    xckm_comp = np.arange(-ichw, ichw+1) * dx / 1000.
-    yckm_comp = np.arange(-jchw, jchw+1) * dy / 1000.
+    xckm_comp = np.arange(-ichw, ichw + 1) * dx / 1000.
+    yckm_comp = np.arange(-jchw, jchw + 1) * dy / 1000.
 
     # Halfwidths of search box in grid points
-    ishw = int(searchboxwidthx/(2.*dx))
-    jshw = int(searchboxwidthy/(2.*dy))
+    ishw = int(searchboxwidthx / (2. * dx))
+    jshw = int(searchboxwidthy / (2. * dy))
 
     if(tracking_varname == 'w'):
         tracking_klvl = np.where(zeagl1d >= tracking_level)[0][0]
     else:
         tracking_klvl = np.where(zcagl1d >= tracking_level)[0][0]
 
-    print "Tracking "+tracking_extremum+" "+ \
-          tracking_varname+" at height {:.1f} m".format(tracking_level)+" (k = {:d})".format(tracking_klvl)
+    print("Tracking " + tracking_extremum + " " +
+          tracking_varname + " at height {:.1f} m".format(tracking_level) +
+          " (k = {:d})".format(tracking_klvl))
 
     # Pack new stuff into compositedict
     compositedict['gridlimindices'] = gridlimindices
@@ -587,9 +598,9 @@ def read_probe_time_series(casedate, dis_dict, radar_dict):
        read_convdata_at_sweeptimes since it is more general."""
 
     timeslist = []
-    windspdlist = []
+    # windspdlist = []
     windspdavgveclist = []
-    winddirabslist = []
+    # winddirabslist = []
     winddiravgveclist = []
     templist = []
     dewpointlist = []
@@ -607,8 +618,9 @@ def read_probe_time_series(casedate, dis_dict, radar_dict):
     stoptimes = dis_dict[casedate]['stoptimes']
     dis_dir = dis_dict[casedate]['dis_dir']
 
-    for dis_type, disfilename, convfilename, starttime, stoptime in zip(dis_types, disfilenames, convfilenames,
-                                                                        starttimes, stoptimes):
+    for dis_type, disfilename, convfilename, starttime, stoptime in zip(dis_types, disfilenames,
+                                                                        convfilenames, starttimes,
+                                                                        stoptimes):
 
         dis_filepath = os.path.join(dis_dir, disfilename)
         conv_filepath = os.path.join(dis_dir, convfilename)
@@ -616,14 +628,14 @@ def read_probe_time_series(casedate, dis_dict, radar_dict):
         if dis_type in 'CU':
 
             PSD_dict = dis.readCU(conv_filepath, dis_filepath, requested_interval=60.0,
-                                   starttime=starttime, stoptime=stoptime)
-            windspdstr = 'bwindspd'
-            winddirstr = 'bwinddirabs'
+                                  starttime=starttime, stoptime=stoptime)
+            # windspdstr = 'bwindspd'
+            # winddirstr = 'bwinddirabs'
         elif dis_type in 'NV2':
             PSD_dict = dis.readNV2netCDF(conv_filepath, dis_filepath, requested_interval=60.0,
-                                          starttime=starttime, stoptime=stoptime)
-            windspdstr = 'swindspd'
-            winddirstr = 'swinddirabs'
+                                         starttime=starttime, stoptime=stoptime)
+            # windspdstr = 'swindspd'
+            # winddirstr = 'swinddirabs'
 
         # Extract conventional data timeseries and resample to PSD times
         conv_df = PSD_dict['conv_df']
@@ -658,11 +670,14 @@ def read_probe_time_series(casedate, dis_dict, radar_dict):
 #             windgustsavg = conv_resampled_df['swindgust'].values
 #             winddirsavgvec = winddirabss
 #         elif dis_type in 'CU':
-#             windspdsavg,windspdsavgvec,winddirsavgvec,windgusts,windgustsavg = dis.avgwind(winddirabss,
+#             windspdsavg,windspdsavgvec,winddirsavgvec,windgusts,windgustsavg = \
+#               dis.avgwind(winddirabss,
 #                 windspds,windavgintv,gusts=True,gustintv=windgustintv,center=False)
     #     offset = 0
-    #     windspdsavg,windspdsavgvec,winddirsavgvec,winddirsunitavgvec,windgusts,windgustsavg,usavg,vsavg,unit_usavg,unit_vsavg = \
-    #     dis.resamplewind(datetimesUTC,offset,winddirabss,windspds,'60S',gusts=True,gustintvstr='3S',center=False)
+    #     windspdsavg,windspdsavgvec,winddirsavgvec,winddirsunitavgvec,windgusts,windgustsavg, \
+    #       usavg,vsavg,unit_usavg,unit_vsavg = \
+    #     dis.resamplewind(datetimesUTC,offset,winddirabss,windspds,'60S',gusts=True,
+    #                      gustintvstr='3S',center=False)
 
         timeslist.append(PSDtimes)
 
@@ -678,11 +693,11 @@ def read_probe_time_series(casedate, dis_dict, radar_dict):
 
     # Stuff all the data into the dis_dict dictionary
     dis_dict[casedate]['timeseries'] = {'windspdavgvec': windspdavgveclist,
-                                                    'winddiravgvec': winddiravgveclist,
-                                                    'temp': templist, 'dewpoint': dewpointlist,
-                                                    'pressure': pressurelist, 'rho': rholist, 'ND': NDlist,
-                                                    'intensity': intensitylist, 'pcount': pcountlist,
-                                                    'times': timeslist}
+                                        'winddiravgvec': winddiravgveclist,
+                                        'temp': templist, 'dewpoint': dewpointlist,
+                                        'pressure': pressurelist, 'rho': rholist, 'ND': NDlist,
+                                        'intensity': intensitylist, 'pcount': pcountlist,
+                                        'times': timeslist}
 
     return dis_dict
 
@@ -698,21 +713,22 @@ def read_convdata_at_sweeptimes(casedate, dis_dict, radar_dict):
     templist = []
     dewpointlist = []
     pressurelist = []
-    NDlist = []
+    # NDlist = []
 
     # Extract stuff from dictionary
     dis_types = dis_dict[casedate]['dis_types']
     disfilenames = dis_dict[casedate]['disfilenames']
     try:
         convfilenames = dis_dict[casedate]['convfilenames']
-    except:
+    except BaseException:
         convfilenames = [None] * len(dis_types)
     starttimes = dis_dict[casedate]['starttimes']
     stoptimes = dis_dict[casedate]['stoptimes']
     dis_dir = dis_dict[casedate]['dis_dir']
 
-    for dis_type, disfilename, convfilename, starttime, stoptime in zip(dis_types, disfilenames, convfilenames,
-                                                                        starttimes, stoptimes):
+    for dis_type, disfilename, convfilename, starttime, stoptime in zip(dis_types, disfilenames,
+                                                                        convfilenames, starttimes,
+                                                                        stoptimes):
 
         dis_filepath = os.path.join(dis_dir, disfilename)
         if convfilename is not None:
@@ -721,19 +737,19 @@ def read_convdata_at_sweeptimes(casedate, dis_dict, radar_dict):
         if dis_type in 'CU':
 
             DSD_dict = dis.readCU(conv_filepath, dis_filepath, requested_interval=60.0,
-                                   starttime=starttime, stoptime=stoptime)
+                                  starttime=starttime, stoptime=stoptime)
             windspdstr = 'bwindspd'
             winddirstr = 'bwinddirabs'
             tempstr = 'slowtemp'
         elif dis_type in 'NV2':
             DSD_dict = dis.readNV2netCDF(conv_filepath, dis_filepath, requested_interval=60.0,
-                                          starttime=starttime, stoptime=stoptime)
+                                         starttime=starttime, stoptime=stoptime)
             windspdstr = 'swindspd'
             winddirstr = 'swinddirabs'
             tempstr = 'slowtemp'
         elif dis_type in 'PIPS':
             DSD_dict = dis.readPIPS(dis_filepath, requested_interval=60.0,
-                                 starttime=starttime, stoptime=stoptime)
+                                    starttime=starttime, stoptime=stoptime)
             windspdstr = 'windspd'
             winddirstr = 'winddirabs'
             tempstr = 'fasttemp'
@@ -757,14 +773,17 @@ def read_convdata_at_sweeptimes(casedate, dis_dict, radar_dict):
             windgustsavg = conv_df['swindgust'].values
             winddirsavgvec = winddirabss
         elif dis_type in 'CU':
-            windspdsavg,windspdsavgvec,winddirsavgvec,windgusts,windgustsavg = dis.avgwind(winddirabss,
-                windspds,windavgintv,gusts=True,gustintv=windgustintv,center=False)
+            windspdsavg, windspdsavgvec, winddirsavgvec, windgusts, windgustsavg = \
+                dis.avgwind(winddirabss, windspds, windavgintv, gusts=True, gustintv=windgustintv,
+                            center=False)
         elif dis_type in 'PIPS':
             windspdsavg, windspdsavgvec, winddirsavgvec, windgusts, windgustsavg = dis.avgwind(
                 winddirabss, windspds, windavgintv, gusts=True, gustintv=windgustintv, center=False)
     #     offset = 0
-    #     windspdsavg,windspdsavgvec,winddirsavgvec,winddirsunitavgvec,windgusts,windgustsavg,usavg,vsavg,unit_usavg,unit_vsavg = \
-    #     dis.resamplewind(datetimesUTC,offset,winddirabss,windspds,'60S',gusts=True,gustintvstr='3S',center=False)
+    #     windspdsavg,windspdsavgvec,winddirsavgvec,winddirsunitavgvec,windgusts,windgustsavg, \
+    #       usavg,vsavg,unit_usavg,unit_vsavg = \
+    #     dis.resamplewind(datetimesUTC,offset,winddirabss,windspds,'60S',gusts=True,
+    #                      gustintvstr='3S',center=False)
 
         datetimesUTC = DSD_dict['convtimestamps']
 
@@ -780,9 +799,11 @@ def read_convdata_at_sweeptimes(casedate, dis_dict, radar_dict):
         # Find the times closest to the sweeptimes
         for sweeptime in radar_dict[casedate]['sweeptimelist']:
             try:
-                index = next(i for i, t in enumerate(datetimesUTC) if np.abs((t-sweeptime).total_seconds()) <= 10.)
+                index = next(
+                    i for i, t in enumerate(datetimesUTC) if np.abs(
+                        (t - sweeptime).total_seconds()) <= 10.)
                 deployedtlist.append(True)
-            except:
+            except BaseException:
                 index = None
                 deployedtlist.append(False)
 
@@ -822,10 +843,11 @@ def read_convdata_at_sweeptimes(casedate, dis_dict, radar_dict):
         pressurelist.append(pressurearr)
 
     # Stuff all the data into the dis_dict dictionary
-    dis_dict[casedate]['convdata_at_sweeptimes'] = {'windspd': windspdlist, 'windspdavgvec': windspdavgveclist,
-                                                    'winddirabs': winddirabslist, 'winddiravgvec': winddiravgveclist,
-                                                    'temp': templist, 'dewpoint': dewpointlist,
-                                                    'pressure': pressurelist, 'deployed': deployedlist}
+    dis_dict[casedate]['convdata_at_sweeptimes'] = {
+        'windspd': windspdlist, 'windspdavgvec': windspdavgveclist, 'winddirabs': winddirabslist,
+        'winddiravgvec': winddiravgveclist, 'temp': templist, 'dewpoint': dewpointlist,
+        'pressure': pressurelist, 'deployed': deployedlist
+    }
 
     return dis_dict
 
@@ -838,7 +860,7 @@ def read_sweeps(casedate, radar_dict):
     radlon = None
     radalt = None
     radardir = radar_dict[casedate]['radardir']
-    radpathlist = glob.glob(radardir+'/*nc')
+    radpathlist = glob.glob(radardir + '/*nc')
     radstarttime = radar_dict[casedate]['radstarttime']
     radstoptime = radar_dict[casedate]['radstoptime']
     fieldnames = radar_dict[casedate]['fieldnames']
@@ -847,9 +869,9 @@ def read_sweeps(casedate, radar_dict):
     # Now read in all the sweeps between radstarttime and radstoptime closest to the requested
     # elevation angle
     radstarttimedt = datetime(np.int(radstarttime[:4]), np.int(radstarttime[4:6]), np.int(
-            radstarttime[6:8]), np.int(radstarttime[8:10]), np.int(radstarttime[10:12]))
+        radstarttime[6:8]), np.int(radstarttime[8:10]), np.int(radstarttime[10:12]))
     radstoptimedt = datetime(np.int(radstoptime[:4]), np.int(radstoptime[4:6]), np.int(
-            radstoptime[6:8]), np.int(radstoptime[8:10]), np.int(radstoptime[10:12]))
+        radstoptime[6:8]), np.int(radstoptime[8:10]), np.int(radstoptime[10:12]))
 
     outfieldnameslist = []
     radarsweeplist = []
@@ -859,8 +881,9 @@ def read_sweeps(casedate, radar_dict):
         sweeptime = radar._getsweeptime(radpath)
 
         if(radstarttimedt <= sweeptime and sweeptime <= radstoptimedt):
-            outfieldnames, radarsweep = radar.readCFRadial_pyART(False, el_req, radlat, radlon, radalt, radpath,
-                                                                 None, fieldnames, compute_kdp=False)
+            outfieldnames, radarsweep = radar.readCFRadial_pyART(False, el_req, radlat, radlon,
+                                                                 radalt, radpath, None, fieldnames,
+                                                                 compute_kdp=False)
             outfieldnameslist.append(outfieldnames)
             radarsweeplist.append(radarsweep)
             sweeptimelist.append(sweeptime)
@@ -877,7 +900,7 @@ def compute_storm_motion(radar_dict):
     """Computes storm motion from start and end points of a given feature.
        Adds a new key to the given dictionary with the storm motion vector
        in a tuple."""
-    for casedate, case in radar_dict.iteritems():
+    for casedate, case in radar_dict.items():
         deltat = (case['feature_end_time'] - case['feature_start_time']).total_seconds()
         ustorm = (case['feature_end_loc'][0] - case['feature_start_loc'][0]) * 1000. / deltat
         vstorm = (case['feature_end_loc'][1] - case['feature_start_loc'][1]) * 1000. / deltat
@@ -896,7 +919,7 @@ def get_dis_locs_relative_to_radar(casedate, dis_dict, radar_dict):
     disfilenames = dis_dict[casedate]['disfilenames']
     try:
         convfilenames = dis_dict[casedate]['convfilenames']
-    except:
+    except BaseException:
         convfilenames = [None] * len(dis_names)
     starttimes = dis_dict[casedate]['starttimes']
     stoptimes = dis_dict[casedate]['stoptimes']
@@ -915,15 +938,15 @@ def get_dis_locs_relative_to_radar(casedate, dis_dict, radar_dict):
         elif(dis_type == 'CU'):
             convfilepath = os.path.join(dis_dir, conv_filename)
             GPS_lats, GPS_lons, GPS_stats, GPS_alts, dgeoloc = dis.readCUloc(convfilepath,
-                                                                          starttime=starttime,
-                                                                          stoptime=stoptime)
+                                                                             starttime=starttime,
+                                                                             stoptime=stoptime)
         elif(dis_type == 'NV2'):
             dgeoloc = dis.readNV2loc(filepath)
 
         dradx, drady = pyart.core.geographic_to_cartesian_aeqd(dgeoloc[1], dgeoloc[0], rlon, rlat)
         dx = dradx[0]
         dy = drady[0]
-        print dx, dy
+        print(dx, dy)
 
         dgeoloclist.append(dgeoloc)
         dradloclist.append((dx, dy))
@@ -935,7 +958,6 @@ def get_dis_locs_relative_to_radar(casedate, dis_dict, radar_dict):
     return dis_dict
 
 
-
 def set_dh(casedate, model_dict, radar_dict, fixed_time=True):
     """Reads a DataHandler instance for COMMAS simulation output given information in model_dict, using
        casedate as the key. Puts the DataHandler instance into model_dict. Also associates
@@ -943,7 +965,7 @@ def set_dh(casedate, model_dict, radar_dict, fixed_time=True):
     modelname = 'COMMAS'
     runname = model_dict[casedate]['runname']
     dirname = model_dict[casedate]['dirname']
-    model_dt = model_dict[casedate]['model_dt']
+    # model_dt = model_dict[casedate]['model_dt']
     modeltimesec_ref = model_dict[casedate]['modeltimesec_ref']
     if model_dict[casedate]['composite']:
         model_times = model_dict[casedate]['model_times']
@@ -988,11 +1010,11 @@ def read_model_grid(dh):
 def trackfeature(var, searchboxlims=None, guesscoords=None, extremum='max', debug=False):
     """Tracks a feature based on the extremum (max or min) of a given 2D field. Returns the coordinates
        of the extremum relative to the initial shape, as well as the value of the extremum"""
-    if(searchboxlims == None):
+    if(searchboxlims is None):
         ibgn = 0
-        iend = var.shape[1]-1
+        iend = var.shape[1] - 1
         jbgn = 0
-        jend = var.shape[0]-1
+        jend = var.shape[0] - 1
     else:
         ibgn = searchboxlims[0]
         iend = searchboxlims[1]
@@ -1000,13 +1022,13 @@ def trackfeature(var, searchboxlims=None, guesscoords=None, extremum='max', debu
         jend = searchboxlims[3]
 
     if debug:
-        print ibgn, iend, jbgn, jend, var.shape
+        print(ibgn, iend, jbgn, jend, var.shape)
 
         fig = plt.figure()
         ax = fig.add_subplot(111)
 
-    varsearch = var[jbgn:jend+1, ibgn:iend+1]
-    print varsearch.shape
+    varsearch = var[jbgn:jend + 1, ibgn:iend + 1]
+    print(varsearch.shape)
 
     if debug:
         ax.imshow(varsearch, origin='lower')
@@ -1018,22 +1040,22 @@ def trackfeature(var, searchboxlims=None, guesscoords=None, extremum='max', debu
         var_extremum = varsearch.min()
         flatindex = np.argmin(varsearch)
 
-    #print varsearch.shape
+    # print varsearch.shape
     jrel, irel = np.unravel_index(flatindex, varsearch.shape)
 
     if debug:
-        print "irel, jrel = ", irel, jrel
+        print("irel, jrel = ", irel, jrel)
         ax.plot([irel], [jrel], marker='o', color='red')
 
-    if(guesscoords == None):
+    if(guesscoords is None):
         iref = irel
         jref = jrel
     else:
-        iref = ibgn+irel
-        jref = jbgn+jrel
+        iref = ibgn + irel
+        jref = jbgn + jrel
 
     if debug:
-        print "iref, jref = ", iref, jref
+        print("iref, jref = ", iref, jref)
 
     return var_extremum, iref, jref
 
@@ -1043,23 +1065,27 @@ def get_composite_grid(grid_dict, compositedict):
     ichw, jchw = compositedict['compositehw']
     dx = grid_dict['dx']
     dy = grid_dict['dy']
-    xc_comp = np.arange(-ichw, ichw+1) * dx
-    yc_comp = np.arange(-jchw, jchw+1) * dy
-    xe_comp = np.arange(-ichw-0.5, ichw+1.5) * dx
-    ye_comp = np.arange(-jchw-0.5, jchw+1.5) * dy
+    xc_comp = np.arange(-ichw, ichw + 1) * dx
+    yc_comp = np.arange(-jchw, jchw + 1) * dy
+    xe_comp = np.arange(-ichw - 0.5, ichw + 1.5) * dx
+    ye_comp = np.arange(-jchw - 0.5, jchw + 1.5) * dy
 
     nxm = xc_comp.shape[0]
-    nxe = xe_comp.shape[0]
+    # nxe = xe_comp.shape[0]
     nym = yc_comp.shape[0]
-    nye = ye_comp.shape[0]
+    # nye = ye_comp.shape[0]
     nzm = grid_dict['zc1d'].shape[0]
-    nze = grid_dict['ze1d'].shape[0]
+    # nze = grid_dict['ze1d'].shape[0]
 
     # Recast xc,xe,yc,ye as 3D arrays
-    composite_grid_dict['xc'] = np.lib.stride_tricks.as_strided(xc_comp, strides=((0, 0) + xc_comp.strides), shape=((nzm, nym) + xc_comp.shape))
-    composite_grid_dict['xe'] = np.lib.stride_tricks.as_strided(xe_comp, strides=((0, 0) + xe_comp.strides), shape=((nzm, nym) + xe_comp.shape))
-    composite_grid_dict['yc'] = np.lib.stride_tricks.as_strided(yc_comp, strides=((0, ) + yc_comp.strides + (0, )), shape=((nzm, ) + yc_comp.shape + (nxm, )))
-    composite_grid_dict['ye'] = np.lib.stride_tricks.as_strided(ye_comp, strides=((0, ) + ye_comp.strides + (0, )), shape=((nzm, ) + ye_comp.shape + (nxm, )))
+    composite_grid_dict['xc'] = np.lib.stride_tricks.as_strided(
+        xc_comp, strides=((0, 0) + xc_comp.strides), shape=((nzm, nym) + xc_comp.shape))
+    composite_grid_dict['xe'] = np.lib.stride_tricks.as_strided(
+        xe_comp, strides=((0, 0) + xe_comp.strides), shape=((nzm, nym) + xe_comp.shape))
+    composite_grid_dict['yc'] = np.lib.stride_tricks.as_strided(yc_comp, strides=(
+        (0, ) + yc_comp.strides + (0, )), shape=((nzm, ) + yc_comp.shape + (nxm, )))
+    composite_grid_dict['ye'] = np.lib.stride_tricks.as_strided(ye_comp, strides=(
+        (0, ) + ye_comp.strides + (0, )), shape=((nzm, ) + ye_comp.shape + (nxm, )))
     composite_grid_dict['dx'] = dx
     composite_grid_dict['dy'] = dy
     composite_grid_dict['xe1d'] = composite_grid_dict['xe'][0, 0, :]
@@ -1070,7 +1096,8 @@ def get_composite_grid(grid_dict, compositedict):
     composite_grid_dict['ycplot'] = composite_grid_dict['yc'][0, :, :]
     composite_grid_dict['xeplot'] = composite_grid_dict['xe'][0, :, :]
     composite_grid_dict['yeplot'] = composite_grid_dict['ye'][0, :, :]
-    xcorplot, ycorplot = pm.computecorners(composite_grid_dict['xeplot'], composite_grid_dict['yeplot'])
+    xcorplot, ycorplot = pm.computecorners(
+        composite_grid_dict['xeplot'], composite_grid_dict['yeplot'])
     composite_grid_dict['xcorplot'] = xcorplot
     composite_grid_dict['ycorplot'] = ycorplot
 
@@ -1088,23 +1115,23 @@ def read_vardict(casedate, model_dict, varlists, varlistv, varlist_derived):
         temp = dh.loadVars(varlistv)
         vardict.update(temp)
         # Extract only lowest model level here
-        for key, var in vardict.iteritems():
+        for key, var in vardict.items():
             vardict[key] = var[0, ...]
         # Now read in the microphysics scalars
         mp_data, consts = dh.loadMicrophysics()
         # Extract the lowest model level and store in mp_data_2D
-        mp_data_2D = {}
-        for key, dat in mp_data.iteritems():
+        # mp_data_2D = {}
+        for key, dat in mp_data.items():
             vardict[key] = dat.T[0, ...]
         if 'U' in varlistv:
-            vardict['UC'] = 0.5*(vardict['U'][:-1, :-1] + vardict['U'][:-1, 1:])
+            vardict['UC'] = 0.5 * (vardict['U'][:-1, :-1] + vardict['U'][:-1, 1:])
         if 'V' in varlistv:
-            vardict['VC'] = 0.5*(vardict['V'][:-1, :-1] + vardict['V'][1:, :-1])
+            vardict['VC'] = 0.5 * (vardict['V'][:-1, :-1] + vardict['V'][1:, :-1])
         if 'PTE' in varlist_derived:
             try:
                 vardict['PTE'] = thermo.calpte(vardict['P'], vardict['TH'], vardict['QV'])
-            except:
-                print "Cannot calculate PTE!"
+            except BaseException:
+                print("Cannot calculate PTE!")
         vardictlist.append(vardict)
     return vardictlist
 
@@ -1121,9 +1148,9 @@ def build_composite(casedate, model_dict, compositedict, dh, plotlocs=True):
     xe1dg, ye1dg, xc1dg, yc1dg, xckm, yckm, zeagl1d, zcagl1d = compositedict['gcoords']
     gridlimindices = compositedict['gridlimindices']
     igbgn = gridlimindices[0]
-    igend = gridlimindices[1]-1
+    igend = gridlimindices[1] - 1
     jgbgn = gridlimindices[2]
-    jgend = gridlimindices[3]-1
+    jgend = gridlimindices[3] - 1
 
     model_times = model_dict[casedate]['model_times']
     multitime = model_dict[casedate].get('multitime', True)
@@ -1136,11 +1163,11 @@ def build_composite(casedate, model_dict, compositedict, dh, plotlocs=True):
     varlistv = ['U', 'V']
     varcompdict = {}
     for varname in varlists:
-        varcompdict[varname] = np.zeros((ichw*2+1, jchw*2+1), dtype=np.float)
+        varcompdict[varname] = np.zeros((ichw * 2 + 1, jchw * 2 + 1), dtype=np.float)
     for varname in varlists_derived:
-        varcompdict[varname] = np.zeros((ichw*2+1, jchw*2+1), dtype=np.float)
+        varcompdict[varname] = np.zeros((ichw * 2 + 1, jchw * 2 + 1), dtype=np.float)
     for varname in varlistv:
-        varcompdict[varname] = np.zeros((ichw*2+2, jchw*2+2), dtype=np.float)
+        varcompdict[varname] = np.zeros((ichw * 2 + 2, jchw * 2 + 2), dtype=np.float)
 
     if plotlocs:
         figcl = plt.figure()
@@ -1154,62 +1181,80 @@ def build_composite(casedate, model_dict, compositedict, dh, plotlocs=True):
             # Choose center of domain to start
             iref = int((igend - igbgn) / 2.)
             jref = int((jgend - jgbgn) / 2.)
-            searchboxlims = [iref-ishw*2, iref+ishw*2+1, jref-jshw*2, jref+jshw*2+1]
+            searchboxlims = [
+                iref - ishw * 2,
+                iref + ishw * 2 + 1,
+                jref - jshw * 2,
+                jref + jshw * 2 + 1]
             guesscoords = [iref, jref]
 
-        #print "guesscoords = ",guesscoords
-        #print "searchboxlims = ",searchboxlims
+        # print "guesscoords = ",guesscoords
+        # print "searchboxlims = ",searchboxlims
 
-        print "The model time is {:d} s".format(int(time))
+        print("The model time is {:d} s".format(int(time)))
         dh.setTime(time)
         if not multitime:
             dh.setRun(model_dict[casedate]['runname'], 0, time=time)
         # Right now, only vortz or w for tracking variable
         if tracking_varname == 'w':
-            print "Reading variable " + tracking_varname
-            trackvardict = dh.loadVars([var])
+            print("Reading variable " + tracking_varname)
+            trackvardict = dh.loadVars([tracking_varname])
             trackvar = trackvardict[tracking_varname][tracking_klvl, ...]
             trackvar = trackvar.squeeze()
         elif tracking_varname == 'vortz':
-            print "Deriving variable " + tracking_varname
+            print("Deriving variable " + tracking_varname)
             # TODO: Make this less brittle (maybe create relational dictionaries for variable names
-            # for each model [ARPS, CM1, COMMAS], so that we can use the same variable names for each
-            # and it automatically gets translated within the DataHandler code)
-            trackvardict = dh.loadVars(['WZ'])
-            trackvar = trackvardict['WZ'][tracking_klvl, ...]
+            # for each model [ARPS, CM1, COMMAS], so that we can use the same variable names for
+            # each and it automatically gets translated within the DataHandler code)
+            trackvardict = dh.loadVars([tracking_varname])
+            trackvar = trackvardict[tracking_varname][tracking_klvl, ...]
             trackvar = trackvar.squeeze()
 
         var_extremum, iref, jref = trackfeature(trackvar, searchboxlims=searchboxlims,
-                                              guesscoords=guesscoords, extremum=tracking_extremum)
+                                                guesscoords=guesscoords, extremum=tracking_extremum)
         guesscoords = [iref, jref]
-        searchboxlims = [iref-ishw, iref+ishw+1, jref-jshw, jref+jshw+1]
-        print tracking_extremum + ' ' + tracking_varname + ' at height z = {:.1f} m'.format(tracking_level) + '\n' + \
-              'is {:.2f}'.format(var_extremum)
-        print "The location is x,y = {:.2f},{:.2f} (i,j = {:d},{:d})".format(xckm[iref], yckm[jref], iref, jref)
+        searchboxlims = [iref - ishw, iref + ishw + 1, jref - jshw, jref + jshw + 1]
+        print(tracking_extremum + ' ' + tracking_varname +
+              ' at height z = {:.1f} m'.format(tracking_level) + '\n' +
+              'is {:.2f}'.format(var_extremum))
+        print(
+            "The location is x,y = {:.2f},{:.2f} (i,j = {:d},{:d})".format(
+                xckm[iref],
+                yckm[jref],
+                iref,
+                jref))
 
         ireflist.append(iref)
         jreflist.append(jref)
 
         xref = xckm[iref]
         yref = yckm[jref]
-
-        if np.abs(var_extremum) >= tracking_thresh: # Restrict what goes into composite above a certain threshold
+        # Restrict what goes into composite above a certain threshold
+        if np.abs(var_extremum) >= tracking_thresh:
             if plotlocs:
-                axcl.plot([xref] , [yref], marker='o', color=axclcolorcycle[t])
+                axcl.plot([xref], [yref], marker='o', color=axclcolorcycle[t])
             nt = nt + 1
-            # Read in variables to composite (separate grid dimensions for scalars vs. vector wind components)
-            compositeboxindices = [iref-ichw+igbgn, iref+ichw+1+igbgn, jref-jchw+jgbgn, jref+jchw+1+jgbgn, 0, 1]
-            compositeboxindices_uv = [iref-ichw+igbgn, iref+ichw+1+igbgn+1, jref-jchw+jgbgn, jref+jchw+1+jgbgn+1, 0, 1]
-            print compositeboxindices
-            print compositeboxindices_uv
+            # Read in variables to composite (separate grid dimensions for scalars vs.
+            # vector wind components)
+            compositeboxindices = [iref - ichw + igbgn, iref + ichw + 1 +
+                                   igbgn, jref - jchw + jgbgn, jref + jchw + 1 + jgbgn, 0, 1]
+            compositeboxindices_uv = [
+                iref - ichw + igbgn,
+                iref + ichw + 1 + igbgn + 1,
+                jref - jchw + jgbgn,
+                jref + jchw + 1 + jgbgn + 1,
+                0,
+                1]
+            print(compositeboxindices)
+            print(compositeboxindices_uv)
 
             vardict = dh.loadVars(varlists, compositeboxindices)
             temp = dh.loadVars(varlistv, compositeboxindices_uv)
             vardict.update(temp)
 
             # Compute velocity components at scalar points
-            vardict['UC'] = 0.5*(vardict['U'][:-1, :-1] + vardict['U'][:-1, 1:])
-            vardict['VC'] = 0.5*(vardict['V'][:-1, :-1] + vardict['V'][1:, :-1])
+            vardict['UC'] = 0.5 * (vardict['U'][:-1, :-1] + vardict['U'][:-1, 1:])
+            vardict['VC'] = 0.5 * (vardict['V'][:-1, :-1] + vardict['V'][1:, :-1])
 
             # Compute equivalent potential temperature
             vardict['PTE'] = thermo.calpte(vardict['P'], vardict['TH'], vardict['QV'])
@@ -1218,31 +1263,33 @@ def build_composite(casedate, model_dict, compositedict, dh, plotlocs=True):
             mp_data, consts = dh.loadMicrophysics()
             # Extract the lowest model level and store in mp_data_2D
             mp_data_2D = {}
-            for key, dat in mp_data.iteritems():
+            for key, dat in mp_data.items():
                 mp_data_2D[key] = dat.T[0, compositeboxindices[2]:compositeboxindices[3],
-                                           compositeboxindices[0]:compositeboxindices[1]]
+                                        compositeboxindices[0]:compositeboxindices[1]]
                 if tflag:
-                    varcompdict[key] = np.zeros((ichw*2+1, jchw*2+1), dtype=np.float)
+                    varcompdict[key] = np.zeros((ichw * 2 + 1, jchw * 2 + 1), dtype=np.float)
 
-            print mp_data_2D.keys()
-            print varcompdict.keys()
+            print(list(mp_data_2D.keys()))
+            print(list(varcompdict.keys()))
 
             # Cumulative sum for each variable for each time
-            for varname, var in vardict.iteritems():
+            for varname, var in vardict.items():
                 varcompdict[varname] = varcompdict[varname] + var
-            for varname, var in mp_data_2D.iteritems():
+            for varname, var in mp_data_2D.items():
                 varcompdict[varname] = varcompdict[varname] + var
             tflag = False
     # Compute composite averages for each variable (nt is the total number of times)
-    for varname, var in varcompdict.iteritems():
+    for varname, var in varcompdict.items():
         if model_times.size > 1:
-            varcompdict[varname] = varcompdict[varname]/nt
+            varcompdict[varname] = varcompdict[varname] / nt
 
     if plotlocs:
         axcl.set_aspect('equal')
-        figcl.savefig(model_dict[casedate]['runname'] + '_sfcvortloc_{:06d}_{:06d}.png'.format(int(model_times[0]), int(model_times[-1])), dpi=200)
+        figcl.savefig(model_dict[casedate]['runname'] + '_sfcvortloc_{:06d}_{:06d}.png'.format(
+            int(model_times[0]), int(model_times[-1])), dpi=200)
 
     return varcompdict
+
 
 def calc_obs_transect(casedate, dis_dict, dis_ts_model_dict, Dmax=None, calc_fits=True,
                       plot_transects=False):
@@ -1250,14 +1297,14 @@ def calc_obs_transect(casedate, dis_dict, dis_ts_model_dict, Dmax=None, calc_fit
        Optionally computes exponential and gamma fits based on MofM and MofTM and plots them."""
 
     if Dmax is not None:
-        Dmax_index = np.searchsorted(Dr, Dmax/1000., side='right')
+        Dmax_index = np.searchsorted(Dr, Dmax / 1000., side='right')
     else:
         Dmax_index = np.size(Dr)
 
     D0r_obs = []
     ND_obs = []
     if calc_fits:
-#         D0r_obs_exp = []
+        #         D0r_obs_exp = []
         D0r_obs_gam = []
         D0r_obs_tmf = []
         ND_obs_gam = []
@@ -1269,12 +1316,12 @@ def calc_obs_transect(casedate, dis_dict, dis_ts_model_dict, Dmax=None, calc_fit
         if calc_fits:
             rho = dis_dict[casedate]['timeseries']['rho'][d]
             synthbins, exp_DSD, gam_DSD, tmf_DSD, dis_DSD = dis.calc_DSD(ND.T, rho)
-            ND_expDSD, N0_exp, lamda_exp, mu_exp, qr_exp, Ntr_exp, refl_DSD_exp, D_med_exp, D_m_exp = \
-            exp_DSD
-            ND_gamDSD, N0_gam, lamda_gam, mu_gam, qr_gam, Ntr_gam, refl_DSD_gam, D_med_gam, D_m_gam, \
-            LWC_gam, rainrate_gam = gam_DSD
-            ND_tmfDSD, N0_tmf, lamda_tmf, mu_tmf, qr_tmf, Ntr_tmf, refl_DSD_tmf, LWC_tmf, rainrate_tmf = \
-            tmf_DSD
+            (ND_expDSD, N0_exp, lamda_exp, mu_exp, qr_exp, Ntr_exp, refl_DSD_exp, D_med_exp,
+             D_m_exp) = exp_DSD
+            (ND_gamDSD, N0_gam, lamda_gam, mu_gam, qr_gam, Ntr_gam, refl_DSD_gam, D_med_gam,
+             D_m_gam, LWC_gam, rainrate_gam) = gam_DSD
+            (ND_tmfDSD, N0_tmf, lamda_tmf, mu_tmf, qr_tmf, Ntr_tmf, refl_DSD_tmf, LWC_tmf,
+             rainrate_tmf) = tmf_DSD
 #             ND_expDSD = ND_expDSD.T
 #             logND_expDSD = np.ma.log10(ND_expDSD / 1000.)  # Get to log(m^-3 mm^-1)
 #             logND_expDSD = np.ma.masked_where(logND_expDSD <= -1.0, logND_expDSD)
@@ -1288,26 +1335,28 @@ def calc_obs_transect(casedate, dis_dict, dis_ts_model_dict, Dmax=None, calc_fit
 #             D0r_exp = np.zeros((np.size(np.array(sample_xlocs))))
             D0r_gam = np.zeros((np.size(np.array(sample_xlocs))))
             D0r_tmf = np.zeros_like(D0r_gam)
-            for t in xrange(sample_xlocs.size):
-#                 D0r_exp[t] = dis.calc_D0_bin(D, Dl, Dr, ND_expDSD[t, :], bin_width)
-                D0r_gam[t] = dis.calc_D0_bin(D[:Dmax_index], Dl[:Dmax_index], Dr[:Dmax_index], ND_gamDSD[t, :], bin_width[:Dmax_index])
-                D0r_tmf[t] = dis.calc_D0_bin(D[:Dmax_index], Dl[:Dmax_index], Dr[:Dmax_index], ND_tmfDSD[t, :], bin_width[:Dmax_index])
+            for t in range(sample_xlocs.size):
+                # D0r_exp[t] = dis.calc_D0_bin(D, Dl, Dr, ND_expDSD[t, :], bin_width)
+                D0r_gam[t] = dis.calc_D0_bin(D[:Dmax_index], Dl[:Dmax_index], Dr[:Dmax_index],
+                                             ND_gamDSD[t, :], bin_width[:Dmax_index])
+                D0r_tmf[t] = dis.calc_D0_bin(D[:Dmax_index], Dl[:Dmax_index], Dr[:Dmax_index],
+                                             ND_tmfDSD[t, :], bin_width[:Dmax_index])
 #             D0r_obs_exp.append(D0r_exp)
             D0r_obs_gam.append(D0r_gam)
             D0r_obs_tmf.append(D0r_tmf)
 
-        # FIXME: Have to do this afterwards because the call to calc_DSD uses the full diameter range
-        # internally.
+        # FIXME: Have to do this afterwards because the call to calc_DSD uses the full diameter
+        # range internally.
         ND = ND[:, :Dmax_index]
         logND = np.log10(ND)
         logND = np.ma.masked_where(logND <= -1.0, logND)
         # TODO: can simplify this by improving vectorization of calc_D0_bin
         D0r = np.zeros((np.size(np.array(sample_xlocs))))
         # Calculate median drop diameter
-        for t in xrange(sample_xlocs.size):
-            D0r[t] = dis.calc_D0_bin(D[:Dmax_index], Dl[:Dmax_index], Dr[:Dmax_index], ND[t, :], bin_width[:Dmax_index])
+        for t in range(sample_xlocs.size):
+            D0r[t] = dis.calc_D0_bin(D[:Dmax_index], Dl[:Dmax_index],
+                                     Dr[:Dmax_index], ND[t, :], bin_width[:Dmax_index])
         D0r_obs.append(D0r)
-
 
         if plot_transects:
                     # Set up the figure for whether or not we are calculating fits
@@ -1321,11 +1370,15 @@ def calc_obs_transect(casedate, dis_dict, dis_ts_model_dict, Dmax=None, calc_fit
                 ax = fig.add_subplot(111)
 
             # Plot the raw obs
-            plotparamdicts = [{'type': 'pcolor', 'vlimits': (-1.0, 3.0), 'clabel': r'log[N ($m^{-3} mm^{-1}$)]',
-                               'plotcbar': plotcbar}]
-            xvals = [sample_xlocs/1000.]
+            plotparamdicts = [{
+                'type': 'pcolor',
+                'vlimits': (-1.0, 3.0),
+                'clabel': r'log[N ($m^{-3} mm^{-1}$)]',
+                'plotcbar': plotcbar
+            }]
+            xvals = [sample_xlocs / 1000.]
         #     print "xvals = ", xvals
-            yvals = [Dl[:Dmax_index]*1000.]
+            yvals = [Dl[:Dmax_index] * 1000.]
             zvals = [logND.T]
             ax = pm.plotmeteogram(ax, xvals, zvals, plotparamdicts, yvals=yvals)
             axparamdicts = [{'majorxlocator': ticker.MultipleLocator(base=1.0),
@@ -1333,42 +1386,52 @@ def calc_obs_transect(casedate, dis_dict, dis_ts_model_dict, Dmax=None, calc_fit
                              'axeslimits': [None, (0.0, Dmax)],
                              'axeslabels': ['x position', 'D (mm)'],
                              'axesautofmt': False}]
-            if not calc_fits:
-                axlist = pm.set_meteogram_axes([ax], axparamdicts)
-            ax.plot(xvals[0], D0r*1000., c='k', ls='-', lw=1)
+            # FIXME
+            # if not calc_fits:
+            #     axlist = pm.set_meteogram_axes([ax], axparamdicts)
+            ax.plot(xvals[0], D0r * 1000., c='k', ls='-', lw=1)
 
-            # Plot additional panels for the fitted distributions (just gamma and gamma with TMM for now)
+            # Plot additional panels for the fitted distributions (just gamma and
+            # gamma with TMM for now)
             if calc_fits:
                 ax2 = fig.add_subplot(312)
-                plotparamdicts = [{'type': 'pcolor', 'vlimits': (-1.0, 3.0), 'clabel': r'log[N ($m^{-3} mm^{-1}$)]',
-                                   'plotcbar': False}]
-                xvals = [sample_xlocs/1000.]
+                plotparamdicts = [{
+                    'type': 'pcolor',
+                    'vlimits': (-1.0, 3.0),
+                    'clabel': r'log[N ($m^{-3} mm^{-1}$)]',
+                    'plotcbar': False
+                }]
+                xvals = [sample_xlocs / 1000.]
             #     print "xvals = ", xvals
-                yvals = [Dl[:Dmax_index]*1000.]
+                yvals = [Dl[:Dmax_index] * 1000.]
                 zvals = [logND_gamDSD.T]
                 ax2 = pm.plotmeteogram(ax2, xvals, zvals, plotparamdicts, yvals=yvals)
                 axparamdicts.append({'majorxlocator': ticker.MultipleLocator(base=1.0),
-                                 'majorylocator': ticker.MultipleLocator(base=2.0),
-                                 'axeslimits': [None, (0.0, Dmax)],
-                                 'axeslabels': ['x position', 'D (mm)'],
-                                 'axesautofmt': False})
-                ax2.plot(xvals[0], D0r_gam*1000., c='k', ls='-', lw=1)
+                                     'majorylocator': ticker.MultipleLocator(base=2.0),
+                                     'axeslimits': [None, (0.0, Dmax)],
+                                     'axeslabels': ['x position', 'D (mm)'],
+                                     'axesautofmt': False})
+                ax2.plot(xvals[0], D0r_gam * 1000., c='k', ls='-', lw=1)
 
                 ax3 = fig.add_subplot(313)
-                plotparamdicts = [{'type': 'pcolor', 'vlimits': (-1.0, 3.0), 'clabel': r'log[N ($m^{-3} mm^{-1}$)]',
-                                   'plotcbar': True}]
-                xvals = [sample_xlocs/1000.]
+                plotparamdicts = [{
+                    'type': 'pcolor',
+                    'vlimits': (-1.0, 3.0),
+                    'clabel': r'log[N ($m^{-3} mm^{-1}$)]',
+                    'plotcbar': True
+                }]
+                xvals = [sample_xlocs / 1000.]
             #     print "xvals = ", xvals
-                yvals = [Dl[:Dmax_index]*1000.]
+                yvals = [Dl[:Dmax_index] * 1000.]
                 zvals = [logND_tmfDSD.T]
                 ax3 = pm.plotmeteogram(ax3, xvals, zvals, plotparamdicts, yvals=yvals)
                 axparamdicts.append({'majorxlocator': ticker.MultipleLocator(base=1.0),
-                                 'majorylocator': ticker.MultipleLocator(base=2.0),
-                                 'axeslimits': [None, (0.0, Dmax)],
-                                 'axeslabels': ['x position', 'D (mm)'],
-                                 'axesautofmt': False})
-                axlist = pm.set_meteogram_axes([ax, ax2, ax3], axparamdicts)
-                ax3.plot(xvals[0], D0r_tmf*1000., c='k', ls='-', lw=1)
+                                     'majorylocator': ticker.MultipleLocator(base=2.0),
+                                     'axeslimits': [None, (0.0, Dmax)],
+                                     'axeslabels': ['x position', 'D (mm)'],
+                                     'axesautofmt': False})
+                # axlist = pm.set_meteogram_axes([ax, ax2, ax3], axparamdicts)
+                ax3.plot(xvals[0], D0r_tmf * 1000., c='k', ls='-', lw=1)
 
         ND_obs.append(ND)
         if calc_fits:
@@ -1379,14 +1442,14 @@ def calc_obs_transect(casedate, dis_dict, dis_ts_model_dict, Dmax=None, calc_fit
     transect_DSD_obs_dict = {'ND': ND_obs, 'D0r_obs': D0r_obs}
     if calc_fits:
         transect_DSD_obs_dict.update({'ND_gam': ND_obs_gam, 'D0r_gam': D0r_obs_gam,
-                                  'ND_tmf': ND_obs_tmf, 'D0r_tmf': D0r_obs_tmf})
+                                      'ND_tmf': ND_obs_tmf, 'D0r_tmf': D0r_obs_tmf})
 
     return transect_DSD_obs_dict
 
 
 def interp_model_to_transect(casedate, dis_dict, model_dict, dis_ts_model_dict,
-                               sampling_interval=60., add_hail=False, use_bins_for_interp=False,
-                               use_Parsivel_simulator=False, Dmax=None, plot_transects=False):
+                             sampling_interval=60., add_hail=False, use_bins_for_interp=False,
+                             use_Parsivel_simulator=False, Dmax=None, plot_transects=False):
     """Interpolates model variables, including bulk DSDs, to a simulated disdrometer transect.
        Also bins the resulting DSDs using the Parsivel diameter bins. Options:
        add_hail: if True, add hail and graupel to the rain distribution
@@ -1397,18 +1460,19 @@ def interp_model_to_transect(casedate, dis_dict, model_dict, dis_ts_model_dict,
        False, keep the raw DSDs."""
 
     if Dmax is not None:
-        Dmax_index = np.searchsorted(Dr, Dmax/1000., side='right')
+        Dmax_index = np.searchsorted(Dr, Dmax / 1000., side='right')
     else:
         Dmax_index = np.size(Dr)
 
     # TODO: allow for adding hail but still
     if not use_bins_for_interp and add_hail:
-        print ("Directly using moments for resampling (instead of discretizing to bins first) \n"
-               "is currently not working with the add hail option, sorry! Setting add_hail to False!")
+        print("Directly using moments for resampling (instead of discretizing to bins first) \n"
+              "is currently not working with the add hail option, sorry!"
+              "Setting add_hail to False!")
         add_hail = False
 
-    # FIXME: should probably rearrange things so that the timeseries for each variable is contained in the
-    # dictionary of variables rather than the other way around
+    # FIXME: should probably rearrange things so that the timeseries for each variable is contained
+    # in the dictionary of variables rather than the other way around
     D0r_mod = []
     ND_list = []
     if use_Parsivel_simulator:
@@ -1418,37 +1482,37 @@ def interp_model_to_transect(casedate, dis_dict, model_dict, dis_ts_model_dict,
     for d, dis_name in enumerate(dis_dict[casedate]['dis_names']):
         sampling_times = dis_ts_model_dict['dis_ts_stimes'][d]
         all_times = dis_ts_model_dict['dis_ts_times'][d]
-        dt = all_times[1:]-all_times[:-1]
+        dt = all_times[1:] - all_times[:-1]
         sample_xlocs = np.array([xylocs[0] for xylocs in dis_ts_model_dict['dis_ts_xyslocs'][d]])
-        sample_ylocs = np.array([xylocs[1] for xylocs in dis_ts_model_dict['dis_ts_xyslocs'][d]])
+        # sample_ylocs = np.array([xylocs[1] for xylocs in dis_ts_model_dict['dis_ts_xyslocs'][d]])
         vars_at_ts_points = dis_ts_model_dict['dis_ts_vars_points'][d]
         ntimes = len(vars_at_ts_points)
 
-        rhoa = np.array([vars_at_ts_points[t]['rhoa'] for t in xrange(ntimes)])
-        qr = np.array([vars_at_ts_points[t]['qr'] for t in xrange(ntimes)])
-        ntr = np.array([vars_at_ts_points[t]['ntr'] for t in xrange(ntimes)])
-        zr = np.array([vars_at_ts_points[t]['zr'] for t in xrange(ntimes)])
+        rhoa = np.array([vars_at_ts_points[t]['rhoa'] for t in range(ntimes)])
+        qr = np.array([vars_at_ts_points[t]['qr'] for t in range(ntimes)])
+        ntr = np.array([vars_at_ts_points[t]['ntr'] for t in range(ntimes)])
+        zr = np.array([vars_at_ts_points[t]['zr'] for t in range(ntimes)])
         # TODO: maybe change arguments of calls to cal_N0, cal_lambda, etc. to optionally directly
         # read in Z moments and calculate alpha within
         if use_bins_for_interp:
-            alphar = np.array([vars_at_ts_points[t]['alphar'] for t in xrange(ntimes)])
+            alphar = np.array([vars_at_ts_points[t]['alphar'] for t in range(ntimes)])
             N0r, _ = dsd.cal_N0(rhoa, qr, ntr, cr, alphar)
             lamdar = dsd.cal_lamda(rhoa, qr, ntr, cr, alphar)
-        dBZ = np.array([vars_at_ts_points[t]['DBZ'] for t in xrange(ntimes)])
+        # dBZ = np.array([vars_at_ts_points[t]['DBZ'] for t in range(ntimes)])
 
         if add_hail:
-            qh = np.array([vars_at_ts_points[t]['qh'] for t in xrange(ntimes)])
-            nth = np.array([vars_at_ts_points[t]['nth'] for t in xrange(ntimes)])
-            zh = np.array([vars_at_ts_points[t]['zh'] for t in xrange(ntimes)])
-            alphah = np.array([vars_at_ts_points[t]['alphah'] for t in xrange(ntimes)])
-            rhoh = np.array([vars_at_ts_points[t]['rhoh'] for t in xrange(ntimes)])
+            qh = np.array([vars_at_ts_points[t]['qh'] for t in range(ntimes)])
+            nth = np.array([vars_at_ts_points[t]['nth'] for t in range(ntimes)])
+            # zh = np.array([vars_at_ts_points[t]['zh'] for t in range(ntimes)])
+            alphah = np.array([vars_at_ts_points[t]['alphah'] for t in range(ntimes)])
+            rhoh = np.array([vars_at_ts_points[t]['rhoh'] for t in range(ntimes)])
             ch = rhoh * np.pi / 6.
 
-            qg = np.array([vars_at_ts_points[t]['qg'] for t in xrange(ntimes)])
-            ntg = np.array([vars_at_ts_points[t]['ntg'] for t in xrange(ntimes)])
-            zg = np.array([vars_at_ts_points[t]['zg'] for t in xrange(ntimes)])
-            alphag = np.array([vars_at_ts_points[t]['alphag'] for t in xrange(ntimes)])
-            rhog = np.array([vars_at_ts_points[t]['rhog'] for t in xrange(ntimes)])
+            qg = np.array([vars_at_ts_points[t]['qg'] for t in range(ntimes)])
+            ntg = np.array([vars_at_ts_points[t]['ntg'] for t in range(ntimes)])
+            # zg = np.array([vars_at_ts_points[t]['zg'] for t in range(ntimes)])
+            alphag = np.array([vars_at_ts_points[t]['alphag'] for t in range(ntimes)])
+            rhog = np.array([vars_at_ts_points[t]['rhog'] for t in range(ntimes)])
             cg = rhog * np.pi / 6.
 
             N0h, _ = dsd.cal_N0(rhoa, qh, nth, ch, alphah)
@@ -1460,7 +1524,7 @@ def interp_model_to_transect(casedate, dis_dict, model_dict, dis_ts_model_dict,
         # fall speeds vs. diameter, with the appropriate correction for air density
         if use_Parsivel_simulator:
             Vtr = []
-            for t in xrange(ntimes):
+            for t in range(ntimes):
                 Vtr.append(dis.assignfallspeed(dis.avg_diameter, rhocorrect=True, rho=rhoa[t]))
             Vtr = np.array(Vtr)
             Vtr = Vtr[:, :Dmax_index]
@@ -1470,10 +1534,13 @@ def interp_model_to_transect(casedate, dis_dict, model_dict, dis_ts_model_dict,
 
         if use_bins_for_interp:
             for index, _ in np.ndenumerate(N0r):
-                Nc_bin_tmp[index, :] = 1.e-3*N0r[index]*(D[:Dmax_index])**alphar[index]*np.exp(-lamdar[index]*(D[:Dmax_index]))
+                Nc_bin_tmp[index, :] = 1.e-3 * N0r[index] * \
+                    (D[:Dmax_index])**alphar[index] * np.exp(-lamdar[index] * (D[:Dmax_index]))
                 if add_hail:
-                    Nc_bin_tmp[index, :] = Nc_bin_tmp[index, :] + 1.e-3*N0h[index]*(D[:Dmax_index])**alphah[index]*np.exp(-lamdah[index]*(D[:Dmax_index]))
-                    Nc_bin_tmp[index, :] = Nc_bin_tmp[index, :] + 1.e-3*N0g[index]*(D[:Dmax_index])**alphag[index]*np.exp(-lamdag[index]*(D[:Dmax_index]))
+                    Nc_bin_tmp[index, :] = Nc_bin_tmp[index, :] + 1.e-3 * N0h[index] * \
+                        (D[:Dmax_index])**alphah[index] * np.exp(-lamdah[index] * (D[:Dmax_index]))
+                    Nc_bin_tmp[index, :] = Nc_bin_tmp[index, :] + 1.e-3 * N0g[index] * \
+                        (D[:Dmax_index])**alphag[index] * np.exp(-lamdag[index] * (D[:Dmax_index]))
         else:
             qr_stimes = np.zeros((np.size(np.array(sampling_times))))
             ntr_stimes = np.zeros_like(qr_stimes)
@@ -1484,133 +1551,155 @@ def interp_model_to_transect(casedate, dis_dict, model_dict, dis_ts_model_dict,
             rhoa_stimes = np.zeros_like(qr_stimes)
 
             # Just first sampling time
-            Nc_bin_tmp[0, :] = 1.e-3*N0r[0]*(D[:Dmax_index])**alphar[0]*np.exp(-lamdar[0]*(D[:Dmax_index]))
-            if add_hail: # Not working right now for this option
-                Nc_bin_tmp[0, :] = Nc_bin_tmp[0, :] + 1.e-3*N0h[0]*(D[:Dmax_index])**alphah[0]*np.exp(-lamdah[0]*(D[:Dmax_index]))
-                Nc_bin_tmp[0, :] = Nc_bin_tmp[0, :] + 1.e-3*N0g[0]*(D[:Dmax_index])**alphag[0]*np.exp(-lamdag[0]*(D[:Dmax_index]))
+            Nc_bin_tmp[0, :] = 1.e-3 * N0r[0] * \
+                (D[:Dmax_index])**alphar[0] * np.exp(-lamdar[0] * (D[:Dmax_index]))
+            if add_hail:  # Not working right now for this option
+                Nc_bin_tmp[0, :] = Nc_bin_tmp[0, :] + 1.e-3 * N0h[0] * \
+                    (D[:Dmax_index])**alphah[0] * np.exp(-lamdah[0] * (D[:Dmax_index]))
+                Nc_bin_tmp[0, :] = Nc_bin_tmp[0, :] + 1.e-3 * N0g[0] * \
+                    (D[:Dmax_index])**alphag[0] * np.exp(-lamdag[0] * (D[:Dmax_index]))
 
         Nc_bin_tmp = np.ma.masked_invalid(Nc_bin_tmp)
 
         # Now loop through and "resample" the number concentrations as weighted averages
-        # for the case that the disdrometer crosses a grid edge or the model DSD changes during the sampling interval.
+        # for the case that the disdrometer crosses a grid edge or the model DSD
+        # changes during the sampling interval.
         sample_indices = np.searchsorted(all_times, sampling_times, side='left')
         if use_Parsivel_simulator:
             Nc_bin_tmp_ps = np.empty((np.size(lamdar), np.size(D[:Dmax_index])))
             Nc_bin_ps = np.zeros((np.size(np.array(sampling_times)), np.size(D[:Dmax_index])))
-            # Special treatment for first sampling time. Just assume DSD valid at that time was constant for the previous
-            # sampling interval
+            # Special treatment for first sampling time. Just assume DSD valid at that time was
+            # constant for the previous sampling interval
             sample_dict = create_random_gamma_DSD(ntr[0], lamdar[0],
-                                          alphar[0], Vtr[0], sampling_length,
-                                          sampling_width, Dl, D, Dr, Dmax=Dmax, sampling_interval=sampling_interval,
-                                          remove_margins=True, rhocorrect=True, rho=rhoa[0])
+                                                  alphar[0], Vtr[0], sampling_length,
+                                                  sampling_width, Dl, D, Dr, Dmax=Dmax,
+                                                  sampling_interval=sampling_interval,
+                                                  remove_margins=True, rhocorrect=True, rho=rhoa[0])
             ND_sample = sample_dict['ND']
             pcount_binned_sample = sample_dict['pcount_binned']
             if add_hail:
                 sample_dict_h = create_random_gamma_DSD(nth[0], lamdah[0],
-                                                  alphah[0], Vtr[0], sampling_length,
-                                                  sampling_width, Dl, D, Dr, Dmax=Dmax, sampling_interval=sampling_interval,
-                                                  remove_margins=True, rhocorrect=True, rho=rhoa[0])
+                                                        alphah[0], Vtr[0], sampling_length,
+                                                        sampling_width, Dl, D, Dr, Dmax=Dmax,
+                                                        sampling_interval=sampling_interval,
+                                                        remove_margins=True, rhocorrect=True,
+                                                        rho=rhoa[0])
 
                 sample_dict_g = create_random_gamma_DSD(ntg[0], lamdag[0],
-                                                  alphag[0], Vtr[0], sampling_length,
-                                                  sampling_width, Dl, D, Dr, Dmax=Dmax, sampling_interval=sampling_interval,
-                                                  remove_margins=True, rhocorrect=True, rho=rhoa[0])
+                                                        alphag[0], Vtr[0], sampling_length,
+                                                        sampling_width, Dl, D, Dr, Dmax=Dmax,
+                                                        sampling_interval=sampling_interval,
+                                                        remove_margins=True, rhocorrect=True,
+                                                        rho=rhoa[0])
 
                 ND_sample = ND_sample + sample_dict_h['ND'] + sample_dict_g['ND']
-                pcount_binned_sample = pcount_binned_sample + sample_dict_h['pcount_binned'] + sample_dict_g['pcount_binned']
+                pcount_binned_sample = pcount_binned_sample + \
+                    sample_dict_h['pcount_binned'] + sample_dict_g['pcount_binned']
 
-            Nc_bin_tmp_ps[0, :] = 1.e-3*ND_sample
+            Nc_bin_tmp_ps[0, :] = 1.e-3 * ND_sample
             Nc_bin_ps[0, :] = Nc_bin_tmp_ps[0, :]
 
             pcount_binned_samples = []
             for index, _ in np.ndenumerate(lamdar[:-1]):
                 sample_dict = create_random_gamma_DSD(ntr[index], lamdar[index],
                                                       alphar[index], Vtr[index], sampling_length,
-                                                      sampling_width, Dl, D, Dr, Dmax=Dmax, sampling_interval=dt[index],
-                                                      remove_margins=True, rhocorrect=True, rho=rhoa[index])
+                                                      sampling_width, Dl, D, Dr, Dmax=Dmax,
+                                                      sampling_interval=dt[index],
+                                                      remove_margins=True, rhocorrect=True,
+                                                      rho=rhoa[index])
                 ND_sample = sample_dict['ND']
                 pcount_binned_sample = sample_dict['pcount_binned']
 
                 if add_hail:
                     sample_dict_h = create_random_gamma_DSD(nth[index], lamdah[index],
-                                                      alphah[index], Vtr[index], sampling_length,
-                                                      sampling_width, Dl, D, Dr, Dmax=Dmax, sampling_interval=dt[index],
-                                                      remove_margins=True, rhocorrect=True, rho=rhoa[index])
+                                                            alphah[index], Vtr[index],
+                                                            sampling_length,
+                                                            sampling_width, Dl, D, Dr, Dmax=Dmax,
+                                                            sampling_interval=dt[index],
+                                                            remove_margins=True, rhocorrect=True,
+                                                            rho=rhoa[index])
 
                     sample_dict_g = create_random_gamma_DSD(ntg[index], lamdag[index],
-                                                  alphag[index], Vtr[index], sampling_length,
-                                                  sampling_width, Dl, D, Dr, Dmax=Dmax, sampling_interval=sampling_interval,
-                                                  remove_margins=True, rhocorrect=True, rho=rhoa[index])
+                                                            alphag[index], Vtr[index],
+                                                            sampling_length,
+                                                            sampling_width, Dl, D, Dr, Dmax=Dmax,
+                                                            sampling_interval=sampling_interval,
+                                                            remove_margins=True, rhocorrect=True,
+                                                            rho=rhoa[index])
                     ND_sample = ND_sample + sample_dict_h['ND'] + sample_dict_g['ND']
-                    pcount_binned_sample = pcount_binned_sample + sample_dict_h['pcount_binned'] + sample_dict_g['pcount_binned']
+                    pcount_binned_sample = pcount_binned_sample + \
+                        sample_dict_h['pcount_binned'] + sample_dict_g['pcount_binned']
 
                 pcount_binned_samples.append(sample_dict['pcount_binned'])
-                Nc_bin_tmp_ps[index, :] = 1.e-3*ND_sample
+                Nc_bin_tmp_ps[index, :] = 1.e-3 * ND_sample
 
             pcount_binned_samples = np.array(pcount_binned_samples)
             Nc_bin_tmp_ps = np.ma.masked_invalid(Nc_bin_tmp_ps)
         else:
-            # Special treatment for first sampling time. Just assume DSD valid at that time was constant for the previous
-            # sampling interval
+            # Special treatment for first sampling time. Just assume DSD valid at that time was
+            # constant for the previous sampling interval
             Nc_bin[0, :] = Nc_bin_tmp[sample_indices[0], :]
 
-
         for s, sample_index in enumerate(sample_indices[:-1]):
-            sample_index_end = sample_indices[s+1]
+            sample_index_end = sample_indices[s + 1]
             current_sample_indices = slice(sample_index, sample_index_end, None)
 
             if use_bins_for_interp:
-                Nc_bin[s+1, :] = np.sum(Nc_bin_tmp[current_sample_indices, :] *
-                                    dt[current_sample_indices, None], axis = 0) / sampling_interval
+                Nc_bin[s + 1, :] = np.sum(Nc_bin_tmp[current_sample_indices, :] *
+                                          dt[current_sample_indices, None], axis=0) / \
+                                          sampling_interval
             else:
                 # Weighted average of moments
-                qr_stimes[s+1] = np.sum(qr[current_sample_indices] *
-                                   dt[current_sample_indices]) / sampling_interval
-                ntr_stimes[s+1] = np.sum(ntr[current_sample_indices] *
-                                    dt[current_sample_indices]) / sampling_interval
-                zr_stimes[s+1] = np.sum(zr[current_sample_indices] *
-                                   dt[current_sample_indices]) / sampling_interval
-                rhoa_stimes[s+1] = np.sum(rhoa[current_sample_indices] *
-                                   dt[current_sample_indices]) / sampling_interval
+                qr_stimes[s + 1] = np.sum(qr[current_sample_indices] *
+                                          dt[current_sample_indices]) / sampling_interval
+                ntr_stimes[s + 1] = np.sum(ntr[current_sample_indices] *
+                                           dt[current_sample_indices]) / sampling_interval
+                zr_stimes[s + 1] = np.sum(zr[current_sample_indices] *
+                                          dt[current_sample_indices]) / sampling_interval
+                rhoa_stimes[s + 1] = np.sum(rhoa[current_sample_indices] *
+                                            dt[current_sample_indices]) / sampling_interval
                 # Re-compute N0r, lamdar, and alphar for weighted average DSD
-                alphar_stimes[s+1] = dualpol.solve_alpha_iter(rhoa_stimes[s+1], mur, qr_stimes[s+1],
-                                        ntr_stimes[s+1], zr_stimes[s+1], rhorcst)
-                N0r_stimes[s+1], _ = dsd.cal_N0(rhoa_stimes[s+1], qr_stimes[s+1], ntr_stimes[s+1], cr,
-                                                alphar_stimes[s+1])
-                lamdar_stimes[s+1] = dsd.cal_lamda(rhoa_stimes[s+1], qr_stimes[s+1],
-                                                   ntr_stimes[s+1], alphar_stimes[s+1])
+                alphar_stimes[s + 1] = dualpol.solve_alpha_iter(rhoa_stimes[s + 1], mur,
+                                                                qr_stimes[s + 1], ntr_stimes[s + 1],
+                                                                zr_stimes[s + 1], rhorcst)
+                N0r_stimes[s + 1], _ = dsd.cal_N0(rhoa_stimes[s + 1], qr_stimes[s + 1],
+                                                  ntr_stimes[s + 1], cr, alphar_stimes[s + 1])
+                lamdar_stimes[s + 1] = dsd.cal_lamda(rhoa_stimes[s + 1], qr_stimes[s + 1],
+                                                     ntr_stimes[s + 1], alphar_stimes[s + 1])
                 # Now compute discretized distribution
-                Nc_bin[s+1, :] = 1.e-3*N0r_stimes[s+1]*(D[:Dmax_index])**alphar_stimes[s+1]* \
-                                    np.exp(-lamdar_stimes[s+1]*(D[:Dmax_index]))
+                Nc_bin[s + 1, :] = 1.e-3 * N0r_stimes[s + 1] * \
+                    (D[:Dmax_index])**alphar_stimes[s + 1] * \
+                    np.exp(-lamdar_stimes[s + 1] * (D[:Dmax_index]))
             if use_Parsivel_simulator:
-                # Take weighted average of Vtr over each sample interval for now and use that to calculate the
-                # sampling volumes
-                Vtr_mean = np.sum(Vtr[current_sample_indices, :] * dt[current_sample_indices, None], axis=0) / sampling_interval
+                # Take weighted average of Vtr over each sample interval for now and use that to
+                # calculate the sampling volumes
+                Vtr_mean = np.sum(Vtr[current_sample_indices, :] *
+                                  dt[current_sample_indices, None], axis=0) / sampling_interval
                 sampling_volumes_D = calc_sampling_volumes_D(Vtr_mean, Dr, Dmax, sampling_interval,
-                                                         sampling_area)
+                                                             sampling_area)
 
                 pcount_binned = np.sum(pcount_binned_samples[current_sample_indices], axis=0)
-                Nc_bin_ps[s+1, :] = 1.e-3*calc_ND(pcount_binned, sampling_volumes_D, Dr, Dl, Dmax)
+                Nc_bin_ps[s + 1, :] = 1.e-3 * \
+                    calc_ND(pcount_binned, sampling_volumes_D, Dr, Dl, Dmax)
 
         logNc_bin = np.log10(Nc_bin)
-        logNc_bin = np.ma.masked_where(logNc_bin <= -1.0,logNc_bin)
+        logNc_bin = np.ma.masked_where(logNc_bin <= -1.0, logNc_bin)
 
         if use_Parsivel_simulator:
             Nc_bin_ps = np.ma.masked_invalid(Nc_bin_ps)
             logNc_bin_ps = np.log10(Nc_bin_ps)
             logNc_bin_ps = np.ma.masked_where(logNc_bin_ps <= -1.0, logNc_bin_ps)
 
-
         # Calculate median volume diameter
         D0r = np.zeros((np.size(np.array(sampling_times))))
         if use_Parsivel_simulator:
-            D0r_ps =  np.zeros_like(D0r)
-        for t in xrange(sampling_times.size):
+            D0r_ps = np.zeros_like(D0r)
+        for t in range(sampling_times.size):
             D0r[t] = dis.calc_D0_bin(D[:Dmax_index], Dl[:Dmax_index], Dr[:Dmax_index], Nc_bin[t, :],
-                                 bin_width[:Dmax_index])
+                                     bin_width[:Dmax_index])
             if use_Parsivel_simulator:
-                D0r_ps[t] = dis.calc_D0_bin(D[:Dmax_index], Dl[:Dmax_index], Dr[:Dmax_index], Nc_bin_ps[t, :],
-                                 bin_width[:Dmax_index])
+                D0r_ps[t] = dis.calc_D0_bin(D[:Dmax_index], Dl[:Dmax_index], Dr[:Dmax_index],
+                                            Nc_bin_ps[t, :], bin_width[:Dmax_index])
 
         D0r_mod.append(D0r)
         if use_Parsivel_simulator:
@@ -1627,11 +1716,15 @@ def interp_model_to_transect(casedate, dis_dict, model_dict, dis_ts_model_dict,
                 fig = plt.figure(figsize=(8, 3))
                 ax = fig.add_subplot(111)
 
-            plotparamdicts = [{'type': 'pcolor', 'vlimits': (-1.0, 3.0), 'clabel': r'log[N ($m^{-3} mm^{-1}$)]',
-                               'plotcbar': plotcbar}]
-            xvals = [sample_xlocs/1000.]
+            plotparamdicts = [{
+                'type': 'pcolor',
+                'vlimits': (-1.0, 3.0),
+                'clabel': r'log[N ($m^{-3} mm^{-1}$)]',
+                'plotcbar': plotcbar
+            }]
+            xvals = [sample_xlocs / 1000.]
         #     print "xvals = ", xvals
-            yvals = [Dl[:Dmax_index]*1000.]
+            yvals = [Dl[:Dmax_index] * 1000.]
             zvals = [logNc_bin.T]
             ax = pm.plotmeteogram(ax, xvals, zvals, plotparamdicts, yvals=yvals)
             axparamdicts = [{'majorxlocator': ticker.MultipleLocator(base=1.0),
@@ -1639,27 +1732,32 @@ def interp_model_to_transect(casedate, dis_dict, model_dict, dis_ts_model_dict,
                              'axeslimits': [None, (0.0, Dmax)],
                              'axeslabels': ['x position', 'D (mm)'],
                              'axesautofmt': False}]
-            if not use_Parsivel_simulator:
-                axlist = pm.set_meteogram_axes([ax], axparamdicts)
-            ax.plot(xvals[0], D0r*1000., c='k', ls='-', lw=1)
+            # FIXME
+            # if not use_Parsivel_simulator:
+            #     axlist = pm.set_meteogram_axes([ax], axparamdicts)
+            ax.plot(xvals[0], D0r * 1000., c='k', ls='-', lw=1)
 
             # Plot an additional panel for the sampled DSD from the Parsivel simulator
             if use_Parsivel_simulator:
                 ax2 = fig.add_subplot(212)
-                plotparamdicts = [{'type': 'pcolor', 'vlimits': (-1.0, 3.0), 'clabel': r'log[N ($m^{-3} mm^{-1}$)]',
-                                   'plotcbar': True}]
-                xvals = [sample_xlocs/1000.]
+                plotparamdicts = [{
+                    'type': 'pcolor',
+                    'vlimits': (-1.0, 3.0),
+                    'clabel': r'log[N ($m^{-3} mm^{-1}$)]',
+                    'plotcbar': True
+                }]
+                xvals = [sample_xlocs / 1000.]
             #     print "xvals = ", xvals
-                yvals = [Dl[:Dmax_index]*1000.]
+                yvals = [Dl[:Dmax_index] * 1000.]
                 zvals = [logNc_bin_ps.T]
                 ax2 = pm.plotmeteogram(ax2, xvals, zvals, plotparamdicts, yvals=yvals)
                 axparamdicts.append({'majorxlocator': ticker.MultipleLocator(base=1.0),
-                                 'majorylocator': ticker.MultipleLocator(base=2.0),
-                                 'axeslimits': [None, (0.0, Dmax)],
-                                 'axeslabels': ['x position', 'D (mm)'],
-                                 'axesautofmt': False})
-                axlist = pm.set_meteogram_axes([ax, ax2], axparamdicts)
-                ax2.plot(xvals[0], D0r_ps*1000., c='k', ls='-', lw=1)
+                                     'majorylocator': ticker.MultipleLocator(base=2.0),
+                                     'axeslimits': [None, (0.0, Dmax)],
+                                     'axeslabels': ['x position', 'D (mm)'],
+                                     'axesautofmt': False})
+                # axlist = pm.set_meteogram_axes([ax, ax2], axparamdicts)
+                ax2.plot(xvals[0], D0r_ps * 1000., c='k', ls='-', lw=1)
         #     for ax in axlist:
         #         ax.invert_xaxis()
             # plt.savefig('raw_modelDSD.png',dpi=300)
@@ -1667,7 +1765,6 @@ def interp_model_to_transect(casedate, dis_dict, model_dict, dis_ts_model_dict,
         ND_list.append(Nc_bin)
         if use_Parsivel_simulator:
             ND_ps_list.append(Nc_bin_ps)
-
 
     # Compile all return items into a convenient dictionary
     transect_DSD_dict = {'ND': ND_list, 'D0r': D0r_mod}

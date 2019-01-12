@@ -3,17 +3,15 @@ import numpy as N
 import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
-from mpl_toolkits.axes_grid1 import make_axes_locatable, host_subplot
+from mpl_toolkits.axes_grid1 import ImageGrid, make_axes_locatable, host_subplot
 import matplotlib.ticker as ticker
 from matplotlib.collections import Collection, LineCollection
 from matplotlib.artist import allow_rasterization
-from matplotlib.colors import ListedColormap, BoundaryNorm
-import matplotlib.transforms as mtransforms
 from matplotlib.font_manager import FontProperties
 # import ctablesfrompyesviewer as ctables
 from metpy.plots import ctables
-import disdrometer_module as dis
-import timemodule as tm
+from . import disdrometer_module as dis
+from . import timemodule as tm
 from itertools import cycle
 
 # Set global font size for axes and colorbar labels, etc.
@@ -223,7 +221,7 @@ def clear_frame(ax=None):
         ax = plt.gca()
     ax.xaxis.set_visible(False)
     ax.yaxis.set_visible(False)
-    for spine in ax.spines.itervalues():
+    for spine in ax.spines.values():
         spine.set_visible(False)
 
 
@@ -269,17 +267,17 @@ def plotsingle(fig, axes, ptype, xs, ys, x, y, xlim, ylim, field, clevels, cmap,
     if(clabel is not None):
         cax.set_ylabel(clabel)
     if(numovr > 0):
-        for i in xrange(numovr):
+        for i in range(numovr):
             #             if(i != 1): # Hack!
-            plotovr = axes.contour(ovrx[i], ovry[i], ovrfields[i], levels=ovrfieldlvls[i],
-                                   colors=ovrfieldcolors[i], lw=2)
+            axes.contour(ovrx[i], ovry[i], ovrfields[i], levels=ovrfieldlvls[i],
+                         colors=ovrfieldcolors[i], lw=2)
     if(gis_info is not None):
         axes.plot([gis_info[1]], [gis_info[2]], 'ko')
     if xlim is None:
         xlim = [x.min(), x.max()]
     if ylim is None:
         ylim = [y.min(), y.max()]
-    print xlim, ylim
+    print(xlim, ylim)
     axes.set_xlim(xlim[0], xlim[1])
     axes.set_ylim(ylim[0], ylim[1])
     if(axesticks[0] < 1000.):
@@ -298,7 +296,7 @@ def plotsingle(fig, axes, ptype, xs, ys, x, y, xlim, ylim, field, clevels, cmap,
     else:
         formatter = ticker.FuncFormatter(mtokm)
     axes.yaxis.set_major_formatter(formatter)
-    print axesticks[0], axesticks[1]
+    print(axesticks[0], axesticks[1])
     axes.xaxis.set_major_locator(ticker.MultipleLocator(base=axesticks[0]))
     axes.yaxis.set_major_locator(ticker.MultipleLocator(base=axesticks[1]))
     axes.set_xlabel('km')
@@ -315,9 +313,10 @@ def plotsingle(fig, axes, ptype, xs, ys, x, y, xlim, ylim, field, clevels, cmap,
 
     return fig, axes
 
+
 def plotsingle2(fig, axes, ptype, xs, ys, x, y, xlim, ylim, field, clevels, cmap, fieldnorm,
-               cbarlevels, clabel, cformat, ovrmap, gis_info, numovr, ovrx, ovry, ovrfields,
-               ovrfieldlvls, ovrfieldcolors, axesticks, rasterized=True):
+                cbarlevels, clabel, cformat, ovrmap, gis_info, numovr, ovrx, ovry, ovrfields,
+                ovrfieldlvls, ovrfieldcolors, axesticks, rasterized=True):
     """Plot a single-paneled figure from model output (possibly staggered grid).
        This version is set up to use ImageGrid with a single panel and is provided
        only to attempt to match the dimensions of the resulting figure with that
@@ -371,17 +370,17 @@ def plotsingle2(fig, axes, ptype, xs, ys, x, y, xlim, ylim, field, clevels, cmap
     if(clabel is not None):
         grid.cbar_axes[0].set_ylabel(clabel)
     if(numovr > 0):
-        for i in xrange(numovr):
+        for i in range(numovr):
             #             if(i != 1): # Hack!
-            plotovr = axes.contour(ovrx[i], ovry[i], ovrfields[i], levels=ovrfieldlvls[i],
-                                   colors=ovrfieldcolors[i], lw=2)
+            axes.contour(ovrx[i], ovry[i], ovrfields[i], levels=ovrfieldlvls[i],
+                         colors=ovrfieldcolors[i], lw=2)
     if(gis_info is not None):
         axes.plot([gis_info[1]], [gis_info[2]], 'ko')
     if xlim is None:
         xlim = [x.min(), x.max()]
     if ylim is None:
         ylim = [y.min(), y.max()]
-    print xlim, ylim
+    print(xlim, ylim)
     axes.set_xlim(xlim[0], xlim[1])
     axes.set_ylim(ylim[0], ylim[1])
     if(axesticks[0] < 1000.):
@@ -400,7 +399,7 @@ def plotsingle2(fig, axes, ptype, xs, ys, x, y, xlim, ylim, field, clevels, cmap
     else:
         formatter = ticker.FuncFormatter(mtokm)
     axes.yaxis.set_major_formatter(formatter)
-    print axesticks[0], axesticks[1]
+    print(axesticks[0], axesticks[1])
     axes.xaxis.set_major_locator(ticker.MultipleLocator(base=axesticks[0]))
     axes.yaxis.set_major_locator(ticker.MultipleLocator(base=axesticks[1]))
     axes.set_xlabel('km')
@@ -416,6 +415,7 @@ def plotsingle2(fig, axes, ptype, xs, ys, x, y, xlim, ylim, field, clevels, cmap
 # linewidth=0.5, color='gray',ax=axes)  #Draws US county boundaries.
 
     return fig, axes, grid
+
 
 def plotconvmeteograms(dis_index, pc, ib, convmeteodict):
     """Plots meteograms of the one-second PIPS data"""
@@ -461,7 +461,6 @@ def plotconvmeteograms(dis_index, pc, ib, convmeteodict):
         windspdavg, windspdavgvec, winddiravgvec, windgust, windgustavg = dis.avgwind(
             winddirabs, windspd, windavgintv, gusts=True, gustintv=windgustintv, center=False)
 
-
     fig = plt.figure(figsize=(5, 3))
     ax1 = fig.add_subplot(111)
     ax2 = ax1.twinx()
@@ -500,7 +499,7 @@ def plotconvmeteograms(dis_index, pc, ib, convmeteodict):
     plt.close(fig)
 
     # Plot temperature and dewpoint
-    tavgintv = 10  # Currently not used
+    # tavgintv = 10  # Currently not used
 
     fig = plt.figure(figsize=(5, 3))
     ax1 = fig.add_subplot(111)
@@ -522,7 +521,7 @@ def plotconvmeteograms(dis_index, pc, ib, convmeteodict):
     plt.close(fig)
 
     # Plot relative humidity
-    avgintv = 10  # Currently not used
+    # avgintv = 10  # Currently not used
 
     fig = plt.figure(figsize=(5, 3))
     ax1 = fig.add_subplot(111)
@@ -545,8 +544,8 @@ def plotconvmeteograms(dis_index, pc, ib, convmeteodict):
 
     pmin = conv_plot_df['pressure'].values.min()
     pmax = conv_plot_df['pressure'].values.max()
-    pmean = conv_plot_df['pressure'].values.mean()
-    avgintv = 1  # Currently not used
+    # pmean = conv_plot_df['pressure'].values.mean()
+    # avgintv = 1  # Currently not used
 
     fig = plt.figure(figsize=(5, 3))
     ax1 = fig.add_subplot(111)
@@ -674,9 +673,13 @@ def plotDSDderivedmeteograms(dis_index, pc, ib, **PSDderiveddict):
         fieldparamdicts = [amplitude_params]
         ax1 = plotmeteogram(ax1, [PSDmidtimes], fields, fieldparamdicts)
 
-        axparamdict1 = {'majorxlocator': pc.locator, 'majorxformatter': pc.formatter,
-                        'minorxlocator': pc.minorlocator, 'axeslimits': [xaxislimits, [0.0,  30000.0]],
-                        'axeslabels': [pc.timelabel, r'Signal amplitude']}
+        axparamdict1 = {
+            'majorxlocator': pc.locator,
+            'majorxformatter': pc.formatter,
+            'minorxlocator': pc.minorlocator,
+            'axeslimits': [xaxislimits, [0.0, 30000.0]],
+            'axeslabels': [pc.timelabel, r'Signal amplitude']
+        }
         axparamdicts = [axparamdict1]
         ax1, = set_meteogram_axes([ax1], axparamdicts)
 
@@ -693,10 +696,10 @@ def plotDSDmeteograms(dis_name, image_dir, axparams, disvars, radvars):
     PSDmidtimes = disvars.get('PSDmidtimes', N.empty((0)))
     logND = disvars.get('logND', N.empty((0)))
     if(not logND.size or not PSDstarttimes.size or not PSDmidtimes.size):
-        print "No DSD info to plot! Quitting!"
+        print("No DSD info to plot! Quitting!")
         return
     D_0_dis = disvars.get('D_0', N.empty((0)))
-    D_0_rad = radvars.get('D_0_rad', N.empty((0)))
+    # D_0_rad = radvars.get('D_0_rad', N.empty((0)))
     radmidtimes = radvars.get('radmidtimes', N.empty((0)))
     dBZ_ray_dis = disvars.get('dBZ_ray', N.empty((0)))
     flaggedtimes = disvars.get('flaggedtimes', N.empty((0)))
@@ -706,7 +709,7 @@ def plotDSDmeteograms(dis_name, image_dir, axparams, disvars, radvars):
 
     dualpol_dis_varnames = []
     dualpol_dis_vars = []
-    for key, value in disvars.iteritems():
+    for key, value in disvars.items():
         if key in ['dBZ', 'ZDR', 'KDP', 'RHV']:
             dualpol_dis_varnames.append(key)
             dualpol_dis_vars.append(value)
@@ -728,7 +731,7 @@ def plotDSDmeteograms(dis_name, image_dir, axparams, disvars, radvars):
         fig.autofmt_xdate()
         if(dualpol_dis_var.size):
             ax2 = ax1.twinx()
-        divider = make_axes_locatable(ax1)
+        # divider = make_axes_locatable(ax1)
 
         xvals = [PSDstarttimes]
         plotvars = [logND]
@@ -838,7 +841,7 @@ def plotDSDmeteograms(dis_name, image_dir, axparams, disvars, radvars):
 def plotmeteogram(ax, xvals, zvals, plotparamdicts, yvals=None):
     """Plots a meteogram (time series) of one or more meteorological variables"""
     ax = ax or plt.figure().add_subplot(111)
-    for idx, xval, zval, plotparamdict in zip(xrange(len(zvals)), cycle(xvals), zvals,
+    for idx, xval, zval, plotparamdict in zip(range(len(zvals)), cycle(xvals), zvals,
                                               plotparamdicts):
         type = plotparamdict.get('type', 'fill_between')
         linestyle = plotparamdict.get('linestyle', '-')
@@ -888,7 +891,7 @@ def set_meteogram_axes(axes, axparamdicts):
         majorxlocator = axparamdict.get('majorxlocator', None)
         majorxformatter = axparamdict.get('majorxformatter', None)
         majorylocator = axparamdict.get('majorylocator', None)
-        majoryformatter = axparamdict.get('majoryformatter', None)
+        # majoryformatter = axparamdict.get('majoryformatter', None)
         minorxlocator = axparamdict.get('minorxlocator', None)
         axeslimits = axparamdict.get('axeslimits', [None, None])
         axeslabels = axparamdict.get('axeslabels', [None, None])
@@ -926,7 +929,7 @@ def plot_DSD(ib, axdict, PSDdict, PSDfitdict, PSDparamdict):
     xbin_right = axdict.get('xbin_right', N.empty((0)))
     xbin_mid = axdict.get('xbin_mid', N.empty((0)))
     ND = PSDdict.get('ND', N.empty((0)))
-    ND_onedrop = PSDdict.get('ND_onedrop', N.empty((0)))
+    # ND_onedrop = PSDdict.get('ND_onedrop', N.empty((0)))
     interval = axdict.get('interval', 10)
     dis_name = axdict.get('dis_name', None)
     t = axdict.get('time', None)
@@ -944,9 +947,9 @@ def plot_DSD(ib, axdict, PSDdict, PSDfitdict, PSDparamdict):
 
     # ax1.plot(xbin_mid, ND * 1000.0, lw=2, label='obs')
 
-    for fitname, ND_tuple in PSDfitdict.iteritems():
+    for fitname, ND_tuple in PSDfitdict.items():
         if ((fitname == 'Dis Retr') | (fitname == 'Rad Retr')):
-            ND_fit = ND_tuple[0]*1000.
+            ND_fit = ND_tuple[0] * 1000.
         else:
             ND_fit = ND_tuple[0]
 #         print ND_fit
@@ -960,7 +963,7 @@ def plot_DSD(ib, axdict, PSDdict, PSDfitdict, PSDparamdict):
     ax1.set_xlabel('D (mm)')
     ax1.set_ylabel(r'N(D) $(m^{-4})$')
     ypos = 0.95
-    for paramname, paramtuple in PSDparamdict.iteritems():
+    for paramname, paramtuple in PSDparamdict.items():
         ax1.text(0.50, ypos, paramtuple[1] + ' = %2.2f' % paramtuple[0],
                  transform=ax1.transAxes)
         ypos = ypos - 0.05
@@ -1003,19 +1006,23 @@ def plot_vel_D(ib, axdict, PSDdict, rho):
                  horizontalalignment='center',
                  verticalalignment='center', color='y',
                  transform=ax1.transAxes)
-    if(dis.plot_strongwindQC):
-        ax1.scatter(X[dis.strongwindmask], Y[dis.strongwindmask], c='r', marker='x', alpha=1.0)
-    if(dis.plot_splashingQC):
-        ax1.scatter(X[dis.splashmask], Y[dis.splashmask], c='w', marker='o', alpha=0.75)
-        # ax1.pcolor(min_diameter,min_fall_bins,ma.masked_array(splashmask,mask=-splashmask),cmap=cm.Reds,alpha=0.1)
-    if(dis.plot_marginQC):
-        ax1.scatter(X[dis.marginmask], Y[dis.marginmask], c='g', marker='x', alpha=0.1)
-        # ax1.pcolor(min_diameter,min_fall_bins,ma.masked_array(marginmask,mask=-marginmask),cmap=cm.Reds,alpha=0.1)
-    if(dis.plot_rainfallspeedQC):
-        ax1.scatter(X[dis.fallspeedmask], Y[dis.fallspeedmask], c='k', marker='x', alpha=0.5)
-        # ax1.pcolor(min_diameter,min_fall_bins,ma.masked_array(fallspeedmask,mask=-fallspeedmask),cmap=cm.gray,alpha=0.1)
-    if(dis.plot_rainonlyQC):
-        ax1.scatter(X[dis.rainonlymask], Y[dis.rainonlymask], c='g', marker='x', alpha=0.5)
+    # FIXME
+    # if(dis.plot_strongwindQC):
+    #     ax1.scatter(X[dis.strongwindmask], Y[dis.strongwindmask], c='r', marker='x', alpha=1.0)
+    # if(dis.plot_splashingQC):
+    #     ax1.scatter(X[dis.splashmask], Y[dis.splashmask], c='w', marker='o', alpha=0.75)
+    #     # ax1.pcolor(min_diameter,min_fall_bins,ma.masked_array(splashmask,mask=-splashmask),
+    #                  cmap=cm.Reds,alpha=0.1)
+    # if(dis.plot_marginQC):
+    #     ax1.scatter(X[dis.marginmask], Y[dis.marginmask], c='g', marker='x', alpha=0.1)
+    #     # ax1.pcolor(min_diameter,min_fall_bins,ma.masked_array(marginmask,mask=-marginmask),
+    #                  cmap=cm.Reds,alpha=0.1)
+    # if(dis.plot_rainfallspeedQC):
+    #     ax1.scatter(X[dis.fallspeedmask], Y[dis.fallspeedmask], c='k', marker='x', alpha=0.5)
+    #     # ax1.pcolor(min_diameter,min_fall_bins,
+    #                  ma.masked_array(fallspeedmask,mask=-fallspeedmask),cmap=cm.gray,alpha=0.1)
+    # if(dis.plot_rainonlyQC):
+    #     ax1.scatter(X[dis.rainonlymask], Y[dis.rainonlymask], c='g', marker='x', alpha=0.5)
 
     ax1.set_xlim(xlim[0], xlim[1])
     ax1.xaxis.set_major_locator(ticker.MultipleLocator(1.0))
@@ -1024,16 +1031,19 @@ def plot_vel_D(ib, axdict, PSDdict, rho):
     ax1.yaxis.set_major_locator(ticker.MultipleLocator(1.0))
     ax1.set_ylabel('fall speed (m/s)')
 
-    plt.savefig(ib.image_dir + 'vel_D/' + dis_name + '/' + dis_name + '_vel_D_t{:04d}.png'.format(t),
-                dpi=200, bbox_inches='tight')
+    plt.savefig(ib.image_dir + 'vel_D/' + dis_name + '/' + dis_name +
+                '_vel_D_t{:04d}.png'.format(t), dpi=200, bbox_inches='tight')
     plt.close(fig1)
 
-def computecorners(xe,ye,UM=False):
-    """Given 2D meshes of the coordinates of the grid edges (i.e. xe(Nys,Nxe), ye(Nye,Nxs)
-       where Nxs,Nxe,Nys,Nye are the number of grid points in each direction for the scalar (s)
-       and staggered (e) grid), compute the grid corners as simple horizontal averages of adjacent
-       edge points in each direction.  For the edges of the domain, an optional simple linear extrapolation
-       is performed. Returns xcor and ycor of dimensions (Nye,Nxe)."""
+
+def computecorners(xe, ye, UM=False):
+    """
+    Given 2D meshes of the coordinates of the grid edges (i.e. xe(Nys,Nxe), ye(Nye,Nxs)
+    where Nxs,Nxe,Nys,Nye are the number of grid points in each direction for the scalar (s)
+    and staggered (e) grid), compute the grid corners as simple horizontal averages of adjacent
+    edge points in each direction.  For the edges of the domain, an optional simple linear
+    extrapolation is performed. Returns xcor and ycor of dimensions (Nye,Nxe).
+    """
 
     if(not UM):
         cor_shp = xe.shape[:-2] + (ye.shape[-2], xe.shape[-1])
@@ -1042,17 +1052,23 @@ def computecorners(xe,ye,UM=False):
 
 #       print xcor.shape, ycor.shape, xe.shape, ye.shape
 
-        xcor[...,1:-1,:] = 0.5*(xe[...,1:,:]+xe[...,:-1,:]) # All but south and north edges
-        ycor[...,:,1:-1] = 0.5*(ye[...,:,1:]+ye[...,:,:-1]) # All but west and east edges
-        xcor[...,0,:] = xe[...,2,:] + 1.5*(xe[...,1,:]-xe[...,2,:]) # Extrapolate for south edge
-        xcor[...,-1,:] = xe[...,-2,:] + 1.5*(xe[...,-1,:]-xe[...,-2,:]) # Extrapolate for north edge
-        ycor[...,:,0] = ye[...,:,2] + 1.5*(ye[...,:,1]-ye[...,:,2]) # Extrapolate for west edge
-        ycor[...,:,-1] = ye[...,:,-2] + 1.5*(ye[...,:,-1]-ye[...,:,-2]) # Extrapolate for east edge
+        xcor[..., 1:-1, :] = 0.5 * (xe[..., 1:, :] + xe[..., :-1, :]
+                                    )  # All but south and north edges
+        ycor[..., :, 1:-1] = 0.5 * (ye[..., :, 1:] + ye[..., :, :-1]
+                                    )  # All but west and east edges
+        xcor[..., 0, :] = xe[..., 2, :] + 1.5 * \
+            (xe[..., 1, :] - xe[..., 2, :])  # Extrapolate for south edge
+        xcor[..., -1, :] = xe[..., -2, :] + 1.5 * \
+            (xe[..., -1, :] - xe[..., -2, :])  # Extrapolate for north edge
+        ycor[..., :, 0] = ye[..., :, 2] + 1.5 * \
+            (ye[..., :, 1] - ye[..., :, 2])  # Extrapolate for west edge
+        ycor[..., :, -1] = ye[..., :, -2] + 1.5 * \
+            (ye[..., :, -1] - ye[..., :, -2])  # Extrapolate for east edge
     else:   # Case for UM grid
-        xcor = 0.5*(xe[...,1:,:]+xe[...,:-1,:])
-        ycor = 0.5*(ye[...,:,1:]+ye[...,:,:-1])
+        xcor = 0.5 * (xe[..., 1:, :] + xe[..., :-1, :])
+        ycor = 0.5 * (ye[..., :, 1:] + ye[..., :, :-1])
 
-    return xcor,ycor
+    return xcor, ycor
 
 
 # From https://gist.github.com/syrte/592a062c562cd2a98a83
@@ -1106,10 +1122,14 @@ def circles(x, y, s, c='b', vmin=None, vmax=None, **kwargs):
     if np.isscalar(c):
         kwargs.setdefault('color', c)
         c = None
-    if 'fc' in kwargs: kwargs.setdefault('facecolor', kwargs.pop('fc'))
-    if 'ec' in kwargs: kwargs.setdefault('edgecolor', kwargs.pop('ec'))
-    if 'ls' in kwargs: kwargs.setdefault('linestyle', kwargs.pop('ls'))
-    if 'lw' in kwargs: kwargs.setdefault('linewidth', kwargs.pop('lw'))
+    if 'fc' in kwargs:
+        kwargs.setdefault('facecolor', kwargs.pop('fc'))
+    if 'ec' in kwargs:
+        kwargs.setdefault('edgecolor', kwargs.pop('ec'))
+    if 'ls' in kwargs:
+        kwargs.setdefault('linestyle', kwargs.pop('ls'))
+    if 'lw' in kwargs:
+        kwargs.setdefault('linewidth', kwargs.pop('lw'))
 
     patches = [Circle((x_, y_), s_) for x_, y_, s_ in np.broadcast(x, y, s)]
     collection = PatchCollection(patches, **kwargs)
@@ -1135,7 +1155,8 @@ def circles(x, y, s, c='b', vmin=None, vmax=None, **kwargs):
 #             #Overlay mass-weighted mean diameter
 #             #ax1.plot(plotx_dis_avg,D_m_disd,ls=':',c='k',lw=2,label=r'$D_{mr43} (mm)$')
 #             #Overlay median volume diameter (centered running mean)
-#             D_med_disd_avg = pd.rolling_mean(D_med_disd,12,center=True,win_type='triang',min_periods=1)
+#             D_med_disd_avg = pd.rolling_mean(D_med_disd,12,center=True,win_type='triang',
+#                                              min_periods=1)
 #             ax1.plot(plotx_dis_avg,D_med_disd_avg,ls=':',c='b',lw=0.5,label=r'$D_{0} (mm)$')
 #             #ax1.plot(plotx_dis_avg,D_med_gam,ls='--',c='k',lw=0.5,label=r'$D_{0,gam} (mm)$')
 #
@@ -1159,13 +1180,17 @@ def circles(x, y, s, c='b', vmin=None, vmax=None, **kwargs):
 #
 #         if(calc_DSD):
 #             # Average reflectivity from disdrometer using a centered running mean
-#             refl_disd_avg = pd.rolling_mean(refl_disd,12,center=True,win_type='triang',min_periods=1)
+#             refl_disd_avg = pd.rolling_mean(refl_disd,12,center=True,win_type='triang',
+#                                             min_periods=1)
 #             #ax2.plot(plotx_dis_avg,refl_disd,ls='-',c='r',marker='o',label=r'$Z_{dis} (dBZ)$')
-#             ax2.plot(plotx_dis_avg,refl_disd_avg,ls='-',c='green',lw=0.5,marker=None,label=r'$Z_{dis} (dBZ)$')
+#             ax2.plot(plotx_dis_avg,refl_disd_avg,ls='-',c='green',lw=0.5,marker=None,
+#                      label=r'$Z_{dis} (dBZ)$')
 #             if(comp_radar):
-#                 dBZ_D_plt = fields_D_tarr[:,index,0] # Assumes reflectivity is the first.  Need to come back and work on this.
+#                 # Assumes reflectivity is the first.  Need to come back and work on this.
+#                 dBZ_D_plt = fields_D_tarr[:,index,0]
 #                 #ax2.plot(plotx_rad,dBZ_D_plt,ls='-',c='k',marker='o',label=r'$Z_{rad} (dBZ)$')
-#                 ax2.plot(plotx_rad,dBZ_D_plt,ls='-',c='k',lw=0.5,marker=None,label=r'$Z_{rad} (dBZ)$')
+#                 ax2.plot(plotx_rad,dBZ_D_plt,ls='-',c='k',lw=0.5,marker=None,
+#                          label=r'$Z_{rad} (dBZ)$')
 # #             if(not timetospace):
 # #                 ax2.xaxis.set_major_locator(locator)
 # #                 ax2.xaxis.set_minor_locator(minorlocator)
