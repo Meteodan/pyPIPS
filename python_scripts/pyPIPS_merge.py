@@ -41,16 +41,22 @@ fieldnames_onesec = ['TIMESTAMP', 'RECORD', 'BattV', 'PTemp_C', 'WindDir', 'WS_m
                      'WSDiag', 'FastTemp', 'SlowTemp', 'RH', 'Pressure(1)', 'FluxDirection',
                      'GPSTime', 'GPSStatus', 'GPSLat', 'GPSLon', 'GPSSpd', 'GPSDir',
                      'GPSDate', 'GPSMagVar', 'GPSAlt']
-
+# Newer versions of these files have "Pressure" instead of "Pressure(1)" for some reason
+# Also the "RECORD" field has been removed.
+fieldnames_onesecv2 = [field if field != 'Pressure(1)' else 'Pressure'
+                       for field in fieldnames_onesec]
+fieldnames_onesecv2.remove('RECORD')
 fieldnames_onesec_TriPIPS = fieldnames_onesec[:]
 fieldnames_onesec_TriPIPS.remove('FastTemp')
+fieldnames_onesec_TriPIPSv2 = fieldnames_onesecv2[:]
+fieldnames_onesec_TriPIPSv2.remove('FastTemp')
 
 print(fieldnames_onesec_TriPIPS)
 
 fieldnames_tensec = ['TIMESTAMP', 'RECORD', 'ParsivelStr']
 
-fieldnames_output = ['TIMESTAMP', 'RECORD', 'BattV', 'PTemp_C', 'WindDir', 'WS_ms', 'WSDiag',
-                     'FastTemp', 'SlowTemp', 'RH', 'Pressure(1)', 'FluxDirection', 'GPSTime',
+fieldnames_output = ['TIMESTAMP', 'BattV', 'PTemp_C', 'WindDir', 'WS_ms', 'WSDiag',
+                     'FastTemp', 'SlowTemp', 'RH', 'Pressure', 'FluxDirection', 'GPSTime',
                      'GPSStatus', 'GPSLat', 'GPSLatHem', 'GPSLon', 'GPSLonHem', 'GPSSpd', 'GPSDir',
                      'GPSDate', 'GPSMagVar', 'GPSAlt', 'WindDirAbs', 'Dewpoint', 'RHDer',
                      'ParsivelStr']
@@ -129,7 +135,7 @@ def parseTimeStamp(timestring):
     day = N.int(date[8:])
     hour = N.int(time[:2])
     min = N.int(time[3:5])
-    sec = N.int(time[6:])
+    sec = N.int(time[6:8])
     return datetime(year, month, day, hour, min, sec)
 
 
@@ -192,14 +198,17 @@ def readData(PIPS_data_dir):
         with open(file) as f:
             next(f)  # Read and discard first header line
             # The field names are contained in the second header line
-            fieldnames = f.next().strip().replace('"', '').split(',')
-            if fieldnames == fieldnames_onesec:
+            fieldnames = next(f).strip().replace('"', '').split(',')
+            if fieldnames == fieldnames_onesec or fieldnames == fieldnames_onesecv2:
                 print("We are dealing with an original PIPS data file!")
                 TriPIPS = False
-            elif fieldnames == fieldnames_onesec_TriPIPS:
+            elif (fieldnames == fieldnames_onesec_TriPIPS
+                  or fieldnames == fieldnames_onesec_TriPIPSv2):
                 print("We are dealing with a TriPIPS data file (no FastTemp)!")
                 TriPIPS = True
             else:
+                print(fieldnames, '\n',
+                      fieldnames_onesec_TriPIPSv2)
                 sys.exit("Something's wrong with this file, aborting!")
             # print fieldnames
             next(f)  # Read and discard third header line
@@ -225,7 +234,7 @@ def readData(PIPS_data_dir):
         with open(file) as f:
             next(f)  # Read and discard first header line
             # The field names are contained in the second header line
-            fieldnames = f.next().strip().replace('"', '').split(',')
+            fieldnames = next(f).strip().replace('"', '').split(',')
             if (fieldnames != fieldnames_tensec):
                 sys.exit("Something's wrong with this file, aborting!")
             # print fieldnames
@@ -273,6 +282,7 @@ def mergeData(PIPS_data_dir, output_filename):
         for i in range(numrecords):  # Loop through the 1-s records
             # Parse the timestamp for the 1-s records and create a datetime object out of it
             timestring_onesec = dict_onesec['TIMESTAMP'][i].strip().split()
+            # print('i', 'timestring_onesec', i, timestring_onesec)
             datetime_onesec = parseTimeStamp(timestring_onesec)
 
             # Fill in known 1-s values into output row dictionary

@@ -581,23 +581,25 @@ def plotconvmeteograms(dis_index, pc, ib, convmeteodict):
 
         plt.savefig(ib.image_dir + 'meteograms/' + dis_name + '_voltage.png', dpi=300)
 
-        # GPS-derived speed
-        fig = plt.figure(figsize=(5, 3))
-        ax1 = fig.add_subplot(111)
+        try:
+            # GPS-derived speed
+            fig = plt.figure(figsize=(5, 3))
+            ax1 = fig.add_subplot(111)
 
-        fields = [conv_plot_df['GPS_speed'].values]
-        N.set_printoptions(threshold=N.inf)
-        fieldparamdicts = [GPS_speed_params]
-        ax1 = plotmeteogram(ax1, [plottimes], fields, fieldparamdicts)
+            fields = [conv_plot_df['GPS_speed'].values]
+            N.set_printoptions(threshold=N.inf)
+            fieldparamdicts = [GPS_speed_params]
+            ax1 = plotmeteogram(ax1, [plottimes], fields, fieldparamdicts)
 
-        axparamdict1 = {'majorxlocator': pc.locator, 'majorxformatter': pc.formatter,
-                        'minorxlocator': pc.minorlocator, 'axeslimits': [xaxislimits, [0.0, 20.0]],
-                        'axeslabels': [pc.timelabel, r'GPS speed (m s$^{-1}$)']}
-        axparamdicts = [axparamdict1]
-        ax1, = set_meteogram_axes([ax1], axparamdicts)
+            axparamdict1 = {'majorxlocator': pc.locator, 'majorxformatter': pc.formatter,
+                            'minorxlocator': pc.minorlocator, 'axeslimits': [xaxislimits, [0.0, 20.0]],
+                            'axeslabels': [pc.timelabel, r'GPS speed (m s$^{-1}$)']}
+            axparamdicts = [axparamdict1]
+            ax1, = set_meteogram_axes([ax1], axparamdicts)
 
-        plt.savefig(ib.image_dir + 'meteograms/' + dis_name + '_GPS_speed.png', dpi=300)
-
+            plt.savefig(ib.image_dir + 'meteograms/' + dis_name + '_GPS_speed.png', dpi=300)
+        except KeyError:
+            print("No GPS Speed information in file!")
 
 def plotDSDderivedmeteograms(dis_index, pc, ib, **PSDderiveddict):
     """Plots meteograms of the various derived DSD quantities from the PIPS"""

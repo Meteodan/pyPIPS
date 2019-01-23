@@ -7,12 +7,13 @@ import matplotlib.ticker as ticker
 import matplotlib.dates as dates
 from datetime import timedelta
 import os
-import modules.disdrometer_module as dis
+import pyPIPS.disdrometer_module as dis
 import sys
-import modules.radarmodule as radar
+import pyPIPS.radarmodule as radar
 import pandas as pd
-import modules.plotmodule as pm
-import modules.utils as utils
+import pyPIPS.plotmodule as pm
+import pyPIPS.utils as utils
+
 
 min_diameter = dis.min_diameter
 max_diameter = dis.max_diameter
