@@ -100,6 +100,7 @@ Central = pytz.timezone('US/Central')
 fmt = '%Y-%m-%d %H:%M:%S %Z%z'
 fmt2 = '%Y-%m-%d %H:%M:%S'
 
+
 timedelta5s = timedelta(seconds=5)
 timedelta10s = timedelta(seconds=10)
 timedelta30s = timedelta(seconds=30)
@@ -113,8 +114,11 @@ timedelta1min = timedelta(minutes=1)
 # -----------------------------------------------------------------------
 
 def import_all_from(module_path):
-    """Modified from http://grokbase.com/t/python/python-list/1172ahxp0s/from-module-import-using-import
-       Loads python file at "module_path" as module and adds contents to global namespace."""
+    """
+    Modified from http://grokbase.com/t/python/python-list/1172ahxp0s/
+                  from-module-import-using-import
+    Loads python file at "module_path" as module and adds contents to global namespace.
+    """
     # mod = __import__(module_name)
     mod = imp.load_source('mod', module_path)
     return mod
