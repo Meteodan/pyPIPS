@@ -544,9 +544,10 @@ def readPIPS(filename, fixGPS=True, basicqc=False, rainfallqc=False, rainonlyqc=
         try:
             dewpoint = np.float(tokens[curfieldnames.index('Dewpoint')])
             if np.isnan(dewpoint):
-                dewpoint = thermo.calTdfromRH(pressure * 100., fasttemp + 273.15, RH / 100.)
+                dewpoint = (thermo.calTdfromRH(pressure * 100., fasttemp + 273.15, RH / 100.) -
+                            273.15)
         except ValueError:
-            dewpoint = thermo.calTdfromRH(pressure * 100., fasttemp + 273.15, RH / 100.)
+            dewpoint = thermo.calTdfromRH(pressure * 100., fasttemp + 273.15, RH / 100.) - 273.15
         try:
             RH_derived = np.float(tokens[curfieldnames.index('RHDer')])
             if np.isnan(RH_derived):

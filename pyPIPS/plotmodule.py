@@ -689,7 +689,7 @@ def plotDSDderivedmeteograms(dis_index, pc, ib, **PSDderiveddict):
         plt.close(fig)
 
 
-def plotDSDmeteograms(dis_name, image_dir, axparams, disvars, radvars):
+def plotDSDmeteograms(dis_name, image_dir, axparams, disvars, radvars, close_fig=True):
     """Plots one or more meteograms of disdrometer number concentrations vs. diameter bins,
        along with one or more derived variables and optionally radar variables for comparison.
        One meteogram is plotted per dualpol variable (i.e. Z,ZDR,KDP,RHV)"""
@@ -837,7 +837,8 @@ def plotDSDmeteograms(dis_name, image_dir, axparams, disvars, radvars):
             plt.savefig(image_dir + dis_name + '_' + dualpol_dis_varname + '_logNc.png', dpi=300)
         else:
             plt.savefig(image_dir + dis_name + '_logNc.png', dpi=300)
-        plt.close(fig)
+        if close_fig:
+            plt.close(fig)
 
 
 def plotmeteogram(ax, xvals, zvals, plotparamdicts, yvals=None):
