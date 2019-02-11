@@ -592,7 +592,8 @@ def plotconvmeteograms(dis_index, pc, ib, convmeteodict):
             ax1 = plotmeteogram(ax1, [plottimes], fields, fieldparamdicts)
 
             axparamdict1 = {'majorxlocator': pc.locator, 'majorxformatter': pc.formatter,
-                            'minorxlocator': pc.minorlocator, 'axeslimits': [xaxislimits, [0.0, 20.0]],
+                            'minorxlocator': pc.minorlocator,
+                            'axeslimits': [xaxislimits, [0.0, 20.0]],
                             'axeslabels': [pc.timelabel, r'GPS speed (m s$^{-1}$)']}
             axparamdicts = [axparamdict1]
             ax1, = set_meteogram_axes([ax1], axparamdicts)
@@ -846,7 +847,7 @@ def plotmeteogram(ax, xvals, zvals, plotparamdicts, yvals=None):
     ax = ax or plt.figure().add_subplot(111)
     for idx, xval, zval, plotparamdict in zip(range(len(zvals)), cycle(xvals), zvals,
                                               plotparamdicts):
-        type = plotparamdict.get('type', 'fill_between')
+        mtype = plotparamdict.get('type', 'fill_between')
         linestyle = plotparamdict.get('linestyle', '-')
         linewidth = plotparamdict.get('linewidth', 1.0)
         marker = plotparamdict.get('marker', None)
@@ -860,11 +861,11 @@ def plotmeteogram(ax, xvals, zvals, plotparamdicts, yvals=None):
         clabel = plotparamdict.get('clabel', None)
         plotcbar = plotparamdict.get('plotcbar', True)
 
-        if(type == 'fill_between'):
+        if(mtype == 'fill_between'):
             ax.plot_date(xval, zval, ls=linestyle, lw=linewidth, marker=marker, color=color,
                          markeredgecolor=markeredgecolor, ms=ms, label=plotlabel)
             ax.fill_between(xval, zval, plotmin, facecolor=color, alpha=alpha)
-        elif(type == 'pcolor'):
+        elif(mtype == 'pcolor'):
             divider = make_axes_locatable(ax)
             C = ax.pcolor(xval, yvals[idx], zval, vmin=vlimits[0], vmax=vlimits[1])
             cax = divider.append_axes("bottom", size="5%", pad=0.40)
@@ -877,7 +878,7 @@ def plotmeteogram(ax, xvals, zvals, plotparamdicts, yvals=None):
                 cb = ax.get_figure().colorbar(C, cax=cax, orientation='horizontal')
                 if(clabel):
                     cb.set_label(clabel)
-        elif(type == 'vertical line'):  # For flagging times with bad data, etc.
+        elif(mtype == 'vertical line'):  # For flagging times with bad data, etc.
                                         # zval is interpreted as a list of x-indices
             for x in zval:
                 ax.axvline(x=x, ls=linestyle, lw=linewidth, color=color)
