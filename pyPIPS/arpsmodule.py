@@ -12,7 +12,7 @@ except ImportError:
 
 from mpl_toolkits.basemap import Basemap
 from . import thermolib as thermo
-import dualpara as dualpol
+from . import dualpara as dualpol
 import os
 from .datahandler import DataHandler
 from matplotlib.colors import LinearSegmentedColormap

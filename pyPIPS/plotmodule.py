@@ -542,8 +542,9 @@ def plotconvmeteograms(dis_index, pc, ib, convmeteodict):
 
     # Plot station pressure
 
-    pmin = conv_plot_df['pressure'].values.min()
-    pmax = conv_plot_df['pressure'].values.max()
+    pmin = N.nanmin(conv_plot_df['pressure'].values)
+    pmax = N.nanmax(conv_plot_df['pressure'].values)
+
     # pmean = conv_plot_df['pressure'].values.mean()
     # avgintv = 1  # Currently not used
 
@@ -879,7 +880,7 @@ def plotmeteogram(ax, xvals, zvals, plotparamdicts, yvals=None):
                 if(clabel):
                     cb.set_label(clabel)
         elif(mtype == 'vertical line'):  # For flagging times with bad data, etc.
-                                        # zval is interpreted as a list of x-indices
+                                         # zval is interpreted as a list of x-indices
             for x in zval:
                 ax.axvline(x=x, ls=linestyle, lw=linewidth, color=color)
         else:

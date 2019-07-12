@@ -29,7 +29,7 @@ parsivel_ids = ['304545', '295153', '295166', '304543', '390654']
 parsivel_names = {'304545': 'PIPS1A', '295153': 'PIPS1B', '295166': 'PIPS2A', '304543': 'PIPS2B',
                   '390654': 'TriPIPS'}
 
-fieldnames = ['TIMESTAMP', 'BattV', 'PTemp_C', 'WindDir', 'WS_ms', 'WSDiag',
+fieldnames = ['TIMESTAMP', 'RECORD', 'BattV', 'PTemp_C', 'WindDir', 'WS_ms', 'WSDiag',
               'FastTemp', 'SlowTemp', 'RH', 'Pressure', 'FluxDirection', 'GPSTime',
               'GPSStatus', 'GPSLat', 'GPSLatHem', 'GPSLon', 'GPSLonHem', 'GPSSpd', 'GPSDir',
               'GPSDate', 'GPSMagVar', 'GPSAlt', 'WindDirAbs', 'Dewpoint', 'RHDer',
@@ -37,6 +37,7 @@ fieldnames = ['TIMESTAMP', 'BattV', 'PTemp_C', 'WindDir', 'WS_ms', 'WSDiag',
 
 fieldnames_TriPIPS = fieldnames[:]
 fieldnames_TriPIPS.remove('FastTemp')
+fieldnames_TriPIPS.remove('RECORD')
 
 # Min diameter of bins (mm)
 min_diameter_bins = [0.000, 0.125, 0.250, 0.375, 0.500, 0.625, 0.750, 0.875, 1.000, 1.125, 1.250,
@@ -426,9 +427,9 @@ def readPIPS(filename, fixGPS=True, basicqc=False, rainfallqc=False, rainonlyqc=
     # Figure out which version we are reading in
 
     if tripips:
-        curfieldnames = fieldnames
-    else:
         curfieldnames = fieldnames_TriPIPS
+    else:
+        curfieldnames = fieldnames
 
     pdatetimes = []
     intensities = []
@@ -507,10 +508,10 @@ def readPIPS(filename, fixGPS=True, basicqc=False, rainfallqc=False, rainonlyqc=
         winddirrel = np.float(tokens[curfieldnames.index('WindDir')])
         windspd = np.float(tokens[curfieldnames.index('WS_ms')])
         winddiag = np.float(tokens[curfieldnames.index('WSDiag')])
-        if tripips:
+        if not tripips:
             fasttemp = np.float(tokens[curfieldnames.index('FastTemp')])
         slowtemp = np.float(tokens[curfieldnames.index('SlowTemp')])
-        if not tripips:
+        if tripips:
             fasttemp = slowtemp
         RH = np.float(tokens[curfieldnames.index('RH')])
         pressure = np.float(tokens[curfieldnames.index('Pressure')])
