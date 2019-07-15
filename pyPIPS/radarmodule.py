@@ -1432,7 +1432,7 @@ def readsweeps2PIPS(fieldnames, pc, ib):
             if (not os.path.exists(pc.radar_save_dir)):
                 os.makedirs(pc.radar_save_dir)
 
-            raddate_file = open(raddate_path, 'w')
+            raddate_file = open(raddate_path, 'wb')
             pickle.dump(radtimes, raddate_file)
             pickle.dump(radar_filelist, raddate_file)
             pickle.dump(outfieldnames, raddate_file)
@@ -1441,7 +1441,7 @@ def readsweeps2PIPS(fieldnames, pc, ib):
             np.savez_compressed(radnpz_path, **sweepdict)
 
     if(pc.loadradopt):
-        raddate_file = open(raddate_path, 'r')
+        raddate_file = open(raddate_path, 'rb')
         radtimes = pickle.load(raddate_file)
         radar_filelist = pickle.load(raddate_file)
         outfieldnames = pickle.load(raddate_file)

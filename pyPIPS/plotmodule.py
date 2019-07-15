@@ -1037,7 +1037,8 @@ def plot_vel_D(ib, axdict, PSDdict, rho):
     ax1.set_ylabel('fall speed (m/s)')
 
     plt.savefig(ib.image_dir + 'vel_D/' + dis_name + '/' + dis_name +
-                '_vel_D_t{:04d}.png'.format(t), dpi=200, bbox_inches='tight')
+                '_vel_D_{}_t{:04d}.png'.format(times[t].strftime(tm.timefmt3), t), dpi=200,
+                bbox_inches='tight')
     plt.close(fig1)
 
 

@@ -537,10 +537,11 @@ for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc, type i
                   'avg_diameter': avg_diameter, 'min_fall_bins': min_fall_bins,
                   'xlim': pc.D_range, 'ylim': pc.vel_range,
                   'dis_name': dis_name}
-
+        t2 = 0
         for t in range(PSD_df.index.size):
             if(PSD_df['pcount2'].values[t] > 0):
-                axdict['time'] = t
+                axdict['time'] = t2
                 PSDdict = {'countsMatrix': countsMatrix[t, :],
                            'flaggedtime': PSD_df['flaggedtimes'].values[t]}
                 pm.plot_vel_D(ib, axdict, PSDdict, rho_tDSD[t])
+                t2 += 1
