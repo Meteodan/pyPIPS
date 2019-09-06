@@ -1,30 +1,93 @@
-# This is a library of functions to calculate various DSD-related parameters
-# These were originally written in fortran but re-written using python and numpy
+"""
+DSDlib.py: This is a library of functions to calculate various DSD-related parameters
+Some of these were originally written in fortran but re-written using python and numpy
+"""
 
 import numpy as np
-from scipy.special import gamma as gamma_
+from scipy.special import gamma as gamma_, gammainc as gammap, gammaln as gammln
 from . import thermolib as thermo
+from .utils import first_nonzero, last_nonzero
+
+# Some physical constants
+rhol = 1000.  # density of liquid water (kg / m^3)
+cmr = np.pi * rhol / 6.  # Constant in mass-diameter relationship for spherical raindrops
+
+# Save some common values of the gamma function for convenience
+gamma3 = gamma_(3.)
+gamma4 = gamma_(4.)
+gamma5 = gamma_(5.)
+gamma7 = gamma_(7.)
 
 
-def cal_Mp(p, lamda, Nt, alpha):
+def calc_Mp(p, lamda, Nt, alpha):
     """Given lamda, Nt, and alpha, computes the pth moment of the gamma distribution"""
     return (Nt / lamda**p) * (gamma_(1. + alpha + p) / gamma_(1. + alpha))
 
 
-def cal_Dmpq(p, q, lamda, Nt, alpha):
+def calc_Dmpq(p, q, lamda, Nt, alpha):
     """Given two moments, p and q, and lamda,Nt, and alpha, compute the
        mean diameter associated with the ratio of p to q"""
 
-    M_p = cal_Mp(p, lamda, Nt, alpha)
-    M_q = cal_Mp(q, lamda, Nt, alpha)
+    M_p = calc_Mp(p, lamda, Nt, alpha)
+    M_q = calc_Mp(q, lamda, Nt, alpha)
 
     return (M_p / M_q)**(1. / (p - q))
 
 
-def cal_Nt(rhoa, q, N0, cx, alpha):
+def calc_qr_gamma(rhoa, N0, lamda, alpha):
+    """[summary]
+
+    Parameters
+    ----------
+    rhoa : [type]
+        [description]
+    D : [type]
+        [description]
+    N0 : [type]
+        [description]
+    lamda : [type]
+        [description]
+    alpha : [type]
+        [description]
+
+    Returns
+    -------
+    [type]
+        [description]
+    """
+    GR2 = gamma_(4. + alpha)
+    return (cmr / rhoa) * N0 * GR2 / lamda**(alpha + 4.)
+
+
+def calc_Zr_gamma(rhoa, q, Nt, alpha):
+    """[summary]
+
+    Parameters
+    ----------
+    rhoa : [type]
+        [description]
+    q : [type]
+        [description]
+    Nt : [type]
+        [description]
+    alpha : [type]
+        [description]
+
+    Returns
+    -------
+    [type]
+        [description]
+    """
+    Gr = ((6. + alpha) * (5. + alpha) * (4. + alpha)) / \
+        ((3. + alpha) * (2. + alpha) * (1. + alpha))
+    Zr = ((1. / cmr)**2.) * Gr * ((rhoa * q)**2.) / Nt
+    return 10.0 * np.log10(1.e18 * Zr)
+
+
+def calc_Nt_gamma(rhoa, q, N0, cx, alpha):
     """!
     !-----------------------------------------------------------------------
-    !  PURPOSE:  Calculates number concentration at scalar points
+    !  PURPOSE:  Calculates total number concentration for a gamma distribution
     !-----------------------------------------------------------------------
     !
     !  AUTHOR: Dan Dawson
@@ -41,19 +104,19 @@ def cal_Nt(rhoa, q, N0, cx, alpha):
     !-----------------------------------------------------------------------
     !     """
 
-    gamma1 = gamma_(1.0 + alpha)
-    gamma4 = gamma_(4.0 + alpha)
+    gamma1alp = gamma_(1.0 + alpha)
+    gamma4alp = gamma_(4.0 + alpha)
 
-    Ntx = (N0 * gamma1)**(3.0 / (4.0 + alpha)) * \
-        ((gamma1 / gamma4) * rhoa * q / cx)**((1.0 + alpha) / (4.0 + alpha))
+    Ntx = (N0 * gamma1alp)**(3.0 / (4.0 + alpha)) * \
+        ((gamma1alp / gamma4alp) * rhoa * q / cx)**((1.0 + alpha) / (4.0 + alpha))
 
     return Ntx
 
 
-def cal_lamda(rhoa, q, Ntx, cx, alpha):
+def calc_lamda_gamma(rhoa, q, Ntx, cx, alpha):
     """!
     !-----------------------------------------------------------------------
-    !  PURPOSE:  Calculates slope parameter lamda
+    !  PURPOSE:  Calculates slope parameter lamda for a gamma distribution
     !
     !-----------------------------------------------------------------------
     !
@@ -69,19 +132,20 @@ def cal_lamda(rhoa, q, Ntx, cx, alpha):
     !-----------------------------------------------------------------------
     !"""
 
-    gamma1 = gamma_(1.0 + alpha)
-    gamma4 = gamma_(4.0 + alpha)
+    gamma1alp = gamma_(1.0 + alpha)
+    gamma4alp = gamma_(4.0 + alpha)
 
-    lamda = ((gamma4 / gamma1) * cx * Ntx / (rhoa * q))**(1.0 / 3.0)
+    lamda = ((gamma4alp / gamma1alp) * cx * Ntx / (rhoa * q))**(1.0 / 3.0)
     lamda = np.where(rhoa * q > 0.0, lamda, 0.0)
 
     return lamda
 
 
-def cal_N0(rhoa, q, Ntx, cx, alpha):
+def calc_N0_gamma(rhoa, q, Ntx, cx, alpha):
     """!
     !-----------------------------------------------------------------------
-    !  PURPOSE:  Calculates intercept parameter and "effective" intercept parameter
+    !  PURPOSE:  Calculates intercept parameter and normalized intercept parameter
+    !            (after Testud et al. 2001) for a gamma distribution
     !
     !-----------------------------------------------------------------------
     !
@@ -104,28 +168,28 @@ def cal_N0(rhoa, q, Ntx, cx, alpha):
     !-----------------------------------------------------------------------
     !     """
 
-    gamma1 = gamma_(1.0 + alpha)
-    gamma4 = gamma_(4.0 + alpha)
+    gamma1alp = gamma_(1.0 + alpha)
+    gamma4alp = gamma_(4.0 + alpha)
 
-    lamda = cal_lamda(rhoa, q, Ntx, cx, alpha)
+    lamda = calc_lamda_gamma(rhoa, q, Ntx, cx, alpha)
     lamda = lamda.astype(np.float64)
     try:
         alpha = alpha.astype(np.float64)
-    except BaseException:
+    except Exception:
         pass
 
     N0 = Ntx * lamda**(0.50 * (1.0 + alpha)) * \
-        (1.0 / gamma1) * lamda**(0.50 * (1.0 + alpha))
+        (1.0 / gamma1alp) * lamda**(0.50 * (1.0 + alpha))
 
     N0_norm = N0 * (((4.0 + alpha) / lamda) **
-                    alpha) * gamma4 * (128.0 / 3.0) / \
+                    alpha) * gamma4alp * (128.0 / 3.0) / \
         ((4.0 + alpha)**(4.0 + alpha))
     N0 = np.where(lamda >= 0.0, N0, 0.0)
     N0_norm = np.where(lamda >= 0.0, N0_norm, 0.0)
     return N0, N0_norm
 
 
-def cal_Dm(rhoa, q, Ntx, cx):
+def calc_Dm_gamma(rhoa, q, Ntx, cx):
     """!
     !-----------------------------------------------------------------------
     !  PURPOSE:  Calculates mean-mass diameter
@@ -147,7 +211,7 @@ def cal_Dm(rhoa, q, Ntx, cx):
     return Dm
 
 
-def cal_D0(rhoa, q, Ntx, cx, alpha):
+def calc_D0_gamma(rhoa, q, Ntx, cx, alpha):
     """!
     !-----------------------------------------------------------------------
     !  PURPOSE:  Calculates median volume diameter (m) for a gamma distribution
@@ -165,12 +229,93 @@ def cal_D0(rhoa, q, Ntx, cx, alpha):
     !     """
 
     # Compute lamda
-    lamda = cal_lamda(rhoa, q, Ntx, cx, alpha)
+    lamda = calc_lamda_gamma(rhoa, q, Ntx, cx, alpha)
 
     return (3.672 + alpha) / lamda
 
 
-def diag_alpha(rhoa, varid_qscalar, Dm):
+def calc_moment_bin(ND, moment=0):
+    """[summary]
+
+    Parameters
+    ----------
+    ND : [type]
+        [description]
+    moment : int, optional
+        [description], by default 0
+
+    Returns
+    -------
+    [type]
+        [description]
+    """
+    avg_diameter_m = ND['diameter'] / 1000.  # Convert mm to m
+    bin_width_m = (ND['max_diameter'] - ND['min_diameter']) / 1000.  # Convert mm to m
+
+    moment_binned = avg_diameter_m**moment * (1000. * ND) * bin_width_m  # binned moments
+    moment = moment_binned.sum(dim='diameter_bin')  # Sum over bins to get final moment
+
+    return moment, moment_binned
+
+
+# TODO: this isn't right. Use old function for now. It works.
+# def calc_D0_bin_new(ND):
+
+#     Dm = ND['diameter'] / 1000.  # Convert mm to m
+#     M3, M3_binned = calc_moment_bin(ND, moment=3)
+
+#     M3_med = M3.quantile(0.5)
+#     # Cumulative sum of M3 with increasing bin size
+#     M3_cumsum = M3_binned.cumsum(dim='diameter_bin')
+#     # Proportion of M3 in each bin
+#     pro = M3_binned / M3
+#     # Cumulative proportion of M3 in each bin
+#     pro_cumsum = M3_cumsum / M3
+#     # Multiply cumulative proportion by the midpoint diameter of that bin
+#     pro_Dm = pro * Dm
+#     print(pro_Dm.loc[dict(time_10s='2016-03-31T22:30:00')])
+#     D0 = pro_Dm.quantile(0.5, dim='diameter_bin')
+#     print(D0.loc[dict(time_10s='2016-03-31T22:30:00')])
+#     return D0
+
+
+def calc_D0_bin(ND):
+    """Calculate D0 for a binned distribution"""
+    Dl = ND['min_diameter'] / 1000.  # Convert mm to m
+    Dm = ND['diameter'] / 1000.  # Convert mm to m
+    Dr = ND['max_diameter'] / 1000.  # Convert mm to m
+    M3, M3_binned = calc_moment_bin(ND, moment=3)
+
+    # Cumulative sum of M3 with increasing bin size
+    M3_cumsum = M3_binned.cumsum(dim='diameter_bin')
+    # Proportion of M3 in each bin
+    pro = M3_binned / M3
+    # Cumulative proportion of M3 in each bin
+    pro_cumsum = M3_cumsum / M3
+
+    # Compute median volume diameter using a linear interpolation within the "mass-midpoint" bin.
+    # Source: http://www.dropletmeasurement.com/PADS_Help/MVD_(um).htm
+    # (originally from FAA Electronic Aircraft Icing Handbook)
+
+    # Find indices of bin where cumulative sum exceeds 1/2 of total and the indices
+    # of the bin just below that, thresholding on the smallest bin
+    medindices = (pro_cumsum > 0.5).argmax(dim='diameter_bin')
+    medindices_m1 = medindices - 1
+    medindices_m1[medindices_m1 < 0] = 0
+    b1 = Dl[medindices]  # Lower boundaries of mass-midpoint bin
+    b2 = Dr[medindices]  # Upper boundaries of mass-midpoint bin
+    pro_med = pro.loc[dict(diameter_bin=medindices)]
+    pro_cumsum_med_m1 = pro_cumsum.loc[dict(diameter_bin=medindices_m1)]
+    # Now we can calculate D0 by linearly interpolating diameters within
+    # a given bin bounded by Dl and Dr which contains the half-mass point
+    D0 = b1 + ((0.5 - pro_cumsum_med_m1) / pro_med) * (b2 - b1)
+    # Don't let D0 be any smaller than the midpoint of the smallest bin
+    D0[D0 < Dm[0]] = Dm[0]
+
+    return D0
+
+
+def diag_alpha(varid_qscalar, Dm):
     """!
     !-----------------------------------------------------------------------
     !  PURPOSE:  Calculates shape parameter alpha
@@ -194,19 +339,19 @@ def diag_alpha(rhoa, varid_qscalar, Dm):
     c3 = np.array([1.8, 1.7, 5.0, 4.5, 9.0])
     c4 = np.array([17.0, 11.0, 5.5, 8.5, 6.5])
 
-    if(varid_qscalar == 'qr'):
+    if varid_qscalar == 'qr':
         nq = 0
-    elif(varid_qscalar == 'qi'):
+    elif varid_qscalar == 'qi':
         nq = 1
-    elif(varid_qscalar == 'qs'):
+    elif varid_qscalar == 'qs':
         nq = 2
-    elif(varid_qscalar == 'qg'):
+    elif varid_qscalar == 'qg':
         nq = 3
-    elif(varid_qscalar == 'qh'):
+    elif varid_qscalar == 'qh':
         nq = 4
 
     alpha = c1[nq] * np.tanh(c2[nq] * (1.e3 * Dm - c3[nq])) + c4[nq]
-    if(nq == 4):
+    if nq == 4:
         alpha = np.where(Dm > 0.008, 1.e3 * Dm - 2.6, alpha)
 
     alpha = np.minimum(alpha, alphaMAX)
@@ -261,9 +406,9 @@ def solve_alpha(rhoa, cx, q, Ntx, Z):
 
 
 def calc_evap(rho, T, p, RH, N0, lamda, mu):
-    """Computes bulk evaporation rate given the thermodynamic state of the air and gamma distribution
-       parameters.  Much of this code was adapted from Jason Milbrandt's microphysics code.  Note,
-       all thermodynamic variables are assumed to be in SI units."""
+    """Computes bulk evaporation rate given the thermodynamic state of the air and gamma
+       distribution parameters.  Much of this code was adapted from Jason Milbrandt's microphysics
+       code.  Note, all thermodynamic variables are assumed to be in SI units."""
 
     # Thermodynamic constants
 
@@ -338,7 +483,7 @@ def calc_VQR_ferrier(rhoa, q, Ntx, cx, alpha):
     ffr = 195.0
 
     # First, compute slope parameter
-    lamda = cal_lamda(rhoa, q, Ntx, cx, alpha)
+    lamda = calc_lamda_gamma(rhoa, q, Ntx, cx, alpha)
     # Compute density correction factor
     gamfact = (1.204 / rhoa)**0.5
 
@@ -352,7 +497,7 @@ def calc_VQR_ferrier(rhoa, q, Ntx, cx, alpha):
     return VQR
 
 
-def calc_VQR_gamvol(rhoa, q, Nt, cx, nu):
+def calc_VQR_gamvol(rhoa, q, Nt, nu):
     """Calculates the mass-weighted rain fall speed for the NSSL scheme gamma-volume rain DSD"""
 
     # Compute density correction factor
@@ -381,7 +526,7 @@ def calc_VQR_gamdiam(rhoa, q, Nt, cx, alpha):
     frx = 516.575
 
     # First, compute slope parameter
-    lamda = cal_lamda(rhoa, q, Nt, cx, alpha)
+    lamda = calc_lamda_gamma(rhoa, q, Nt, cx, alpha)
     Dn = 1. / lamda
     # Compute density correction factor
     gamfact = (1.204 / rhoa)**0.5
@@ -394,7 +539,7 @@ def calc_VQR_gamdiam(rhoa, q, Nt, cx, alpha):
 def calc_VQG(rhoa, ax, bx, q, Ntx, cx, alpha):
     """Calculates mass-weighted graupel fall speed"""
 
-    lamda = cal_lamda(rhoa, q, Ntx, cx, alpha)
+    lamda = calc_lamda_gamma(rhoa, q, Ntx, cx, alpha)
     Dn = 1. / lamda
     gamfact = (1.204 / rhoa)**0.5
     VQG = gamfact * ax * (gamma_(4.0 + alpha + bx) / gamma_(4.0 + alpha)) * Dn**0.5
@@ -405,7 +550,7 @@ def calc_VQG(rhoa, ax, bx, q, Ntx, cx, alpha):
 def calc_VNG(rhoa, ax, bx, q, Ntx, cx, alpha):
     """Calculates number-weighted graupel fall speed"""
 
-    lamda = cal_lamda(rhoa, q, Ntx, cx, alpha)
+    lamda = calc_lamda_gamma(rhoa, q, Ntx, cx, alpha)
     Dn = 1. / lamda
     gamfact = (1.204 / rhoa)**0.5
     VNG = gamfact * ax * (gamma_(1.0 + alpha + bx) / gamma_(1.0 + alpha)) * Dn**0.5
@@ -431,7 +576,7 @@ def power_mom(power, cx, t, q, moment):
 
     second_moment = (q / cx)
 
-    if (power == 1):
+    if power == 1:
         moment = second_moment
     else:
         log_a = 5.065339 - .062659 * T_c - 3.032362 * power + 0.029469 * T_c * power - \
@@ -449,19 +594,368 @@ def power_mom(power, cx, t, q, moment):
     return moment
 
 
-def gammaDSD(rhoa, D, cx, q, Nt=None, N0=None, alpha=0):
+def calc_gamma_DSD(rhoa, D, cx, q, Nt=None, N0=None, alpha=0):
     """Given cx, q, Nt or N0, and alpha, compute the gamma DSD for the sequence of diameters in D"""
-    if(N0 is None):
+    if N0 is None:
         try:
-            N0, _ = cal_N0(rhoa, q / 1000., Nt, cx, alpha)
+            N0, _ = calc_N0_gamma(rhoa, q / 1000., Nt, cx, alpha)
         except Exception:
             return None
     else:
         try:
-            Nt = cal_Nt(rhoa, q / 1000., N0, cx, alpha)
+            Nt = calc_Nt_gamma(rhoa, q / 1000., N0, cx, alpha)
         except Exception:
             return None
 
-    lamda = cal_lamda(rhoa, q / 1000., Nt, cx, alpha)
+    lamda = calc_lamda_gamma(rhoa, q / 1000., Nt, cx, alpha)
 
     return N0 * D**alpha * np.exp(-lamda * D), Nt, lamda, alpha
+
+
+def calc_NT_from_bins(ND):
+    """[summary]
+
+    Parameters
+    ----------
+    ND : [type]
+        [description]
+
+    Returns
+    -------
+    [type]
+        [description]
+    """
+    return calc_moment_bin(ND, moment=0)
+
+
+def calc_lwc_qr_from_bins(ND, rho):
+    """[summary]
+
+    Parameters
+    ----------
+    ND : [type]
+        [description]
+    rho : [type]
+        [description]
+
+    Returns
+    -------
+    [type]
+        [description]
+    """
+    M3 = calc_moment_bin(ND, moment=3)
+    LWC = cmr * M3
+    qr = LWC / rho
+
+    return LWC, qr
+
+
+def calc_dBZ_from_bins(ND):
+    """[summary]
+
+    Parameters
+    ----------
+    ND : [type]
+        [description]
+
+    Returns
+    -------
+    [type]
+        [description]
+    """
+    M6 = calc_moment_bin(ND, moment=6)
+    return 10. * np.log10(1.e18 * M6)
+
+
+def calc_synthetic_bins(D_min, D_max, num_bins):
+    """[summary]
+
+    Parameters
+    ----------
+    D_min : [type]
+        [description]
+    D_max : [type]
+        [description]
+    num_bins : [type]
+        [description]
+
+    Returns
+    -------
+    [type]
+        [description]
+    """
+    return np.linspace(D_min, D_max, num=num_bins)
+
+
+def fit_DSD_MM24(M2, M4):
+    """[summary]
+
+    Parameters
+    ----------
+    M2 : [type]
+        [description]
+    M4 : [type]
+        [description]
+
+    Returns
+    -------
+    [type]
+        [description]
+    """
+    lamda = np.where(M4 == 0.0, 0.0, ((M2 * gamma5) / (M4 * gamma3))**(1./2.))
+    N0 = (M2 * lamda**3.) / gamma3
+    mu = 0.
+    return N0, lamda, mu
+
+
+def fit_DSD_MM36(M3, M6):
+    """[summary]
+
+    Parameters
+    ----------
+    M3 : [type]
+        [description]
+    M6 : [type]
+        [description]
+
+    Returns
+    -------
+    [type]
+        [description]
+    """
+    lamda = np.where(M6 == 0.0, 0.0, ((M3 * gamma7) / (M6 * gamma4))
+                     ** (1. / 3.))
+    N0 = (M3 * lamda**4.) / gamma4
+    mu = 0.
+    return N0, lamda, mu
+
+
+def fit_DSD_MM346(M3, M4, M6):
+    """[summary]
+
+    Parameters
+    ----------
+    M3 : [type]
+        [description]
+    M4 : [type]
+        [description]
+    M6 : [type]
+        [description]
+
+    Returns
+    -------
+    [type]
+        [description]
+    """
+    G = (M4**3.) / ((M3**2.) * M6)
+    G = np.ma.masked_invalid(G)
+    mu = (11. * G - 8. + (G * (G + 8.))**(1. / 2.))/(2. * (1. - G))
+    mu = np.ma.masked_invalid(mu)
+    lamda = (M3 * (mu + 4.)) / M4
+    lamda = np.ma.masked_invalid(lamda)
+    N0 = (M3 * lamda**(mu + 4.))/(gamma_(mu + 4.))
+
+    return N0, lamda, mu
+
+
+def fit_DSD_MM246_old(M2, M4, M6):
+    """[summary]
+
+    Parameters
+    ----------
+    M2 : [type]
+        [description]
+    M4 : [type]
+        [description]
+    M6 : [type]
+        [description]
+
+    Returns
+    -------
+    [type]
+        [description]
+    """
+    G = np.where((M2 == 0.0) | (M6 == 0.0), 0.0, (M4**2.) / (M2*M6))
+    mu = np.where(G == 1.0, 0.0, ((7. - 11. * G) -
+                                  ((7. - 11. * G)**2. -
+                                   4. * (G - 1.) * (30. * G - 12.))**(1. / 2.)) /
+                  (2. * (G - 1.)))
+    mu = np.where(mu <= -4., -3.99, mu)
+    mu = np.where(mu > 30., 30., mu)
+    mu = np.ma.masked_where(M4 is np.ma.masked, mu)
+    lamda = np.where(M4 == 0.0, 0.0, ((M2 * (mu + 3.) * (mu + 4.)) / (M4))**(1. / 2.))
+    N0 = (M4*lamda**(mu + 5.))/(gamma_(mu + 5.))
+
+    return N0, lamda, mu
+
+
+def fit_DSD_MM246(M2, M4, M6, lamda_limit=20000., mu_limit=30.):
+    """[summary]
+
+    Parameters
+    ----------
+    M2 : [type]
+        [description]
+    M4 : [type]
+        [description]
+    M6 : [type]
+        [description]
+    lamda_limit : [type], optional
+        [description], by default 20000.
+    mu_limit : [type], optional
+        [description], by default 30.
+
+    Returns
+    -------
+    [type]
+        [description]
+    """
+    G = (M4**2.) / (M2 * M6)
+    G = np.ma.masked_invalid(G)
+    mu = ((7. - 11. * G) - ((7. - 11. * G)**2. - 4. * (G - 1.)
+                            * (30. * G - 12.))**(1. / 2.)) / (2. * (G - 1.))
+    mu = np.ma.masked_where(mu > mu_limit, mu)
+    mu = np.ma.masked_invalid(mu)
+    lamda = ((M2 * (mu + 3.) * (mu + 4.)) / (M4))**(1. / 2.)
+    mu = np.ma.masked_where((lamda > lamda_limit) | (mu > 30.), mu)
+    mu = np.ma.masked_invalid(mu)
+    lamda = np.ma.masked_where(lamda > lamda_limit, lamda)
+    lamda = np.ma.masked_invalid(lamda)
+    N0 = (M4 * lamda**(mu + 5.)) / (gamma_(mu + 5.))
+
+    return N0, lamda, mu
+
+
+def fit_DSD_MM234(M2, M3, M4):
+    """[summary]
+
+    Parameters
+    ----------
+    M2 : [type]
+        [description]
+    M3 : [type]
+        [description]
+    M4 : [type]
+        [description]
+
+    Returns
+    -------
+    [type]
+        [description]
+    """
+    mu = (3. * M2 * M4 - 4. * M3**2.) / (M3**2. - M2 * M4)
+    mu = np.ma.masked_invalid(mu)
+    lamda = (M3 * (mu + 4.)) / M4
+    lamda = np.ma.masked_invalid(lamda)
+    N0 = (M3 * lamda**(mu + 4.))/(gamma_(mu + 4.))
+
+    return N0, lamda, mu
+
+
+def get_max_min_diameters(ND):
+    """[summary]
+
+    Parameters
+    ----------
+    ND : [type]
+        [description]
+
+    Returns
+    -------
+    [type]
+        [description]
+    """
+    D_min = first_nonzero(ND, 0)
+    D_max = last_nonzero(ND, 0)
+
+    return D_min, D_max
+
+
+def fit_DSD_TMM(M2, M4, M6, D_min, D_max):
+    """[summary]
+
+    Parameters
+    ----------
+    M2 : [type]
+        [description]
+    M4 : [type]
+        [description]
+    M6 : [type]
+        [description]
+    D_min : [type]
+        [description]
+    D_max : [type]
+        [description]
+
+    Returns
+    -------
+    [type]
+        [description]
+    """
+    G = (M4**2.) / (M2 * M6)  # moment ratio based on untruncated moments
+    G = np.ma.masked_invalid(G)
+
+    # Get initial estimate of lamda and mu from the untruncated fit:
+    _, lamda_init, mu_init = fit_DSD_MM246(M2, M4, M6)
+
+    # TODO: make sure everything works with xarray and see if there's an efficient way to
+    # vectorize this algorithm across time. Maybe wrap Guifu's original fortran code is the
+    # best approach.
+    numtimes = np.size(M2)
+
+    mu_tmf = []
+    lamda_tmf = []
+    # N0_tmf = []
+
+    for t in range(numtimes):
+        LDmx = lamda_init[t] * D_max[t]
+        for x in range(10):
+            mu = mu_init[t]
+            # truncated moment ratio below. Equation A8 from Thurai
+            gm3 = gammap(3. + mu, LDmx) * np.exp(gammln(3. + mu))
+            gm5 = gammap(5. + mu, LDmx) * np.exp(gammln(5. + mu))
+            gm7 = gammap(7. + mu, LDmx) * np.exp(gammln(7. + mu))
+            z0 = G[t] - gm5**2. / gm3 / gm7
+            z1 = G[t] - gm5**2. / gm3 / gm7
+
+            while z1 / z0 > 0.0:
+                mu = mu - 0.01
+                gm3 = gammap(3. + mu, LDmx) * np.exp(gammln(3. + mu))
+                gm5 = gammap(5. + mu, LDmx) * np.exp(gammln(5. + mu))
+                gm7 = gammap(7. + mu, LDmx) * np.exp(gammln(7. + mu))
+                z1 = G[t] - gm5**2. / gm3 / gm7
+
+            lam_tmf = (M2[t] * gm5 / M4[t] / gm3)**0.5
+            LDmx = lam_tmf * D_max[t]
+        mu_tmf.append(mu)
+        lamda_tmf.append(lam_tmf)
+
+    mu_tmf = np.array(mu_tmf)
+    lamda_tmf = np.array(lamda_tmf)
+    LDmx = lamda_tmf * D_max
+    N0_tmf = (M4 * lamda_tmf**(5. + mu_tmf)) / \
+        (gammap(5. + mu_tmf, LDmx) * np.exp(gammln(5. + mu_tmf)))
+
+    return N0_tmf, lamda_tmf, mu_tmf
+
+
+def calc_binned_DSD_from_params(N0, lamda, mu, D):
+    """[summary]
+
+    Parameters
+    ----------
+    N0 : [type]
+        [description]
+    lamda : [type]
+        [description]
+    mu : [type]
+        [description]
+    D : [type]
+        [description]
+
+    Returns
+    -------
+    [type]
+        [description]
+    """
+    return N0 * (D / 1000.)**mu * np.exp(-lamda * D / 1000.)  # divide by 1000. -> mm to m

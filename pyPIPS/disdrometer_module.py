@@ -1933,9 +1933,9 @@ def readPIPSloc(filename, starttime=None, stoptime=None):
     # a 0d array instead of a scalar.  To remedy this, explicitly cast them as scalars
     # here.
 
-    lat = np.asscalar(lat)
-    lon = np.asscalar(lon)
-    alt = np.asscalar(alt)
+    lat = lat.item()
+    lon = lon.item()
+    alt = alt.item()
 
     dloc = (lat, lon, alt)
 
@@ -2038,9 +2038,9 @@ def readCUloc(filename, starttime=None, stoptime=None):
     # a 0d array instead of a scalar.  To remedy this, explicitly cast them as scalars
     # here.
 
-    lat = np.asscalar(lat)
-    lon = np.asscalar(lon)
-    alt = np.asscalar(alt)
+    lat = lat.item()
+    lon = lon.item()
+    alt = alt.item()
 
     dloc = (lat, lon, alt)
 
@@ -2119,8 +2119,17 @@ def readPIPStimerange(filename):
     return (firstdate, firsttime, datetimefirst), (lastdate, lasttime, datetimelast)
 
 
-def readPIPSstation(filename, fixGPS=True):
+def readPIPSstation(filename, fixGPS=True, starttimestamp=None, stoptimestamp=None):
     """Reads in just the data from a PIPS file that is needed for a station plot"""
+
+    if starttimestamp is not None:
+        starttime = datetime.strptime(starttimestamp, '%Y%m%d%H%M%S')
+    else:
+        starttime = None
+    if stoptimestamp is not None:
+        stoptime = datetime.strptime(stoptimestamp, '%Y%m%d%H%M%S')
+    else:
+        stoptime = None
 
     # dates = []
     # times = []
@@ -2158,6 +2167,14 @@ def readPIPSstation(filename, fixGPS=True):
         sec = np.int(time[6:8])
 
         datetimelogger = datetime(year, month, day, hour, min, sec)
+
+        # Skip this record if it lies before or after the desired period
+        if starttimestamp is not None:
+            if datetimelogger < starttime:
+                continue
+        if stoptimestamp is not None:
+            if datetimelogger > stoptime:
+                continue
 
         windspd = np.float(tokens[5])
         winddiag = np.float(tokens[6])
@@ -2784,6 +2801,7 @@ def calc_DSD(Nc_bin, rho, qrQC=False, qr_thresh=None,
 
     # Create several tuples to pack the data, and then return them
     # NOTE: Consider updating these to namedtuples
+    # FIXME: This is ridiculous. Use a dictionary!
 
     exp_DSD = (N_expDSD, N0_exp, lamda_exp, mu_exp, qr_exp, Ntr_exp, refl_DSD_exp, D_med_exp,
                D_m_exp)
@@ -2981,7 +2999,10 @@ def rad2DD(filename, dlocs):
     return dBZ_D_list
 
 
-def rad2DD2(fieldlist, range_start, range, azimuth_start_rad, azimuth_rad, rlat, rlon, ralt, el,
+# def rad2loc_pyart(fieldlist, radarsweep, )
+
+
+def rad2DD2(fieldlist, range_start, rrange, azimuth_start_rad, azimuth_rad, rlat, rlon, ralt, el,
             dlocs, average_gates=True, Cressman=False, roi=750., map_proj=1):
     """
     Another version of rad2DD: assumes radar sweep has been read in and computes values of fields in
@@ -2993,7 +3014,7 @@ def rad2DD2(fieldlist, range_start, range, azimuth_start_rad, azimuth_rad, rlat,
     # First find x,y locations of radar gates
 
     xrad, yrad, xrad_c, yrad_c = radar.sweep2xy(
-        azimuth_start_rad, azimuth_rad, range_start, range, el, rlat, rlon, ralt, map_proj)
+        azimuth_start_rad, azimuth_rad, range_start, rrange, el, rlat, rlon, ralt, map_proj)
 
     field_D_list = []
     dxy_list = []

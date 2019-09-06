@@ -1,0 +1,150 @@
+!
+!     ##################################################################
+!     ##################################################################
+!     ######                                                      ######
+!     ######       INPUT FILE FOR TMATRIX IN NAMELIST FORMAT      ######
+!     ######                 ( Version arps5.3 )                  ######
+!     ######                                                      ######
+!     ######                     Developed by                     ######
+!     ######     Center for Analysis and Prediction of Storms     ######
+!     ######                University of Oklahoma                ######
+!     ######                                                      ######
+!     ##################################################################
+!     ##################################################################
+!
+!-----------------------------------------------------------------------
+!
+!  This file contains the input parameters in the NAMELIST format
+!  used by tmatrix program.
+!  The original tmatrix program is written by J. Vivekanandan
+!     Reference: Vivekanandan et al. (J. Appl. Meteor., 1991)
+!  The program is reformatted and extended by Youngsun Jung.
+!
+!-----------------------------------------------------------------------
+!
+! Author:
+! Youngsun Jung (11/24/07)
+!
+! MODIFIED:
+! Dan Dawson (10/16/2012)
+!     Added two new options for uneven bins, controlled by parameter bin_opt
+! Jeff Snyder (05/2015)
+!     Added fwmini,fwint,NFW. Note that fwmin+fwint*(NFW-1)<=1.0
+! Youngsun Jung (10/24/2016)
+!     Simplified by reducing hail and graupel categories to a rimed ice 
+!
+!-----------------------------------------------------------------------
+!
+!  bin_opt = 0: original even sized bins
+!          = 1: exponential bins (based on Takahashi bin microphysics)
+!          = 2: OTT Parsivel bins
+!          = 10: mass doubling bins (based on Hebrew University bin model)
+!
+!  d0   minimum bin diameter (cm) (central value)
+!  bincst  Bin constant for exponential bins.  Formula for
+!          bin diameter: D(i) = (d0/2)*exp((i-1)/bincst)  
+!          For Takahashi, d0 = 4.0e-4 (m), bincst = 4.329 for rain,graupel
+!          and hail. ml = 34 for rain, 45 for graupel and hail
+!  binfname   For bin_opt=10 only. 
+!             Use PSD information stored in an external file.
+!             <NOTE> *** Set ml, iopt for all categories, set iopt and iaxisopt for non-rimed categories ***
+!
+!  ml      Number of size interval (bin).
+!          Bin size (for bin_opt == 0)  = Dcut (cm) / ml
+!                   (for bin_opt == 1)  = D(i)/bincst, where D(i) is 
+!                                         central diameter of bin i
+!
+!  Dcut    Maximum size of drop for (1) rain, (2) snow, (3) graupel/hail (cm)
+!
+!  iopt    Species option. 
+!          = 1 for raindrops
+!          = 2 for snow (dry to wet)
+!          = 3 for rimed ice including hail and graupel (dry to wet)
+!              <NOTE> Hail and graupel are essentially the same except for the density.
+!          = 5 for all 1 - 4
+!
+!   iaxisopt  Axis ratio option for rain
+!             = 1 Zhang's experimental fit
+!             = 2 Green exact
+!             = 3 Experimental fit
+!             = 4 Experimental Fit excluding Bread
+!             = 5 Bear and Chuang's formula
+!   absnow    Axis ratio option for snow
+!             iaxisopt = 0 Axis ratio assumed in the model microphysics (e.g. HUJI)
+!                      = 1 Constant axis ratio for snow (0.75)
+!                      = 2 From Ryzhkov et al. (2011) - combination of raindrop and dry snow apect ratio
+!                      = 3 Adjust diameter to that of partially melted snowflake of original diameter d
+!   abgrpl   Axis ratio for rimed ice
+!            iaxisopt = 1   Fixed axis ratio 0.75
+!                     = 2   Fit to Knight's Canada hailstorms (1986)
+!                     = 3   Fit for melting rimed ice <=1.2 cm in diameter (Fig. 6 Rasmussen e al. 1984)
+!                     = 4   Same as = 3 but with the fit from Zhang for rain for melting rimed ice <= 9.2 mm
+!                     = 5   Another fit  following Borowska et al. (2011, p. 62)
+!                     = 6   Same as = 5 except the axis ratio is interpolated between rain and Knight (1984) fit in =2
+!                     = 7   For new melting hail/graupel by Dawson (2014) based on Ryzhkov et al. (2011)
+!
+!  nm      Number of mode (or wave) in radial direction. Also called "azimuthal index".
+!          Larger number is recommended for the shorter wavelength radar.
+!  nrank   Number of T-matrices (Matrix order).
+!          Larger number is recommended for the shorter wavelength radar.
+!  NOTE> nm = 8 and nrank = 32 are recommended for X-band radars.
+!  alamd   Wave length of radar (cm).
+!          WSR-88D (10.7), CASA (3.19), OU Prime (5.445)
+!  anginc  Angle of incidence of the incident wave.
+!
+!  rhos    Density of snow (g/cm^3)
+!  rhog    Density of rimed ice (g/cm^3)
+!          The outfile name is "SCATT_GRPL_fwXXX_rhogXXXX.dat".
+!
+!  rhos_thom   Using varying snow relationship
+!              = 0 Constant snow density (default)
+!              = 1 Following Thompson et al. (2008)
+!              = 2 MY scheme following Brandes et al. (2007, JAMC)
+!
+!  rhos_thom   Using Thompson et al. (2008) varying snow relationship
+!              = 0 Not the Thompson scheme
+!              = 1 Thompson scheme
+!
+!  fwmin   Minimum fractional water (not used for iopt=1)
+!  fwint   Increment of fractional water.
+!  NFW     Number of fractional water levels (21 for 0 to 1 at 0.05 intervals)
+!
+!  irayleiopt  Option for Rayleigh scattering calculation.
+!              This option also produce phase data.
+!              (Mostly for verification purposes)
+!---------------------------------------------------------------------
+
+&tmatrix_paras
+
+  bin_opt = 2,
+    d0 = 4.0e-4,
+    bincst = 4.329,
+  ml = 100,
+  Dcut(1) = 0.8,
+  Dcut(2) = 3.0,
+  Dcut(3) = 7.0,
+  binfname = './HUJI_SNOW_psd.txt',
+
+  iopt = 1,
+    iaxisopt = 1,
+    absnow = 0.75,
+    abgrpl = 0.75,
+
+  nm =8,
+  nrank = 32,
+
+  alamd =   15.0,
+  anginc = 90.0,
+
+  rhos = 0.1,
+  rhog = 0.4,
+
+  snow_thom = 0,
+
+  fwmin=0.0,
+  fwint=0.05,
+  NFW=21,
+
+  irayleiopt = 0,
+
+/

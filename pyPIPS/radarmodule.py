@@ -52,10 +52,9 @@ def mtokm(val, pos):
     return '%i' % val
 
 # The following code is taken from the following URL:
-# http://stackoverflow.com/questions/2417794/how-to-make-the-angles-in-a-matplotlib-polar-plot-go-clockwise-with-0-at-the-to
+# http://stackoverflow.com/questions/2417794/
+# how-to-make-the-angles-in-a-matplotlib-polar-plot-go-clockwise-with-0-at-the-to
 # It defines a Polar projection with 0 degrees at the top and angles increasing clockwise
-
-
 class NorthPolarAxes(PolarAxes):
     '''
     A variant of PolarAxes where theta starts pointing north and goes
@@ -223,8 +222,8 @@ def getradarfilelist(radar_dir, radar_save_dir, starttime=None, stoptime=None, p
     return radar_filelist, radtimes
 
 
-def readCFRadial_pyART(nexrad, el, radlat, radlon, radalt, file, sweeptime, fieldnames,
-                       compute_kdp=True):
+def readCFRadial_pyART(el, filename, sweeptime, fieldnames, radlat=None, radlon=None,
+                       radalt=None, compute_kdp=True):
     """Reads radar data from a CFRadial netCDF file.  Attempts to extract fields given by
        the input list "fieldnames".  For nexrad files, which contain an entire volume
        (apparently), only the desired elevation angle will be returned.  The fields are
@@ -233,8 +232,8 @@ def readCFRadial_pyART(nexrad, el, radlat, radlon, radalt, file, sweeptime, fiel
 
     fieldlist = []
 
-    print("Opening file: ", file)
-    radarobj = pyart.io.read_cfradial(file)
+    print("Opening file: ", filename)
+    radarobj = pyart.io.read_cfradial(filename)
 
     elevs = radarobj.elevation['data']
 
@@ -262,7 +261,7 @@ def readCFRadial_pyART(nexrad, el, radlat, radlon, radalt, file, sweeptime, fiel
 
     # Grab the time information from the file
     if(not sweeptime):
-        sweeptime = _getsweeptime(file, True)
+        sweeptime = _getsweeptime(filename, True)
 
     print("Time of sweep = ", sweeptime.strftime(tm.timefmt))
 
