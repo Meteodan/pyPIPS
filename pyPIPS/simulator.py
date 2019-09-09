@@ -13,6 +13,7 @@ from . import radarmodule as radar
 from . import thermolib as thermo
 from .datahandler import getDataHandler
 from . import dualpara as dualpol
+from . import PIPS as pips
 import pyart as pyart
 import matplotlib.pyplot as plt
 from metpy.plots import ctables
@@ -36,12 +37,13 @@ Dedges = np.append(Dl, Dr[-1])
 bin_width = Dr - Dl
 
 
-def get_Dmax_index(Dmax):
+def get_Dmax_index(Dr, Dmax):
     if Dmax is not None:
         Dmax_index = np.searchsorted(Dr, Dmax / 1000., side='right')
     else:
-        Dmax_index = np.size(Dr)
-    return Dmax_index
+        Dmax_index = np.size(Dr) - 1
+        Dmax = Dr[Dmax_index] * 1000.
+    return Dmax, Dmax_index
 
 
 def samplegammaDSD(Nt, lamda, alpha, bins=None):
@@ -58,19 +60,16 @@ def samplegammaDSD(Nt, lamda, alpha, bins=None):
 
 
 def create_random_gamma_DSD(Nt, lamda, alpha, Vt, sampling_length, sampling_width, Dl, Dmid, Dr,
-                            Dmin=0, Dmax=20.0, sampling_interval=10., remove_margins=False,
+                            Dmin=0, Dmax=None, sampling_interval=10., remove_margins=False,
                             verbose=False, rhocorrect=False, rho=None, mask_lowest=True,
                             perturb_vel=True):
     """Given Nt, lamda, alpha, create a spatial distribution in a volume"""
     # First, determine the sampling volume. Use the sampling area A multiplied by the
     # depth that the fasted falling particle would cover in the time given by sampling_interval
-    if Dmax is None:
-        Dmax_index = np.size(Dr)
-    else:
-        Dmax_index = np.searchsorted(Dr, Dmax / 1000., side='right')
+    Dmax, Dmax_index = get_Dmax_index(Dr, Dmax)
     if verbose:
         print("Dmax_index = ", Dmax_index)
-    Vt = dis.assignfallspeed(Dmid * 1000., rhocorrect=rhocorrect, rho=rho)
+    # Vt = dis.assignfallspeed(Dmid * 1000., rhocorrect=rhocorrect, rho=rho)
     Vtmax = Vt[Dmax_index]
     sampling_height = Vtmax * sampling_interval
     sampling_area = sampling_length * sampling_width
@@ -98,7 +97,7 @@ def create_random_gamma_DSD(Nt, lamda, alpha, Vt, sampling_length, sampling_widt
     diameters = samplegammaDSD(n, lamda, alpha)
     if verbose:
         print("minimum, maximum diameter in sample = ", diameters.min(), diameters.max())
-        print("maximumm allowed diameter = ", Dmax / 1000.)
+        print("maximum allowed diameter = ", Dmax / 1000.)
     # Restrict diameters to be less than Dmax
     diameter_mask = diameters <= Dmax / 1000.
     if verbose:
@@ -116,14 +115,15 @@ def create_random_gamma_DSD(Nt, lamda, alpha, Vt, sampling_length, sampling_widt
 
     if verbose:
         print("number of particles within allowable diameter range = ", diameter_mask.sum())
-        print(
-            "minimum, maximum particle diameter in truncated sample = ",
-            diameters.min(),
-            diameters.max())
+        if diameter_mask.sum() > 0.:
+            print(
+                "minimum, maximum particle diameter in truncated sample = ",
+                diameters.min(),
+                diameters.max())
 
     # Now, figure out which drops in the volume won't fall through the sensor
     # area in the given time, and remove them
-    velocities = dis.assignfallspeed(diameters * 1000., rhocorrect=rhocorrect, rho=rho)
+    velocities = pips.calc_empirical_fallspeed(diameters * 1000., correct_rho=rhocorrect, rho=rho)
     # TODO: add gaussian perturbations to velocities as an option
     depths = velocities * sampling_interval
     keepers = np.where(zpos.squeeze() - depths <= 0.)
@@ -163,8 +163,10 @@ def create_random_gamma_DSD(Nt, lamda, alpha, Vt, sampling_length, sampling_widt
     # Bin up particles into the Parsivel diameter bins (later will add velocity too; right now all
     # particles are assumed to fall strictly along theoretical/empirical fall speed curve)
     Dedges = np.append(Dl, Dr[-1])
-    Dedges = Dedges[:Dmax_index + 1]
+    print(Dedges.shape)
+    # Dedges = Dedges[:Dmax_index + 1]
     pcount_binned, _ = np.histogram(diameters, Dedges)
+    # print('diameters shape, dedges shape, pcount_binned shape', diameters.shape, Dedges.shape, pcount_binned.shape)
     # Compute ND of sample in original Parsivel diameter and velocity bins
     # Gets particle count/unit volume/diameter interval
     ND = calc_ND(pcount_binned, sampling_volumes_D, Dr, Dl, Dmax)
@@ -179,20 +181,14 @@ def create_random_gamma_DSD(Nt, lamda, alpha, Vt, sampling_length, sampling_widt
 def calc_ND(pcount_binned, sampling_volumes_D, Dr, Dl, Dmax):
     """Calculate the number density ND for diameter bins bounded by Dr, Dl
        given the particle counts in each bin (pcount_binned)"""
-    if Dmax is None:
-        Dmax_index = np.size(Dr)
-    else:
-        Dmax_index = np.searchsorted(Dr, Dmax / 1000., side='right')
-    return pcount_binned / (sampling_volumes_D * (Dr[:Dmax_index] - Dl[:Dmax_index]))
+    Dmax, Dmax_index = get_Dmax_index(Dr, Dmax)
+    return pcount_binned / (sampling_volumes_D * (Dr[:Dmax_index+1] - Dl[:Dmax_index+1]))
 
 
 def calc_sampling_volumes_D(Vt, Dr, Dmax, sampling_interval, sampling_area):
     """Calculate the sampling volumes as a function of terminal velocity."""
-    if Dmax is None:
-        Dmax_index = np.size(Dr)
-    else:
-        Dmax_index = np.searchsorted(Dr, Dmax / 1000., side='right')
-    return Vt[:Dmax_index] * sampling_interval * sampling_area
+    Dmax, Dmax_index = get_Dmax_index(Dr, Dmax)
+    return Vt[:Dmax_index+1] * sampling_interval * sampling_area
 
 
 def uniquetol(a, tol=1.e-3):
@@ -1491,15 +1487,12 @@ def build_composite(model_dict, compositedict, dh, plotlocs=True):
     return varcompdict
 
 
-def calc_obs_transect(dis_dict, dis_ts_model_dict, Dmax=None, calc_fits=True,
+def calc_obs_transect(dis_dict, dis_ts_model_dict, Dr, Dmax=None, calc_fits=True,
                       plot_transects=False):
     """Gathers and computes DSD quantities based on disdrometer observations along transects.
        Optionally computes exponential and gamma fits based on MofM and MofTM and plots them."""
 
-    if Dmax is not None:
-        Dmax_index = np.searchsorted(Dr, Dmax / 1000., side='right')
-    else:
-        Dmax_index = np.size(Dr)
+    Dmax, Dmax_index = get_Dmax_index(Dr, Dmax)
 
     D0r_obs = []
     ND_obs = []
@@ -1647,7 +1640,7 @@ def calc_obs_transect(dis_dict, dis_ts_model_dict, Dmax=None, calc_fits=True,
     return transect_DSD_obs_dict
 
 
-def interp_model_to_transect(dis_dict, model_dict, dis_ts_model_dict,
+def interp_model_to_transect(dis_dict, model_dict, dis_ts_model_dict, Dr,
                              sampling_interval=60., add_hail=False, use_bins_for_interp=False,
                              use_Parsivel_simulator=False, Dmax=None, plot_transects=False):
     """Interpolates model variables, including bulk DSDs, to a simulated disdrometer transect.
@@ -1659,10 +1652,7 @@ def interp_model_to_transect(dis_dict, model_dict, dis_ts_model_dict,
        use_Parsivel_simulator: if True, sample the model DSDs using the Parsivel simulator. If
        False, keep the raw DSDs."""
 
-    if Dmax is not None:
-        Dmax_index = np.searchsorted(Dr, Dmax / 1000., side='right')
-    else:
-        Dmax_index = np.size(Dr)
+    Dmax, Dmax_index = get_Dmax_index(Dr, Dmax)
 
     # TODO: allow for adding hail but still
     if not use_bins_for_interp and add_hail:
@@ -1972,3 +1962,26 @@ def interp_model_to_transect(dis_dict, model_dict, dis_ts_model_dict,
         transect_DSD_dict.update({'ND_ps': ND_ps_list, 'D0r_ps': D0r_mod_ps})
 
     return transect_DSD_dict
+
+
+def get_ARPS_member_dir_and_prefix(member, cycle):
+    """
+    Gets the proper form for the subdirectory and file prefix name given a member number
+    and cycle type (either 'posterior' or 'prior'). member number 0 is interpreted as the mean.
+    """
+    if member == 0:
+        if cycle in 'posterior':
+            member_dir = 'ENamean'
+            member_prefix = 'enmean'
+        elif cycle in 'prior':
+            member_dir = 'ENfmean'
+            member_prefix = 'efmean'
+    else:
+        if cycle in 'posterior':
+            member_dir = 'EN{:03d}'.format(int(member))
+            member_prefix = 'ena{:03d}'.format(int(member))
+        elif cycle in 'prior':
+            member_dir = 'ENF{:03d}'.format(int(member))
+            member_prefix = 'enf{:03d}'.format(int(member))
+
+    return member_dir, member_prefix

@@ -1,4 +1,5 @@
 # plotmodule.py: A module containing some functions related to plotting model output
+import os
 import numpy as N
 import matplotlib
 import matplotlib.pyplot as plt
@@ -692,7 +693,7 @@ def plotDSDderivedmeteograms(dis_index, pc, ib, **PSDderiveddict):
         plt.close(fig)
 
 
-def plotDSDmeteograms(dis_name, image_dir, axparams, disvars, radvars, close_fig=True):
+def plotDSDmeteograms(dis_name, image_dir, axparams, disvars, radvars=None, close_fig=True):
     """Plots one or more meteograms of disdrometer number concentrations vs. diameter bins,
        along with one or more derived variables and optionally radar variables for comparison.
        One meteogram is plotted per dualpol variable (i.e. Z,ZDR,KDP,RHV)"""
@@ -704,11 +705,12 @@ def plotDSDmeteograms(dis_name, image_dir, axparams, disvars, radvars, close_fig
         print("No DSD info to plot! Quitting!")
         return
     D_0_dis = disvars.get('D_0', N.empty((0)))
-    # D_0_rad = radvars.get('D_0_rad', N.empty((0)))
-    radmidtimes = radvars.get('radmidtimes', N.empty((0)))
     dBZ_ray_dis = disvars.get('dBZ_ray', N.empty((0)))
     flaggedtimes = disvars.get('flaggedtimes', N.empty((0)))
     hailflag = disvars.get('hailflag', N.empty((0)))
+    if radvars is not None:
+        # D_0_rad = radvars.get('D_0_rad', N.empty((0)))
+        radmidtimes = radvars.get('radmidtimes', N.empty((0)))
 
     # Try to find the desired dualpol variables for plotting in the provided dictionary
 
@@ -728,7 +730,10 @@ def plotDSDmeteograms(dis_name, image_dir, axparams, disvars, radvars, close_fig
     # Start the plotting loop
     for dualpol_dis_varname, dualpol_dis_var in zip(dualpol_dis_varnames, dualpol_dis_vars):
         # See if the variable is also provided in the radvars dictionary
-        dualpol_rad_var = radvars.get(dualpol_dis_varname, N.empty((0)))
+        if radvars is not None:
+            dualpol_rad_var = radvars.get(dualpol_dis_varname, N.empty((0)))
+        else:
+            dualpol_rad_var = None
 
         # Create the figure
         fig = plt.figure(figsize=(8, 3))
@@ -837,9 +842,11 @@ def plotDSDmeteograms(dis_name, image_dir, axparams, disvars, radvars, close_fig
 
         axes = set_meteogram_axes(axes, axparamdicts)
         if(dualpol_dis_varname):
-            plt.savefig(image_dir + dis_name + '_' + dualpol_dis_varname + '_logNc.png', dpi=300)
+            figpath = os.path.join(image_dir, dis_name + '_' + dualpol_dis_varname + '_logNc.png')
+            plt.savefig(figpath, dpi=300)
         else:
-            plt.savefig(image_dir + dis_name + '_logNc.png', dpi=300)
+            figpath = os.path.join(image_dir, dis_name + '_logNc.png')
+            plt.savefig(figpath, dpi=300)
         if close_fig:
             plt.close(fig)
 

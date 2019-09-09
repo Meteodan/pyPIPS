@@ -232,7 +232,7 @@ def resample_vd_matrix(resample_interval, vd_matrix):
     return vd_matrix
 
 
-def resampleParsivel(resample_interval, parsivel_df):
+def resample_parsivel(resample_interval, parsivel_df):
     """[summary]
 
     Parameters
@@ -524,3 +524,20 @@ def rad2DD2(fieldlist, range_start, rrange, azimuth_start_rad, azimuth_rad, rlat
     field_D_arr = np.array(field_D_list)
 
     return dxy_list, field_D_arr
+
+
+def get_PSD_datetimes(vd_matrix, dim_name='time_10s'):
+    return pd.to_datetime(vd_matrix[dim_name].values).to_pydatetime()
+
+
+def get_PSD_time_bins(PSD_datetimes):
+    PSD_interval_td = PSD_datetimes[1] - PSD_datetimes[0]
+    PSD_half_interval_td = PSD_interval_td / 2.
+
+    PSD_datetimes_edges = PSD_datetimes - PSD_interval_td
+    last_edge = np.array(PSD_datetimes_edges[-1] + PSD_interval_td)
+    PSD_datetimes_edges = np.append(PSD_datetimes_edges, last_edge)
+    PSD_datetimes_centers = PSD_datetimes - PSD_half_interval_td
+
+    return {'PSD_datetimes': PSD_datetimes, 'PSD_datetimes_edges': PSD_datetimes_edges,
+            'PSD_datetimes_centers': PSD_datetimes_centers}

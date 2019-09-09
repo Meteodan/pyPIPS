@@ -6,7 +6,7 @@ Some of these were originally written in fortran but re-written using python and
 import numpy as np
 from scipy.special import gamma as gamma_, gammainc as gammap, gammaln as gammln
 from . import thermolib as thermo
-from .utils import first_nonzero, last_nonzero
+from .utils import first_nonzero, last_nonzero, enable_xarray_wrapper
 
 # Some physical constants
 rhol = 1000.  # density of liquid water (kg / m^3)
@@ -113,6 +113,7 @@ def calc_Nt_gamma(rhoa, q, N0, cx, alpha):
     return Ntx
 
 
+@enable_xarray_wrapper
 def calc_lamda_gamma(rhoa, q, Ntx, cx, alpha):
     """!
     !-----------------------------------------------------------------------
@@ -141,11 +142,11 @@ def calc_lamda_gamma(rhoa, q, Ntx, cx, alpha):
     return lamda
 
 
+@enable_xarray_wrapper
 def calc_N0_gamma(rhoa, q, Ntx, cx, alpha):
     """!
     !-----------------------------------------------------------------------
-    !  PURPOSE:  Calculates intercept parameter and normalized intercept parameter
-    !            (after Testud et al. 2001) for a gamma distribution
+    !  PURPOSE:  Calculates intercept parameter for a gamma distribution
     !
     !-----------------------------------------------------------------------
     !
@@ -169,7 +170,6 @@ def calc_N0_gamma(rhoa, q, Ntx, cx, alpha):
     !     """
 
     gamma1alp = gamma_(1.0 + alpha)
-    gamma4alp = gamma_(4.0 + alpha)
 
     lamda = calc_lamda_gamma(rhoa, q, Ntx, cx, alpha)
     lamda = lamda.astype(np.float64)
@@ -180,15 +180,46 @@ def calc_N0_gamma(rhoa, q, Ntx, cx, alpha):
 
     N0 = Ntx * lamda**(0.50 * (1.0 + alpha)) * \
         (1.0 / gamma1alp) * lamda**(0.50 * (1.0 + alpha))
+    N0 = np.where(lamda >= 0.0, N0, 0.0)
+    return N0
+
+
+@enable_xarray_wrapper
+def calc_N0_norm_gamma(N0, alpha, lamda):
+    """!
+    !-----------------------------------------------------------------------
+    !  PURPOSE:  Calculates normalized intercept parameter for a gamma distribution
+    !            after Testud et al. (2001)
+    !-----------------------------------------------------------------------
+    !
+    !  AUTHOR: Dan Dawson
+    !  (02/06/2008)
+    !
+    !  MODIFICATION HISTORY:
+    !
+    !  (03/26/2008)
+    !  Recast N0 as a double precision variable, and used double precision for
+    !  all intermediate calculations.  The calling subroutine should
+    !  also define it as double precision.  For situations with large alpha,
+    !  N0 can become very large, and loss of precision can result.
+    !  Also tweaked the calculation of N0 a bit to avoid overflow, in keeping
+    !  With Jason Milbrandt's calculation of N0 just before evaporation in
+    !  the multi-moment code.
+    !
+    !-----------------------------------------------------------------------
+    !  Variable Declarations:
+    !-----------------------------------------------------------------------
+    !     """
+    gamma4alp = gamma_(4.0 + alpha)
 
     N0_norm = N0 * (((4.0 + alpha) / lamda) **
                     alpha) * gamma4alp * (128.0 / 3.0) / \
         ((4.0 + alpha)**(4.0 + alpha))
-    N0 = np.where(lamda >= 0.0, N0, 0.0)
     N0_norm = np.where(lamda >= 0.0, N0_norm, 0.0)
-    return N0, N0_norm
+    return N0_norm
 
 
+@enable_xarray_wrapper
 def calc_Dm_gamma(rhoa, q, Ntx, cx):
     """!
     !-----------------------------------------------------------------------
@@ -211,6 +242,7 @@ def calc_Dm_gamma(rhoa, q, Ntx, cx):
     return Dm
 
 
+@enable_xarray_wrapper
 def calc_D0_gamma(rhoa, q, Ntx, cx, alpha):
     """!
     !-----------------------------------------------------------------------
@@ -315,6 +347,7 @@ def calc_D0_bin(ND):
     return D0
 
 
+@enable_xarray_wrapper
 def diag_alpha(varid_qscalar, Dm):
     """!
     !-----------------------------------------------------------------------
@@ -359,6 +392,7 @@ def diag_alpha(varid_qscalar, Dm):
     return alpha
 
 
+@enable_xarray_wrapper
 def solve_alpha(rhoa, cx, q, Ntx, Z):
     """!
     !-----------------------------------------------------------------------
@@ -939,7 +973,7 @@ def fit_DSD_TMM(M2, M4, M6, D_min, D_max):
     return N0_tmf, lamda_tmf, mu_tmf
 
 
-def calc_binned_DSD_from_params(N0, lamda, mu, D):
+def calc_binned_DSD_from_params(N0, lamda, alpha, D):
     """[summary]
 
     Parameters
@@ -948,7 +982,7 @@ def calc_binned_DSD_from_params(N0, lamda, mu, D):
         [description]
     lamda : [type]
         [description]
-    mu : [type]
+    alpha : [type]
         [description]
     D : [type]
         [description]
@@ -958,4 +992,37 @@ def calc_binned_DSD_from_params(N0, lamda, mu, D):
     [type]
         [description]
     """
-    return N0 * (D / 1000.)**mu * np.exp(-lamda * D / 1000.)  # divide by 1000. -> mm to m
+
+    # Get D to m
+    D = D / 1000.
+
+    return 1.e-3 * N0 * D**alpha * np.exp(-lamda * D)  # Units are m^-3 mm^-1
+
+
+def calc_rain_axis_ratio(D, fit_name='Brandes_2002'):
+    """[summary]
+
+    Parameters
+    ----------
+    D : [type]
+        [description]
+    fit_name : str, optional
+        [description], by default 'Brandes_2002'
+
+    Returns
+    -------
+    [type]
+        [description]
+    """
+    if fit_name == 'Brandes_2002':
+        ar = 0.9951 + 0.0251*D - 0.03644*D**2. + 0.005303*D**3. - 0.0002492*D**4.
+    elif fit_name == 'Green_1975_exact':
+        ar = 1.0148 - 0.020465*D - 0.020048*D**2. + 3.095e-3*D**3. - 1.453e-4*D**4.
+    elif fit_name == 'experimental':
+        ar = 1.0162 + 0.009714*D - 0.033*D**2. + 5.0424e-3*D**3. - 2.458e-4*D**4.
+    elif fit_name == 'experimental_no_beard':
+        ar = 1.0 + 0.01367*D - 0.03299*D**2. + 4.853e-3*D**3. - 2.26e-4*D**4.
+    elif fit_name == 'Beard_Chuang_1987':
+        ar = 1.0048 + 5.7e-4*D - 2.628e-2*D**2. + 3.682e-3*D**3. - 1.627e-4*D**4.
+
+    return ar
