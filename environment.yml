@@ -6,11 +6,13 @@ dependencies:
   - arm_pyart
   - asn1crypto
   - astroid
+  - attrs
   - autopep8
   - backcall
   - basemap
+  - basemap-data-hires
   - beautifulsoup4
-  - blas
+  - bleach
   - boost-cpp
   - bzip2
   - ca-certificates
@@ -20,13 +22,21 @@ dependencies:
   - cffi
   - cftime
   - chardet
+  - cloudpickle
+  - colorama
+  - conda-package-handling
   - cryptography
-  - cryptography-vectors
   - curl
   - cycler
+  - cytoolz
+  - dask-core
+  - dbus
   - decorator
+  - defusedxml
   - entrypoints
+  - esmf
   - expat
+  - flake8
   - fontconfig
   - freetype
   - freexl
@@ -35,19 +45,30 @@ dependencies:
   - geotiff
   - gettext
   - giflib
+  - gitdb2
+  - gitpython
   - glib
+  - gsl
   - hdf4
   - hdf5
   - hdfeos2
   - hdfeos5
   - icu
   - idna
-  - intel-openmp
+  - imageio
+  - ipydatawidgets
   - ipykernel
+  - ipyscales
+  - ipython
   - ipython_genutils
+  - ipyvolume
+  - ipywebrtc
   - ipywidgets
   - isort
   - jasper
+  - jedi
+  - jinja2
+  - joblib
   - jpeg
   - json-c
   - jsonschema
@@ -59,8 +80,12 @@ dependencies:
   - kiwisolver
   - krb5
   - lazy-object-proxy
+  - libarchive
+  - libblas
+  - libcblas
   - libcurl
   - libcxx
+  - libcxxabi
   - libdap4
   - libedit
   - libffi
@@ -68,6 +93,7 @@ dependencies:
   - libgfortran
   - libiconv
   - libkml
+  - liblapack
   - libnetcdf
   - libpng
   - libpq
@@ -78,26 +104,33 @@ dependencies:
   - libuuid
   - libxml2
   - libxslt
-  - llvm-meta
+  - llvm-openmp
   - lxml
+  - lz4-c
+  - lzo
+  - markupsafe
   - matplotlib
   - matplotlib-base
   - mccabe
   - metpy
   - mistune
-  - mkl
-  - mkl_fft
-  - mkl_random
+  - mpi
+  - mpich
+  - natsort
   - nbconvert
+  - nbdime
   - nbformat
+  - ncl
   - ncurses
+  - netcdf-fortran
   - netcdf4
+  - networkx
   - notebook
   - numpy
-  - numpy-base
   - olefile
   - openblas
   - openjpeg
+  - openmp
   - openssl
   - owslib
   - packaging
@@ -106,6 +139,8 @@ dependencies:
   - pandocfilters
   - parso
   - pcre
+  - pexpect
+  - pickleshare
   - pillow
   - pint
   - pip
@@ -117,12 +152,16 @@ dependencies:
   - proj4
   - prometheus_client
   - prompt_toolkit
+  - ptyprocess
   - pycodestyle
+  - pycosat
   - pycparser
   - pyepsg
+  - pyflakes
   - pygments
   - pykdtree
   - pylint
+  - pyngl
   - pynio
   - pyopenssl
   - pyparsing
@@ -133,29 +172,39 @@ dependencies:
   - pysocks
   - python
   - python-dateutil
+  - python-libarchive-c
+  - pythreejs
   - pytz
+  - pywavelets
   - pyzmq
   - qt
   - qtconsole
   - readline
   - requests
+  - ruamel_yaml
+  - scikit-image
   - scipy
   - send2trash
   - setuptools
   - shapely
   - sip
   - six
+  - smmap2
   - soupsieve
   - sqlite
   - terminado
   - testpath
   - tk
+  - toolz
   - tornado
+  - tqdm
   - traitlets
+  - traittypes
   - trmm_rsl
-  - typed-ast
   - tzcode
+  - udunits2
   - urllib3
+  - wcwidth
   - webencodings
   - wheel
   - widgetsnbextension
@@ -163,43 +212,9 @@ dependencies:
   - xarray
   - xerces-c
   - xz
+  - yaml
   - zeromq
   - zlib
-  - pip:
-    - git+https://github.rcac.purdue.edu/stormlab/pyCRMtools
-    - alabaster
-    - appnope
-    - atomicwrites
-    - attrs
-    - babel
-    - codecov
-    - colorama
-    - coverage
-    - docutils
-    - flake8
-    - gitdb2
-    - gitpython
-    - imagesize
-    - ipython
-    - jedi
-    - jinja2
-    - markupsafe
-    - more-itertools
-    - nbdime
-    - numpydoc
-    - pexpect
-    - pickleshare
-    - pluggy
-    - ptyprocess
-    - py
-    - pyflakes
-    - pytest
-    - smmap2
-    - snowballstemmer
-    - sphinx
-    - sphinx-copybutton
-    - sphinx-rtd-theme
-    - sphinxcontrib-websupport
-    - wcwidth
-prefix: /Users/dawson29/anaconda2/envs/pyPIPS
+  - zstd
+prefix: /Users/dawson29/miniconda3/envs/pyPIPS
 
