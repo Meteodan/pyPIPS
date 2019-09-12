@@ -34,26 +34,24 @@ from datetime import datetime
 # Location of input files. You should only need to change these for your particular
 # dataset.
 
-_PIPS_data_dir = '/Users/ddawson/Dropbox/PIPS_data/SPOTTR2018/052918/PIPS1B/converted/'
+_PIPS_data_dir = '/Users/ddawson/Dropbox/PIPS_data/SPOTTR2019/051919_test/converted/PIPS1A/'
 _output_filename = 'PIPS_merged.txt'
 
 fieldnames_onesec = ['TIMESTAMP', 'RECORD', 'BattV', 'PTemp_C', 'WindDir', 'WS_ms',
-                     'WSDiag', 'FastTemp', 'SlowTemp', 'RH', 'Pressure(1)', 'FluxDirection',
+                     'WSDiag', 'FastTemp', 'SlowTemp', 'RH', 'Pressure', 'FluxDirection',
                      'GPSTime', 'GPSStatus', 'GPSLat', 'GPSLon', 'GPSSpd', 'GPSDir',
                      'GPSDate', 'GPSMagVar', 'GPSAlt']
-# Newer versions of these files have "Pressure" instead of "Pressure(1)" for some reason
-# Also the "RECORD" field has been removed.
-fieldnames_onesecv2 = [field if field != 'Pressure(1)' else 'Pressure'
-                       for field in fieldnames_onesec]
+# In newer versions of the file, the "RECORD" field has been removed.
+fieldnames_onesecv2 = fieldnames_onesec[:]
 fieldnames_onesecv2.remove('RECORD')
 fieldnames_onesec_TriPIPS = fieldnames_onesec[:]
 fieldnames_onesec_TriPIPS.remove('FastTemp')
 fieldnames_onesec_TriPIPSv2 = fieldnames_onesecv2[:]
 fieldnames_onesec_TriPIPSv2.remove('FastTemp')
 
-print(fieldnames_onesec_TriPIPS)
-
 fieldnames_tensec = ['TIMESTAMP', 'RECORD', 'ParsivelStr']
+fieldnames_tensecv2 = fieldnames_tensec[:]
+fieldnames_tensecv2.remove('RECORD')
 
 fieldnames_output = ['TIMESTAMP', 'BattV', 'PTemp_C', 'WindDir', 'WS_ms', 'WSDiag',
                      'FastTemp', 'SlowTemp', 'RH', 'Pressure', 'FluxDirection', 'GPSTime',
@@ -69,6 +67,9 @@ fieldnames_output_TriPIPS.remove('FastTemp')
 
 def process_onesec_record(row):
     """Processes a single row from a 1-s data file"""
+    # First, remove the "RECORD" item if it exists
+    if 'RECORD' in row:
+        row.pop('RECORD')
     for field, value in row.items():
         value = value.strip()
         # First, strip out all quotes from each field
@@ -87,21 +88,26 @@ def process_onesec_record(row):
                 pass
         row[field] = value
     # Parse GPS latitude and longitude
-    tokens = row['GPSLat'].strip().split()
     try:
-        row['GPSLat'] = '{:7.4f}'.format(N.float(tokens[0]) / 100.)
-        row['GPSLatHem'] = tokens[1]
-    except BaseException:
+        tokens = row['GPSLat'].strip().split()
+        try:
+            row['GPSLat'] = '{:7.4f}'.format(N.float(tokens[0]) / 100.)
+            row['GPSLatHem'] = tokens[1]
+        except BaseException:
+            row['GPSLat'] = 'NaN'
+            row['GPSLatHem'] = ''
+        tokens = row['GPSLon'].strip().split()
+        try:
+            row['GPSLon'] = '{:7.4f}'.format(N.float(tokens[0]) / 100.)
+            row['GPSLonHem'] = tokens[1]
+        except BaseException:
+            row['GPSLon'] = 'NaN'
+            row['GPSLonHem'] = ''
+    except Exception:
         row['GPSLat'] = 'NaN'
         row['GPSLatHem'] = ''
-    tokens = row['GPSLon'].strip().split()
-    try:
-        row['GPSLon'] = '{:7.4f}'.format(N.float(tokens[0]) / 100.)
-        row['GPSLonHem'] = tokens[1]
-    except BaseException:
         row['GPSLon'] = 'NaN'
         row['GPSLonHem'] = ''
-
     return row
 
 
@@ -110,6 +116,7 @@ def process_tensec_record(row):
     for field, value in row.items():
         # First, strip out all quotes from each field
         value = value.replace('"', '')
+        value = value.replace('\n', '')
         # Convert strings to numeric values where appropriate
         try:
             value = N.float(value)
@@ -199,6 +206,14 @@ def readData(PIPS_data_dir):
             next(f)  # Read and discard first header line
             # The field names are contained in the second header line
             fieldnames = next(f).strip().replace('"', '').split(',')
+            # Some corrupt files have split the first header line into two. Try to detect that
+            # here and discard the extra line
+            if 'TIMESTAMP' not in fieldnames[0]:
+                fieldnames = next(f).strip().replace('"', '').split(',')
+            # Some versions of the file have 'Pressure(1)' instead of 'Pressure'. Just change it
+            # to 'Pressure'
+            fieldnames = [field if field != 'Pressure(1)' else 'Pressure'
+                          for field in fieldnames]
             if fieldnames == fieldnames_onesec or fieldnames == fieldnames_onesecv2:
                 print("We are dealing with an original PIPS data file!")
                 TriPIPS = False
@@ -208,7 +223,7 @@ def readData(PIPS_data_dir):
                 TriPIPS = True
             else:
                 print(fieldnames, '\n',
-                      fieldnames_onesec_TriPIPSv2)
+                      fieldnames_onesec)
                 sys.exit("Something's wrong with this file, aborting!")
             # print fieldnames
             next(f)  # Read and discard third header line
@@ -220,7 +235,6 @@ def readData(PIPS_data_dir):
             # https://stackoverflow.com/questions/14091387/creating-a-dictionary-from-a-csv-file
             reader = csv.DictReader(f, fieldnames=fieldnames)
             for row in reader:
-                # print row
                 # Process the dictionary of values in each row
                 row = process_onesec_record(row)
                 for column, value in row.items():
@@ -232,11 +246,21 @@ def readData(PIPS_data_dir):
     for i, file in enumerate(filelist_tensec):
         print("Reading 10-s data file: ", os.path.basename(file))
         with open(file) as f:
-            next(f)  # Read and discard first header line
+            try:
+                next(f)  # Read and discard first header line
+            except Exception:
+                print('File has no data. Skipping!')
+                continue
             # The field names are contained in the second header line
             fieldnames = next(f).strip().replace('"', '').split(',')
-            if (fieldnames != fieldnames_tensec):
-                sys.exit("Something's wrong with this file, aborting!")
+            # Some corrupt files have split the first header line into two. Try to detect that
+            # here and discard the extra line
+            if 'TIMESTAMP' not in fieldnames[0]:
+                fieldnames = next(f).strip().replace('"', '').split(',')
+            if (fieldnames != fieldnames_tensec and fieldnames != fieldnames_tensecv2):
+                # print(fieldnames, fieldnames_tensec, fieldnames_tensecv2)
+                # sys.exit("Something's wrong with this file, aborting!")
+                print("Something's wrong with this file, skipping!")
             # print fieldnames
             next(f)  # Read and discard third header line
             next(f)  # Read and discard fourth header line
@@ -247,7 +271,6 @@ def readData(PIPS_data_dir):
             # https://stackoverflow.com/questions/14091387/creating-a-dictionary-from-a-csv-file
             reader = csv.DictReader(f, fieldnames=fieldnames)
             for row in reader:
-                # print row
                 # Process the dictionary of values in each row
                 row = process_tensec_record(row)
                 for column, value in row.items():

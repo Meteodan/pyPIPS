@@ -35,6 +35,9 @@ fieldnames = ['TIMESTAMP', 'RECORD', 'BattV', 'PTemp_C', 'WindDir', 'WS_ms', 'WS
               'GPSDate', 'GPSMagVar', 'GPSAlt', 'WindDirAbs', 'Dewpoint', 'RHDer',
               'ParsivelStr']
 
+fieldnames_v2 = fieldnames[:]
+fieldnames_v2.remove('RECORD')
+
 fieldnames_TriPIPS = fieldnames[:]
 fieldnames_TriPIPS.remove('FastTemp')
 fieldnames_TriPIPS.remove('RECORD')
@@ -485,6 +488,11 @@ def readPIPS(filename, fixGPS=True, basicqc=False, rainfallqc=False, rainonlyqc=
         tokens = line.strip().split(',')
         # Check for header line (older versions don't have it)
         if(tokens[0] == 'TIMESTAMP'):
+            # Figure out which version we are reading in
+            if 'RECORD' in tokens:
+                curfieldnames = fieldnames
+            else:
+                curfieldnames = fieldnames_v2
             continue
 
         timestamp = tokens[curfieldnames.index('TIMESTAMP')]
@@ -512,6 +520,10 @@ def readPIPS(filename, fixGPS=True, basicqc=False, rainfallqc=False, rainonlyqc=
             fasttemp = np.float(tokens[curfieldnames.index('FastTemp')])
         slowtemp = np.float(tokens[curfieldnames.index('SlowTemp')])
         if tripips:
+            fasttemp = slowtemp
+        # Hack to fix problem with fast temp sensor on PIPS 2A that I noticed on a couple
+        # deployments. Can evolve this for a more general basic error checking code
+        if np.abs(fasttemp - slowtemp) > 5.:
             fasttemp = slowtemp
         RH = np.float(tokens[curfieldnames.index('RH')])
         pressure = np.float(tokens[curfieldnames.index('Pressure')])
@@ -1852,8 +1864,14 @@ def readPIPSdf(filename, fixGPS=True, basicqc=False, rainfallqc=False,
             DSD_interval, intervalstr)
 
 
-def readPIPSloc(filename, starttime=None, stoptime=None):
+def readPIPSloc(filename, starttime=None, stoptime=None, tripips=False):
     """Reads the location of the PIPS from the data file.  Averages all valid GPS lat/lons"""
+
+    # Figure out which version we are reading in
+    if tripips:
+        curfieldnames = fieldnames_TriPIPS
+    else:
+        curfieldnames = fieldnames
 
     if starttime is not None:
         starttimestamp = datetime(np.int(starttime[:4]), np.int(starttime[4:6]), np.int(
@@ -1877,9 +1895,14 @@ def readPIPSloc(filename, starttime=None, stoptime=None):
         tokens = line.strip().split(',')
         # Check for header line (older versions don't have it)
         if(tokens[0] == 'TIMESTAMP'):
+            # Figure out which version we are reading in
+            if 'RECORD' in tokens:
+                curfieldnames = fieldnames
+            else:
+                curfieldnames = fieldnames_v2
             continue
 
-        timestamp = tokens[0]
+        timestamp = tokens[curfieldnames.index('TIMESTAMP')]
         timestring = timestamp.strip().split()
         date = timestring[0]  # .strip('-')
         time = timestring[1]  # .strip(':')
@@ -1901,14 +1924,25 @@ def readPIPSloc(filename, starttime=None, stoptime=None):
             if datetimelogger > stoptimestamp:
                 continue
 
-        GPS_status = tokens[13]
-        GPS_lat = np.float(tokens[14])
-        GPS_lat_hem = tokens[15]
+        GPS_time = tokens[curfieldnames.index('GPSTime')]
+        GPS_status = tokens[curfieldnames.index('GPSStatus')]
+        GPS_lat = np.float(tokens[curfieldnames.index('GPSLat')])
+        GPS_lat_hem = tokens[curfieldnames.index('GPSLatHem')]
         GPS_lat = DDMtoDD(GPS_lat, GPS_lat_hem)
-        GPS_lon = np.float(tokens[16])
-        GPS_lon_hem = tokens[17]
+        GPS_lon = np.float(tokens[curfieldnames.index('GPSLon')])
+        GPS_lon_hem = tokens[curfieldnames.index('GPSLonHem')]
         GPS_lon = DDMtoDD(GPS_lon, GPS_lon_hem)
-        GPS_alt = np.float(tokens[22])
+        # GPS_spd = np.float(tokens[18])
+        # GPS_dir = np.float(tokens[19])
+        GPS_date = tokens[curfieldnames.index('GPSDate')]
+        # try:
+        #     GPS_magvar = np.float(tokens[21])
+        # except BaseException:
+        #     GPS_magvar = np.nan
+        try:
+            GPS_alt = np.float(tokens[curfieldnames.index('GPSAlt')])
+        except ValueError:
+            GPS_alt = np.nan
 
         GPS_lats.append(GPS_lat)
         GPS_lons.append(GPS_lon)
@@ -1933,9 +1967,9 @@ def readPIPSloc(filename, starttime=None, stoptime=None):
     # a 0d array instead of a scalar.  To remedy this, explicitly cast them as scalars
     # here.
 
-    lat = np.asscalar(lat)
-    lon = np.asscalar(lon)
-    alt = np.asscalar(alt)
+    lat = lat.item() # np.asscalar(lat)
+    lon = lon.item() # np.asscalar(lon)
+    alt = alt.item() # np.asscalar(alt)
 
     dloc = (lat, lon, alt)
 
@@ -2038,9 +2072,9 @@ def readCUloc(filename, starttime=None, stoptime=None):
     # a 0d array instead of a scalar.  To remedy this, explicitly cast them as scalars
     # here.
 
-    lat = np.asscalar(lat)
-    lon = np.asscalar(lon)
-    alt = np.asscalar(alt)
+    lat = lat.item() # np.asscalar(lat)
+    lon = lon.item() # np.asscalar(lon)
+    alt = alt.item() # np.asscalar(alt)
 
     dloc = (lat, lon, alt)
 
@@ -2489,8 +2523,8 @@ def calc_DSD(Nc_bin, rho, qrQC=False, qr_thresh=None,
     cmr = (np.pi / 6.) * \
         1000.                                     # Constant in mass-diameter relation for rain
     LWC_disd = cmr * 1000.0 * M3
-    # print LWC_disd.shape
-    # print rho.shape
+    # print(LWC_disd.shape)
+    # print(rho.shape)
     QR_disd = LWC_disd / rho
     if(qrQC):
         qrmask1D = np.where(QR_disd > qr_thresh, True, False)

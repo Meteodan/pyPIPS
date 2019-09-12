@@ -194,8 +194,8 @@ for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc, type i
     convtimestampsnums = dates.date2num(convtimestamps)
     PSDtimestampsnums = dates.date2num(PSDtimestamps)
 
-#     plotstarttime = starttime
-#     plotstoptime = stoptime
+    plotstarttime = starttime
+    plotstoptime = stoptime
 
     startindex, stopindex = utils.getTimeWindow(starttime, stoptime, convtimestampsnums)
     pstartindex, pstopindex = utils.getTimeWindow(starttime, stoptime, PSDtimestampsnums)
@@ -205,8 +205,10 @@ for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc, type i
     pstarttime = PSDtimestampsnums[pstartindex]
     pstoptime = PSDtimestampsnums[pstopindex]
 
-    plotstarttime = starttime
-    plotstoptime = stoptime
+    if N.int(plotstarttime) == -1:
+        plotstarttime = starttime
+    if N.int(plotstoptime) == -1:
+        plotstoptime = stoptime
 
     PSDtimestamps_edge = [x - DSD_interval_td for x in PSDtimestamps]
     # Add an extra 10 sec for the last time bin boundary
