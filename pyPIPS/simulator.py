@@ -95,7 +95,7 @@ def create_random_gamma_DSD(Nt, lamda, alpha, Vt, sampling_length, sampling_widt
     # distribution given by n, lamda, and alpha
 
     diameters = samplegammaDSD(n, lamda, alpha)
-    if verbose:
+    if verbose and diameters.size:
         print("minimum, maximum diameter in sample = ", diameters.min(), diameters.max())
         print("maximum allowed diameter = ", Dmax / 1000.)
     # Restrict diameters to be less than Dmax

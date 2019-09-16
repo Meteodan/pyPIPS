@@ -779,18 +779,18 @@ def plotDSDmeteograms(dis_name, image_dir, axparams, disvars, radvars=None, clos
         axparamdict1 = axparams
         axes = [ax1]
         axparamdicts = [axparamdict1]
+        ax1.legend(bbox_to_anchor=(0., 1.), loc='upper left',
+                   ncol=1, fancybox=True, shadow=False, prop=fontP)
 
-        # Now plot the dualpol variable
-        if(dualpol_dis_var.size):
+        # Plot the disdrometer-derived dualpol variable
+        if dualpol_dis_varname is not None:
             xvals = [PSDmidtimes]
             plotvars = [dualpol_dis_var]
-            if(dualpol_dis_varname == 'dBZ'):
+            if dualpol_dis_varname == 'dBZ':
                 dualpol_dis_varlabel = r'$Z_{dis} (dBZ)$'
-                dualpol_rad_varlabel = r'$Z_{rad} (dBZ)$'
                 axis_label = 'Reflectivity (dBZ)'
                 axis_limits = [0.0, 80.0]
-                axis_intv = 5.0
-
+                axis_intv = 10.0
                 # Also plot Rayleigh version
                 if(dBZ_ray_dis.size):
                     xvals.append(PSDmidtimes)
@@ -798,30 +798,40 @@ def plotDSDmeteograms(dis_name, image_dir, axparams, disvars, radvars=None, clos
                     dBZ_ray_dis_varlabel = r'$Z_{dis,ray} (dBZ)$'
             elif(dualpol_dis_varname == 'ZDR'):
                 dualpol_dis_varlabel = r'$Z_{DR,dis} (dB)$'
-                dualpol_rad_varlabel = r'$Z_{DR,rad} (dB)$'
                 axis_label = 'Differential Reflectivity (dBZ)'
                 axis_limits = [0.0, 6.0]
                 axis_intv = 0.5
             elif(dualpol_dis_varname == 'KDP'):
                 dualpol_dis_varlabel = r'$K_{DP,dis} (deg km^{-1})$'
-                dualpol_rad_varlabel = r'$K_{DP,rad} (deg km^{-1})$'
                 axis_label = r'Specific Differential Phase (deg km$^{-1}$)'
                 axis_limits = [0.0, 12.0]
                 axis_intv = 1.0
             elif(dualpol_dis_varname == 'RHV'):
                 dualpol_dis_varlabel = r'$\sigma_{HV,dis}$'
-                dualpol_rad_varlabel = r'$\sigma_{HV,rad}$'
                 axis_label = r'Cross-correlation Coefficient'
                 axis_limits = [0.0, 1.05]
                 axis_intv = 0.1
 
             plotparamdict1 = {'type': 'line', 'linestyle': '-', 'color': 'b', 'linewidth': 1.5,
-                              'label': dualpol_dis_varlabel}
+                            'label': dualpol_dis_varlabel}
             plotparamdicts = [plotparamdict1]
             if(dualpol_dis_varname == 'dBZ' and dBZ_ray_dis.size):
                 plotparamdict = {'type': 'line', 'linestyle': '--', 'color': 'b', 'linewidth': 1.5,
-                                 'label': dBZ_ray_dis_varlabel}
+                                    'label': dBZ_ray_dis_varlabel}
                 plotparamdicts.append(plotparamdict)
+
+
+        # Now add the radar dualpol variables if desired
+        if(dualpol_rad_var is not None):
+
+            if(dualpol_dis_varname == 'dBZ'):
+                dualpol_rad_varlabel = r'$Z_{rad} (dBZ)$'
+            elif(dualpol_dis_varname == 'ZDR'):
+                dualpol_rad_varlabel = r'$Z_{DR,rad} (dB)$'
+            elif(dualpol_dis_varname == 'KDP'):
+                dualpol_rad_varlabel = r'$K_{DP,rad} (deg km^{-1})$'
+            elif(dualpol_dis_varname == 'RHV'):
+                dualpol_rad_varlabel = r'$\sigma_{HV,rad}$'
 
             if(dualpol_rad_var.size):
                 xvals.append(radmidtimes)
@@ -830,7 +840,8 @@ def plotDSDmeteograms(dis_name, image_dir, axparams, disvars, radvars=None, clos
                                   'linewidth': 1.5, 'label': dualpol_rad_varlabel}
                 plotparamdicts.append(plotparamdict2)
 
-            # print xvals,plotvars,plotparamdicts
+        # print xvals,plotvars,plotparamdicts
+        if dualpol_dis_varname is not None:
             ax2 = plotmeteogram(ax2, xvals, plotvars, plotparamdicts)
             axparamdict2 = {'majorylocator': ticker.MultipleLocator(base=axis_intv),
                             'axeslimits': [axparams['axeslimits'][0], axis_limits],
@@ -838,10 +849,10 @@ def plotDSDmeteograms(dis_name, image_dir, axparams, disvars, radvars=None, clos
             axes.append(ax2)
             axparamdicts.append(axparamdict2)
             ax2.legend(bbox_to_anchor=(1., 1.), loc='upper right',
-                       ncol=1, fancybox=True, shadow=False, prop=fontP)
+                    ncol=1, fancybox=True, shadow=False, prop=fontP)
 
         axes = set_meteogram_axes(axes, axparamdicts)
-        if(dualpol_dis_varname):
+        if(dualpol_dis_varname is not None):
             figpath = os.path.join(image_dir, dis_name + '_' + dualpol_dis_varname + '_logNc.png')
             plt.savefig(figpath, dpi=300)
         else:
