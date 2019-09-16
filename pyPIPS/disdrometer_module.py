@@ -2073,10 +2073,10 @@ def readPIPStimerange(filename):
         last = f.readline()         # Read last line.
 
     # First time
-    tokens = first.strip().split(',')
+    tokens = first.strip().split(b',')
     # Check for header line (older versions don't have it)
-    if(tokens[0] == 'TIMESTAMP'):
-        tokens = second.strip().split(',')
+    if(tokens[0] == b'TIMESTAMP'):
+        tokens = second.strip().split(b',')
 
     timestamp = tokens[0]
     timestring = timestamp.strip().split()
@@ -2096,7 +2096,7 @@ def readPIPStimerange(filename):
     datetimefirst = datetime(year, month, day, hour, min, sec)
 
     # Last time
-    tokens = last.strip().split(',')
+    tokens = last.strip().split(b',')
     # Check for header line (older versions don't have it)
 
     timestamp = tokens[0]

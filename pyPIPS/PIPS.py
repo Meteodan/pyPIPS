@@ -100,6 +100,7 @@ def resample_wind(datetimes, offset, winddirs, windspds, intervalstr, gusts=True
         label='right',
         closed='right',
         base=offset).mean()
+
     windspdsavgvec = np.sqrt(usavg**2. + vsavg**2.)
     # Need to use %360 to keep wind dir between 0 and 360 degrees
     winddirsavgvec = (270.0 - (180. / np.pi) * np.arctan2(vsavg, usavg)) % 360.
@@ -127,7 +128,7 @@ def resample_wind(datetimes, offset, winddirs, windspds, intervalstr, gusts=True
     # Pack everything into a dictionary and then into a pd.DataFrame
     wind_dict = {'windspdavg': windspdsavg, 'windspdavgvec': windspdsavgvec,
                  'winddiravgvec': winddirsavgvec, 'winddirunitavgvec': winddirsunitavgvec,
-                 'windgust': windgusts, 'windgustavg': windgustsavg, 'uavg': usavg, 'vavg': vsavg,
+                 'windgustavg': windgustsavg, 'uavg': usavg, 'vavg': vsavg,
                  'unit_uavg': unit_usavg, 'unit_vavg': unit_vsavg}
 
     wind_df = pd.DataFrame(wind_dict)
@@ -179,6 +180,7 @@ def resample_conv(probe_type, resample_interval, sec_offset, conv_df, gusts=Fals
                                      base=sec_offset).mean()
 
     conv_resampled_df = conv_resampled_df.join(other_resampled_df)
+
     return conv_resampled_df
 
 

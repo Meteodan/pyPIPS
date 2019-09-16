@@ -95,7 +95,7 @@ def create_random_gamma_DSD(Nt, lamda, alpha, Vt, sampling_length, sampling_widt
     # distribution given by n, lamda, and alpha
 
     diameters = samplegammaDSD(n, lamda, alpha)
-    if verbose:
+    if verbose and diameters.size:
         print("minimum, maximum diameter in sample = ", diameters.min(), diameters.max())
         print("maximum allowed diameter = ", Dmax / 1000.)
     # Restrict diameters to be less than Dmax
@@ -855,7 +855,7 @@ def read_convdata_at_modeltimes(dis_dict, model_dict):
     return dis_dict
 
 
-def read_convdata_at_sweeptimes(dis_dict, radar_dict):
+def read_convdata_at_sweeptimes(dis_dict, radar_dict, resample_interval=60.):
     """Reads in the conventional data valid at the radar times from the probes for the given case
        and stuffs it into the dis_dict dictionary"""
     deployedlist = []
@@ -916,30 +916,37 @@ def read_convdata_at_sweeptimes(dis_dict, radar_dict):
         dewpoints = conv_df['dewpoint'].values
         pressures = conv_df['pressure'].values
 
+        sec_offset = conv_df.index.to_pydatetime()[0].second
+        conv_df = pips.resample_conv(dis_type, resample_interval, sec_offset, conv_df, gusts=True,
+                                     gustintvstr='3S', center=False)
+
+        windspdsavgvec = conv_df['windspdavgvec'].values
+        winddirsavgvec = conv_df['winddiravgvec'].values
+
         # Plot wind meteogram
-        windavgintv = 60
-        windgustintv = 3
+        # windavgintv = 60
+        # windgustintv = 3
 
-        # Compute wind speed and direction, and wind gusts
-        if dis_type in 'NV2':
-            windspdsavg = windspds
-            windspdsavgvec = windspds
-            windgustsavg = conv_df['swindgust'].values
-            winddirsavgvec = winddirabss
-        elif dis_type in 'CU':
-            windspdsavg, windspdsavgvec, winddirsavgvec, windgusts, windgustsavg = \
-                dis.avgwind(winddirabss, windspds, windavgintv, gusts=True, gustintv=windgustintv,
-                            center=False)
-        elif dis_type in 'PIPS':
-            windspdsavg, windspdsavgvec, winddirsavgvec, windgusts, windgustsavg = dis.avgwind(
-                winddirabss, windspds, windavgintv, gusts=True, gustintv=windgustintv, center=False)
-    #     offset = 0
-    #     windspdsavg,windspdsavgvec,winddirsavgvec,winddirsunitavgvec,windgusts,windgustsavg, \
-    #       usavg,vsavg,unit_usavg,unit_vsavg = \
-    #     dis.resamplewind(datetimesUTC,offset,winddirabss,windspds,'60S',gusts=True,
-    #                      gustintvstr='3S',center=False)
+    #     # Compute wind speed and direction, and wind gusts
+    #     if dis_type in 'NV2':
+    #         windspdsavg = windspds
+    #         windspdsavgvec = windspds
+    #         windgustsavg = conv_df['swindgust'].values
+    #         winddirsavgvec = winddirabss
+    #     elif dis_type in 'CU':
+    #         windspdsavg, windspdsavgvec, winddirsavgvec, windgusts, windgustsavg = \
+    #             dis.avgwind(winddirabss, windspds, windavgintv, gusts=True, gustintv=windgustintv,
+    #                         center=False)
+    #     elif dis_type in 'PIPS':
+    #         windspdsavg, windspdsavgvec, winddirsavgvec, windgusts, windgustsavg = dis.avgwind(
+    #             winddirabss, windspds, windavgintv, gusts=True, gustintv=windgustintv, center=False)
+    # #     offset = 0
+    # #     windspdsavg,windspdsavgvec,winddirsavgvec,winddirsunitavgvec,windgusts,windgustsavg, \
+    # #       usavg,vsavg,unit_usavg,unit_vsavg = \
+    # #     dis.resamplewind(datetimesUTC,offset,winddirabss,windspds,'60S',gusts=True,
+    # #                      gustintvstr='3S',center=False)
 
-        datetimesUTC = DSD_dict['convtimestamps']
+        datetimesUTC = conv_df.index.to_pydatetime() # DSD_dict['convtimestamps']
 
         deployedtlist = []
         windspdtlist = []
@@ -951,11 +958,12 @@ def read_convdata_at_sweeptimes(dis_dict, radar_dict):
         pressuretlist = []
 
         # Find the times closest to the sweeptimes
+        # TODO: just resmpale to the sweeptimes for crying out loud.
         for sweeptime in radar_dict['sweeptimelist']:
             try:
                 index = next(
                     i for i, t in enumerate(datetimesUTC) if np.abs(
-                        (t - sweeptime).total_seconds()) <= 10.)
+                        (t - sweeptime).total_seconds()) <= resample_interval)
                 deployedtlist.append(True)
             except Exception:
                 index = None

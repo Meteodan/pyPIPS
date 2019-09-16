@@ -1120,7 +1120,7 @@ def plotsweep(radlims, plotlims, fieldnames, fieldlist, masklist, range_start, r
 
 
 def plotsweep_pyART(radlims, plotlims, fieldnames, radarsweep, ovrmap, ovrdis, dis_name_list,
-                    dxy_list, fields_D_list, xoffset=0.0, yoffset=0.0):
+                    dxy_list, fields_D_list, xoffset=0.0, yoffset=0.0, alpha=0.5):
     """
     Plots an individual radar sweep, with an option to overlay a map.  This version uses pyART
     routines and assumes the radar sweep has been read in using readCFRadial_pyART.
@@ -1270,7 +1270,7 @@ def plotsweep_pyART(radlims, plotlims, fieldnames, radarsweep, ovrmap, ovrdis, d
         if norm is None:
             norm = matplotlib.colors.BoundaryNorm(clevels, cmap.N)
         plot1 = ax.pcolormesh(xplt, yplt, fieldplt, vmin=clevels[0], vmax=clevels[-1], cmap=cmap,
-                              norm=norm, edgecolors='None', antialiased=False)
+                              norm=norm, edgecolors='None', antialiased=False, alpha=alpha)
 
         # DTD: originally did this outside the function, but have to do it here
         # because of some weird problem

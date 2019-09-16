@@ -414,7 +414,7 @@ def solve_alpha(rhoa, cx, q, Ntx, Z):
     epsN = 1.e-3
     epsZ = 1.e-32
 
-    alphaMax = 40.0
+    alphaMax = 40.
 
     tmp1 = cx / (rhoa * q)
     g = tmp1 * Z * tmp1 * Ntx
@@ -659,7 +659,8 @@ def calc_NT_from_bins(ND):
     [type]
         [description]
     """
-    return calc_moment_bin(ND, moment=0)
+    Nt, _ = calc_moment_bin(ND, moment=0)
+    return Nt
 
 
 def calc_lwc_qr_from_bins(ND, rho):
@@ -677,7 +678,7 @@ def calc_lwc_qr_from_bins(ND, rho):
     [type]
         [description]
     """
-    M3 = calc_moment_bin(ND, moment=3)
+    M3, _ = calc_moment_bin(ND, moment=3)
     LWC = cmr * M3
     qr = LWC / rho
 
@@ -697,7 +698,7 @@ def calc_dBZ_from_bins(ND):
     [type]
         [description]
     """
-    M6 = calc_moment_bin(ND, moment=6)
+    M6, _ = calc_moment_bin(ND, moment=6)
     return 10. * np.log10(1.e18 * M6)
 
 
