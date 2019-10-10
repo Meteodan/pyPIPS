@@ -753,7 +753,7 @@ def plotDSDmeteograms(dis_name, image_dir, axparams, disvars, radvars=None, clos
         if(D_0_dis.size):
             xvals.append(PSDmidtimes)
             plotvars.append(D_0_dis)
-            plotparamdict2 = {'type': 'line', 'linestyle': ':', 'color': 'b', 'linewidth': 0.5,
+            plotparamdict2 = {'type': 'line', 'linestyle': ':', 'color': 'r', 'linewidth': 1.0,
                               'label': r'$D_{0,dis} (mm)$'}
             plotparamdicts.append(plotparamdict2)
 
@@ -812,12 +812,12 @@ def plotDSDmeteograms(dis_name, image_dir, axparams, disvars, radvars=None, clos
                 axis_limits = [0.0, 1.05]
                 axis_intv = 0.1
 
-            plotparamdict1 = {'type': 'line', 'linestyle': '-', 'color': 'b', 'linewidth': 1.5,
-                            'label': dualpol_dis_varlabel}
+            plotparamdict1 = {'type': 'line', 'linestyle': '-', 'color': 'r', 'linewidth': 1.5,
+                              'label': dualpol_dis_varlabel}
             plotparamdicts = [plotparamdict1]
             if(dualpol_dis_varname == 'dBZ' and dBZ_ray_dis.size):
-                plotparamdict = {'type': 'line', 'linestyle': '--', 'color': 'b', 'linewidth': 1.5,
-                                    'label': dBZ_ray_dis_varlabel}
+                plotparamdict = {'type': 'line', 'linestyle': '--', 'color': 'r', 'linewidth': 1.5,
+                                 'label': dBZ_ray_dis_varlabel}
                 plotparamdicts.append(plotparamdict)
 
 
@@ -1018,7 +1018,8 @@ def plot_vel_D(ib, axdict, PSDdict, rho):
     plt.title('Fall speed vs. diameter for time {0}'.format(times[t].strftime(tm.timefmt2)))
 
     countsplot = N.ma.masked_where(countsMatrix[:] <= 0, countsMatrix[:])
-    C = ax1.pcolor(min_diameter, min_fall_bins, countsplot, vmin=1, vmax=50, edgecolors='w')
+    C = ax1.pcolor(min_diameter, min_fall_bins, countsplot, vmin=1, vmax=50, edgecolors='w',
+                   cmap=cm.plasma)
     rainvd = dis.assignfallspeed(avg_diameter, rhocorrect=True, rho=rho)
 
     ax1.plot(avg_diameter, rainvd, c='r')

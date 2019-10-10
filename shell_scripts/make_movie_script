@@ -1,0 +1,20 @@
+#!/bin/bash
+
+prefix="image"
+
+counter=0
+for file in ${prefix}*
+do
+  newfile=$(printf ${prefix}link_%04d.png $counter)
+  echo $newfile
+ln -s ${file} $newfile
+let counter=counter+1
+done
+
+ffmpeg -framerate 5 -i ${prefix}link_%04d.png -vf scale=-2:720 -r 5 -pix_fmt yuv420p ${prefix}anim.mp4
+
+# Clean up after ourselves
+for file in ${prefix}link*
+do
+  rm $file
+done

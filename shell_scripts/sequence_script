@@ -1,0 +1,10 @@
+#!/bin/bash
+
+counter=0
+for file in *
+do
+  newfile=$(printf image%04d.png $counter)
+  echo $newfile
+ln -s ${file} $newfile
+let counter=counter+1
+done
