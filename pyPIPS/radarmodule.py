@@ -1447,7 +1447,7 @@ def readsweeps2PIPS(fieldnames, pc, ib):
         outfieldnames = pickle.load(raddate_file)
         raddate_file.close()
 
-        radnpz_file = np.load(radnpz_path)
+        radnpz_file = np.load(radnpz_path, allow_pickle=True)
 
         sweepdict = dict(radnpz_file)
 
