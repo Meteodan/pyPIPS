@@ -56,6 +56,21 @@ def get_offset_seconds(datetime_range):
     return datetime_range[0].second
 
 
+# TODO: Move this somewhere else?
+def wind_dir_and_speed_from_u_and_v(u, v):
+    """[summary]
+
+    Arguments:
+        u {[type]} -- [description]
+        v {[type]} -- [description]
+    """
+    windspdvec = np.sqrt(u**2. + v**2.)
+    # Need to use %360 to keep wind dir between 0 and 360 degrees
+    winddirvec = (270.0 - (180. / np.pi) * np.arctan2(v, u)) % 360.
+
+    return windspdvec, winddirvec
+
+
 def resample_wind(datetimes, offset, winddirs, windspds, intervalstr, gusts=True, gustintvstr='3S',
                   center=False):
     """Given a timeseries of wind directions and speeds, and an interval for resampling,

@@ -41,9 +41,9 @@ def calpolrain(wavelength, filename, Nd, intv):
 
     # There may be more bins in the given Nd than are read in from the file.
     # This is because the Nd contains bins above the maximum size of rain (~9 mm).
-    # Truncate the first dimension of Nd to account for this.
+    # Truncate the diameter dimension of Nd to account for this.
     # Also transpose Nd to allow for numpy broadcasting
-    Nd = Nd[:np.size(fa2), :].T
+    Nd = Nd[:, :np.size(fa2)] # Nd[:np.size(fa2), :].T
     intv = intv[:np.size(fa2)]
 
     lamda = wavelength * 10.  # Get radar wavelength in mm
