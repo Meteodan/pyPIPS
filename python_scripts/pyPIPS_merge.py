@@ -34,26 +34,24 @@ from datetime import datetime
 # Location of input files. You should only need to change these for your particular
 # dataset.
 
-_PIPS_data_dir = '/Users/ddawson/Dropbox/PIPS_data/SPOTTR2018/052918/PIPS1B/converted/'
+_PIPS_data_dir = '/Users/ddawson/Dropbox/PIPS_data/SPOTTR2019/051919_test/converted/PIPS1A/'
 _output_filename = 'PIPS_merged.txt'
 
 fieldnames_onesec = ['TIMESTAMP', 'RECORD', 'BattV', 'PTemp_C', 'WindDir', 'WS_ms',
-                     'WSDiag', 'FastTemp', 'SlowTemp', 'RH', 'Pressure(1)', 'FluxDirection',
+                     'WSDiag', 'FastTemp', 'SlowTemp', 'RH', 'Pressure', 'FluxDirection',
                      'GPSTime', 'GPSStatus', 'GPSLat', 'GPSLon', 'GPSSpd', 'GPSDir',
                      'GPSDate', 'GPSMagVar', 'GPSAlt']
-# Newer versions of these files have "Pressure" instead of "Pressure(1)" for some reason
-# Also the "RECORD" field has been removed.
-fieldnames_onesecv2 = [field if field != 'Pressure(1)' else 'Pressure'
-                       for field in fieldnames_onesec]
+# In newer versions of the file, the "RECORD" field has been removed.
+fieldnames_onesecv2 = fieldnames_onesec[:]
 fieldnames_onesecv2.remove('RECORD')
 fieldnames_onesec_TriPIPS = fieldnames_onesec[:]
 fieldnames_onesec_TriPIPS.remove('FastTemp')
 fieldnames_onesec_TriPIPSv2 = fieldnames_onesecv2[:]
 fieldnames_onesec_TriPIPSv2.remove('FastTemp')
 
-print(fieldnames_onesec_TriPIPS)
-
 fieldnames_tensec = ['TIMESTAMP', 'RECORD', 'ParsivelStr']
+fieldnames_tensecv2 = fieldnames_tensec[:]
+fieldnames_tensecv2.remove('RECORD')
 
 fieldnames_output = ['TIMESTAMP', 'BattV', 'PTemp_C', 'WindDir', 'WS_ms', 'WSDiag',
                      'FastTemp', 'SlowTemp', 'RH', 'Pressure', 'FluxDirection', 'GPSTime',
@@ -69,6 +67,9 @@ fieldnames_output_TriPIPS.remove('FastTemp')
 
 def process_onesec_record(row):
     """Processes a single row from a 1-s data file"""
+    # First, remove the "RECORD" item if it exists
+    if 'RECORD' in row:
+        row.pop('RECORD')
     for field, value in row.items():
         value = value.strip()
         # First, strip out all quotes from each field
@@ -87,21 +88,26 @@ def process_onesec_record(row):
                 pass
         row[field] = value
     # Parse GPS latitude and longitude
-    tokens = row['GPSLat'].strip().split()
     try:
-        row['GPSLat'] = '{:7.4f}'.format(N.float(tokens[0]) / 100.)
-        row['GPSLatHem'] = tokens[1]
-    except BaseException:
+        tokens = row['GPSLat'].strip().split()
+        try:
+            row['GPSLat'] = '{:7.4f}'.format(N.float(tokens[0]) / 100.)
+            row['GPSLatHem'] = tokens[1]
+        except BaseException:
+            row['GPSLat'] = 'NaN'
+            row['GPSLatHem'] = ''
+        tokens = row['GPSLon'].strip().split()
+        try:
+            row['GPSLon'] = '{:7.4f}'.format(N.float(tokens[0]) / 100.)
+            row['GPSLonHem'] = tokens[1]
+        except BaseException:
+            row['GPSLon'] = 'NaN'
+            row['GPSLonHem'] = ''
+    except Exception:
         row['GPSLat'] = 'NaN'
         row['GPSLatHem'] = ''
-    tokens = row['GPSLon'].strip().split()
-    try:
-        row['GPSLon'] = '{:7.4f}'.format(N.float(tokens[0]) / 100.)
-        row['GPSLonHem'] = tokens[1]
-    except BaseException:
         row['GPSLon'] = 'NaN'
         row['GPSLonHem'] = ''
-
     return row
 
 
@@ -110,6 +116,7 @@ def process_tensec_record(row):
     for field, value in row.items():
         # First, strip out all quotes from each field
         value = value.replace('"', '')
+        value = value.replace('\n', '')
         # Convert strings to numeric values where appropriate
         try:
             value = N.float(value)
@@ -154,8 +161,14 @@ def natural_keys(text):
     '''
     return [atoi(c) for c in re.split(r'(\d+)', text)]
 
+# From https://stackoverflow.com/questions/6618515/sorting-list-based-on-values-from-another-list
+def sortby(X, Y):
+    """Sorts list X by values in list Y"""
+    return [x for _, x in sorted(zip(Y, X), key=lambda pair: pair[0])]
+
 # From
-# https://stackoverflow.com/questions/38987/how-to-merge-two-dictionaries-in-a-single-expression?noredirect=1&lq=1
+# https://stackoverflow.com/questions/38987/
+# how-to-merge-two-dictionaries-in-a-single-expression?noredirect=1&lq=1
 
 
 def merge_dicts(*dict_args):
@@ -191,25 +204,39 @@ def readData(PIPS_data_dir):
 #                  again!")
 
     # Start reading in data. Start with the 1-s files
-
+    TriPIPS = False
     dict_onesec = {}
     for i, file in enumerate(filelist_onesec):
         print("Reading 1-s data file: ", os.path.basename(file))
         with open(file) as f:
-            next(f)  # Read and discard first header line
+            try:
+                next(f)  # Read and discard first header line
+            except Exception:
+                print('File has no data. Skipping!')
+                continue
             # The field names are contained in the second header line
             fieldnames = next(f).strip().replace('"', '').split(',')
+            # Some corrupt files have split the first header line into two. Try to detect that
+            # here and discard the extra line
+            if 'TIMESTAMP' not in fieldnames[0]:
+                fieldnames = next(f).strip().replace('"', '').split(',')
+            # Some versions of the file have 'Pressure(1)' instead of 'Pressure'. Just change it
+            # to 'Pressure'
+            fieldnames = [field if field != 'Pressure(1)' else 'Pressure'
+                          for field in fieldnames]
             if fieldnames == fieldnames_onesec or fieldnames == fieldnames_onesecv2:
-                print("We are dealing with an original PIPS data file!")
+                # print("We are dealing with an original PIPS data file!")
                 TriPIPS = False
             elif (fieldnames == fieldnames_onesec_TriPIPS
                   or fieldnames == fieldnames_onesec_TriPIPSv2):
-                print("We are dealing with a TriPIPS data file (no FastTemp)!")
+                # print("We are dealing with a TriPIPS data file (no FastTemp)!")
                 TriPIPS = True
             else:
                 print(fieldnames, '\n',
-                      fieldnames_onesec_TriPIPSv2)
-                sys.exit("Something's wrong with this file, aborting!")
+                      fieldnames_onesec)
+                # sys.exit("Something's wrong with this file, aborting!")
+                print("Something's wrong with this file, skipping!")
+                continue
             # print fieldnames
             next(f)  # Read and discard third header line
             next(f)  # Read and discard fourth header line
@@ -220,7 +247,6 @@ def readData(PIPS_data_dir):
             # https://stackoverflow.com/questions/14091387/creating-a-dictionary-from-a-csv-file
             reader = csv.DictReader(f, fieldnames=fieldnames)
             for row in reader:
-                # print row
                 # Process the dictionary of values in each row
                 row = process_onesec_record(row)
                 for column, value in row.items():
@@ -232,11 +258,22 @@ def readData(PIPS_data_dir):
     for i, file in enumerate(filelist_tensec):
         print("Reading 10-s data file: ", os.path.basename(file))
         with open(file) as f:
-            next(f)  # Read and discard first header line
+            try:
+                next(f)  # Read and discard first header line
+            except Exception:
+                print('File has no data. Skipping!')
+                continue
             # The field names are contained in the second header line
             fieldnames = next(f).strip().replace('"', '').split(',')
-            if (fieldnames != fieldnames_tensec):
-                sys.exit("Something's wrong with this file, aborting!")
+            # Some corrupt files have split the first header line into two. Try to detect that
+            # here and discard the extra line
+            if 'TIMESTAMP' not in fieldnames[0]:
+                fieldnames = next(f).strip().replace('"', '').split(',')
+            if (fieldnames != fieldnames_tensec and fieldnames != fieldnames_tensecv2):
+                # print(fieldnames, fieldnames_tensec, fieldnames_tensecv2)
+                # sys.exit("Something's wrong with this file, aborting!")
+                print("Something's wrong with this file, skipping!")
+                continue
             # print fieldnames
             next(f)  # Read and discard third header line
             next(f)  # Read and discard fourth header line
@@ -247,7 +284,6 @@ def readData(PIPS_data_dir):
             # https://stackoverflow.com/questions/14091387/creating-a-dictionary-from-a-csv-file
             reader = csv.DictReader(f, fieldnames=fieldnames)
             for row in reader:
-                # print row
                 # Process the dictionary of values in each row
                 row = process_tensec_record(row)
                 for column, value in row.items():
@@ -256,7 +292,7 @@ def readData(PIPS_data_dir):
     return dict_onesec, dict_tensec, TriPIPS
 
 
-def mergeData(PIPS_data_dir, output_filename):
+def mergeData(PIPS_data_dir, output_filename, verbose=False):
 
     # First, read the data from the files
     dict_onesec, dict_tensec, TriPIPS = readData(PIPS_data_dir)
@@ -268,9 +304,15 @@ def mergeData(PIPS_data_dir, output_filename):
 
     # Now for the fun part! Merge all the records into a single 1-s file, matching the Parsivel
     # records with the corresponding 1-s record as we go
-    numrecords = len(dict_onesec['TIMESTAMP'])  # These are the number of lines (records) we
+    try:
+        numrecords = len(dict_onesec['TIMESTAMP'])  # These are the number of lines (records) we
+    except:
+        numrecords = 0
     # have to work with.
-    numparsivelrecords = len(dict_tensec['TIMESTAMP'])  # Number of Parsivel records
+    try:
+        numparsivelrecords = len(dict_tensec['TIMESTAMP'])  # Number of Parsivel records
+    except:
+        numparsivelrecords = 0
 
     PIPS_outputfile = os.path.join(PIPS_data_dir, output_filename)
 
@@ -279,12 +321,41 @@ def mergeData(PIPS_data_dir, output_filename):
         writer.writeheader()
         j = 0  # the j-index is for the Parsivel (10-s) records
         # firstRecord = True
+        datetime_onesec_list = []
         for i in range(numrecords):  # Loop through the 1-s records
             # Parse the timestamp for the 1-s records and create a datetime object out of it
             timestring_onesec = dict_onesec['TIMESTAMP'][i].strip().split()
             # print('i', 'timestring_onesec', i, timestring_onesec)
             datetime_onesec = parseTimeStamp(timestring_onesec)
+            datetime_onesec_list.append(datetime_onesec)
 
+        # Sort the records in increasing order of time. (Some files are corrupted and have some
+        # of their records out of order)
+        indices = list(range(numrecords))
+        indices_sorted = sortby(indices, datetime_onesec_list)
+        if not (indices == indices_sorted):
+            print("Times out of order! Need to sort!")
+            datetime_onesec_list.sort()
+            for field, records in dict_onesec.copy().items():
+                dict_onesec[field] = [records[i] for i in indices_sorted]
+
+        # Now sort the 10-s data
+        datetime_tensec_list = []
+        for i in range(numparsivelrecords):
+            timestring_tensec = dict_tensec['TIMESTAMP'][i].strip().split()
+            datetime_tensec = parseTimeStamp(timestring_tensec)
+            datetime_tensec_list.append(datetime_tensec)
+
+        indices = list(range(numparsivelrecords))
+        indices_sorted = sortby(indices, datetime_tensec_list)
+        if not (indices == indices_sorted):
+            print("Times out of order! Need to sort!")
+            datetime_tensec_list.sort()
+            for field, records in dict_tensec.copy().items():
+                dict_tensec[field] = [records[i] for i in indices_sorted]
+
+        for i in range(numrecords):
+            datetime_onesec = datetime_onesec_list[i]
             # Fill in known 1-s values into output row dictionary
             outputrow = {key: value[i] for key, value in dict_onesec.items()}
             # Derive absolute wind direction, dewpoint, and RH
@@ -328,12 +399,17 @@ def mergeData(PIPS_data_dir, output_filename):
             except BaseException:
                 outputrow['RHDer'] = 'NaN'
 
+            if verbose:
+                print("Processing one-sec timestamp {}".format(datetime_onesec.strftime('%Y-%m-%d %H:%M:%S')))
+
             if(j < numparsivelrecords):  # Only do the following if we still have Parsivel data
+                datetime_tensec = datetime_tensec_list[j]
+
                 # Next, we need to fill in the Parsivel data for the records that need it.
-                nextParsivelTimeStamp = dict_tensec['TIMESTAMP'][j]
+                # nextParsivelTimeStamp = dict_tensec['TIMESTAMP'][j]
                 # Parse the timestamp for the 10-s records and create a datetime object out of it
-                timestring_tensec = nextParsivelTimeStamp.strip().split()
-                datetime_tensec = parseTimeStamp(timestring_tensec)
+                # timestring_tensec = nextParsivelTimeStamp.strip().split()
+                # datetime_tensec = parseTimeStamp(timestring_tensec)
 
                 # To match the Parsivel timestamps with the appropriate 1-s timestamps, we
                 # exploit the fact that the time is always increasing in the dataset (or it should
@@ -351,14 +427,27 @@ def mergeData(PIPS_data_dir, output_filename):
                 # First n Parsivel times are *earlier* than the first 1-s time, we have to increment
                 # the j index until we get our first match.
                 while(datetime_onesec > datetime_tensec):
+                    if verbose:
+                        print("Initial syncing of one-sec and ten-sec times:")
+                        print(print("onesec = {}, tensec = {}".format(datetime_onesec.strftime('%Y-%m-%d %H:%M:%S'),
+                                                                datetime_tensec.strftime('%Y-%m-%d %H:%M:%S'))))
+                        print(j)
                     j += 1
-                    nextParsivelTimeStamp = dict_tensec['TIMESTAMP'][j]
-                    timestring_tensec = nextParsivelTimeStamp.strip().split()
-                    datetime_tensec = parseTimeStamp(timestring_tensec)
+                    try:
+                        datetime_tensec = datetime_tensec_list[j]
+                    except:
+                        break
+#                     nextParsivelTimeStamp = dict_tensec['TIMESTAMP'][j]
+#                     timestring_tensec = nextParsivelTimeStamp.strip().split()
+#                     datetime_tensec = parseTimeStamp(timestring_tensec)
 
                 if(datetime_onesec == datetime_tensec):  # Found a match! Add Parsivel string to end
                                                         # of 1-s record, and then increment the j
                                                         # counter.
+                    if verbose:
+                        print("Found match for one-sec and ten-sec data!")
+                        print("onesec = {}, tensec = {}".format(datetime_onesec.strftime('%Y-%m-%d %H:%M:%S'),
+                                                                datetime_tensec.strftime('%Y-%m-%d %H:%M:%S')))
                     outputrow['ParsivelStr'] = dict_tensec['ParsivelStr'][j]
                     j += 1
                 else:   # No match, put a NaN at the end of the 1-s record.
