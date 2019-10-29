@@ -214,7 +214,11 @@ winddir_ax_params = {
 }
 
 pressure_ax_params = {
-    'majorylocator': ticker.MultipleLocator(5.),
+    'majorxlocator': dates.MinuteLocator(byminute=[0, 15, 30, 45], interval=1),
+    'majorxformatter': dates.DateFormatter(dateformat),
+    'minorxlocator': dates.MinuteLocator(byminute=[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55],
+                                         interval=1),
+    'majorylocator': ticker.MultipleLocator(0.5),
     'axeslimits': [None, [940., 980.]],
     'axeslabels': [None, r'Pressure (hPa)']
 }
@@ -276,11 +280,6 @@ netcdf_path = os.path.join(netcdf_output_dir, netcdf_filename)
 print(telegram_df.to_xarray())
 telegram_df.to_xarray().to_netcdf(netcdf_path)
 
-# TODO: figure out an efficient way to dump data containing regular intervals (i.e. hourl) to
-# netCDF files.
-# May eventually be able to replace current dumping of proprietary files
-# to the flash drive on the CR6.
-
 # Check if we are near the top of the hour and save top-of-the-hour netcdf files if we are
 last_timestamp_onesec = onesec_df.index[-1]
 last_timestamp_tensec = telegram_df.index[-1]
@@ -324,6 +323,8 @@ fig_pressure, ax_pressure = plt.subplots()
 
 plottimes_onesec = [onesec_df.index.to_pydatetime()]
 # Temperature and Dewpoint
+Tmin = np.nanmin(onesec_df['Dewpoint'].values)
+Tmax = np.nanmax(onesec_df['SlowTemp'].values)
 fields_to_plot_onesec = [onesec_df['SlowTemp'].values, onesec_df['Dewpoint'].values]
 field_parameters_onesec = [pm.temp_params, pm.dewpoint_params]
 ax_t_td = pm.plotmeteogram(
@@ -331,7 +332,8 @@ ax_t_td = pm.plotmeteogram(
     plottimes_onesec,
     fields_to_plot_onesec,
     field_parameters_onesec)
-temp_dewp_ax_params['axeslimits'][0] = (plottimes_onesec[0][0], plottimes_onesec[0][-1])
+temp_dewp_ax_params['axeslimits'] = [[plottimes_onesec[0][0], plottimes_onesec[0][-1]],
+                                     [Tmin - 5.0, Tmax + 5.0]]
 ax_t_td, = pm.set_meteogram_axes([ax_t_td], [temp_dewp_ax_params])
 # Wind speed and direction
 ax_windspd = pm.plotmeteogram(
@@ -349,7 +351,8 @@ ax_windspd, ax_winddir = pm.set_meteogram_axes(
 # Pressure
 pmin = np.nanmin(onesec_df['Pressure'].values)
 pmax = np.nanmax(onesec_df['Pressure'].values)
-pressure_ax_params['axeslimits'] = [None, [pmin - 2.5, pmax + 2.5]]
+pressure_ax_params['axeslimits'] = [[plottimes_onesec[0][0], plottimes_onesec[0][-1]],
+                                    [pmin - 2.5, pmax + 2.5]]
 fields_to_plot_press = [onesec_df['Pressure'].values]
 field_parameters_press = [pm.pressure_params]
 ax_pressure = pm.plotmeteogram(
