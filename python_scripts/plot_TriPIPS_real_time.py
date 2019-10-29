@@ -220,7 +220,7 @@ pressure_ax_params = {
                                          interval=1),
     'majorylocator': ticker.MultipleLocator(0.5),
     'axeslimits': [None, [940., 980.]],
-    'axeslabels': [None, r'Pressure (hPa)']
+    'axeslabels': ['Time (H:M) UTC', r'Pressure (hPa)']
 }
 
 # Number concentration
