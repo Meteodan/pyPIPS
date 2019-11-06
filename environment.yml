@@ -29,6 +29,7 @@ dependencies:
   - scipy
   - urllib3
   - xarray
-  - "--editable=git+https://github.rcac.purdue.edu/STorMLab/pyCRMtools.git@master#egg=pyCRMtools"
+  pip:
+    - "--editable=git+https://github.rcac.purdue.edu/STorMLab/pyCRMtools.git@master#egg=pyCRMtools"
 prefix: /Users/dawson29/miniconda3/envs/pyPIPS
 
