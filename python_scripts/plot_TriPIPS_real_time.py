@@ -326,7 +326,11 @@ plottimes_onesec = [onesec_df.index.to_pydatetime()]
 Tmin = np.nanmin(onesec_df['Dewpoint'].values)
 Tmax = np.nanmax(onesec_df['SlowTemp'].values)
 fields_to_plot_onesec = [onesec_df['SlowTemp'].values, onesec_df['Dewpoint'].values]
-field_parameters_onesec = [pm.temp_params, pm.dewpoint_params]
+temp_params = pm.temp_params.copy()
+dewpoint_params = pm.dewpoint_params.copy()
+temp_params['plotmin'] = Tmin - 5.0
+dewpoint_params['plotmin'] = Tmin - 5.0
+field_parameters_onesec = [temp_params, dewpoint_params]
 ax_t_td = pm.plotmeteogram(
     ax_t_td,
     plottimes_onesec,
