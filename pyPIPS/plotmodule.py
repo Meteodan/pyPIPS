@@ -506,6 +506,8 @@ def plotconvmeteograms(dis_index, pc, ib, convmeteodict):
     ax1 = fig.add_subplot(111)
 
     fields = [conv_plot_df[tempstr].values, conv_plot_df['dewpoint'].values]
+    temp_params['plotmin'] = pc.meteo_T_Td_range[0]
+    dewpoint_params['plotmin'] = pc.meteo_T_Td_range[0]
     fieldparamdicts = [temp_params, dewpoint_params]
     ax1 = plotmeteogram(ax1, [plottimes], fields, fieldparamdicts)
 
