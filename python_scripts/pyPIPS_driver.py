@@ -75,21 +75,21 @@ if (not os.path.exists(ib.image_dir)):
 # We need the disdrometer locations. If they aren't supplied in the input control file, find them
 # from the GPS data
 
-for index, dis_name, dis_filename, starttime, stoptime, dloc, type in \
+for index, dis_name, dis_filename, starttime, stoptime, dloc, ptype in \
         zip(range(0, ib.numdis), ib.dis_name_list, ib.dis_list, ib.starttimes, ib.stoptimes,
             ib.dlocs, ib.type):
 
     if(N.int(dloc[0]) == -1):
         filepath = os.path.join(ib.dis_dir, dis_filename)
-        if(type == 'PIPS'):
+        if(ptype == 'PIPS' or ptype == 'TriPIPS'):
             GPS_lats, GPS_lons, GPS_stats, GPS_alts, dloc = dis.readPIPSloc(filepath)
-        elif(type == 'CU'):
+        elif(ptype == 'CU'):
             filepath = os.path.join(ib.dis_dir,
                                     dis_filename[:-8] + 'CU' + dis_filename[-5] + '.dat')
             GPS_lats, GPS_lons, GPS_stats, GPS_alts, dloc = dis.readCUloc(filepath,
                                                                           starttime=starttime,
                                                                           stoptime=stoptime)
-        elif(type == 'NV2'):
+        elif(ptype == 'NV2'):
             dloc = dis.readNV2loc(filepath)
 
         ib.dlocs[index] = dloc
@@ -121,7 +121,7 @@ Wdict = {}
 Rdict = {}
 Ntdict = {}
 
-for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc, type in zip(range(
+for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc, ptype in zip(range(
         0, len(ib.dis_list)), ib.dis_list, ib.dis_name_list, ib.starttimes, ib.stoptimes,
         ib.centertimes, ib.dlocs, ib.type):
 
@@ -135,15 +135,17 @@ for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc, type i
         if (not os.path.exists(meteogram_image_dir)):
             os.makedirs(meteogram_image_dir)
 
+    tripips = (ptype == 'TriPIPS')
     # Read in the disdrometer data file and any auxiliary files
     dis_filepath = os.path.join(ib.dis_dir, dis_filename)
-    if type == 'PIPS':
+    if ptype == 'PIPS' or ptype == 'TriPIPS':
         PIPS_dict = dis.readPIPS(dis_filepath, basicqc=pc.basicQC, rainfallqc=pc.rainfallQC,
                                  rainonlyqc=pc.rainonlyQC, hailonlyqc=pc.hailonlyQC,
                                  strongwindqc=pc.strongwindQC, requested_interval=pc.DSD_interval,
-                                 starttime=starttime, stoptime=stoptime)
+                                 starttime=starttime, stoptime=stoptime, tripips=tripips)
         pcountstr = 'pcount2'
-    elif type == 'CU':
+        tripips = PIPS_dict['tripips']
+    elif ptype == 'CU':
         conv_filename = dis_filename[:-8] + 'CU' + dis_filename[-5] + '.dat'
         conv_filepath = os.path.join(ib.dis_dir, conv_filename)
 
@@ -153,7 +155,7 @@ for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc, type i
                                requested_interval=pc.DSD_interval, starttime=starttime,
                                stoptime=stoptime)
         pcountstr = 'pcount2'
-    elif type == 'NV2':
+    elif ptype == 'NV2':
         conv_filename = dis_filename.replace('DIS', 'TRP')
         conv_filepath = os.path.join(ib.dis_dir, conv_filename)
 
@@ -273,7 +275,7 @@ for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc, type i
     # given DSD interval). Note, most of these aren't used for right now.
     sec_offset = PSDtimestamps[0].second
 
-    conv_resampled_df = dis.resampleconv(type, DSD_interval, sec_offset, conv_df)
+    conv_resampled_df = dis.resampleconv(ptype, DSD_interval, sec_offset, conv_df)
     conv_resampled_df = conv_resampled_df.loc[conv_resampled_df.index.intersection(DSD_index)]
     rho_tDSD = conv_resampled_df['rho']
     # Conventional data meteogram plotting
@@ -295,7 +297,7 @@ for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc, type i
         # Resample wind diagnostics array to flag as bad any time in the interval given by
         # plotinterval. Note, have to use numpy max() as a lambda function because the
         # pandas resample.max() does not propagate NaN's!
-        if(pc.plot_diagnostics and type == 'PIPS'):
+        if(pc.plot_diagnostics and (ptype == 'PIPS' or ptype == 'TriPIPS')):
             winddiag_resampled = conv_df['winddiag'].resample(plotintervalstr, label='right',
                                                               closed='right', base=sec_offset,
                                                               how=lambda x: utils.trymax(x.values))
@@ -422,7 +424,7 @@ for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc, type i
 
             # Mark flagged times with vertical lines, if desired
             # TODO: set up separate criteria for NSSL V2 probes?
-            if(pc.plot_diagnostics and type not in 'NV2'):
+            if(pc.plot_diagnostics and ptype not in 'NV2'):
                 if(DSDtype == 'observed'):
                     # Extract indices for flagged times
                     flaggedtimes_index = N.where(
@@ -529,7 +531,7 @@ for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc, type i
             if(sum > 0.0):
                 pm.plot_DSD(ib, axdict, PSDdict, PSDfitdict, PSDparamdict)
 
-    if(pc.plot_vel_D and type not in 'NV2'):
+    if(pc.plot_vel_D and ptype not in 'NV2'):
         if (not os.path.exists(ib.image_dir + 'vel_D/' + dis_name)):
             os.makedirs(ib.image_dir + 'vel_D/' + dis_name)
 

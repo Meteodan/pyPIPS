@@ -485,6 +485,12 @@ def readPIPS(filename, fixGPS=True, basicqc=False, rainfallqc=False, rainonlyqc=
         tokens = line.strip().split(',')
         # Check for header line (older versions don't have it)
         if(tokens[0] == 'TIMESTAMP'):
+            # Hack to check for TriPIPS
+            tripips = (tokens == fieldnames_TriPIPS)
+            if tripips:
+                curfieldnames = fieldnames_TriPIPS
+            else:
+                curfieldnames = fieldnames
             continue
 
         timestamp = tokens[curfieldnames.index('TIMESTAMP')]
@@ -869,7 +875,7 @@ def readPIPS(filename, fixGPS=True, basicqc=False, rainfallqc=False, rainonlyqc=
                  'DSD_index': DSD_index, 'DSD_interval': DSD_interval, 'intervalstr': intervalstr,
                  'conv_df': conv_df, 'PSD_df': PSD_df, 'ND_df': ND_df,
                  'ND_onedrop_df': ND_onedrop_df, 'countsMatrix': countsMatrix, 'ND': ND,
-                 'ND_onedrop': ND_onedrop}
+                 'ND_onedrop': ND_onedrop, 'tripips': tripips}
 
     return PIPS_dict
 
@@ -1361,20 +1367,22 @@ def readCU(filename_conv, filename_dsd, fixGPS=True, basicqc=False, rainfallqc=F
     return PIPS_dict
 
 
-def resampleconv(type, interval, sec_offset, conv_df, gusts=False, gustintvstr='3S', center=False):
+def resampleconv(ptype, interval, sec_offset, conv_df, gusts=False, gustintvstr='3S', center=False):
     """Resamples the conventional data to a longer interval"""
 
-    if type == 'PIPS':
+    if ptype == 'PIPS' or ptype == 'TriPIPS':
         winddirkey = 'winddirabs'
         windspdkey = 'windspd'
-        other_data = ['fasttemp', 'slowtemp', 'RH', 'RH_derived', 'pressure',
+        other_data = ['slowtemp', 'RH', 'RH_derived', 'pressure',
                       'GPS_lat', 'GPS_lon', 'GPS_alt', 'voltage', 'dewpoint', 'rho']
-    elif type == 'CU':
+        if ptype == 'PIPS':
+            other_data.append('fasttemp')
+    elif ptype == 'CU':
         winddirkey = 'bwinddirabs'
         windspdkey = 'bwindspd'
         other_data = ['slowtemp', 'RH', 'pressure',
                       'GPS_lat', 'GPS_lon', 'GPS_alt', 'voltage', 'dewpoint', 'rho']
-    elif type == 'NV2':
+    elif ptype == 'NV2':
         winddirkey = 'swinddirabs'
         windspdkey = 'swindspd'
         other_data = ['slowtemp', 'RH', 'pressure', 'dewpoint', 'rho']
@@ -1391,7 +1399,7 @@ def resampleconv(type, interval, sec_offset, conv_df, gusts=False, gustintvstr='
     # Special treatment for wind diagnostic flags
     # Note, have to use numpy max() as a lambda function because the
     # pandas resample.max() does not propagate NaN's!
-    if type == 'PIPS':
+    if ptype == 'PIPS':
         winddiags_rs = pd.Series(data=conv_df['winddiag'], index=conv_df.index).resample(
             intervalstr, label='right', closed='right',
             base=sec_offset, how=lambda x: utils.trymax(x.values))
