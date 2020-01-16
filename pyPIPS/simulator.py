@@ -1019,7 +1019,7 @@ def read_sweeps(radar_dict):
        Stuffs these sweeps into the dictionary"""
     # Initial latitude, longitude, altitude set to None (will be read from files)
     radardir = radar_dict['radardir']
-    radpathlist = glob.glob(radardir + '/*nc')
+    radpathlist = glob.glob(radardir + '/*{}*nc'.format(radar_dict['radname']))
     radstarttime = radar_dict['radstarttimestamp']
     radstoptime = radar_dict['radstoptimestamp']
     fieldnames = radar_dict['fieldnames']
@@ -1046,8 +1046,11 @@ def read_sweeps(radar_dict):
 
     # Sort the lists by increasing time since glob doesn't sort in any particular order
     sorted_sweeptimelist = sorted(sweeptimelist)
-    sorted_radarsweeplist = [x for _, x in sorted(zip(sweeptimelist, radarsweeplist))]
-    sorted_outfieldnameslist = [x for _, x in sorted(zip(sweeptimelist, outfieldnameslist))]
+    sorted_radarsweeplist = [x for _, x in sorted(zip(sweeptimelist, radarsweeplist), 
+                                                  key=lambda pair: pair[0])]
+
+    sorted_outfieldnameslist = [x for _, x in sorted(zip(sweeptimelist, outfieldnameslist), 
+                                                     key=lambda pair: pair[0])]
 
     # Stuff the lists into the dictionary
     radar_dict['outfieldnameslist'] = sorted_outfieldnameslist
