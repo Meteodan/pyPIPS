@@ -1,4 +1,4 @@
-"""pyPIPS.io: a collection of functions to read and write disdrometer and other surface probe
+"""pips_io.py: a collection of functions to read and write disdrometer and other surface probe
 data.
 """
 from datetime import datetime, timedelta
@@ -321,6 +321,46 @@ def read_PIPS(filename, starttimestamp=None, stoptimestamp=None, tripips=False,
                      dims=['time_10s', 'fallspeed_bin', 'diameter_bin'])
 
     return conv_df, parsivel_df, vd_matrix_da
+
+
+def get_PIPS_loc(GPS_stats, GPS_lats, GPS_lons, GPS_alts):
+    """[summary]
+
+    Parameters
+    ----------
+    GPS_stats : [type]
+        [description]
+    GPS_lats : [type]
+        [description]
+    GPS_lons : [type]
+        [description]
+    GPS_alts : [type]
+        [description]
+    """
+
+    # Find the disdrometer location by averaging the valid GPS lats,lons, and alts
+    GPSnonvalid = (np.array(GPS_stats) != 'A')
+    GPS_lats_masked = np.ma.masked_where(GPSnonvalid, np.array(GPS_lats))
+    GPS_lons_masked = np.ma.masked_where(GPSnonvalid, np.array(GPS_lons))
+    GPS_alts_masked = np.ma.masked_where(GPSnonvalid, np.array(GPS_alts))
+
+    GPS_lats_masked = np.ma.masked_invalid(GPS_lats_masked)
+    GPS_lons_masked = np.ma.masked_invalid(GPS_lons_masked)
+    GPS_alts_masked = np.ma.masked_invalid(GPS_alts_masked)
+
+    lat = GPS_lats_masked.mean()
+    lon = GPS_lons_masked.mean()
+    alt = GPS_alts_masked.mean()
+
+    # There's a bug in numpy.ma that sometimes causes operations such as mean() to return
+    # a 0d array instead of a scalar.  To remedy this, explicitly cast them as scalars
+    # here.
+
+    lat = lat.item()
+    lon = lon.item()
+    alt = alt.item()
+
+    return lat, lon, alt
 
 
 def correct_PIPS(serialnum, infile, outfile):

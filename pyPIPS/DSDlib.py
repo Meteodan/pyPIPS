@@ -25,8 +25,27 @@ def calc_Mp(p, lamda, Nt, alpha):
 
 
 def calc_Dmpq(p, q, lamda, Nt, alpha):
-    """Given two moments, p and q, and lamda,Nt, and alpha, compute the
-       mean diameter associated with the ratio of p to q"""
+    """Given two moments, p and q, and lamda, Nt, and alpha of the gamma distribution, compute the
+       mean diameter associated with the ratio of p to q
+
+    Parameters
+    ----------
+    p : array_like
+        The first moment
+    q : array_like
+        The second moment
+    lamda : array_like
+        Slope parameter of the gamma distribution
+    Nt : array_like
+        Total number concentration
+    alpha : array_like
+        Shape parameter of the gamma distribution
+
+    Returns
+    -------
+    array_like
+        The appropriate moment-weighted mean diameter
+    """
 
     M_p = calc_Mp(p, lamda, Nt, alpha)
     M_q = calc_Mp(q, lamda, Nt, alpha)
@@ -35,48 +54,48 @@ def calc_Dmpq(p, q, lamda, Nt, alpha):
 
 
 def calc_qr_gamma(rhoa, N0, lamda, alpha):
-    """[summary]
+    """Computes the rain mass mixing ratio given the standard gamma distribution parameters. All
+    units are SI unless otherwise specified.
 
     Parameters
     ----------
-    rhoa : [type]
-        [description]
-    D : [type]
-        [description]
-    N0 : [type]
-        [description]
-    lamda : [type]
-        [description]
-    alpha : [type]
-        [description]
+    rhoa : array_like
+        Air density
+    N0 : array_like
+        Intercept parameter
+    lamda : array_like
+        Slope parameter
+    alpha : array_like
+        Shape parameter
 
     Returns
     -------
-    [type]
-        [description]
+    array_like
+        Rain water mass mixing ratio
     """
     GR2 = gamma_(4. + alpha)
     return (cmr / rhoa) * N0 * GR2 / lamda**(alpha + 4.)
 
 
 def calc_Zr_gamma(rhoa, q, Nt, alpha):
-    """[summary]
+    """Computes the rain radar reflectivity factor given q, Nt, and alpha. All units are SI unless
+    otherwise specified.
 
     Parameters
     ----------
-    rhoa : [type]
-        [description]
-    q : [type]
-        [description]
-    Nt : [type]
-        [description]
-    alpha : [type]
-        [description]
+    rhoa : array_like
+        Air density
+    q : array_like
+        rain water mass mixing ratio
+    Nt : array_like
+        Total number concentration
+    alpha : array_like
+        Shape parameter
 
     Returns
     -------
-    [type]
-        [description]
+    array_like
+        The rain radar reflectivity factor
     """
     Gr = ((6. + alpha) * (5. + alpha) * (4. + alpha)) / \
         ((3. + alpha) * (2. + alpha) * (1. + alpha))
@@ -267,19 +286,19 @@ def calc_D0_gamma(rhoa, q, Ntx, cx, alpha):
 
 
 def calc_moment_bin(ND, moment=0):
-    """[summary]
+    """Compute the desired moment from number density bins.
 
     Parameters
     ----------
-    ND : [type]
-        [description]
+    ND : array_like
+        Number density as a function of diameter
     moment : int, optional
-        [description], by default 0
+        The desired moment, by default 0
 
     Returns
     -------
-    [type]
-        [description]
+    (array_like, array_like)
+        The total moment and the binned moment
     """
     avg_diameter_m = ND['diameter'] / 1000.  # Convert mm to m
     bin_width_m = (ND['max_diameter'] - ND['min_diameter']) / 1000.  # Convert mm to m
@@ -442,7 +461,8 @@ def solve_alpha(rhoa, cx, q, Ntx, Z):
 def calc_evap(rho, T, p, RH, N0, lamda, mu):
     """Computes bulk evaporation rate given the thermodynamic state of the air and gamma
        distribution parameters.  Much of this code was adapted from Jason Milbrandt's microphysics
-       code.  Note, all thermodynamic variables are assumed to be in SI units."""
+       code.  Note, all thermodynamic variables are assumed to be in SI units. TODO: refactor this
+       !"""
 
     # Thermodynamic constants
 
@@ -509,7 +529,7 @@ def calc_evap(rho, T, p, RH, N0, lamda, mu):
 
 def calc_VQR_ferrier(rhoa, q, Ntx, cx, alpha):
     """Calculates the mass-weighted rain fall speed using the formula in Ferrier (1994),
-       assuming a gamma-diameter distribution and given q,N, and alpha"""
+       assuming a gamma-diameter distribution and given q, N, and alpha"""
 
     # Ferrier (1994)
     afr = 4854.0
@@ -647,36 +667,36 @@ def calc_gamma_DSD(rhoa, D, cx, q, Nt=None, N0=None, alpha=0):
 
 
 def calc_NT_from_bins(ND):
-    """[summary]
+    """Computes total number concentration from binned number density ND.
 
     Parameters
     ----------
-    ND : [type]
-        [description]
+    ND : array_like
+        binned number density
 
     Returns
     -------
-    [type]
-        [description]
+    array_like
+        Total number concentration
     """
     Nt, _ = calc_moment_bin(ND, moment=0)
     return Nt
 
 
 def calc_lwc_qr_from_bins(ND, rho):
-    """[summary]
+    """Computes liquid water content and rain mass mixing ratio from binned number density
 
     Parameters
     ----------
-    ND : [type]
-        [description]
-    rho : [type]
-        [description]
+    ND : array_like
+        binned number density
+    rho : array_like
+        air density
 
     Returns
     -------
-    [type]
-        [description]
+    (array_like, array_like)
+        liquid water content and rain mass mixing ratio
     """
     M3, _ = calc_moment_bin(ND, moment=3)
     LWC = cmr * M3
@@ -686,56 +706,57 @@ def calc_lwc_qr_from_bins(ND, rho):
 
 
 def calc_dBZ_from_bins(ND):
-    """[summary]
+    """Computes radar reflectivity (dBZ) from binned number density
 
     Parameters
     ----------
-    ND : [type]
-        [description]
+    ND : array_like
+        binned number density
 
     Returns
     -------
-    [type]
-        [description]
+    array_like
+        logarithmic radar reflectivity (dBZ)
     """
     M6, _ = calc_moment_bin(ND, moment=6)
     return 10. * np.log10(1.e18 * M6)
 
 
-def calc_synthetic_bins(D_min, D_max, num_bins):
-    """[summary]
+# def calc_synthetic_bins(D_min, D_max, num_bins):
+#     """TODO: deprecate this
 
-    Parameters
-    ----------
-    D_min : [type]
-        [description]
-    D_max : [type]
-        [description]
-    num_bins : [type]
-        [description]
+#     Parameters
+#     ----------
+#     D_min : [type]
+#         [description]
+#     D_max : [type]
+#         [description]
+#     num_bins : [type]
+#         [description]
 
-    Returns
-    -------
-    [type]
-        [description]
-    """
-    return np.linspace(D_min, D_max, num=num_bins)
+#     Returns
+#     -------
+#     [type]
+#         [description]
+#     """
+#     return np.linspace(D_min, D_max, num=num_bins)
 
 
 def fit_DSD_MM24(M2, M4):
-    """[summary]
+    """Uses the Method-of-Moments to fit an exponential distribution using M2 and M4
 
     Parameters
     ----------
-    M2 : [type]
-        [description]
-    M4 : [type]
-        [description]
+    M2 : array_like
+        The second moment of the distribution
+    M4 : array_like
+        The fourth moment of the distribution
 
     Returns
     -------
-    [type]
-        [description]
+    3-tuple of array_like
+        The intercept, slope, and shape parameters of the fitted gamma distribution. In this case
+        the shape parameter is always zero.
     """
     lamda = np.where(M4 == 0.0, 0.0, ((M2 * gamma5) / (M4 * gamma3))**(1./2.))
     N0 = (M2 * lamda**3.) / gamma3
@@ -744,19 +765,20 @@ def fit_DSD_MM24(M2, M4):
 
 
 def fit_DSD_MM36(M3, M6):
-    """[summary]
+    """Uses the Method-of-Moments to fit an exponential distribution using M3 and M6
 
     Parameters
     ----------
-    M3 : [type]
-        [description]
-    M6 : [type]
-        [description]
+    M3 : array_like
+        The third moment of the distribution
+    M6 : array_like
+        The sixth moment of the distribution
 
     Returns
     -------
-    [type]
-        [description]
+    3-tuple of array_like
+        The intercept, slope, and shape parameters of the fitted gamma distribution. In this case
+        the shape parameter is always zero.
     """
     lamda = np.where(M6 == 0.0, 0.0, ((M3 * gamma7) / (M6 * gamma4))
                      ** (1. / 3.))
@@ -766,21 +788,21 @@ def fit_DSD_MM36(M3, M6):
 
 
 def fit_DSD_MM346(M3, M4, M6):
-    """[summary]
+    """Uses the Method-of-Moments to fit a gamma distribution using M3, M4, and M6
 
     Parameters
     ----------
-    M3 : [type]
-        [description]
-    M4 : [type]
-        [description]
-    M6 : [type]
-        [description]
+    M3 : array_like
+        The third moment of the distribution
+    M4 : array_like
+        The fourth moment of the distribution
+    M6 : array_like
+        The sixth moment of the distribution
 
     Returns
     -------
-    [type]
-        [description]
+    3-tuple of array_like
+        The intercept, slope, and shape parameters of the fitted gamma distribution.
     """
     G = (M4**3.) / ((M3**2.) * M6)
     G = np.ma.masked_invalid(G)
@@ -794,21 +816,21 @@ def fit_DSD_MM346(M3, M4, M6):
 
 
 def fit_DSD_MM246_old(M2, M4, M6):
-    """[summary]
+    """Uses the Method-of-Moments to fit a gamma distribution using M2, M4, and M6. Older method?
 
     Parameters
     ----------
-    M2 : [type]
-        [description]
-    M4 : [type]
-        [description]
-    M6 : [type]
-        [description]
+    M2 : array_like
+        The second moment of the distribution
+    M4 : array_like
+        The fourth moment of the distribution
+    M6 : array_like
+        The sixth moment of the distribution
 
     Returns
     -------
-    [type]
-        [description]
+    3-tuple of array_like
+        The intercept, slope, and shape parameters of the fitted gamma distribution.
     """
     G = np.where((M2 == 0.0) | (M6 == 0.0), 0.0, (M4**2.) / (M2*M6))
     mu = np.where(G == 1.0, 0.0, ((7. - 11. * G) -
@@ -825,30 +847,32 @@ def fit_DSD_MM246_old(M2, M4, M6):
 
 
 def fit_DSD_MM246(M2, M4, M6, lamda_limit=20000., mu_limit=30.):
-    """[summary]
+    """Uses the Method-of-Moments to fit a gamma distribution using M2, M4, and M6.
 
     Parameters
     ----------
-    M2 : [type]
-        [description]
-    M4 : [type]
-        [description]
-    M6 : [type]
-        [description]
-    lamda_limit : [type], optional
-        [description], by default 20000.
-    mu_limit : [type], optional
-        [description], by default 30.
+    M2 : array_like
+        The second moment of the distribution
+    M4 : array_like
+        The fourth moment of the distribution
+    M6 : array_like
+        The sixth moment of the distribution
+    lamda_limit : array_like, optional
+        Upper limit of lamda, by default 20000.
+    mu_limit : array_like, optional
+        Upper limit of mu, by default 30.
 
     Returns
     -------
-    [type]
-        [description]
+    3-tuple of array_like
+        The intercept, slope, and shape parameters of the fitted gamma distribution.
     """
     G = (M4**2.) / (M2 * M6)
     G = np.ma.masked_invalid(G)
     mu = ((7. - 11. * G) - ((7. - 11. * G)**2. - 4. * (G - 1.)
                             * (30. * G - 12.))**(1. / 2.)) / (2. * (G - 1.))
+    # TODO: should we just set mu and lambda greater than the limit to their limits instead of
+    # masking them?
     mu = np.ma.masked_where(mu > mu_limit, mu)
     mu = np.ma.masked_invalid(mu)
     lamda = ((M2 * (mu + 3.) * (mu + 4.)) / (M4))**(1. / 2.)
@@ -862,21 +886,21 @@ def fit_DSD_MM246(M2, M4, M6, lamda_limit=20000., mu_limit=30.):
 
 
 def fit_DSD_MM234(M2, M3, M4):
-    """[summary]
+    """Uses the Method-of-Moments to fit a gamma distribution using M2, M3, and M4.
 
     Parameters
     ----------
-    M2 : [type]
-        [description]
-    M3 : [type]
-        [description]
-    M4 : [type]
-        [description]
+    M2 : array_like
+        The second moment of the distribution
+    M3 : array_like
+        The third moment of the distribution
+    M4 : array_like
+        The fourth moment of the distribution
 
     Returns
     -------
-    [type]
-        [description]
+    3-tuple of array_like
+        The intercept, slope, and shape parameters of the fitted gamma distribution.
     """
     mu = (3. * M2 * M4 - 4. * M3**2.) / (M3**2. - M2 * M4)
     mu = np.ma.masked_invalid(mu)
@@ -888,17 +912,17 @@ def fit_DSD_MM234(M2, M3, M4):
 
 
 def get_max_min_diameters(ND):
-    """[summary]
+    """Gets the maximum and minimum diameters of an array of binned distributions
 
     Parameters
     ----------
-    ND : [type]
-        [description]
+    ND : array_like
+        binned number density
 
     Returns
     -------
-    [type]
-        [description]
+    2-tuple of array_like
+        The minimum and maximum diameters of an array of binned number density distributions
     """
     D_min = first_nonzero(ND, 0)
     D_max = last_nonzero(ND, 0)
@@ -907,25 +931,26 @@ def get_max_min_diameters(ND):
 
 
 def fit_DSD_TMM(M2, M4, M6, D_min, D_max):
-    """[summary]
+    """Fits gamma distributions using the Truncated Method of Moments (TMM) using M2, M4, and M6
+    and D_min, and D_max
 
     Parameters
     ----------
-    M2 : [type]
-        [description]
-    M4 : [type]
-        [description]
-    M6 : [type]
-        [description]
-    D_min : [type]
-        [description]
-    D_max : [type]
-        [description]
+    M2 : array_like
+        The second moment of the distribution
+    M4 : array_like
+        The fourth moment of the distribution
+    M6 : array_like
+        The sixth moment of the distribution
+    D_min : array_like
+        The minimum diameter of the distribution
+    D_max : array_like
+        The maximum diameter of the distribution
 
     Returns
     -------
-    [type]
-        [description]
+    3-tuple of array_like
+        The intercept, slope, and shape parameters of the fitted gamma distribution.
     """
     G = (M4**2.) / (M2 * M6)  # moment ratio based on untruncated moments
     G = np.ma.masked_invalid(G)
@@ -944,7 +969,7 @@ def fit_DSD_TMM(M2, M4, M6, D_min, D_max):
 
     for t in range(numtimes):
         LDmx = lamda_init[t] * D_max[t]
-        for x in range(10):
+        for _ in range(10):
             mu = mu_init[t]
             # truncated moment ratio below. Equation A8 from Thurai
             gm3 = gammap(3. + mu, LDmx) * np.exp(gammln(3. + mu))
@@ -975,23 +1000,24 @@ def fit_DSD_TMM(M2, M4, M6, D_min, D_max):
 
 
 def calc_binned_DSD_from_params(N0, lamda, alpha, D):
-    """[summary]
+    """Discretizes the gamma distribution given N0, lamda, and alpha into the bins defined by
+    the array of diameters D
 
     Parameters
     ----------
-    N0 : [type]
-        [description]
-    lamda : [type]
-        [description]
-    alpha : [type]
-        [description]
-    D : [type]
-        [description]
+    N0 : array_like
+        Intercept parameter
+    lamda : array_like
+        Slope parameter
+    alpha : array_like
+        Shape parameter
+    D : array_like
+        array of diameters
 
     Returns
     -------
-    [type]
-        [description]
+    array_like
+        The binned distribution.
     """
 
     # Get D to m
@@ -1001,19 +1027,20 @@ def calc_binned_DSD_from_params(N0, lamda, alpha, D):
 
 
 def calc_rain_axis_ratio(D, fit_name='Brandes_2002'):
-    """[summary]
+    """Computes the axis ratio of rain as a function of diameter using one of a number of
+    approximations and fits.
 
     Parameters
     ----------
-    D : [type]
-        [description]
+    D : array_like
+        array of diameters
     fit_name : str, optional
-        [description], by default 'Brandes_2002'
+        The type of fit, by default 'Brandes_2002'
 
     Returns
     -------
-    [type]
-        [description]
+    array_like
+        The array of axis ratios
     """
     if fit_name == 'Brandes_2002':
         ar = 0.9951 + 0.0251*D - 0.03644*D**2. + 0.005303*D**3. - 0.0002492*D**4.
