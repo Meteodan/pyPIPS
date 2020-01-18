@@ -106,6 +106,8 @@ if pc.comp_radar:
     if pc.plot_radar:
         radar.plotsweeps(pc, ib, sb)
 
+# STOPPED HERE FOR REFACTORING!
+
 # Outer disdrometer (and deployment) loop
 mu = []
 lamda = []
