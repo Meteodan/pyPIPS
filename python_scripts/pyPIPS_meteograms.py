@@ -134,7 +134,7 @@ for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc, ptype,
     # Calculate some additional thermodynamic parameters from the conventional data
     conv_df = pips.calc_thermo(conv_df)
 
-
+    # STOPPED HERE! Refactoring!
 
     # Do some QC on the V-D matrix
     strongwindQC = pc.strongwindQC

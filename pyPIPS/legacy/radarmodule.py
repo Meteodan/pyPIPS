@@ -20,7 +20,7 @@ import os
 import pyart
 from . import utils
 from . import timemodule as tm
-from . import PIPS as pips
+from . import disdrometer_module as dis
 import pickle
 
 clevels_ref = np.arange(0.0, 85.0, 5.0)          # Contour levels for reflectivity (dBZ)
@@ -1398,11 +1398,11 @@ def readsweeps2PIPS(fieldnames, pc, ib):
                 ralt_tlist.append(ralt)
                 el_tlist.append(el_rad)
 
-                dxy_list, fields_D = pips.rad2DD2(fields, range_start, radar_range,
-                                                  azimuth_start_rad, azimuth_rad, rlat_rad,
-                                                  rlon_rad, ralt, el_rad, ib.dlocs,
-                                                  average_gates=False, Cressman=True,
-                                                  roi=1000.)
+                dxy_list, fields_D = dis.rad2DD2(fields, range_start, radar_range,
+                                                 azimuth_start_rad, azimuth_rad, rlat_rad,
+                                                 rlon_rad, ralt, el_rad, ib.dlocs,
+                                                 average_gates=False, Cressman=True,
+                                                 roi=1000.)
                 print("fields_D.shape", fields_D, fields_D.shape)
 
                 fields_D_tlist.append(fields_D)

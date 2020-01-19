@@ -2,20 +2,18 @@
 
 import numpy as np
 from scipy.stats import gamma, uniform
-# from . import disdrometer_module as dis
-from . import PIPS as pips
-from . import parsivel_params as pp
+from . import disdrometer_module as dis
 from . import plotmodule as pm
 from . import DSDlib as dsd
-from .legacy import disdrometer_module as dis
 from shapely.geometry import MultiLineString, LineString
 from datetime import datetime
 import glob
 import os
 from . import radarmodule as radar
 from . import thermolib as thermo
-from .legacy.datahandler import getDataHandler
+from .datahandler import getDataHandler
 from . import dualpara as dualpol
+from . import PIPS as pips
 import pyart as pyart
 import matplotlib.pyplot as plt
 from metpy.plots import ctables
@@ -28,13 +26,13 @@ rhorcst = 1000.  # kg m^-3
 cr = rhorcst * np.pi / 6.
 mur = 1. / 3.  # FIXME: Assume rain is gamma-diameter for now!
 
-sampling_area = pp.parsivel_parameters['sensor_area_mm2']
-sampling_width = pp.parsivel_parameters['sensor_width_mm']
-sampling_length = pp.parsivel_parameters['sensor_length_mm']
+sampling_area = dis.sensor_area
+sampling_width = dis.sensor_width
+sampling_length = dis.sensor_length
 
-D = pips.parsivel_parameters['avg_diameter_bins_mm']
-Dl = pips.parsivel_parameters['min_diameter_bins_mm']
-Dr = pips.parsivel_parameters['max_diameter_bins_mm']
+D = dis.avg_diameter / 1000.
+Dl = dis.min_diameter / 1000.
+Dr = dis.max_diameter / 1000.
 Dedges = np.append(Dl, Dr[-1])
 bin_width = Dr - Dl
 
@@ -106,7 +104,7 @@ def create_random_gamma_DSD(Nt, lamda, alpha, Vt, sampling_length, sampling_widt
         print("number of particles less than Dmax = ", diameter_mask.sum())
     # Mask the lowest two diameter bins by default (the real Parsivel does this owing to low SNR)
     if mask_lowest:
-        low_mask = diameters > Dr[1] / 1000.
+        low_mask = diameters > dis.max_diameter[1] / 1000.
         if verbose:
             print("number of particles above the lowest two bins = ", low_mask.sum())
         diameter_mask = diameter_mask & low_mask
@@ -948,7 +946,7 @@ def read_convdata_at_sweeptimes(dis_dict, radar_dict, resample_interval=60.):
     # #     dis.resamplewind(datetimesUTC,offset,winddirabss,windspds,'60S',gusts=True,
     # #                      gustintvstr='3S',center=False)
 
-        datetimesUTC = conv_df.index.to_pydatetime()  # DSD_dict['convtimestamps']
+        datetimesUTC = conv_df.index.to_pydatetime() # DSD_dict['convtimestamps']
 
         deployedtlist = []
         windspdtlist = []
@@ -1048,10 +1046,10 @@ def read_sweeps(radar_dict):
 
     # Sort the lists by increasing time since glob doesn't sort in any particular order
     sorted_sweeptimelist = sorted(sweeptimelist)
-    sorted_radarsweeplist = [x for _, x in sorted(zip(sweeptimelist, radarsweeplist),
+    sorted_radarsweeplist = [x for _, x in sorted(zip(sweeptimelist, radarsweeplist), 
                                                   key=lambda pair: pair[0])]
 
-    sorted_outfieldnameslist = [x for _, x in sorted(zip(sweeptimelist, outfieldnameslist),
+    sorted_outfieldnameslist = [x for _, x in sorted(zip(sweeptimelist, outfieldnameslist), 
                                                      key=lambda pair: pair[0])]
 
     # Stuff the lists into the dictionary

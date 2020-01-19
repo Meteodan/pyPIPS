@@ -11,8 +11,8 @@ from matplotlib.artist import allow_rasterization
 from matplotlib.font_manager import FontProperties
 # import ctablesfrompyesviewer as ctables
 from metpy.plots import ctables
+from . import disdrometer_module as dis
 from . import timemodule as tm
-from . import PIPS as pips
 from itertools import cycle
 
 # Set global font size for axes and colorbar labels, etc.
@@ -459,9 +459,8 @@ def plotconvmeteograms(dis_index, pc, ib, convmeteodict):
         # TODO: Check that wind directions from NV2 probes are vector averages
         winddiravgvec = winddirabs
     else:
-        windspdavg, windspdavgvec, winddiravgvec, windgust, windgustavg = \
-            pips.avgwind(winddirabs, windspd, windavgintv, gusts=True, gustintv=windgustintv,
-                         center=False)
+        windspdavg, windspdavgvec, winddiravgvec, windgust, windgustavg = dis.avgwind(
+            winddirabs, windspd, windavgintv, gusts=True, gustintv=windgustintv, center=False)
 
     fig = plt.figure(figsize=(5, 3))
     ax1 = fig.add_subplot(111)
@@ -1023,7 +1022,7 @@ def plot_vel_D(ib, axdict, PSDdict, rho):
     countsplot = N.ma.masked_where(countsMatrix[:] <= 0, countsMatrix[:])
     C = ax1.pcolor(min_diameter, min_fall_bins, countsplot, vmin=1, vmax=50, edgecolors='w',
                    cmap=cm.plasma)
-    rainvd = pips.calc_empirical_fallspeed(avg_diameter, correct_rho=True, rho=rho)
+    rainvd = dis.assignfallspeed(avg_diameter, rhocorrect=True, rho=rho)
 
     ax1.plot(avg_diameter, rainvd, c='r')
     # ax1.scatter(X[0:10,20:31],Y[0:10,20:31],c='r',marker='x')
