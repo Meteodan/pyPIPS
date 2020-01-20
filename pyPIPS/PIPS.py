@@ -547,6 +547,10 @@ def get_PSD_datetimes(vd_matrix, dim_name='time_10s'):
     return pd.to_datetime(vd_matrix[dim_name].values).to_pydatetime()
 
 
+def get_conv_datetimes(conv_df, dim_name='time'):
+    return conv_df.index.to_pydatetime()
+
+
 def get_PSD_time_bins(PSD_datetimes):
     PSD_interval_td = PSD_datetimes[1] - PSD_datetimes[0]
     PSD_half_interval_td = PSD_interval_td / 2.

@@ -424,8 +424,7 @@ def plotconvmeteograms(dis_index, pc, ib, convmeteodict):
     conv_plot_df = convmeteodict.get('conv_plot_df')
     windavgintv = convmeteodict.get('windavgintv')
     windgustintv = convmeteodict.get('windgustintv')
-
-    xaxislimits = [plottimes[0], plottimes[-1]]
+    xaxislimits = convmeteodict.get('xaxislimits', [plottimes[0], plottimes[-1]])
     dis_name = ib.dis_name_list[dis_index]
 
     # Plot wind meteogram
