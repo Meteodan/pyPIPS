@@ -3,7 +3,7 @@
 # This script plots meteograms from the Portable Integrated Precipitation Stations (PIPS)
 import os
 import sys
-from datetime import timedelta
+from datetime import datetime
 import numpy as np
 import pandas as pd
 import matplotlib.ticker as ticker
@@ -15,7 +15,9 @@ import pyPIPS.pips_io as pipsio
 import pyPIPS.utils as utils
 import pyPIPS.PIPS as pips
 import pyPIPS.parsivel_qc as pqc
-
+import pyPIPS.DSDlib as dsd
+import pyPIPS.polarimetric as dp
+import pyPIPS.timemodule as tm
 
 min_diameter = pp.parsivel_parameters['min_diameter_bins_mm']
 max_diameter = pp.parsivel_parameters['max_diameter_bins_mm']
@@ -80,6 +82,11 @@ for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc, ptype 
         0, len(ib.dis_list)), ib.dis_list, ib.dis_name_list, ib.starttimes, ib.stoptimes,
         ib.centertimes, ib.dlocs, ib.type):
 
+    if starttime == '-1':
+        starttime = None
+    if stoptime == '-1':
+        stoptime = None
+
     tripips = (ptype == 'TriPIPS')
     PIPS_data_file_path = os.path.join(ib.dis_dir, dis_filename)
     conv_df, parsivel_df, vd_matrix_da = pipsio.read_PIPS(PIPS_data_file_path,
@@ -87,12 +94,19 @@ for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc, ptype 
                                                           stoptimestamp=stoptime, tripips=tripips)
     # We need the disdrometer locations. If they aren't supplied in the input control file, find
     # them from the GPS data
-
     if np.int(dloc[0]) == -1:
         ib.dlocs[index] = pipsio.get_PIPS_loc(conv_df['GPS_status'], conv_df['GPS_lat'],
                                               conv_df['GPS_lon'], conv_df['GPS_alt'])
 
-    print("Lat/Lon/alt of {}: {}".format(dis_name, str(dloc)))
+    print("Lat/Lon/alt of {}: {}".format(dis_name, str(ib.dlocs[index])))
+
+    # Resample the parsivel data to a longer interval if desired
+    if pc.DSD_interval > 10.:
+        DSD_interval = pips.check_requested_resampling_interval(pc.DSD_interval, 10.)
+        vd_matrix_da = pips.resample_vd_matrix(DSD_interval, vd_matrix_da)
+        parsivel_df = pips.resample_parsivel(DSD_interval, parsivel_df)
+    else:
+        DSD_interval = 10.
 
     conv_df_list.append(conv_df)
     parsivel_df_list.append(parsivel_df)
@@ -113,17 +127,6 @@ if pc.comp_radar:
         radar.plotsweeps(pc, ib, sb)
 
 # Outer disdrometer (and deployment) loop
-mu = []
-lamda = []
-Mu_retr = []
-Lam_retr = []
-D0dict = {}
-ZDRdict = {}
-Wdict = {}
-Rdict = {}
-Ntdict = {}
-
-
 for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc, ptype, conv_df, \
     parsivel_df, vd_matrix_da in zip(range(0, len(ib.dis_list)), ib.dis_list, ib.dis_name_list,
                                      ib.starttimes, ib.stoptimes, ib.centertimes, ib.dlocs,
@@ -133,8 +136,6 @@ for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc, ptype,
 
     # Calculate some additional thermodynamic parameters from the conventional data
     conv_df = pips.calc_thermo(conv_df)
-
-    # STOPPED HERE! Refactoring!
 
     # Do some QC on the V-D matrix
     strongwindQC = pc.strongwindQC
@@ -172,6 +173,66 @@ for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc, ptype,
     fallspeed_spectrum = pips.calc_fallspeed_spectrum(avg_diameter, avg_fall_bins, correct_rho=True,
                                                       rho=conv_df['rho'])
     vd_matrix_da = vd_matrix_da.where(vd_matrix_da > 0.0)
-    ND = pips.calc_ND(vd_matrix_da, fallspeed_spectrum, parsivel_df['sample_interval'])
+    ND = pips.calc_ND(vd_matrix_da, fallspeed_spectrum, DSD_interval)
     logND = np.log10(ND)
 
+    # Get times for PIPS meteogram plotting
+    PSD_datetimes = pips.get_PSD_datetimes(vd_matrix_da)
+    PSD_datetimes_dict = pips.get_PSD_time_bins(PSD_datetimes)
+
+    PSD_edgetimes = dates.date2num(PSD_datetimes_dict['PSD_datetimes_edges'])
+    PSD_centertimes = dates.date2num(PSD_datetimes_dict['PSD_datetimes_centers'])
+
+    # Pack plotting variables into dictionary
+    disvars = {
+        'min_diameter': min_diameter,
+        'PSDstarttimes': PSD_edgetimes,
+        'PSDmidtimes': PSD_centertimes,
+        'logND': logND.T
+    }
+
+    # Compute additional derived parameters
+    disvars['D_0'] = dsd.calc_D0_bin(ND) * 1000.  # Get to mm
+    if pc.calc_dualpol:
+        # Calculate polarimetric variables using the T-matrix technique
+        # Note, may try to use pyDSD for this purpose.
+        scattfile = ib.scattdir + 'SCTT_RAIN_fw100.dat'
+        # Observed DSD
+        dualpol_dis = dp.calpolrain(ib.wavelength, scattfile, ND, bin_width)
+        for varname in ['dBZ', 'ZDR', 'KDP', 'RHV']:
+            var = dualpol_dis.get(varname, np.empty((0)))
+            if var.size:
+                # If desired, perform centered running averages
+                if pc.avgwindow and False:
+                    window = int(pc.avgwindow / DSD_interval)
+                    var = pd.Series(var).rolling(
+                        window=window, center=True, win_type='triang',
+                        min_periods=1).mean().values
+                disvars[varname] = var
+    # Set up axis parameters
+    timelimits = [dates.date2num(datetime.strptime(starttime, tm.timefmt3)),
+                  dates.date2num(datetime.strptime(stoptime, tm.timefmt3))]
+    try:
+        diamlimits = pc.DSD_D_range
+        diamytick = pc.DSD_D_ytick
+    except Exception:
+        diamlimits = [0.0, 9.0]
+        diamytick = 1.0
+
+    DSDtype = 'observed'
+    locator = dates.MinuteLocator(byminute=[0, 15, 30, 45])
+    minorlocator = dates.MinuteLocator(byminute=range(0, 60, 5))
+    dateformat = '%H:%M'
+    formatter = dates.DateFormatter(dateformat)
+
+    axparams = {
+        'majorxlocator': locator,
+        'majorxformatter': formatter,
+        'minorxlocator': minorlocator,
+        'axeslimits': [timelimits, diamlimits],
+        'majorylocator': ticker.MultipleLocator(base=diamytick),
+        'axeslabels': [None, 'D (mm)']
+    }
+    # Make the plot
+    dis_plot_name = dis_name + '_' + DSDtype
+    pm.plotDSDmeteograms(dis_plot_name, meteogram_image_dir, axparams, disvars)
