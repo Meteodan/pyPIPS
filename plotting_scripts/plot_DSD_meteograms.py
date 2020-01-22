@@ -78,9 +78,9 @@ conv_df_list = []
 parsivel_df_list = []
 vd_matrix_da_list = []
 
-for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc, ptype in zip(range(
-        0, len(ib.dis_list)), ib.dis_list, ib.dis_name_list, ib.starttimes, ib.stoptimes,
-        ib.centertimes, ib.dlocs, ib.type):
+for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc, ptype in \
+        zip(range(0, len(ib.dis_list)), ib.dis_list, ib.dis_name_list, ib.starttimes, ib.stoptimes,
+            ib.centertimes, ib.dlocs, ib.type):
 
     if starttime == '-1':
         starttime = None
@@ -116,15 +116,21 @@ for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc, ptype 
 # Grab radar data for comparison if desired
 
 if pc.comp_radar:
-    if pc.comp_dualpol:
+    if pc.calc_dualpol:
         fieldnames = ['dBZ', 'ZDR', 'RHV', 'Vr']  # Removed KDP for now
     else:
         fieldnames = ['dBZ', 'Vr']
 
-    sb = radar.readsweeps2PIPS(fieldnames, pc, ib)
-
-    if pc.plot_radar:
-        radar.plotsweeps(pc, ib, sb)
+    # sb = radar.readsweeps2PIPS(fieldnames, pc, ib)
+    if not pc.loadradopt:
+        radar_dict = radar.read_sweeps(pc.radar_name, pc.radar_dir, ib.starttimerad,
+                                       ib.stoptimerad, field_names=fieldnames, el_req=ib.el_req)
+        dradlocs = radar.get_PIPS_loc_relative_to_radar(ib.dlocs, radar_dict['radarsweeplist'][0])
+        radar_fields_at_PIPS_da = radar.interp_sweeps_to_PIPS(pc.radar_name,
+                                                              radar_dict['radarsweeplist'],
+                                                              ib.dis_name_list, dradlocs)
+    else:
+        print("Reading radar data at PIPS from netCDF file not yet implemented.")
 
 # Outer disdrometer (and deployment) loop
 for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc, ptype, conv_df, \
@@ -183,6 +189,10 @@ for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc, ptype,
     PSD_edgetimes = dates.date2num(PSD_datetimes_dict['PSD_datetimes_edges'])
     PSD_centertimes = dates.date2num(PSD_datetimes_dict['PSD_datetimes_centers'])
 
+    # If we are comparing with radar, get the radar timestamps as well
+    if pc.comp_radar:
+        # plotx_rad = dates.date2num(sb.radtimes)
+        plotx_rad = pd.to_datetime(radar_fields_at_PIPS_da['time'].values).to_pydatetime()
     # Pack plotting variables into dictionary
     disvars = {
         'min_diameter': min_diameter,
@@ -233,6 +243,30 @@ for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc, ptype,
         'majorylocator': ticker.MultipleLocator(base=diamytick),
         'axeslabels': [None, 'D (mm)']
     }
+
+    # If we are comparing with radar, grab associated radar variables for plotting
+    if pc.comp_radar:
+        # At least add the reflectivity
+        dBZ_D_plt = radar_fields_at_PIPS_da.sel(fields='REF', PIPS=dis_name)
+        # indexrad = sb.outfieldnames.index('dBZ')
+        # dBZ_D_plt = sb.fields_D_tarr[:, index, indexrad]
+        radvars = {'radmidtimes': plotx_rad, 'dBZ': dBZ_D_plt}
+        # Add other polarimetric fields
+        if pc.calc_dualpol:
+            for radvarname in ['ZDR', 'KDP', 'RHO']:
+                if radvarname in radar_fields_at_PIPS_da.fields:
+                    # indexrad = sb.outfieldnames.index(radvarname)
+                    # dualpol_rad_var = sb.fields_D_tarr[:, index, indexrad]
+                    dualpol_rad_var = radar_fields_at_PIPS_da.sel(fields=radvarname, PIPS=dis_name)
+                    if dualpol_rad_var.size:
+                        radvars[radvarname] = dualpol_rad_var
+            if pc.clean_radar:
+                # remove non-precipitation echoes from radar data
+                gc_mask = np.where((radvars['RHV'] < 0.90), True, False)
+                for radvarname in ['ZDR', 'dBZ', 'RHV']:
+                    radvars[radvarname] = np.ma.masked_array(radvars[radvarname],
+                                                             mask=gc_mask)
+
     # Make the plot
     dis_plot_name = dis_name + '_' + DSDtype
-    pm.plotDSDmeteograms(dis_plot_name, meteogram_image_dir, axparams, disvars)
+    pm.plotDSDmeteograms(dis_plot_name, meteogram_image_dir, axparams, disvars, radvars.copy())

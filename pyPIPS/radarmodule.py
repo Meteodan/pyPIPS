@@ -22,6 +22,8 @@ from . import utils
 from . import timemodule as tm
 from . import PIPS as pips
 import pickle
+import xarray as xr
+import pandas as pd
 
 clevels_ref = np.arange(0.0, 85.0, 5.0)          # Contour levels for reflectivity (dBZ)
 clevels_zdr = np.arange(0.0, 6.25, 0.25)         # Contour levels for Zdr (dB)
@@ -158,13 +160,13 @@ def getradarfilelist(radar_dir, radar_save_dir, starttime=None, stoptime=None, p
 
     if(platform == 'NEXRAD' or platform == 'SMARTR'):
         CFRadial = True
+        radar_filelist = glob.glob(radar_dir + '*{}*.nc'.format(radar_name))
     else:
         CFRadial = False
+        radar_filelist = glob.glob(radar_dir + '*.nc')
 
     if(platform == 'UMXP' or platform == 'SMARTR'):
         radar_name = platform
-
-    radar_filelist = glob.glob(radar_dir + '*.nc')
 
     # Filter only those files containing sweeps closest to the desired elevation angle
     # Only need to do this for UMXP or SMARTR, which has separate files for each elevation
@@ -347,6 +349,7 @@ def readCFRadial_pyART(el, filename, sweeptime, fieldnames, radlat=None, radlon=
     # outfieldnames = []
     outfieldnames = {}
 
+    # TODO: refactor this. The filefieldlist isn't even being used for anything anymore
     for fieldname in fieldnames:
         f = None
         fieldtype = 'unknown'
@@ -1341,7 +1344,7 @@ def readsweeps2PIPS(fieldnames, pc, ib):
         radar_filelist, radtimes = getradarfilelist(ib.radar_dir, pc.radar_save_dir,
                                                     starttime=ib.starttimerad,
                                                     stoptime=ib.stoptimerad, platform=ib.platform,
-                                                    el_req=ib.el_req)
+                                                    radar_name=ib.radar_name, el_req=ib.el_req)
 
         print("radar_filelist = ", radar_filelist)
 
@@ -1551,3 +1554,181 @@ def plotsweeps(pc, ib, sb, sweepstart=-1, sweepstop=-1):
                 plt.savefig(radar_image_dir + fieldname + sweeptime.strftime(tm.timefmt3).strip()
                             + 'el' + str(ib.el_req) + '.png', dpi=200, bbox_inches='tight')
                 plt.close(fig)
+
+
+def read_sweeps(radar_name, radar_dir, starttime, stoptime, field_names=['dBZ'], el_req=0.5,
+                compute_kdp=False):
+    """Reads sweeps from a list of CFRadial files between the start and stop times requested
+    and at the elevation angle requested. Returns a dictionary with the sweeps (pyART radar objects)
+
+    Parameters
+    ----------
+    radar_name : str
+        4-letter ID of the radar
+    radar_dir : str
+        Directory containing the radar files
+    starttime : str
+        starting timestamp in '%Y%m%d%H%M%S' format
+    stoptime : str
+        ending timestamp in '%Y%m%d%H%M%S' format
+    field_names : list, optional
+        List of fields to extract from the files, by default ['dBZ']
+    el_req : float, optional
+        desired elevation angle, by default 0.5
+    compute_kdp : bool, optional
+        whether to compute KDP, by default False
+
+    Returns
+    -------
+    dict
+        dictionary containing the list of sweep objects, as well as the timestamps for each and
+        the list of fields that were read in from the files.
+    """
+    radpathlist = glob.glob(radar_dir + '/*{}*nc'.format(radar_name))
+
+    # Now read in all the sweeps between radstarttime and radstoptime closest to the requested
+    # elevation angle
+    radstarttimedt = datetime.strptime(starttime, tm.timefmt3)
+    radstoptimedt = datetime.strptime(stoptime, tm.timefmt3)
+
+    outfieldnameslist = []
+    radarsweeplist = []
+    sweeptimelist = []
+
+    for radpath in radpathlist:
+        sweeptime = _getsweeptime(radpath)
+
+        if radstarttimedt <= sweeptime and sweeptime <= radstoptimedt:
+            outfieldnames, radarsweep = readCFRadial_pyART(el_req, radpath, sweeptime,
+                                                           field_names, compute_kdp=compute_kdp)
+            outfieldnameslist.append(outfieldnames)
+            radarsweeplist.append(radarsweep)
+            sweeptimelist.append(sweeptime)
+
+    # Sort the lists by increasing time since glob doesn't sort in any particular order
+    sorted_sweeptimelist = sorted(sweeptimelist)
+    sorted_radarsweeplist = [x for _, x in sorted(zip(sweeptimelist, radarsweeplist),
+                                                  key=lambda pair: pair[0])]
+
+    sorted_outfieldnameslist = [x for _, x in sorted(zip(sweeptimelist, outfieldnameslist),
+                                                     key=lambda pair: pair[0])]
+
+    # Stuff the lists into a dictionary
+    radar_dict = {
+        'outfieldnameslist': sorted_outfieldnameslist,
+        'radarsweeplist': sorted_radarsweeplist,
+        'sweeptimelist': sorted_sweeptimelist
+    }
+    return radar_dict
+
+
+def get_PIPS_loc_relative_to_radar(PIPS_geo_loc, radarsweep):
+    """Gets the cartesian location of the PIPS relative to the radar."""
+
+    # Grab radar location information from the first sweep in radar_dict
+    rlat = radarsweep.latitude['data'][0]
+    rlon = radarsweep.longitude['data'][0]
+
+    dradx, drady = pyart.core.geographic_to_cartesian_aeqd(PIPS_geo_loc[1], PIPS_geo_loc[0],
+                                                           rlon, rlat)
+    dx = dradx[0]
+    dy = drady[0]
+    # print(dx, dy)
+    PIPS_rad_loc = (dx, dy)
+
+    return PIPS_rad_loc
+
+
+def interp_sweeps_to_PIPS(radar_name, radarsweep_list, PIPS_names, dradlocs, average_gates=True):
+    """Interpolates a series of radar sweeps to the locations of the PIPS
+
+    Parameters
+    ----------
+    radar_name: str
+        Name of the radar
+    radarsweep_list : list
+        list of pyart radar sweep objects
+    PIPS_names : list
+        list of PIPS names
+    dradlocs : list
+        list of tuples containing the (x, y) cartesian coordinates of the PIPS relative to the radar
+    average_gates : bool, optional
+        Whether to average the closest 9 gates, by default True
+
+    Returns
+    -------
+    xr.DataArray
+        DataArray containing the values of the different radar fields for each time and each
+        PIPS location, interpolated to those locations.
+    """
+    # Sanity check on input
+    if len(PIPS_names) != len(dradlocs):
+        print("PIPS name list isn't the same length as the location list! Exiting!")
+        return
+
+    # Hardcoded subset of field names
+    field_names = ['REF', 'VEL', 'ZDR', 'PHI', 'RHO', 'SW']
+
+    radar_fields_at_PIPS_tlist = []
+
+    for radarsweep in radarsweep_list:
+        radar_fields_at_PIPS_list = []
+        # Get Cartesian locations of radar gates
+        xrad, yrad, zrad = radarsweep.get_gate_x_y_z(0)
+        for dradloc in dradlocs:
+            print(dradloc[0], dradloc[1])
+            distance = np.sqrt((dradloc[0] - xrad)**2. + (dradloc[1] - yrad)**2.)
+            # Now, find the index of the closest radar gate
+            theta_index, range_index = np.unravel_index(distance.argmin(), distance.shape)
+            print("theta_index, range_index", theta_index, range_index)
+            print("Distance to closest gate: ", distance[theta_index, range_index])
+            radar_field_list = []
+            for field_name in field_names:
+                try:
+                    field_data = radarsweep.fields[field_name]['data'].filled(np.nan)
+                except KeyError:
+                    field_data = np.nan * np.ones_like(xrad)
+                if distance[theta_index, range_index] > 3000.:
+                    field_at_PIPS = np.nan
+                else:
+                    if not average_gates:
+                        field_at_PIPS = field_data[theta_index, range_index]
+                    else:
+                        field_at_PIPS = np.nanmean(field_data[theta_index - 1:theta_index + 2,
+                                                              range_index - 1:range_index + 2])
+                radar_field_list.append(field_at_PIPS)
+            radar_fields_at_PIPS_list.append(radar_field_list)
+        radar_fields_at_PIPS_tlist.append(radar_fields_at_PIPS_list)
+    radar_fields_at_PIPS_arr = np.array(radar_fields_at_PIPS_tlist)
+    # Create a list of datetimes from the radar time coverage start times
+    # For some reason have to do some additional massaging to get into the proper format
+    # in the DataArray (datetime64[ns] objects)
+    radar_datetimes = pd.to_datetime([radarsweep.metadata['time_coverage_start']
+                                      for radarsweep in radarsweep_list])
+    radar_datetimes = [radar_datetime.to_pydatetime() for radar_datetime in radar_datetimes]
+
+    # Create a DataArray with the radar fields interpolated to the PIPS locations
+    radar_fields_at_PIPS_da = \
+        xr.DataArray(radar_fields_at_PIPS_arr,
+                     coords={'time': radar_datetimes,
+                             'PIPS': PIPS_names,
+                             'fields': field_names,
+                             'PIPS_x': ('PIPS', [dradloc[0] for dradloc in dradlocs]),
+                             'PIPS_y': ('PIPS', [dradloc[1] for dradloc in dradlocs]),
+                             },
+                     dims=['time', 'PIPS', 'fields'],
+                     attrs={'Radar Name': radar_name})
+    return radar_fields_at_PIPS_da
+
+
+def dump_radar_fields_at_PIPS_nc(ncfile_path, radar_fields_at_PIPS_da):
+    """Dumps the interpolated radar fields at the PIPS locations to a netCDF file
+
+    Parameters
+    ----------
+    ncfile_path : [type]
+        [description]
+    radar_fields_at_PIPS_da : [type]
+        [description]
+    """
+    radar_fields_at_PIPS_da.to_dataset(name='radar_fields_at_PIPS').to_netcdf(ncfile_path)
