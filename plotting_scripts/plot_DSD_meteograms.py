@@ -3,7 +3,7 @@
 # This script plots meteograms from the Portable Integrated Precipitation Stations (PIPS)
 import os
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 import numpy as np
 import pandas as pd
 import matplotlib.ticker as ticker
@@ -123,10 +123,15 @@ if pc.comp_radar:
 
     # sb = radar.readsweeps2PIPS(fieldnames, pc, ib)
     if not pc.loadradopt:
-        radar_dict = radar.read_sweeps(pc.radar_name, pc.radar_dir, ib.starttimerad,
-                                       ib.stoptimerad, field_names=fieldnames, el_req=ib.el_req)
-        dradlocs = radar.get_PIPS_loc_relative_to_radar(ib.dlocs, radar_dict['radarsweeplist'][0])
-        radar_fields_at_PIPS_da = radar.interp_sweeps_to_PIPS(pc.radar_name,
+        radar_dict = radar.read_sweeps(ib.radar_name, ib.radar_dir,
+                                       ib.starttimerad.strftime(tm.timefmt3),
+                                       ib.stoptimerad.strftime(tm.timefmt3),
+                                       field_names=fieldnames, el_req=ib.el_req)
+        dradlocs = []
+        for dloc in ib.dlocs:
+            dradloc = radar.get_PIPS_loc_relative_to_radar(dloc, radar_dict['radarsweeplist'][0])
+            dradlocs.append(dradloc)
+        radar_fields_at_PIPS_da = radar.interp_sweeps_to_PIPS(ib.radar_name,
                                                               radar_dict['radarsweeplist'],
                                                               ib.dis_name_list, dradlocs)
     else:
@@ -250,7 +255,7 @@ for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc, ptype,
         dBZ_D_plt = radar_fields_at_PIPS_da.sel(fields='REF', PIPS=dis_name)
         # indexrad = sb.outfieldnames.index('dBZ')
         # dBZ_D_plt = sb.fields_D_tarr[:, index, indexrad]
-        radvars = {'radmidtimes': plotx_rad, 'dBZ': dBZ_D_plt}
+        radvars = {'radmidtimes': plotx_rad, 'REF': dBZ_D_plt}
         # Add other polarimetric fields
         if pc.calc_dualpol:
             for radvarname in ['ZDR', 'KDP', 'RHO']:
@@ -262,8 +267,8 @@ for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc, ptype,
                         radvars[radvarname] = dualpol_rad_var
             if pc.clean_radar:
                 # remove non-precipitation echoes from radar data
-                gc_mask = np.where((radvars['RHV'] < 0.90), True, False)
-                for radvarname in ['ZDR', 'dBZ', 'RHV']:
+                gc_mask = np.where((radvars['RHO'] < 0.90), True, False)
+                for radvarname in ['ZDR', 'REF', 'RHO']:
                     radvars[radvarname] = np.ma.masked_array(radvars[radvarname],
                                                              mask=gc_mask)
 
