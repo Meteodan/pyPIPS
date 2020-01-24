@@ -276,10 +276,15 @@ def resample_parsivel(resample_interval, parsivel_df):
     # Each column of the dataframe needs to downsample differently. For example, the
     # precipitation totals need to be summed, while the reflectivity should be averaged,
     # etc. We can do this with the Pandas "agg" function on the resampler. Neat, huh?
-    parsivel_df = parsivel_rs.agg({'intensity': np.mean, 'preciptot': np.sum,
-                                   'reflectivity': np.mean, 'pcount': np.sum, 'pcount2': np.sum,
-                                   'amplitude': np.mean, 'flaggedtimes': np.any,
-                                   'hailflag': np.any}).fillna(0)
+    # parsivel_df = parsivel_rs.agg({'intensity': np.mean, 'preciptot': np.sum,
+    #                                'reflectivity': np.mean, 'pcount': np.sum, 'pcount2': np.sum,
+    #                                'amplitude': np.mean, 'flaggedtimes': np.any,
+    #                                'hailflag': np.any}).fillna(0)
+
+    parsivel_df = parsivel_rs.agg({'precipintensity': np.mean, 'precipaccum': np.sum,
+                                   'parsivel_dBZ': np.mean, 'pcount': np.sum,
+                                   'signal_amplitude': np.mean, 'pvoltage': np.mean, 'sensor_temp': np.mean,
+                                   'sample_interval': np.mean}).fillna(0)
 
     return parsivel_df
 

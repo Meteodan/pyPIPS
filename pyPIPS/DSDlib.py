@@ -7,6 +7,8 @@ import numpy as np
 from scipy.special import gamma as gamma_, gammainc as gammap, gammaln as gammln
 from . import thermolib as thermo
 from .utils import first_nonzero, last_nonzero, enable_xarray_wrapper
+import xarray as xr
+from numba import jit
 
 # Some physical constants
 rhol = 1000.  # density of liquid water (kg / m^3)
@@ -758,9 +760,10 @@ def fit_DSD_MM24(M2, M4):
         The intercept, slope, and shape parameters of the fitted gamma distribution. In this case
         the shape parameter is always zero.
     """
-    lamda = np.where(M4 == 0.0, 0.0, ((M2 * gamma5) / (M4 * gamma3))**(1./2.))
+    # lamda = np.where(M4 == 0.0, 0.0, ((M2 * gamma5) / (M4 * gamma3))**(1./2.))
+    lamda = ((M2 * gamma5) / (M4 * gamma3))**(1./2.)
     N0 = (M2 * lamda**3.) / gamma3
-    mu = 0.
+    mu = lamda.copy(data=np.zeros_like(lamda.values))
     return N0, lamda, mu
 
 
@@ -780,10 +783,11 @@ def fit_DSD_MM36(M3, M6):
         The intercept, slope, and shape parameters of the fitted gamma distribution. In this case
         the shape parameter is always zero.
     """
-    lamda = np.where(M6 == 0.0, 0.0, ((M3 * gamma7) / (M6 * gamma4))
-                     ** (1. / 3.))
+    # lamda = np.where(M6 == 0.0, 0.0, ((M3 * gamma7) / (M6 * gamma4))
+    #                  ** (1. / 3.))
+    lamda = ((M3 * gamma7) / (M6 * gamma4))** (1. / 3.)
     N0 = (M3 * lamda**4.) / gamma4
-    mu = 0.
+    mu = lamda.copy(data=np.zeros_like(lamda.values))
     return N0, lamda, mu
 
 
@@ -805,11 +809,11 @@ def fit_DSD_MM346(M3, M4, M6):
         The intercept, slope, and shape parameters of the fitted gamma distribution.
     """
     G = (M4**3.) / ((M3**2.) * M6)
-    G = np.ma.masked_invalid(G)
+    # G = np.ma.masked_invalid(G)
     mu = (11. * G - 8. + (G * (G + 8.))**(1. / 2.))/(2. * (1. - G))
-    mu = np.ma.masked_invalid(mu)
+    # mu = np.ma.masked_invalid(mu)
     lamda = (M3 * (mu + 4.)) / M4
-    lamda = np.ma.masked_invalid(lamda)
+    # lamda = np.ma.masked_invalid(lamda)
     N0 = (M3 * lamda**(mu + 4.))/(gamma_(mu + 4.))
 
     return N0, lamda, mu
@@ -868,18 +872,18 @@ def fit_DSD_MM246(M2, M4, M6, lamda_limit=20000., mu_limit=30.):
         The intercept, slope, and shape parameters of the fitted gamma distribution.
     """
     G = (M4**2.) / (M2 * M6)
-    G = np.ma.masked_invalid(G)
+    # G = np.ma.masked_invalid(G)
     mu = ((7. - 11. * G) - ((7. - 11. * G)**2. - 4. * (G - 1.)
                             * (30. * G - 12.))**(1. / 2.)) / (2. * (G - 1.))
     # TODO: should we just set mu and lambda greater than the limit to their limits instead of
     # masking them?
-    mu = np.ma.masked_where(mu > mu_limit, mu)
-    mu = np.ma.masked_invalid(mu)
+    # mu = np.ma.masked_where(mu > mu_limit, mu)
+    # mu = np.ma.masked_invalid(mu)
     lamda = ((M2 * (mu + 3.) * (mu + 4.)) / (M4))**(1. / 2.)
-    mu = np.ma.masked_where((lamda > lamda_limit) | (mu > 30.), mu)
-    mu = np.ma.masked_invalid(mu)
-    lamda = np.ma.masked_where(lamda > lamda_limit, lamda)
-    lamda = np.ma.masked_invalid(lamda)
+    # mu = np.ma.masked_where((lamda > lamda_limit) | (mu > 30.), mu)
+    # mu = np.ma.masked_invalid(mu)
+    # lamda = np.ma.masked_where(lamda > lamda_limit, lamda)
+    # lamda = np.ma.masked_invalid(lamda)
     N0 = (M4 * lamda**(mu + 5.)) / (gamma_(mu + 5.))
 
     return N0, lamda, mu
@@ -903,9 +907,9 @@ def fit_DSD_MM234(M2, M3, M4):
         The intercept, slope, and shape parameters of the fitted gamma distribution.
     """
     mu = (3. * M2 * M4 - 4. * M3**2.) / (M3**2. - M2 * M4)
-    mu = np.ma.masked_invalid(mu)
+    # mu = np.ma.masked_invalid(mu)
     lamda = (M3 * (mu + 4.)) / M4
-    lamda = np.ma.masked_invalid(lamda)
+    # lamda = np.ma.masked_invalid(lamda)
     N0 = (M3 * lamda**(mu + 4.))/(gamma_(mu + 4.))
 
     return N0, lamda, mu
@@ -924,15 +928,65 @@ def get_max_min_diameters(ND):
     2-tuple of array_like
         The minimum and maximum diameters of an array of binned number density distributions
     """
-    D_min = first_nonzero(ND, 0)
-    D_max = last_nonzero(ND, 0)
+
+    # This is surprisingly more of a PITA than I thought it would be.... For each time,
+    # need to select the appropriate diameter, so we need to broadcast the diameter array
+    # along the time dimension, and then index using two DataArrays, both dimensioned by time
+    # The first is just the index of each time, the second is the index of the diameter we
+    # want (for each time). It's clunky, but it works. Not sure there is a better way.
+    ntimes = ND.sizes['time_10s']
+    tindices = xr.DataArray(range(ntimes), dims='time_10s')
+    D_min_indices = xr.DataArray(first_nonzero(ND, 1), dims='time_10s')
+    D_max_indices = xr.DataArray(last_nonzero(ND, 1), dims='time_10s')
+    D_min = ND['diameter'].expand_dims({'time_10s': ntimes})[tindices, D_min_indices] / 1000.
+    D_max = ND['diameter'].expand_dims({'time_10s': ntimes})[tindices, D_max_indices] / 1000.
 
     return D_min, D_max
 
 
+def fit_DSD_TMM_xr(M2, M4, M6, D_min, D_max):
+    """Fits gamma distributions using the Truncated Method of Moments (TMM) using M2, M4, and M6
+    and D_min, and D_max. Wrapper function for fit_DSD_TMM which operates on numpy arrays and is
+    sped up using numba.
+
+    Parameters
+    ----------
+    M2 : array_like
+        The second moment of the distribution
+    M4 : array_like
+        The fourth moment of the distribution
+    M6 : array_like
+        The sixth moment of the distribution
+    D_min : array_like
+        The minimum diameter of the distribution
+    D_max : array_like
+        The maximum diameter of the distribution
+
+    Returns
+    -------
+    3-tuple of array_like
+        The intercept, slope, and shape parameters of the fitted gamma distribution.
+    """
+    M2_arr = M2.values
+    M4_arr = M4.values
+    M6_arr = M6.values
+    D_min_arr = D_min.values
+    D_max_arr = D_max.values
+
+    N0, lamda, alpha = fit_DSD_TMM(M2_arr, M4_arr, M6_arr, D_min_arr, D_max_arr)
+
+    N0_da = M2.copy(data=N0)
+    lamda_da = M2.copy(data=lamda)
+    alpha_da = M2.copy(data=alpha)
+
+    return N0_da, lamda_da, alpha_da
+
+
+@jit
 def fit_DSD_TMM(M2, M4, M6, D_min, D_max):
     """Fits gamma distributions using the Truncated Method of Moments (TMM) using M2, M4, and M6
-    and D_min, and D_max
+    and D_min, and D_max. Operates on numpy arrays and uses numba jit to speed things up
+    considerably
 
     Parameters
     ----------
@@ -953,7 +1007,7 @@ def fit_DSD_TMM(M2, M4, M6, D_min, D_max):
         The intercept, slope, and shape parameters of the fitted gamma distribution.
     """
     G = (M4**2.) / (M2 * M6)  # moment ratio based on untruncated moments
-    G = np.ma.masked_invalid(G)
+    # G = np.ma.masked_invalid(G)
 
     # Get initial estimate of lamda and mu from the untruncated fit:
     _, lamda_init, mu_init = fit_DSD_MM246(M2, M4, M6)
@@ -962,12 +1016,16 @@ def fit_DSD_TMM(M2, M4, M6, D_min, D_max):
     # vectorize this algorithm across time. Maybe wrap Guifu's original fortran code is the
     # best approach.
     numtimes = np.size(M2)
+    # print(numtimes)
+    # print(lamda_init.size)
+    # print(D_max.size)
 
     mu_tmf = []
     lamda_tmf = []
     # N0_tmf = []
 
     for t in range(numtimes):
+        # print("D_max = ", D_max[t])
         LDmx = lamda_init[t] * D_max[t]
         for _ in range(10):
             mu = mu_init[t]
@@ -989,6 +1047,7 @@ def fit_DSD_TMM(M2, M4, M6, D_min, D_max):
             LDmx = lam_tmf * D_max[t]
         mu_tmf.append(mu)
         lamda_tmf.append(lam_tmf)
+        print("Working on time {:d}".format(t))
 
     mu_tmf = np.array(mu_tmf)
     lamda_tmf = np.array(lamda_tmf)
@@ -997,6 +1056,7 @@ def fit_DSD_TMM(M2, M4, M6, D_min, D_max):
         (gammap(5. + mu_tmf, LDmx) * np.exp(gammln(5. + mu_tmf)))
 
     return N0_tmf, lamda_tmf, mu_tmf
+
 
 
 def calc_binned_DSD_from_params(N0, lamda, alpha, D):
@@ -1022,8 +1082,12 @@ def calc_binned_DSD_from_params(N0, lamda, alpha, D):
 
     # Get D to m
     D = D / 1000.
-
-    return 1.e-3 * N0 * D**alpha * np.exp(-lamda * D)  # Units are m^-3 mm^-1
+    print(D)
+    print(N0)
+    print(alpha)
+    print(lamda)
+    # return 1.e-3 * N0 * D**alpha * np.exp(-lamda * D)  # Units are m^-3 mm^-1
+    return N0 * D**alpha * np.exp(-lamda * D)  # Units are m^-4
 
 
 def calc_rain_axis_ratio(D, fit_name='Brandes_2002'):

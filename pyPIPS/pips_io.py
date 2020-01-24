@@ -129,7 +129,10 @@ def get_PIPS_GPS_offset(filename, tripips=False):
                 break
             tokens = line.strip().split(',')
             timestamp = tokens[curfieldnames.index('TIMESTAMP')]
-            logger_datetime = datetime.strptime(timestamp, PIPS_timestamp_format)
+            try:
+                logger_datetime = datetime.strptime(timestamp, PIPS_timestamp_format)
+            except:
+                continue
             GPS_time = tokens[curfieldnames.index('GPSTime')]
             GPS_status = tokens[curfieldnames.index('GPSStatus')]
             GPS_date = tokens[curfieldnames.index('GPSDate')]
@@ -259,7 +262,10 @@ def read_PIPS(filename, starttimestamp=None, stoptimestamp=None, tripips=False,
     # Open the file and start parsing the records
     with open(filename, 'r') as disfile:
         for record in disfile:
-            record_dict = parse_PIPS_record(record, tripips=tripips)
+            try:
+                record_dict = parse_PIPS_record(record, tripips=tripips)
+            except:
+                continue
             # Skip this record if it lies before or after the desired period
             if starttime is not None and record_dict['logger_datetime'] < starttime:
                 continue

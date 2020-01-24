@@ -1003,23 +1003,22 @@ def plot_DSD(ib, axdict, PSDdict, PSDfitdict, PSDparamdict):
 def plot_vel_D(ib, axdict, PSDdict, rho):
     """Plots the terminal velocity vs. diameter matrix for a given DSD"""
 
-    times = axdict.get('times', N.empty((0)))
-    dis_name = axdict.get('dis_name', None)
-    t = axdict.get('time', None)
+    time = axdict.get('time', N.empty((0)))
     xlim = axdict.get('xlim', (0.0, 9.0))
     ylim = axdict.get('ylim', (0.0, 15.0))
     min_diameter = axdict.get('min_diameter', None)
     min_fall_bins = axdict.get('min_fall_bins', None)
     avg_diameter = axdict.get('avg_diameter', None)
 
-    countsMatrix = PSDdict.get('countsMatrix', None)
+    vd_matrix_da = PSDdict.get('vd_matrix_da', None)
     flaggedtime = PSDdict.get('flaggedtime', 0)
 
     fig1 = plt.figure(figsize=(8, 6))
     ax1 = fig1.add_subplot(111)
-    plt.title('Fall speed vs. diameter for time {0}'.format(times[t].strftime(tm.timefmt2)))
+    plt.title('Fall speed vs. diameter for time {0}'.format(time.strftime(tm.timefmt2)))
 
-    countsplot = N.ma.masked_where(countsMatrix[:] <= 0, countsMatrix[:])
+    countsplot = vd_matrix_da
+    # countsplot = N.ma.masked_where(vd_matrix_da <= 0, vd_matrix_da)
     C = ax1.pcolor(min_diameter, min_fall_bins, countsplot, vmin=1, vmax=50, edgecolors='w',
                    cmap=cm.plasma)
     rainvd = pips.calc_empirical_fallspeed(avg_diameter, correct_rho=True, rho=rho)
@@ -1058,10 +1057,7 @@ def plot_vel_D(ib, axdict, PSDdict, rho):
     ax1.yaxis.set_major_locator(ticker.MultipleLocator(1.0))
     ax1.set_ylabel('fall speed (m/s)')
 
-    plt.savefig(ib.image_dir + 'vel_D/' + dis_name + '/' + dis_name +
-                '_vel_D_{}_t{:04d}.png'.format(times[t].strftime(tm.timefmt3), t), dpi=200,
-                bbox_inches='tight')
-    plt.close(fig1)
+    return fig1, ax1
 
 
 def computecorners(xe, ye, UM=False):
