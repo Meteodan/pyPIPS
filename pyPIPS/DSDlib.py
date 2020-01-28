@@ -326,9 +326,9 @@ def calc_moment_bin(ND, moment=0):
 #     pro_cumsum = M3_cumsum / M3
 #     # Multiply cumulative proportion by the midpoint diameter of that bin
 #     pro_Dm = pro * Dm
-#     print(pro_Dm.loc[dict(time_10s='2016-03-31T22:30:00')])
+#     print(pro_Dm.loc[dict(time='2016-03-31T22:30:00')])
 #     D0 = pro_Dm.quantile(0.5, dim='diameter_bin')
-#     print(D0.loc[dict(time_10s='2016-03-31T22:30:00')])
+#     print(D0.loc[dict(time='2016-03-31T22:30:00')])
 #     return D0
 
 
@@ -934,12 +934,12 @@ def get_max_min_diameters(ND):
     # along the time dimension, and then index using two DataArrays, both dimensioned by time
     # The first is just the index of each time, the second is the index of the diameter we
     # want (for each time). It's clunky, but it works. Not sure there is a better way.
-    ntimes = ND.sizes['time_10s']
-    tindices = xr.DataArray(range(ntimes), dims='time_10s')
-    D_min_indices = xr.DataArray(first_nonzero(ND, 1), dims='time_10s')
-    D_max_indices = xr.DataArray(last_nonzero(ND, 1), dims='time_10s')
-    D_min = ND['diameter'].expand_dims({'time_10s': ntimes})[tindices, D_min_indices] / 1000.
-    D_max = ND['diameter'].expand_dims({'time_10s': ntimes})[tindices, D_max_indices] / 1000.
+    ntimes = ND.sizes['time']
+    tindices = xr.DataArray(range(ntimes), dims='time')
+    D_min_indices = xr.DataArray(first_nonzero(ND, 1), dims='time')
+    D_max_indices = xr.DataArray(last_nonzero(ND, 1), dims='time')
+    D_min = ND['diameter'].expand_dims({'time': ntimes})[tindices, D_min_indices] / 1000.
+    D_max = ND['diameter'].expand_dims({'time': ntimes})[tindices, D_max_indices] / 1000.
 
     return D_min, D_max
 

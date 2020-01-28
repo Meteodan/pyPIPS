@@ -241,10 +241,10 @@ def resample_vd_matrix(resample_interval, vd_matrix):
 
     # We need to find the offset corresponding to the starting second and then
     # generate the frequency string. Seems like there should be an easier way...
-    sec_offset = pd.to_datetime(vd_matrix['time_10s'].values)[0].second
+    sec_offset = pd.to_datetime(vd_matrix['time'].values)[0].second
     # Resample the vd_matrix in time, filling missing values with zero
-    vd_matrix = vd_matrix.resample(time_10s=intervalstr, label='right', closed='right',
-                                   base=sec_offset).sum(dim='time_10s').fillna(0)
+    vd_matrix = vd_matrix.resample(time=intervalstr, label='right', closed='right',
+                                   base=sec_offset).sum(dim='time').fillna(0)
 
     return vd_matrix
 
@@ -548,7 +548,7 @@ def rad2DD2(fieldlist, range_start, rrange, azimuth_start_rad, azimuth_rad, rlat
     return dxy_list, field_D_arr
 
 
-def get_PSD_datetimes(vd_matrix, dim_name='time_10s'):
+def get_PSD_datetimes(vd_matrix, dim_name='time'):
     return pd.to_datetime(vd_matrix[dim_name].values).to_pydatetime()
 
 

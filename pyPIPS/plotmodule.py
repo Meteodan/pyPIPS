@@ -418,31 +418,42 @@ def plotsingle2(fig, axes, ptype, xs, ys, x, y, xlim, ylim, field, clevels, cmap
     return fig, axes, grid
 
 
-def plotconvmeteograms(dis_index, pc, ib, convmeteodict):
-    """Plots meteograms of the one-second PIPS data"""
-    plottimes = convmeteodict.get('plottimes')
-    conv_plot_df = convmeteodict.get('conv_plot_df')
-    windavgintv = convmeteodict.get('windavgintv')
-    windgustintv = convmeteodict.get('windgustintv')
-    xaxislimits = convmeteodict.get('xaxislimits', [plottimes[0], plottimes[-1]])
-    dis_name = ib.dis_name_list[dis_index]
+def plot_wind_meteogram(plottimes, conv_plot_df, global_plot_config_dict, windavgintv=60,
+                        windgustintv=3, xlimits=None, ptype='PIPS'):
+    """[summary]
 
+    Parameters
+    ----------
+    plottimes : [type]
+        [description]
+    conv_plot_df : [type]
+        [description]
+    global_plot_config_dict : [type]
+        [description]
+    windavgintv : int, optional
+        [description], by default 60
+    windgustintv : int, optional
+        [description], by default 3
+    xlimits : [type], optional
+        [description], by default None
+    ptype : str, optional
+        [description], by default 'PIPS'
+
+    Returns
+    -------
+    [type]
+        [description]
+    """
     # Plot wind meteogram
-    if ib.type[dis_index] == 'PIPS':
+    if ptype == 'PIPS':
         winddirstr = 'winddirabs'
         windspdstr = 'windspd'
-        tempstr = 'fasttemp'
-        RHstr = 'RH_derived'
-    elif ib.type[dis_index] == 'CU':
+    elif ptype == 'CU':
         winddirstr = 'bwinddirabs'
         windspdstr = 'bwindspd'
-        tempstr = 'slowtemp'
-        RHstr = 'RH'
-    elif ib.type[dis_index] == 'NV2':
+    elif ptype == 'NV2':
         winddirstr = 'swinddirabs'
         windspdstr = 'swindspd'
-        tempstr = 'slowtemp'
-        RHstr = 'RH'
 
     winddirabs = conv_plot_df[winddirstr].values
     windspd = conv_plot_df[windspdstr].values
@@ -451,7 +462,7 @@ def plotconvmeteograms(dis_index, pc, ib, convmeteodict):
     # For the NV2 probes, the data are already at 60-s intervals and gust information is
     # provided, so does not need to be computed. In the future, need to make a more general
     # interface to allow for averaging of NV2 data at longer intervals.
-    if ib.type[dis_index] == 'NV2':
+    if ptype == 'NV2':
         windspdavg = windspd
         windspdavgvec = windspd
         windgustavg = conv_plot_df['swindgust'].values
@@ -471,7 +482,162 @@ def plotconvmeteograms(dis_index, pc, ib, convmeteodict):
     fieldparamdicts = [windspeed_params, windgust_params]
 
     # Add vertical lines to indicate bad wind values if desired
-    if(pc.plot_diagnostics and ib.type[dis_index] == 'PIPS'):
+    if global_plot_config_dict['plot_diagnostics'] and ptype == 'PIPS':
+        winddiag = conv_plot_df['winddiag']
+        # Extract indices for "bad" wind data
+        winddiag_index = N.where(N.any([winddiag > 0, N.isnan(winddiag)], axis=0))[0]
+        # These are the times with bad wind data
+        winddiag_plot = plottimes[winddiag_index]
+        fields.append(winddiag_plot)
+        fieldparamdicts.append(winddiag_params)
+
+    ax1 = plotmeteogram(ax1, [plottimes], fields, fieldparamdicts)
+
+    fields = [winddiravgvec]
+    fieldparamdicts = [winddir_params]
+    ax2 = plotmeteogram(ax2, [plottimes], fields, fieldparamdicts)
+
+    axparamdict1 = {'majorxlocator': global_plot_config_dict['majorxlocator'],
+                    'majorxformatter': global_plot_config_dict['majorxformatter'],
+                    'minorxlocator': global_plot_config_dict['minorxlocator'],
+                    'axeslimits': [xlimits, global_plot_config_dict['ws_range']],
+                    'axeslabels': [global_plot_config_dict['xlabel'],
+                                   r'wind speed (m s$^{-1}$)']}
+    axparamdict2 = {'majorylocator': ticker.MultipleLocator(45.),
+                    'axeslimits': [None, [0.0, 360.0]],
+                    'axeslabels': [None, r'Wind direction ($^{\circ}$C)']}
+    axparamdicts = [axparamdict1, axparamdict2]
+    ax1, ax2 = set_meteogram_axes([ax1, ax2], axparamdicts)
+
+    return fig, ax1, ax2
+
+
+def plot_temperature_dewpoint_meteogram(plottimes, conv_plot_df, global_plot_config_dict,
+                                        xlimits=None, ptype='PIPS'):
+    # Plot temperature and dewpoint
+    # tavgintv = 10  # Currently not used
+
+    if ptype == 'PIPS':
+        tempstr = 'fasttemp'
+    elif ptype == 'CU':
+        tempstr = 'slowtemp'
+    elif ptype == 'NV2':
+        tempstr = 'slowtemp'
+
+    fig = plt.figure(figsize=(5, 3))
+    ax1 = fig.add_subplot(111)
+
+    fields = [conv_plot_df[tempstr].values, conv_plot_df['dewpoint'].values]
+    temp_params['plotmin'] = global_plot_config_dict['T_Td_range'][0]
+    dewpoint_params['plotmin'] = global_plot_config_dict['T_Td_range'][0]
+    fieldparamdicts = [temp_params, dewpoint_params]
+    ax1 = plotmeteogram(ax1, [plottimes], fields, fieldparamdicts)
+
+    ax1.axhline(0.0, ls=':', color='k')
+
+    axparamdict1 = {
+        'majorxlocator': global_plot_config_dict['majorxlocator'],
+        'majorxformatter': global_plot_config_dict['majorxformatter'],
+        'minorxlocator': global_plot_config_dict['minorxlocator'],
+        'axeslimits': [xlimits, global_plot_config_dict['T_Td_range']],
+        'axeslabels': [global_plot_config_dict['xlabel'], r'Temperature ($^{\circ}$C)']
+    }
+    axparamdicts = [axparamdict1]
+    ax1, = set_meteogram_axes([ax1], axparamdicts)
+
+    return fig, ax1
+
+
+def plot_RH_meteogram(plottimes, conv_df_plot, global_plot_config_dict, xlimits=None,
+                      ptype='PIPS'):
+    # Plot relative humidity
+    # avgintv = 10  # Currently not used
+
+    if ptype == 'PIPS':
+        RHstr = 'RH_derived'
+    elif ptype == 'CU':
+        RHstr = 'RH'
+    elif ptype == 'NV2':
+        RHstr = 'RH'
+
+    fig = plt.figure(figsize=(5, 3))
+    ax1 = fig.add_subplot(111)
+
+    fields = [conv_plot_df[RHstr].values]
+    fieldparamdicts = [RH_params]
+    ax1 = plotmeteogram(ax1, [plottimes], fields, fieldparamdicts)
+
+    axparamdict1 = {
+        'majorxlocator': global_plot_config_dict['majorxlocator'],
+        'majorxformatter': global_plot_config_dict['majorxformatter'],
+        'minorxlocator': global_plot_config_dict['minorxlocator'],
+        'axeslimits': [xlimits, [0., 100.]],
+        'axeslabels': [global_plot_config_dict['xlabel'], 'Relative Humidity (%)']
+    }
+
+    axparamdicts = [axparamdict1]
+    ax1, = set_meteogram_axes([ax1], axparamdicts)
+
+    return fig, ax1
+
+# STOPPED HERE! Breaking up ugly plotconvmeteograms function into smaller ones.
+# Need to do pressure and diagnostics
+
+
+def plotconvmeteograms(PIPS_index, pc, ib, convmeteodict):
+    """Plots meteograms of the one-second PIPS data"""
+    plottimes = convmeteodict.get('plottimes')
+    conv_plot_df = convmeteodict.get('conv_plot_df')
+    windavgintv = convmeteodict.get('windavgintv')
+    windgustintv = convmeteodict.get('windgustintv')
+    xaxislimits = convmeteodict.get('xaxislimits', [plottimes[0], plottimes[-1]])
+    dis_name = ib.dis_name_list[PIPS_index]
+
+    # Plot wind meteogram
+    if ib.type[PIPS_index] == 'PIPS':
+        winddirstr = 'winddirabs'
+        windspdstr = 'windspd'
+        tempstr = 'fasttemp'
+        RHstr = 'RH_derived'
+    elif ib.type[PIPS_index] == 'CU':
+        winddirstr = 'bwinddirabs'
+        windspdstr = 'bwindspd'
+        tempstr = 'slowtemp'
+        RHstr = 'RH'
+    elif ib.type[PIPS_index] == 'NV2':
+        winddirstr = 'swinddirabs'
+        windspdstr = 'swindspd'
+        tempstr = 'slowtemp'
+        RHstr = 'RH'
+
+    winddirabs = conv_plot_df[winddirstr].values
+    windspd = conv_plot_df[windspdstr].values
+
+    # Compute wind speed and direction, and wind gusts
+    # For the NV2 probes, the data are already at 60-s intervals and gust information is
+    # provided, so does not need to be computed. In the future, need to make a more general
+    # interface to allow for averaging of NV2 data at longer intervals.
+    if ib.type[PIPS_index] == 'NV2':
+        windspdavg = windspd
+        windspdavgvec = windspd
+        windgustavg = conv_plot_df['swindgust'].values
+        # TODO: Check that wind directions from NV2 probes are vector averages
+        winddiravgvec = winddirabs
+    else:
+        windspdavg, windspdavgvec, winddiravgvec, windgust, windgustavg = \
+            pips.avgwind(winddirabs, windspd, windavgintv, gusts=True, gustintv=windgustintv,
+                         center=False)
+
+    fig = plt.figure(figsize=(5, 3))
+    ax1 = fig.add_subplot(111)
+    ax2 = ax1.twinx()
+    # plt.title('Wind speed (5-min mean) and gust (5-min max of 3-s mean)')
+
+    fields = [windspdavg, windgustavg]
+    fieldparamdicts = [windspeed_params, windgust_params]
+
+    # Add vertical lines to indicate bad wind values if desired
+    if(pc.plot_diagnostics and ib.type[PIPS_index] == 'PIPS'):
         winddiag = conv_plot_df['winddiag']
         # Extract indices for "bad" wind data
         winddiag_index = N.where(N.any([winddiag > 0, N.isnan(winddiag)], axis=0))[0]
@@ -568,7 +734,7 @@ def plotconvmeteograms(dis_index, pc, ib, convmeteodict):
     plt.close(fig)
 
     # Plot some additional diagnostic time series
-    if(pc.plot_diagnostics and ib.type[dis_index] not in 'NV2'):
+    if(pc.plot_diagnostics and ib.type[PIPS_index] not in 'NV2'):
         # Battery voltages
         fig = plt.figure(figsize=(5, 3))
         ax1 = fig.add_subplot(111)
@@ -607,13 +773,13 @@ def plotconvmeteograms(dis_index, pc, ib, convmeteodict):
             print("No GPS Speed information in file!")
 
 
-def plotDSDderivedmeteograms(dis_index, pc, ib, **PSDderiveddict):
+def plotDSDderivedmeteograms(PIPS_index, pc, ib, **PSDderiveddict):
     """Plots meteograms of the various derived DSD quantities from the PIPS"""
     PSDmidtimes = PSDderiveddict.get('PSDmidtimes')
     PSD_plot_df = PSDderiveddict.get('PSD_plot_df')
 
     xaxislimits = [PSDmidtimes[0], PSDmidtimes[-1]]
-    dis_name = ib.dis_name_list[dis_index]
+    dis_name = ib.dis_name_list[PIPS_index]
 
     # Rain rates (intensities)
     fig = plt.figure(figsize=(5, 3))
@@ -633,7 +799,7 @@ def plotDSDderivedmeteograms(dis_index, pc, ib, **PSDderiveddict):
     plt.close(fig)
 
     # Reflectivity
-    if ib.type[dis_index] != 'NV2':
+    if ib.type[PIPS_index] != 'NV2':
         fig = plt.figure(figsize=(5, 3))
         ax1 = fig.add_subplot(111)
 
@@ -656,7 +822,7 @@ def plotDSDderivedmeteograms(dis_index, pc, ib, **PSDderiveddict):
 
     fields = [PSD_plot_df['pcount'].values]
     fieldparamdicts = [pcount_params]
-    if ib.type[dis_index] != 'NV2':
+    if ib.type[PIPS_index] != 'NV2':
         fields.append(PSD_plot_df['pcount2'].values)
         fieldparamdicts.append(pcount2_params)
 
@@ -673,7 +839,7 @@ def plotDSDderivedmeteograms(dis_index, pc, ib, **PSDderiveddict):
     plt.close(fig)
 
     # Signal amplitude
-    if ib.type[dis_index] == 'PIPS':
+    if ib.type[PIPS_index] == 'PIPS':
         fig = plt.figure(figsize=(5, 3))
         ax1 = fig.add_subplot(111)
 

@@ -173,7 +173,7 @@ for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc, ptype 
         'dis_name': dis_name
         }
 
-    for t, time in enumerate(vd_matrix_da['time_10s'].to_index()):
+    for t, time in enumerate(vd_matrix_da['time'].to_index()):
         print(parsivel_df['pcount'].loc[time])
         if parsivel_df['pcount'].loc[time] > 0:
             axdict['time'] = time

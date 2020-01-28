@@ -225,8 +225,12 @@ for index, dis_filename, dis_name, starttime, stoptime, centertime, dloc, ptype,
                         min_periods=1).mean().values
                 disvars[varname] = var
     # Set up axis parameters
-    timelimits = [dates.date2num(datetime.strptime(starttime, tm.timefmt3)),
-                  dates.date2num(datetime.strptime(stoptime, tm.timefmt3))]
+    try:
+        timelimits = [dates.date2num(datetime.strptime(starttime, tm.timefmt3)),
+                      dates.date2num(datetime.strptime(stoptime, tm.timefmt3))]
+    except ValueError:
+        timelimits = [dates.date2num(PSD_edgetimes[0]), dates.date2num(PSD_edgetimes[-1])]
+
     try:
         diamlimits = pc.DSD_D_range
         diamytick = pc.DSD_D_ytick

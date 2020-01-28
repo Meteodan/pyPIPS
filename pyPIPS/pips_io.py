@@ -225,7 +225,7 @@ def parse_parsivel_telegram(parsivel_telegram, logger_datetime):
     return parsivel_dict, vd_matrix
 
 
-def read_PIPS(filename, starttimestamp=None, stoptimestamp=None, tripips=False,
+def read_PIPS(filename, start_timestamp=None, end_timestamp=None, tripips=False,
               correct_logger_time=True):
     """[summary]
 
@@ -233,9 +233,9 @@ def read_PIPS(filename, starttimestamp=None, stoptimestamp=None, tripips=False,
     ----------
     filename : [type]
         [description]
-    starttimestamp : [type], optional
+    start_timestamp : [type], optional
         [description], by default None
-    stoptimestamp : [type], optional
+    end_timestamp : [type], optional
         [description], by default None
     tripips : bool, optional
         [description], by default False
@@ -247,12 +247,12 @@ def read_PIPS(filename, starttimestamp=None, stoptimestamp=None, tripips=False,
     [type]
         [description]
     """
-    if starttimestamp is not None:
-        starttime = datetime.strptime(starttimestamp, '%Y%m%d%H%M%S')
+    if start_timestamp is not None:
+        starttime = datetime.strptime(start_timestamp, '%Y%m%d%H%M%S')
     else:
         starttime = None
-    if stoptimestamp is not None:
-        stoptime = datetime.strptime(stoptimestamp, '%Y%m%d%H%M%S')
+    if end_timestamp is not None:
+        stoptime = datetime.strptime(end_timestamp, '%Y%m%d%H%M%S')
     else:
         stoptime = None
 
@@ -291,16 +291,19 @@ def read_PIPS(filename, starttimestamp=None, stoptimestamp=None, tripips=False,
         parsivel_df['parsivel_datetime'] += GPS_offset
 
     # Have to do this because of some weird issue where the DataArray constructor below errors out
-    # if you try to give the 'time_10s' coordinate the actual parsivel_df.index as its values.
+    # if you try to give the 'time' coordinate the actual parsivel_df.index as its values.
     # Instead, we save the pd.Series of datetimes ina  separate variable here *before* setting it
     # as the index to parsivel_df, and then use it as the values for the DataArray
-    # time_10s coordinates. Bizarre.
+    # time coordinates. Bizarre.
     parsivel_datetime = parsivel_df['parsivel_datetime']
 
     # Set the pd.Series of datetimes as the new index for both the conv_df and parsivel_df
     # DataFrames
-    conv_df = conv_df.set_index('logger_datetime')
-    parsivel_df = parsivel_df.set_index('parsivel_datetime')
+    conv_df = conv_df.rename(columns={'logger_datetime': 'time'})
+    conv_df = conv_df.set_index('time')
+    parsivel_df = parsivel_df.rename(columns={'parsivel_datetime': 'time'})
+    parsivel_df = parsivel_df.set_index('time')
+
 
     # Create an xarray DataArray for the vd_matrix
     vd_matrix_arr = np.dstack(vd_matrix_list)
@@ -313,10 +316,11 @@ def read_PIPS(filename, starttimestamp=None, stoptimestamp=None, tripips=False,
     min_fallspeeds = parsivel_params.parsivel_parameters['min_fallspeed_bins_mps']
     max_fallspeeds = parsivel_params.parsivel_parameters['max_fallspeed_bins_mps']
     # Note, on below, I get an error if I try to use the parsivel_df.index as the value of the
-    # coordinate 'time_10s'.
+    # coordinate 'time'.
     vd_matrix_da = \
         xr.DataArray(vd_matrix_arr,
-                     coords={'time_10s': parsivel_datetime,
+                     name='velocity-diameter matrix',
+                     coords={'time': parsivel_datetime,
                              'fallspeed': ('fallspeed_bin', fallspeeds),
                              'diameter': ('diameter_bin', diameters),
                              'min_diameter': ('diameter_bin', min_diameters),
@@ -324,7 +328,7 @@ def read_PIPS(filename, starttimestamp=None, stoptimestamp=None, tripips=False,
                              'min_fallspeeds': ('fallspeed_bin', min_fallspeeds),
                              'max_fallspeeds': ('fallspeed_bin', max_fallspeeds)
                              },
-                     dims=['time_10s', 'fallspeed_bin', 'diameter_bin'])
+                     dims=['time', 'fallspeed_bin', 'diameter_bin'])
 
     return conv_df, parsivel_df, vd_matrix_da
 
@@ -430,3 +434,109 @@ def correct_PIPS(serialnum, infile, outfile):
     with open(outfile, 'w') as outdisfile:
         for line in sorted_lines_out:
             outdisfile.write(line + '\n')
+
+
+def conv_df_to_ds(conv_df):
+    """Converts the conventional data from the PIPS from a pandas DataFrame to an xarray Dataset.
+    Adds units as metadata
+
+    Parameters
+    ----------
+    conv_df : pandas.DataFrame
+        pandas DataFrame containing the 1-s "conventional" observations from the PIPS
+
+    Returns
+    -------
+    xarray.Dataset
+        Dataset version with additional metadata
+    """
+    conv_ds = conv_df.to_xarray()
+    conv_ds['GPS_alt'].attrs['units'] = 'meters'
+    conv_ds['GPS_date'].attrs['units'] = 'DDMMYY'
+    conv_ds['GPS_dir'].attrs['units'] = 'degrees'
+    conv_ds['GPS_lat'].attrs['units'] = 'degrees N'
+    conv_ds['GPS_lon'].attrs['units'] = 'degrees E'
+    conv_ds['GPS_lon'].attrs['description'] = 'west is negative'
+    conv_ds['GPS_spd'].attrs['units'] = 'meters per second'
+    conv_ds['GPS_time'].attrs['units'] = 'HHMMSS'
+    conv_ds['RH'].attrs['units'] = 'percent'
+    conv_ds['RH_derived'].attrs['units'] = 'percent'
+    conv_ds['compass_dir'].attrs['units'] = 'degrees'
+    conv_ds['dewpoint'].attrs['units'] = 'degrees Celsius'
+    conv_ds['fasttemp'].attrs['units'] = 'degrees Celsius'
+    conv_ds['pressure'].attrs['units'] = 'hectoPascals'
+    conv_ds['slowtemp'].attrs['units'] = 'degrees Celsius'
+    conv_ds['voltage'].attrs['units'] = 'volts'
+    conv_ds['winddirabs'].attrs['units'] = 'degrees'
+    conv_ds['winddirrel'].attrs['units'] = 'degrees'
+    conv_ds['windspd'].attrs['units'] = 'meters per second'
+
+    return conv_ds
+
+
+def parsivel_df_to_ds(parsivel_df):
+    """Converts the parsivel derived data from the PIPS from a pandas DataFrame to an xarray
+    Dataset. Adds units as metadata
+
+    Parameters
+    ----------
+    parsivel_df : pandas.DataFrame
+        pandas DataFrame containing the 10-s "derived" observations from the PIPS (i.e. everything
+        in the telegram *but* the velocity-diameter matrix).
+
+    Returns
+    -------
+    xarray.Dataset
+        Dataset version with additional metadata
+    """
+    parsivel_ds = parsivel_df.to_xarray()
+    parsivel_ds['parsivel_dBZ'].attrs['units'] = 'dBZ'
+    parsivel_ds['pcount'].attrs['units'] = 'count'
+    parsivel_ds['precipaccum'].attrs['units'] = 'millimeters'
+    parsivel_ds['precipintensity'].attrs['units'] = 'millimeters per hour'
+    parsivel_ds['pvoltage'].attrs['units'] = 'volts'
+    parsivel_ds['sample_interval'].attrs['units'] = 'seconds'
+    parsivel_ds['sensor_temp'].attrs['units'] = 'degrees Celsius'
+    parsivel_ds['signal_amplitude'].attrs['units'] = 'unknown'
+    parsivel_ds.attrs['nominal sample interval'] = '10 seconds'
+
+    return parsivel_ds
+
+
+def combine_parsivel_data(parsivel_ds, data_array, name=None):
+    """Adds a new DataArray to an existing Parsivel Dataset.
+
+    Parameters
+    ----------
+    parsivel_ds : xarray.Dataset
+        xarray Dataset containing data from the Parsivel disdrometer
+    data_array : xarray.DataArray
+        xarray DataArray containing data to add to the Dataset. Must have the same times.
+    name : str, optional
+        name of the new DataArray, by default None. If None, will attempt to extract the name
+        from the DataArray.name attribute.
+
+    Returns
+    -------
+    xarray.Dataset or None
+        Dataset with the new DataArray added, or None if the operation fails.
+    """
+
+    try:
+        if not np.array_equal(parsivel_ds['time'].values, data_array['time'].values):
+            print("parsivel telegram and new data array times do not match!")
+            return
+        else:
+            if name is None:
+                if data_array.name is not None:
+                    name = data_array.name
+                else:
+                    print("""Please provide a name for the new array with the "name" keyword
+                          argument""")
+                    return
+            parsivel_ds[name] = data_array
+            return parsivel_ds
+    except KeyError:
+        print("Problem with the time dimension! Aborting!")
+        return
+
