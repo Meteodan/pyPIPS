@@ -1058,7 +1058,6 @@ def fit_DSD_TMM(M2, M4, M6, D_min, D_max):
     return N0_tmf, lamda_tmf, mu_tmf
 
 
-
 def calc_binned_DSD_from_params(N0, lamda, alpha, D):
     """Discretizes the gamma distribution given N0, lamda, and alpha into the bins defined by
     the array of diameters D
@@ -1082,10 +1081,6 @@ def calc_binned_DSD_from_params(N0, lamda, alpha, D):
 
     # Get D to m
     D = D / 1000.
-    print(D)
-    print(N0)
-    print(alpha)
-    print(lamda)
     # return 1.e-3 * N0 * D**alpha * np.exp(-lamda * D)  # Units are m^-3 mm^-1
     return N0 * D**alpha * np.exp(-lamda * D)  # Units are m^-4
 

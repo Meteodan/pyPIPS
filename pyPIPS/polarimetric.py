@@ -65,7 +65,7 @@ def calpolrain(wavelength, filename, Nd, intv):
     rhv = np.where(Zh != Zv, Zhv / (np.sqrt(temp)), 0.0)
     # np.savetxt('temp.txt', temp)
 
-    dualpol_dict = {'ZH': Zh, 'ZV': Zv, 'ZHV': Zhv, 'dBZ': dBZ, 'ZDR': ZDR, 'KDP': Kdp, 'RHV': rhv,
+    dualpol_dict = {'ZH': Zh, 'ZV': Zv, 'ZHV': Zhv, 'REF': dBZ, 'ZDR': ZDR, 'KDP': Kdp, 'RHO': rhv,
                     'intv': intv, 'd': d, 'fa2': fa2, 'fb2': fb2}
 
     return dualpol_dict

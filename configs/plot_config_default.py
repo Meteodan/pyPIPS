@@ -9,10 +9,11 @@ PIPS_plotting_dict = {
     'DSD_param_avg_window': 180.,
     'plot_only_precip': False,
     # For velocity-diameter plots
-    'velocity_range': (0.0, 24.0),
-    'diameter_range': (0.0, 26.0),
+    'velocity_range': (0.0, 15.0),
+    'diameter_range': (0.0, 9.0),
     # For meteograms
-    'plot_diagnostics': False,
+    'avgwindow': 180.,
+    'plot_diagnostics': True,
     'T_Td_range': (-10., 25.),
     'ws_range': (0.0, 15.0),
     # Axis locating and formatting parameters

@@ -191,4 +191,30 @@ for index, PIPS_filename, PIPS_name, start_time, end_time, geo_loc, ptype, conv_
                                                                            end_time_string))
     fig.savefig(plot_path, dpi=300)
 
-    # STOPPED HERE! Need to do pressure and additional diagnostics if desired
+    # Plot pressure meteogram
+    fig, ax1 = pm.plot_pressure_meteogram(conv_datetimes_nums, conv_df,
+                                          pc.PIPS_plotting_dict, ptype=ptype)
+    plot_path = os.path.join(meteogram_image_dir, '{}_{}_{}_pressure.png'.format(PIPS_name,
+                                                                                 start_time_string,
+                                                                                 end_time_string))
+    fig.savefig(plot_path, dpi=300)
+
+    if pc.PIPS_plotting_dict['plot_diagnostics']:
+        # Plot battery voltage
+        fig, ax1 = pm.plot_voltage_meteogram(conv_datetimes_nums, conv_df,
+                                             pc.PIPS_plotting_dict, ptype=ptype)
+        plot_path = os.path.join(meteogram_image_dir,
+                                 '{}_{}_{}_voltage.png'.format(PIPS_name, start_time_string,
+                                                               end_time_string))
+        fig.savefig(plot_path, dpi=300)
+
+        # Plot GPS speed
+        try:
+            fig, ax1 = pm.plot_GPS_speed_meteogram(conv_datetimes_nums, conv_df,
+                                                   pc.PIPS_plotting_dict, ptype=ptype)
+            plot_path = os.path.join(meteogram_image_dir,
+                                     '{}_{}_{}_GPS_speed.png'.format(PIPS_name, start_time_string,
+                                                                     end_time_string))
+            fig.savefig(plot_path, dpi=300)
+        except TypeError:
+            print("No GPS speed information in file!")
