@@ -316,32 +316,61 @@ def resample_ND(resample_interval, ND_df):
     return ND_df
 
 
-def calc_ND(vd_matrix, fallspeed_spectrum, sample_interval):
-    """[summary]
+def calc_ND(vd_matrix, fallspeed_spectrum, sample_interval, use_measured_fallspeed=True):
+    """Computes the binned number density from the disdrometer (m^-3 mm^-1)
 
     Parameters
     ----------
-    vd_matrix : [type]
-        [description]
-    fallspeed_spectrum : [type]
-        [description]
-    sample_interval : [type]
-        [description]
+    vd_matrix : array_like
+        Velocity-diameter count matrix from PIPS (32 x 32)
+    fallspeed_spectrum : array_like
+        Velocity spectrum
+    sample_interval : array_like
+        Time interval of DSD integration
 
     Returns
     -------
-    [type]
-        [description]
+    array_like
+        Binned number density (m^-3 mm^-1)
     """
     eff_sensor_area = xr.DataArray(parsivel_parameters['eff_sensor_area_mm2'],
                                    dims=['diameter_bin']) * 1.e-6  # Get to m2
     bin_width = xr.DataArray((parsivel_parameters['max_diameter_bins_mm'] -
                               parsivel_parameters['min_diameter_bins_mm']), dims=['diameter_bin'])
 
+    print('fallspeed_spectrum', fallspeed_spectrum)
+
+    if not use_measured_fallspeed:
+        vd_matrix = vd_matrix.sum(dim='fallspeed_bin')
+    print('vd_matrix', vd_matrix)
     ND = vd_matrix / (fallspeed_spectrum * sample_interval * eff_sensor_area * bin_width)
-    ND = ND.sum(dim='fallspeed_bin')
+    if use_measured_fallspeed:
+        ND = ND.sum(dim='fallspeed_bin')
+    print('ND', ND)
 
     return ND
+
+
+def calc_ND_onedrop(sample_interval, correct_rho=False, rho=None):
+
+    diameter_bins = parsivel_parameters['avg_diameter_bins_mm']
+    fallspeed_bins = parsivel_parameters['avg_fallspeed_bins_mps']
+
+    fallspeed_spectrum = calc_fallspeed_spectrum(diameter_bins, fallspeed_bins,
+                                                 correct_rho=correct_rho, rho=rho,
+                                                 use_measured_fallspeed=False)
+    vd_matrix_onedrop = np.ones((rho.size, 1, diameter_bins.size))
+    vd_matrix_onedrop_da = \
+        xr.DataArray(vd_matrix_onedrop,
+                     name='velocity_diameter_onedrop_per_bin',
+                     coords={
+                         'time': rho.index,
+                         'diameter': ('diameter_bin', diameter_bins)
+                     },
+                     dims=['time', 'fallspeed_bin', 'diameter_bin'])
+
+    ND_onedrop = calc_ND(vd_matrix_onedrop_da, fallspeed_spectrum, sample_interval)
+    return ND_onedrop
 
 
 def calc_fallspeed_spectrum(diameter_bins, fallspeed_bins,
@@ -369,14 +398,25 @@ def calc_fallspeed_spectrum(diameter_bins, fallspeed_bins,
     if not use_measured_fallspeed:
         fallspeed_spectrum = calc_empirical_fallspeed(diameter_bins, correct_rho=correct_rho,
                                                       rho=rho)
-        fallspeed_bins = fallspeed_spectrum
-        fallspeed_spectrum = np.tile(fallspeed_spectrum, (32, 1))
+        # print('rho', rho)
+        # exit
+        fallspeed_da = xr.DataArray(fallspeed_spectrum,
+                                    coords={
+                                        'time': rho.index,
+                                        'diameter': ('diameter_bin', diameter_bins),
+                                    },
+                                    dims=['time', 'diameter_bin'])
     else:
         _, fallspeed_spectrum = np.meshgrid(diameter_bins, fallspeed_bins)
-
-    # TODO: STOPPED HERE! 09/03/19. Need to fix the dimension names here to match
-    # up with those of the spectrum dataarray, so that broadcasting works
-    fallspeed_da = xr.DataArray(fallspeed_spectrum, dims=['fallspeed_bin', 'diameter_bin'])
+        # TODO: STOPPED HERE! 09/03/19. Need to fix the dimension names here to match
+        # up with those of the spectrum dataarray, so that broadcasting works
+        # NOTE: (01/28/2020) I think I must have fixed this?
+        fallspeed_da = xr.DataArray(fallspeed_spectrum,
+                                    coords={
+                                        'fallspeed': ('fallspeed_bin', fallspeed_bins),
+                                        'diameter': ('diameter_bin', diameter_bins)
+                                    },
+                                    dims=['fallspeed_bin', 'diameter_bin'])
 
     return fallspeed_da
 
@@ -394,10 +434,10 @@ def calc_empirical_fallspeed(d, correct_rho=False, rho=None):
     # where rho0 = 1.204 kg/m^3 -- that corresponding to a T of 20 C and pressure of 1013 mb.
 
     if correct_rho and rho is not None:
-        v = v[:, None] * (1.204 / rho)**(0.4)
+        v = v[:, None] * (1.204 / rho.values)**(0.4)
         v = v.squeeze()
         v = np.atleast_1d(v)
-
+        v = v.T
     return v
 
 

@@ -17,9 +17,9 @@ import pyPIPS.pips_io as pipsio
 import pyPIPS.utils as utils
 import pyPIPS.PIPS as pips
 import pyPIPS.parsivel_qc as pqc
+import pyPIPS.timemodule as tm
 import pyPIPS.DSDlib as dsd
 import pyPIPS.polarimetric as dp
-import pyPIPS.timemodule as tm
 
 min_diameter = pp.parsivel_parameters['min_diameter_bins_mm']
 max_diameter = pp.parsivel_parameters['max_diameter_bins_mm']
@@ -30,7 +30,8 @@ max_fall_bins = pp.parsivel_parameters['max_fallspeed_bins_mps']
 avg_fall_bins = pp.parsivel_parameters['avg_fallspeed_bins_mps']
 
 # Parse the command line options
-parser = argparse.ArgumentParser(description="Plots velocity-diameter histograms from PIPS data")
+description = "Calculates various DSD fits and parameters from PIPS data"
+parser = argparse.ArgumentParser(description=description)
 parser.add_argument('case_config_path', metavar='<path/to/case/config/file.py>',
                     help='The path to the case configuration file')
 parser.add_argument('--plot-config-path', dest='plot_config_path',
@@ -89,6 +90,7 @@ for index, PIPS_filename, PIPS_name, start_time, end_time, geo_loc, ptype in zip
     conv_df, parsivel_df, vd_matrix_da = pipsio.read_PIPS(PIPS_data_file_path,
                                                           start_timestamp=start_time,
                                                           end_timestamp=end_time, tripips=tripips)
+
     # We need the disdrometer locations. If they aren't supplied in the input control file, find
     # them from the GPS data
     if not geo_loc:
@@ -107,8 +109,9 @@ for index, PIPS_filename, PIPS_name, start_time, end_time, geo_loc, ptype in zip
     rainonlyQC = pc.PIPS_qc_dict['rainonlyQC']
     hailonlyQC = pc.PIPS_qc_dict['hailonlyQC']
     graupelonlyQC = pc.PIPS_qc_dict['graupelonlyQC']
+    basicQC = pc.PIPS_qc_dict['basicQC']
 
-    if pc.PIPS_qc_dict['basicQC']:
+    if basicQC:
         strongwindQC = True
         splashingQC = True
         marginQC = True
@@ -140,13 +143,7 @@ for index, PIPS_filename, PIPS_name, start_time, end_time, geo_loc, ptype in zip
     else:
         DSD_interval = 10.
 
-    # Get times for plotting
     PSD_datetimes = pips.get_PSD_datetimes(vd_matrix_da)
-    PSD_datetimes_dict = pips.get_PSD_time_bins(PSD_datetimes)
-
-    PSD_edgetimes = dates.date2num(PSD_datetimes_dict['PSD_datetimes_edges'])
-    PSD_centertimes = dates.date2num(PSD_datetimes_dict['PSD_datetimes_centers'])
-
     # Resample conventional data to the parsivel times
     sec_offset = PSD_datetimes[0].second
     conv_resampled_df = pips.resample_conv(ptype, DSD_interval, sec_offset, conv_df)
@@ -159,33 +156,56 @@ for index, PIPS_filename, PIPS_name, start_time, end_time, geo_loc, ptype in zip
     ND = pips.calc_ND(vd_matrix_da, fallspeed_spectrum, DSD_interval)
     logND = np.log10(ND)
 
-    vel_D_image_dir = os.path.join(plot_dir, 'vel_D/{}'.format(PIPS_name))
-    if not os.path.exists(vel_D_image_dir):
-        os.makedirs(vel_D_image_dir)
+    # Compute various fits using the MM and TMM
 
-    axdict = {
-        'min_diameter': min_diameter,
-        'avg_diameter': avg_diameter,
-        'min_fall_bins': min_fall_bins,
-        'xlim': pc.PIPS_plotting_dict['diameter_range'],
-        'ylim': pc.PIPS_plotting_dict['velocity_range'],
-        'PIPS_name': PIPS_name
-        }
+    M2, _ = dsd.calc_moment_bin(ND, moment=2)
+    M3, _ = dsd.calc_moment_bin(ND, moment=3)
+    M4, _ = dsd.calc_moment_bin(ND, moment=4)
+    M6, _ = dsd.calc_moment_bin(ND, moment=6)
 
-    for t, time in enumerate(vd_matrix_da['time'].to_index()):
-        if parsivel_df['pcount'].loc[time] > 0 or True:
-            print("Plotting for {} and time {}".format(PIPS_name, time.strftime(tm.timefmt3)))
-            axdict['time'] = time
-            PSDdict = {
-                'vd_matrix_da': vd_matrix_da[t, :],
-                'DSD_interval': DSD_interval
-                # FIXME
-                # 'flaggedtime': parsivel_df['flaggedtimes'].values[t]
-            }
-            fig, ax = pm.plot_vel_D(axdict, PSDdict, conv_resampled_df['rho'].loc[time])
-            image_name = PIPS_name + '_vel_D_{:d}_{}_t{:04d}.png'.format(int(DSD_interval),
-                                                                         time.strftime(tm.timefmt3),
-                                                                         t)
-            image_path = os.path.join(vel_D_image_dir, image_name)
-            fig.savefig(image_path, dpi=200, bbox_inches='tight')
-            plt.close(fig)
+    DSD_MM24 = dsd.fit_DSD_MM24(M2, M4)
+    DSD_MM36 = dsd.fit_DSD_MM36(M3, M6)
+    DSD_MM346 = dsd.fit_DSD_MM346(M3, M4, M6)
+    DSD_MM246 = dsd.fit_DSD_MM246(M2, M4, M6)
+    DSD_MM234 = dsd.fit_DSD_MM234(M2, M3, M4)
+
+    D_min, D_max = dsd.get_max_min_diameters(ND)
+    DSD_TMM246 = dsd.fit_DSD_TMM_xr(M2, M4, M6, D_min, D_max)
+
+    # Wrap fits into a DataSet and dump to netCDF file
+    data_arrays = []
+    for da_tuple in [DSD_MM24, DSD_MM36, DSD_MM346, DSD_MM246, DSD_MM234, DSD_TMM246]:
+        da_concat = xr.concat(da_tuple, pd.Index(['N0', 'lamda', 'alpha'], name='parameter'))
+        data_arrays.append(da_concat)
+    names = ['DSD_MM24', 'DSD_MM36', 'DSD_MM346', 'DSD_MM246', 'DSD_MM234', 'DSD_TMM246']
+    fits_ds = xr.Dataset({name: da for name, da in zip(names, data_arrays)})
+
+    # Add ND to the Dataset
+    fits_ds = pipsio.combine_parsivel_data(fits_ds, ND, name='ND')
+
+    # Compute sigma and Dm and add to Dataset
+    D = ND['diameter']
+    dD = ND['max_diameter'] - ND['min_diameter']
+
+    Dm = dsd.calc_Dmpq_binned(4, 3, ND)
+    sigma = dsd.calc_sigma(D, dD, ND)
+
+    fits_ds = pipsio.combine_parsivel_data(fits_ds, Dm, name='Dm43')
+    fits_ds = pipsio.combine_parsivel_data(fits_ds, sigma, name='sigma')
+
+    # Add some metadata
+    fits_ds.attrs['DSD_interval'] = DSD_interval
+    fits_ds.attrs['strongwindQC'] = int(strongwindQC)
+    fits_ds.attrs['splashingQC'] = int(splashingQC)
+    fits_ds.attrs['marginQC'] = int(marginQC)
+    fits_ds.attrs['rainfallQC'] = int(rainfallQC)
+    fits_ds.attrs['rainonlyQC'] = int(rainonlyQC)
+    fits_ds.attrs['hailonlyQC'] = int(hailonlyQC)
+    fits_ds.attrs['graupelonlyQC'] = int(graupelonlyQC)
+    fits_ds.attrs['basicQC'] = int(basicQC)
+
+    ncfile_name = 'DSD_fits_params_{}_{:d}s_{}_{}.nc'.format(PIPS_name, int(DSD_interval), start_time,
+                                                             end_time)
+    ncfile_path = os.path.join(PIPS_dir, ncfile_name)
+    print("Dumping {}".format(ncfile_path))
+    fits_ds.to_netcdf(ncfile_path)

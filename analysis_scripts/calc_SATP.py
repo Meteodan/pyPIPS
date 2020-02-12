@@ -30,7 +30,8 @@ max_fall_bins = pp.parsivel_parameters['max_fallspeed_bins_mps']
 avg_fall_bins = pp.parsivel_parameters['avg_fallspeed_bins_mps']
 
 # Parse the command line options
-parser = argparse.ArgumentParser(description="Calculates various DSD fits from PIPS data")
+description = "Performs SATP on DSDs from PIPS data"
+parser = argparse.ArgumentParser(description=description)
 parser.add_argument('case_config_path', metavar='<path/to/case/config/file.py>',
                     help='The path to the case configuration file')
 parser.add_argument('--plot-config-path', dest='plot_config_path',
@@ -108,8 +109,9 @@ for index, PIPS_filename, PIPS_name, start_time, end_time, geo_loc, ptype in zip
     rainonlyQC = pc.PIPS_qc_dict['rainonlyQC']
     hailonlyQC = pc.PIPS_qc_dict['hailonlyQC']
     graupelonlyQC = pc.PIPS_qc_dict['graupelonlyQC']
+    basicQC = pc.PIPS_qc_dict['basicQC']
 
-    if pc.PIPS_qc_dict['basicQC']:
+    if basicQC:
         strongwindQC = True
         splashingQC = True
         marginQC = True
@@ -141,11 +143,35 @@ for index, PIPS_filename, PIPS_name, start_time, end_time, geo_loc, ptype in zip
     else:
         DSD_interval = 10.
 
+    PSD_datetimes = pips.get_PSD_datetimes(vd_matrix_da)
+    # Resample conventional data to the parsivel times
+    sec_offset = PSD_datetimes[0].second
+    conv_resampled_df = pips.resample_conv(ptype, DSD_interval, sec_offset, conv_df)
+    conv_resampled_df_index = conv_resampled_df.index.intersection(parsivel_df.index)
+    conv_resampled_df = conv_resampled_df.loc[conv_resampled_df_index]
+
     fallspeed_spectrum = pips.calc_fallspeed_spectrum(avg_diameter, avg_fall_bins, correct_rho=True,
-                                                      rho=conv_df['rho'])
+                                                      rho=conv_resampled_df['rho'])
     vd_matrix_da = vd_matrix_da.where(vd_matrix_da > 0.0)
     ND = pips.calc_ND(vd_matrix_da, fallspeed_spectrum, DSD_interval)
     logND = np.log10(ND)
+
+    # Compute D0 (in mm)
+    D0 = dsd.calc_D0_bin(ND) * 1000.
+
+    # Now set up D0 and RR bins for the SATP procedure
+    D0_bins = np.arange(0., 4.05, 0.05)
+    # Following is from
+    # https://stackoverflow.com/questions/45234987/numpy-range-created-using-percentage-increment
+    # TODO: make a function out of this and put in pyPIPS.utils
+    RR_start = 0.1
+    RR_stop = 250.
+    RR_pct_incr = 10.
+    RR_incr = (100. + RR_pct_incr) / 100.
+    RR_bins = RR_start * np.full(int(np.log(RR_stop / RR_start) / np.log(RR_incr)),
+                                 RR_incr).cumprod()
+
+
 
     # Compute various fits using the MM and TMM
 
@@ -170,9 +196,33 @@ for index, PIPS_filename, PIPS_name, start_time, end_time, geo_loc, ptype in zip
         data_arrays.append(da_concat)
     names = ['DSD_MM24', 'DSD_MM36', 'DSD_MM346', 'DSD_MM246', 'DSD_MM234', 'DSD_TMM246']
     fits_ds = xr.Dataset({name: da for name, da in zip(names, data_arrays)})
-    print(fits_ds['DSD_MM246'])
-    ncfile_name = 'DSD_fits_{}_{:d}s_{}_{}.nc'.format(PIPS_name, int(DSD_interval), start_time,
-                                                      end_time)
+
+    # Add ND to the Dataset
+    fits_ds = pipsio.combine_parsivel_data(fits_ds, ND, name='ND')
+
+    # Compute sigma and Dm and add to Dataset
+    D = ND['diameter']
+    dD = ND['max_diameter'] - ND['min_diameter']
+
+    Dm = dsd.calc_Dmpq_binned(4, 3, ND)
+    sigma = dsd.calc_sigma(D, dD, ND)
+
+    fits_ds = pipsio.combine_parsivel_data(fits_ds, Dm, name='Dm43')
+    fits_ds = pipsio.combine_parsivel_data(fits_ds, sigma, name='sigma')
+
+    # Add some metadata
+    fits_ds.attrs['DSD_interval'] = DSD_interval
+    fits_ds.attrs['strongwindQC'] = int(strongwindQC)
+    fits_ds.attrs['splashingQC'] = int(splashingQC)
+    fits_ds.attrs['marginQC'] = int(marginQC)
+    fits_ds.attrs['rainfallQC'] = int(rainfallQC)
+    fits_ds.attrs['rainonlyQC'] = int(rainonlyQC)
+    fits_ds.attrs['hailonlyQC'] = int(hailonlyQC)
+    fits_ds.attrs['graupelonlyQC'] = int(graupelonlyQC)
+    fits_ds.attrs['basicQC'] = int(basicQC)
+
+    ncfile_name = 'DSD_fits_params_{}_{:d}s_{}_{}.nc'.format(PIPS_name, int(DSD_interval), start_time,
+                                                             end_time)
     ncfile_path = os.path.join(PIPS_dir, ncfile_name)
     print("Dumping {}".format(ncfile_path))
     fits_ds.to_netcdf(ncfile_path)

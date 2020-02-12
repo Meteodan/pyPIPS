@@ -30,7 +30,8 @@ max_fall_bins = pp.parsivel_parameters['max_fallspeed_bins_mps']
 avg_fall_bins = pp.parsivel_parameters['avg_fallspeed_bins_mps']
 
 # Parse the command line options
-parser = argparse.ArgumentParser(description="Plots velocity-diameter histograms from PIPS data")
+description = "Plots various scatterplots of DSD parameters from PIPS data"
+parser = argparse.ArgumentParser(description=description)
 parser.add_argument('case_config_path', metavar='<path/to/case/config/file.py>',
                     help='The path to the case configuration file')
 parser.add_argument('--plot-config-path', dest='plot_config_path',
@@ -70,9 +71,9 @@ geo_locs = config.PIPS_IO_dict.get('geo_locs', [None]*len(PIPS_names))
 requested_interval = config.PIPS_IO_dict.get('requested_interval', 10.)
 
 # Create the directory for the meteogram plots if it doesn't exist
-meteogram_image_dir = os.path.join(plot_dir, 'meteograms')
-if not os.path.exists(meteogram_image_dir):
-    os.makedirs(meteogram_image_dir)
+scatter_image_dir = os.path.join(plot_dir, 'scatterplots')
+if not os.path.exists(scatter_image_dir):
+    os.makedirs(scatter_image_dir)
 
 # Read in the PIPS data for the deployment
 conv_df_list = []
@@ -89,6 +90,7 @@ for index, PIPS_filename, PIPS_name, start_time, end_time, geo_loc, ptype in zip
     conv_df, parsivel_df, vd_matrix_da = pipsio.read_PIPS(PIPS_data_file_path,
                                                           start_timestamp=start_time,
                                                           end_timestamp=end_time, tripips=tripips)
+
     # We need the disdrometer locations. If they aren't supplied in the input control file, find
     # them from the GPS data
     if not geo_loc:
@@ -140,52 +142,17 @@ for index, PIPS_filename, PIPS_name, start_time, end_time, geo_loc, ptype in zip
     else:
         DSD_interval = 10.
 
-    # Get times for plotting
-    PSD_datetimes = pips.get_PSD_datetimes(vd_matrix_da)
-    PSD_datetimes_dict = pips.get_PSD_time_bins(PSD_datetimes)
-
-    PSD_edgetimes = dates.date2num(PSD_datetimes_dict['PSD_datetimes_edges'])
-    PSD_centertimes = dates.date2num(PSD_datetimes_dict['PSD_datetimes_centers'])
-
-    # Resample conventional data to the parsivel times
-    sec_offset = PSD_datetimes[0].second
-    conv_resampled_df = pips.resample_conv(ptype, DSD_interval, sec_offset, conv_df)
-    conv_resampled_df_index = conv_resampled_df.index.intersection(parsivel_df.index)
-    conv_resampled_df = conv_resampled_df.loc[conv_resampled_df_index]
-
     fallspeed_spectrum = pips.calc_fallspeed_spectrum(avg_diameter, avg_fall_bins, correct_rho=True,
-                                                      rho=conv_resampled_df['rho'])
+                                                      rho=conv_df['rho'])
     vd_matrix_da = vd_matrix_da.where(vd_matrix_da > 0.0)
     ND = pips.calc_ND(vd_matrix_da, fallspeed_spectrum, DSD_interval)
     logND = np.log10(ND)
 
-    vel_D_image_dir = os.path.join(plot_dir, 'vel_D/{}'.format(PIPS_name))
-    if not os.path.exists(vel_D_image_dir):
-        os.makedirs(vel_D_image_dir)
+    # Compute sigma and Dm
+    D = ND['diameter']
+    dD = ND['max_diameter'] - ND['min_diameter']
 
-    axdict = {
-        'min_diameter': min_diameter,
-        'avg_diameter': avg_diameter,
-        'min_fall_bins': min_fall_bins,
-        'xlim': pc.PIPS_plotting_dict['diameter_range'],
-        'ylim': pc.PIPS_plotting_dict['velocity_range'],
-        'PIPS_name': PIPS_name
-        }
+    Dm = dsd.calc_Dmpq_binned(4, 3, ND)
+    sigma = dsd.calc_sigma(D, dD, ND)
 
-    for t, time in enumerate(vd_matrix_da['time'].to_index()):
-        if parsivel_df['pcount'].loc[time] > 0 or True:
-            print("Plotting for {} and time {}".format(PIPS_name, time.strftime(tm.timefmt3)))
-            axdict['time'] = time
-            PSDdict = {
-                'vd_matrix_da': vd_matrix_da[t, :],
-                'DSD_interval': DSD_interval
-                # FIXME
-                # 'flaggedtime': parsivel_df['flaggedtimes'].values[t]
-            }
-            fig, ax = pm.plot_vel_D(axdict, PSDdict, conv_resampled_df['rho'].loc[time])
-            image_name = PIPS_name + '_vel_D_{:d}_{}_t{:04d}.png'.format(int(DSD_interval),
-                                                                         time.strftime(tm.timefmt3),
-                                                                         t)
-            image_path = os.path.join(vel_D_image_dir, image_name)
-            fig.savefig(image_path, dpi=200, bbox_inches='tight')
-            plt.close(fig)
+

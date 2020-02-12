@@ -6,6 +6,7 @@ Some of these were originally written in fortran but re-written using python and
 import numpy as np
 from scipy.special import gamma as gamma_, gammainc as gammap, gammaln as gammln
 from . import thermolib as thermo
+from . import PIPS as PIPS
 from .utils import first_nonzero, last_nonzero, enable_xarray_wrapper
 import xarray as xr
 from numba import jit
@@ -345,7 +346,6 @@ def calc_D0_bin(ND):
     pro = M3_binned / M3
     # Cumulative proportion of M3 in each bin
     pro_cumsum = M3_cumsum / M3
-
     # Compute median volume diameter using a linear interpolation within the "mass-midpoint" bin.
     # Source: http://www.dropletmeasurement.com/PADS_Help/MVD_(um).htm
     # (originally from FAA Electronic Aircraft Icing Handbook)
@@ -358,6 +358,9 @@ def calc_D0_bin(ND):
     b1 = Dl[medindices]  # Lower boundaries of mass-midpoint bin
     b2 = Dr[medindices]  # Upper boundaries of mass-midpoint bin
     pro_med = pro.loc[dict(diameter_bin=medindices)]
+    print(medindices)
+    print(pro)
+    print(pro_med)
     pro_cumsum_med_m1 = pro_cumsum.loc[dict(diameter_bin=medindices_m1)]
     # Now we can calculate D0 by linearly interpolating diameters within
     # a given bin bounded by Dl and Dr which contains the half-mass point
@@ -1113,3 +1116,62 @@ def calc_rain_axis_ratio(D, fit_name='Brandes_2002'):
         ar = 1.0048 + 5.7e-4*D - 2.628e-2*D**2. + 3.682e-3*D**3. - 1.627e-4*D**4.
 
     return ar
+
+
+def calc_Dmpq_binned(p, q, ND):
+    """Computes the requested moment-weighted mean diameter
+
+    Parameters
+    ----------
+    p : int
+        Moment in numerator
+    q : int
+        Moment in denominator
+    ND : array_like
+        binned DSD
+
+    Returns
+    -------
+    array_like
+        The appropriate moment-weighted mean diameter
+    """
+    Mp, _ = calc_moment_bin(ND, moment=p)
+    Mq, _ = calc_moment_bin(ND, moment=q)
+
+    return (Mp / Mq)**(1. / (p - q))
+
+
+# TODO: change all calculations everywhere to use SI units and only change them for plots!
+def calc_sigma(D, dD, ND):
+    """Computes the width of the mass distribution (from a binned number distribution)
+
+    Parameters
+    ----------
+    D : array_like
+        central values of diameter bins (mm)
+    ND : array_like
+        The binned number distribution (m^-3 mm^-1)
+
+    Returns
+    -------
+    array_like
+        The width of the mass distribution
+    """
+    D = D / 1000.  # Get to m
+    dD = dD / 1000.  # Get to m
+    M3, _ = calc_moment_bin(ND, moment=3)
+    Dm = calc_Dmpq_binned(4, 3, ND)
+    ND = ND * 1000.  # Get to m^-4
+    sigma_numerator = np.sum((D - Dm)**2. * ND * D**3. * dD, axis=0)
+
+    return np.sqrt(sigma_numerator / M3)
+
+
+def calc_rainrate_from_bins(ND, correct_rho=False, rho=None):
+
+    avg_diameter_mm = ND['diameter']
+    bin_width_mm = (ND['max_diameter'] - ND['min_diameter'])
+    fallspeed = PIPS.calc_empirical_fallspeed(avg_diameter_mm, correct_rho=correct_rho, rho=rho)
+    rainrate_bin = (6. * 10.**-4.) * np.pi * fallspeed * avg_diameter_mm**3. * ND * bin_width_mm
+    rainrate = rainrate_bin.sum(dim='diameter_bin')
+    return rainrate

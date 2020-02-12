@@ -1011,7 +1011,7 @@ def plot_DSD(axdict, PSDdict, PSDfitdict, PSDparamdict):
     xbin_mid = axdict.get('xbin_mid', N.empty((0)))
     ND = PSDdict.get('ND', N.empty((0)))
     # FIXME
-    # ND_onedrop = PSDdict.get('ND_onedrop', N.empty((0)))
+    ND_onedrop = PSDdict.get('ND_onedrop', N.empty((0)))
     interval = axdict.get('interval', 10)
 
     fig1 = plt.figure(figsize=(8, 6))
@@ -1019,8 +1019,12 @@ def plot_DSD(axdict, PSDdict, PSDfitdict, PSDparamdict):
     titlestring = '{0:d}-s DSD fits for time {1} EST'
     plt.title(titlestring.format(interval, time_to_plot_datetime.strftime(tm.timefmt2)))
 
+    print('ND', ND)
     ax1.bar(xbin_left, ND * 1000.0, xbin_right - xbin_left, 10.**2., align='edge', log=True,
             color='tan', edgecolor='k')
+    print('ND_onedrop', ND_onedrop)
+    ax1.bar(xbin_left, ND_onedrop * 1000.0, xbin_right - xbin_left, 10.**2., align='edge',
+            log=True, fill=False, edgecolor='k')
 
     # ax1.plot(xbin_mid, ND * 1000.0, lw=2, label='obs')
 

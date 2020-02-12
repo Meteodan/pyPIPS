@@ -141,11 +141,27 @@ for index, PIPS_filename, PIPS_name, start_time, end_time, geo_loc, ptype in zip
     else:
         DSD_interval = 10.
 
+    # Get times for plotting
+    PSD_datetimes = pips.get_PSD_datetimes(vd_matrix_da)
+    PSD_datetimes_dict = pips.get_PSD_time_bins(PSD_datetimes)
+
+    PSD_edgetimes = dates.date2num(PSD_datetimes_dict['PSD_datetimes_edges'])
+    PSD_centertimes = dates.date2num(PSD_datetimes_dict['PSD_datetimes_centers'])
+
+    # Resample conventional data to the parsivel times
+    sec_offset = PSD_datetimes[0].second
+    conv_df = pips.resample_conv(ptype, DSD_interval, sec_offset, conv_df)
+    conv_df_index = conv_df.index.intersection(parsivel_df.index)
+    conv_df = conv_df.loc[conv_df_index]
+
     fallspeed_spectrum = pips.calc_fallspeed_spectrum(avg_diameter, avg_fall_bins, correct_rho=True,
                                                       rho=conv_df['rho'])
     vd_matrix_da = vd_matrix_da.where(vd_matrix_da > 0.0)
     ND = pips.calc_ND(vd_matrix_da, fallspeed_spectrum, DSD_interval)
     logND = np.log10(ND)
+    ND_onedrop = pips.calc_ND_onedrop(DSD_interval, correct_rho=True, rho=conv_df['rho'])
+    print('ND', ND)
+    print('ND_onedrop', ND_onedrop)
 
     # Read in the previously computed DSD fits
     # TODO: Make sure that the DSD interval used to create these fits
@@ -161,19 +177,6 @@ for index, PIPS_filename, PIPS_name, start_time, end_time, geo_loc, ptype in zip
                                                DSD_MM246.loc['alpha'], ND['diameter'])
     ND_TMM246 = dsd.calc_binned_DSD_from_params(DSD_TMM246.loc['N0'], DSD_TMM246.loc['lamda'],
                                                 DSD_TMM246.loc['alpha'], ND['diameter'])
-
-    # Get times for plotting
-    PSD_datetimes = pips.get_PSD_datetimes(vd_matrix_da)
-    PSD_datetimes_dict = pips.get_PSD_time_bins(PSD_datetimes)
-
-    PSD_edgetimes = dates.date2num(PSD_datetimes_dict['PSD_datetimes_edges'])
-    PSD_centertimes = dates.date2num(PSD_datetimes_dict['PSD_datetimes_centers'])
-
-    # Resample conventional data to the parsivel times
-    sec_offset = PSD_datetimes[0].second
-    conv_resampled_df = pips.resample_conv(ptype, DSD_interval, sec_offset, conv_df)
-    conv_resampled_df_index = conv_resampled_df.index.intersection(parsivel_df.index)
-    conv_resampled_df = conv_resampled_df.loc[conv_resampled_df_index]
 
     DSD_image_dir = os.path.join(plot_dir, 'DSDs/{}'.format(PIPS_name))
     if not os.path.exists(DSD_image_dir):
@@ -193,7 +196,10 @@ for index, PIPS_filename, PIPS_name, start_time, end_time, geo_loc, ptype in zip
         if parsivel_df['pcount'].loc[time] > 0 or True:
             print("Plotting for {} and time {}".format(PIPS_name, time.strftime(tm.timefmt3)))
             axdict['time'] = time
-            PSDdict = {'ND': ND.loc[time]}
+            PSDdict = {
+                'ND': ND.loc[time],
+                'ND_onedrop': ND_onedrop.loc[time]
+            }
             PSDfitdict = {
                 # 'Exponential_24': (ND_MM24.loc[time_to_plot], 'Exp fit (MM24)'),
                 # 'Exponential_36': (ND_MM36.loc[time_to_plot], 'Exp fit (MM36)'),

@@ -120,6 +120,13 @@ for index, PIPS_filename, PIPS_name, start_time, end_time, geo_loc, ptype in zip
     else:
         DSD_interval = 10.
 
+    # Resample conventional data to the parsivel times
+    PSD_datetimes = pips.get_PSD_datetimes(vd_matrix_da)
+    sec_offset = PSD_datetimes[0].second
+    conv_df = pips.resample_conv(ptype, DSD_interval, sec_offset, conv_df)
+    conv_df_index = conv_df.index.intersection(parsivel_df.index)
+    conv_df = conv_df.loc[conv_df_index]
+
     conv_df_list.append(conv_df)
     parsivel_df_list.append(parsivel_df)
     vd_matrix_da_list.append(vd_matrix_da)
