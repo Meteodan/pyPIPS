@@ -85,7 +85,7 @@ RR_stop = 250.
 RR_pct_incr = 10.
 RR_incr = (100. + RR_pct_incr) / 100.
 RR_bins = RR_start * np.full(int(np.log(RR_stop / RR_start) / np.log(RR_incr)),
-                                RR_incr).cumprod()
+                                 RR_incr).cumprod()
 
 # Read in the PIPS data for the deployment
 conv_df_list = []

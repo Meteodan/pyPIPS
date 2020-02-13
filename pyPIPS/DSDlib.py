@@ -358,16 +358,16 @@ def calc_D0_bin(ND):
     b1 = Dl[medindices]  # Lower boundaries of mass-midpoint bin
     b2 = Dr[medindices]  # Upper boundaries of mass-midpoint bin
     pro_med = pro.loc[dict(diameter_bin=medindices)]
-    print(medindices)
-    print(pro)
-    print(pro_med)
     pro_cumsum_med_m1 = pro_cumsum.loc[dict(diameter_bin=medindices_m1)]
     # Now we can calculate D0 by linearly interpolating diameters within
     # a given bin bounded by Dl and Dr which contains the half-mass point
     D0 = b1 + ((0.5 - pro_cumsum_med_m1) / pro_med) * (b2 - b1)
     # Don't let D0 be any smaller than the midpoint of the smallest bin
     D0[D0 < Dm[0]] = Dm[0]
-
+    # Finally remove coordinates that we don't need (there's some issue with xarray where
+    # their dimensions are reset to an incorrect one anyway. i.e. diameter(diameter_bin) becomes
+    # diameter(time) for some reason)
+    D0 = D0.reset_coords(names=['diameter', 'min_diameter', 'max_diameter'], drop=True)
     return D0
 
 
