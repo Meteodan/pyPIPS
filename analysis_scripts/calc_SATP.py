@@ -75,11 +75,26 @@ meteogram_image_dir = os.path.join(plot_dir, 'meteograms')
 if not os.path.exists(meteogram_image_dir):
     os.makedirs(meteogram_image_dir)
 
+# Set up D0 and RR bins for the SATP procedure
+D0_bins = np.arange(0., 6.05, 0.05)
+# Following is from
+# https://stackoverflow.com/questions/45234987/numpy-range-created-using-percentage-increment
+# TODO: make a function out of this and put in pyPIPS.utils
+RR_start = 0.1
+RR_stop = 250.
+RR_pct_incr = 10.
+RR_incr = (100. + RR_pct_incr) / 100.
+RR_bins = RR_start * np.full(int(np.log(RR_stop / RR_start) / np.log(RR_incr)),
+                                RR_incr).cumprod()
+
 # Read in the PIPS data for the deployment
 conv_df_list = []
 conv_resampled_df_list = []
 parsivel_df_list = []
 vd_matrix_da_list = []
+ND_list = []
+D0_list = []
+RR_list = []
 
 for index, PIPS_filename, PIPS_name, start_time, end_time, geo_loc, ptype in zip(range(
         0, len(PIPS_filenames)), PIPS_filenames, PIPS_names, start_times, end_times, geo_locs,
@@ -150,79 +165,47 @@ for index, PIPS_filename, PIPS_name, start_time, end_time, geo_loc, ptype in zip
     conv_resampled_df_index = conv_resampled_df.index.intersection(parsivel_df.index)
     conv_resampled_df = conv_resampled_df.loc[conv_resampled_df_index]
 
+    # Compute binned number concentration
     fallspeed_spectrum = pips.calc_fallspeed_spectrum(avg_diameter, avg_fall_bins, correct_rho=True,
                                                       rho=conv_resampled_df['rho'])
     vd_matrix_da = vd_matrix_da.where(vd_matrix_da > 0.0)
     ND = pips.calc_ND(vd_matrix_da, fallspeed_spectrum, DSD_interval)
-    logND = np.log10(ND)
+
+    # Compute rainrate using empirical fallspeed curve
+    # TODO: allow for the use of the measured fallspeeds in the rainrate calculation.
+    fallspeeds_emp = pips.calc_empirical_fallspeed(avg_diameter, correct_rho=True,
+                                                   rho=conv_resampled_df['rho'])
+    rainrate_bin = (6. * 10.**-4.) * np.pi * fallspeeds_emp * avg_diameter**3. * ND * bin_width
+    rainrate = rainrate_bin.sum(dim='diameter_bin')
 
     # Compute D0 (in mm)
     D0 = dsd.calc_D0_bin(ND) * 1000.
+    D0 = D0.fillna(0.0)
 
-    # Now set up D0 and RR bins for the SATP procedure
-    D0_bins = np.arange(0., 4.05, 0.05)
-    # Following is from
-    # https://stackoverflow.com/questions/45234987/numpy-range-created-using-percentage-increment
-    # TODO: make a function out of this and put in pyPIPS.utils
-    RR_start = 0.1
-    RR_stop = 250.
-    RR_pct_incr = 10.
-    RR_incr = (100. + RR_pct_incr) / 100.
-    RR_bins = RR_start * np.full(int(np.log(RR_stop / RR_start) / np.log(RR_incr)),
-                                 RR_incr).cumprod()
+    # Add D0 and RR coordinates to the ND DataArray
+    ND.coords['D0'] = ('time', D0)
+    ND.coords['RR'] = ('time', rainrate)
+    # Digitize the D0 and RR using the bins computed earlier to get the indices
+    # of the bins for each D0/RR pair for each DSD and make a new MultiIndex out of it
+    D0_indices = np.digitize(D0, D0_bins)
+    RR_indices = np.digitize(rainrate, RR_bins)
+    ND.coords['D0_RR'] = ('time', pd.MultiIndex.from_arrays([D0_indices, RR_indices],
+                                                            names=['D0_idx', 'RR_idx']))
+    # Finally, we need to remove 'time' as an index, since we just now care about individual
+    # DSDs, not what time they were observed. Also, this allows us to concatenate each
+    # deployment's data into a single DataArray for later grouping and averaging by RR-D0 bin
+    # The dimension is still called 'time', however, but no longer has the time coordinate
+    # associated with it.
+    ND = ND.reset_index('time')
+    ND_list.append(ND)
 
+# Ok, now combine the list of DSD DataArrays into a single DataArray. This may take a while...
+ND_combined = xr.concat(ND_list, dim='time')
+# Group by D0-RR pairs:
+ND_groups = ND_combined.groupby('D0_RR')
+# Now average in each RR-D0 bin
+ND_avg = ND_groups.mean(dim='time')
 
+# STOPPED HERE: TODO: dump SATP dataset to netCDF file with appropriate metadata
+# TODO: Add an "SATP" dictionary to the config file to control things like the file name, etc.
 
-    # Compute various fits using the MM and TMM
-
-    M2, _ = dsd.calc_moment_bin(ND, moment=2)
-    M3, _ = dsd.calc_moment_bin(ND, moment=3)
-    M4, _ = dsd.calc_moment_bin(ND, moment=4)
-    M6, _ = dsd.calc_moment_bin(ND, moment=6)
-
-    DSD_MM24 = dsd.fit_DSD_MM24(M2, M4)
-    DSD_MM36 = dsd.fit_DSD_MM36(M3, M6)
-    DSD_MM346 = dsd.fit_DSD_MM346(M3, M4, M6)
-    DSD_MM246 = dsd.fit_DSD_MM246(M2, M4, M6)
-    DSD_MM234 = dsd.fit_DSD_MM234(M2, M3, M4)
-
-    D_min, D_max = dsd.get_max_min_diameters(ND)
-    DSD_TMM246 = dsd.fit_DSD_TMM_xr(M2, M4, M6, D_min, D_max)
-
-    # Wrap fits into a DataSet and dump to netCDF file
-    data_arrays = []
-    for da_tuple in [DSD_MM24, DSD_MM36, DSD_MM346, DSD_MM246, DSD_MM234, DSD_TMM246]:
-        da_concat = xr.concat(da_tuple, pd.Index(['N0', 'lamda', 'alpha'], name='parameter'))
-        data_arrays.append(da_concat)
-    names = ['DSD_MM24', 'DSD_MM36', 'DSD_MM346', 'DSD_MM246', 'DSD_MM234', 'DSD_TMM246']
-    fits_ds = xr.Dataset({name: da for name, da in zip(names, data_arrays)})
-
-    # Add ND to the Dataset
-    fits_ds = pipsio.combine_parsivel_data(fits_ds, ND, name='ND')
-
-    # Compute sigma and Dm and add to Dataset
-    D = ND['diameter']
-    dD = ND['max_diameter'] - ND['min_diameter']
-
-    Dm = dsd.calc_Dmpq_binned(4, 3, ND)
-    sigma = dsd.calc_sigma(D, dD, ND)
-
-    fits_ds = pipsio.combine_parsivel_data(fits_ds, Dm, name='Dm43')
-    fits_ds = pipsio.combine_parsivel_data(fits_ds, sigma, name='sigma')
-
-    # Add some metadata
-    fits_ds.attrs['DSD_interval'] = DSD_interval
-    fits_ds.attrs['strongwindQC'] = int(strongwindQC)
-    fits_ds.attrs['splashingQC'] = int(splashingQC)
-    fits_ds.attrs['marginQC'] = int(marginQC)
-    fits_ds.attrs['rainfallQC'] = int(rainfallQC)
-    fits_ds.attrs['rainonlyQC'] = int(rainonlyQC)
-    fits_ds.attrs['hailonlyQC'] = int(hailonlyQC)
-    fits_ds.attrs['graupelonlyQC'] = int(graupelonlyQC)
-    fits_ds.attrs['basicQC'] = int(basicQC)
-
-    ncfile_name = 'DSD_fits_params_{}_{:d}s_{}_{}.nc'.format(PIPS_name, int(DSD_interval), start_time,
-                                                             end_time)
-    ncfile_path = os.path.join(PIPS_dir, ncfile_name)
-    print("Dumping {}".format(ncfile_path))
-    fits_ds.to_netcdf(ncfile_path)
