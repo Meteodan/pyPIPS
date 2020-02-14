@@ -60,6 +60,7 @@ except Exception:
     import configs.plot_config_default as pc
 
 # Extract needed lists and variables from PIPS_IO_dict configuration dictionary
+deployment_name = config.PIPS_IO_dict.get('deployment_name', None)
 PIPS_dir = config.PIPS_IO_dict.get('PIPS_dir', None)
 plot_dir = config.PIPS_IO_dict.get('plot_dir', None)
 PIPS_types = config.PIPS_IO_dict.get('PIPS_types', None)
@@ -170,17 +171,19 @@ for index, PIPS_filename, PIPS_name, start_time, end_time, geo_loc, ptype in zip
                                                       rho=conv_resampled_df['rho'])
     vd_matrix_da = vd_matrix_da.where(vd_matrix_da > 0.0)
     ND = pips.calc_ND(vd_matrix_da, fallspeed_spectrum, DSD_interval)
-
+    ND = ND.where(ND > 0.)
     # Compute rainrate using empirical fallspeed curve
     # TODO: allow for the use of the measured fallspeeds in the rainrate calculation.
     fallspeeds_emp = pips.calc_empirical_fallspeed(avg_diameter, correct_rho=True,
                                                    rho=conv_resampled_df['rho'])
     rainrate_bin = (6. * 10.**-4.) * np.pi * fallspeeds_emp * avg_diameter**3. * ND * bin_width
     rainrate = rainrate_bin.sum(dim='diameter_bin')
+    rainrate = rainrate.where(rainrate <= RR_bins[-1])
+    rainrate = rainrate.where(rainrate > 0.)
 
     # Compute D0 (in mm)
     D0 = dsd.calc_D0_bin(ND) * 1000.
-    D0 = D0.fillna(0.0)
+    D0 = D0.where(D0 <= D0_bins[-1])
 
     # Add D0 and RR coordinates to the ND DataArray
     ND.coords['D0'] = ('time', D0)
@@ -191,21 +194,69 @@ for index, PIPS_filename, PIPS_name, start_time, end_time, geo_loc, ptype in zip
     RR_indices = np.digitize(rainrate, RR_bins)
     ND.coords['D0_RR'] = ('time', pd.MultiIndex.from_arrays([D0_indices, RR_indices],
                                                             names=['D0_idx', 'RR_idx']))
-    # Finally, we need to remove 'time' as an index, since we just now care about individual
-    # DSDs, not what time they were observed. Also, this allows us to concatenate each
+    # Change the name of dimension 'time' to 'D0_RR' since we don't care about the timestamps
+    # here. Also, this allows us to concatenate each
     # deployment's data into a single DataArray for later grouping and averaging by RR-D0 bin
     # The dimension is still called 'time', however, but no longer has the time coordinate
     # associated with it.
-    ND = ND.reset_index('time')
+    ND = ND.swap_dims({'time': 'D0_RR'})
     ND_list.append(ND)
 
 # Ok, now combine the list of DSD DataArrays into a single DataArray. This may take a while...
-ND_combined = xr.concat(ND_list, dim='time')
+ND_combined = xr.concat(ND_list, dim='D0_RR')
+ND_combined.name = 'ND_combined_{}'.format(deployment_name)
+# Add some metadata
+ND_combined.attrs['DSD_interval'] = DSD_interval
+ND_combined.attrs['strongwindQC'] = int(strongwindQC)
+ND_combined.attrs['splashingQC'] = int(splashingQC)
+ND_combined.attrs['marginQC'] = int(marginQC)
+ND_combined.attrs['rainfallQC'] = int(rainfallQC)
+ND_combined.attrs['rainonlyQC'] = int(rainonlyQC)
+ND_combined.attrs['hailonlyQC'] = int(hailonlyQC)
+ND_combined.attrs['graupelonlyQC'] = int(graupelonlyQC)
+ND_combined.attrs['basicQC'] = int(basicQC)
+
 # Group by D0-RR pairs:
 ND_groups = ND_combined.groupby('D0_RR')
 # Now average in each RR-D0 bin
-ND_avg = ND_groups.mean(dim='time')
+ND_avg = ND_groups.mean(dim='D0_RR')
+# Unstack the array so that D0 and RR are recovered as individual dimensions
+ND_avg = ND_avg.unstack(dim='D0_RR')
+# Rename the new dimensions back to what they were before because for some reason doing averages on a groupby object
+# resets the names of the multiindex levels. Also do some reindexing and naming of coords.
+# TODO change coordinates to midpoints of bins instead of edges
+ND_avg = ND_avg.rename({'D0_RR_level_0': 'D0_idx', 'D0_RR_level_1': 'RR_idx'})
+ND_avg = ND_avg.reindex({'D0_idx': range(D0_bins.size), 'RR_idx': range(RR_bins.size)})
+ND_avg.coords['D0'] = ('D0_idx', D0_bins)
+ND_avg.coords['RR'] = ('RR_idx', RR_bins)
+ND_avg.name = 'SATP_ND_{}'.format(deployment_name)
+# Add some metadata
+ND_avg.attrs['DSD_interval'] = DSD_interval
+ND_avg.attrs['strongwindQC'] = int(strongwindQC)
+ND_avg.attrs['splashingQC'] = int(splashingQC)
+ND_avg.attrs['marginQC'] = int(marginQC)
+ND_avg.attrs['rainfallQC'] = int(rainfallQC)
+ND_avg.attrs['rainonlyQC'] = int(rainonlyQC)
+ND_avg.attrs['hailonlyQC'] = int(hailonlyQC)
+ND_avg.attrs['graupelonlyQC'] = int(graupelonlyQC)
+ND_avg.attrs['basicQC'] = int(basicQC)
 
-# STOPPED HERE: TODO: dump SATP dataset to netCDF file with appropriate metadata
+# Dump SATP dataset to netCDF files with appropriate metadata
+# Before dumping have to reset the MultiIndex because xarray doesn't yet allow for
+# serialization of MultiIndex to netCDF files. This means we have to reconstruct the
+# MultiIndex upon reading it back from the file if we want to use it to group and average
+# as above. There's a function "reconstruct_MultiIndex" in pips_io.py for this purpose
+ND_combined = ND_combined.reset_index('D0_RR')
+ND_combined_ncfile_name = 'ND_combined_{}_{:d}s.nc'.format(deployment_name, int(DSD_interval))
+ND_combined_ncfile_path = os.path.join(PIPS_dir, ND_combined_ncfile_name)
+print("Dumping {}".format(ND_combined_ncfile_path))
+ND_combined.to_netcdf(ND_combined_ncfile_path)
+
+ND_avg_ncfile_name = 'ND_avg_{}_{:d}s.nc'.format(deployment_name, int(DSD_interval))
+ND_avg_ncfile_path = os.path.join(PIPS_dir, ND_avg_ncfile_name)
+print("Dumping {}".format(ND_avg_ncfile_path))
+ND_avg.to_netcdf(ND_avg_ncfile_path)
+
 # TODO: Add an "SATP" dictionary to the config file to control things like the file name, etc.
+
 

@@ -540,3 +540,32 @@ def combine_parsivel_data(parsivel_ds, data_array, name=None):
         print("Problem with the time dimension! Aborting!")
         return
 
+
+def reconstruct_MultiIndex(da, index_level_names, MultiIndex_name):
+    """Reconstructs a MultiIndex from the given list of indices in a DataArray. Needed because
+    serializing a MultiIndex to a netCDF file doesn't work, so if we need the MultiIndex (i.e. such
+    as for performing grouping and averaging on it), after reading the DataArray back in from
+    the netCDF file, we need to reconstruct it. This function does that.
+
+    Parameters
+    ----------
+    da : xr.DataArray
+        The DataArray
+    index_level_names : list of str
+        List of names of the index coordinates we want to recreate the MultiIndex from
+    MultiIndex_name : str
+        The name of the new MultiIndex
+
+    Returns
+    -------
+    xr.DataArray
+        The DataArray with the MultiIndex reconstructed
+    """
+    dim_name = da[index_level_names[0]].dims[0]  # NOTE: assumes only one dimension!
+    index_values = []
+    for index_level_name in index_level_names:
+        index_values.append(da[index_level_name].values)
+    da = da.reset_coords(names=index_level_names, drop=True)
+    da.coords[MultiIndex_name] = (dim_name,
+                                  pd.MultiIndex.from_arrays(index_values, names=index_level_names))
+    return da

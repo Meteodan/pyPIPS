@@ -1,6 +1,7 @@
 """Configuration script for VORTEX-SE IOP3 2016"""
 
 PIPS_IO_dict = {
+    'deployment_name': 'IOP3_2016',
     'PIPS_dir': '/Users/ddawson/Dropbox/Projects/VORTEXSE/obs_data/PIPS/2016/IOP3',
     'plot_dir': '/Users/dawson29/pyPIPS_work/VORTEXSE/2016/IOP3/plots',
     'PIPS_types': ['PIPS', 'PIPS', 'PIPS', 'PIPS'],
