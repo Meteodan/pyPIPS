@@ -338,15 +338,11 @@ def calc_ND(vd_matrix, fallspeed_spectrum, sample_interval, use_measured_fallspe
     bin_width = xr.DataArray((parsivel_parameters['max_diameter_bins_mm'] -
                               parsivel_parameters['min_diameter_bins_mm']), dims=['diameter_bin'])
 
-    print('fallspeed_spectrum', fallspeed_spectrum)
-
     if not use_measured_fallspeed:
         vd_matrix = vd_matrix.sum(dim='fallspeed_bin')
-    print('vd_matrix', vd_matrix)
     ND = vd_matrix / (fallspeed_spectrum * sample_interval * eff_sensor_area * bin_width)
     if use_measured_fallspeed:
         ND = ND.sum(dim='fallspeed_bin')
-    print('ND', ND)
 
     return ND
 

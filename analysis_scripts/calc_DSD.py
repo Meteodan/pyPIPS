@@ -70,11 +70,6 @@ end_times = config.PIPS_IO_dict.get('end_times', [None]*len(PIPS_names))
 geo_locs = config.PIPS_IO_dict.get('geo_locs', [None]*len(PIPS_names))
 requested_interval = config.PIPS_IO_dict.get('requested_interval', 10.)
 
-# Create the directory for the meteogram plots if it doesn't exist
-meteogram_image_dir = os.path.join(plot_dir, 'meteograms')
-if not os.path.exists(meteogram_image_dir):
-    os.makedirs(meteogram_image_dir)
-
 # Read in the PIPS data for the deployment
 conv_df_list = []
 conv_resampled_df_list = []
@@ -96,7 +91,7 @@ for index, PIPS_filename, PIPS_name, start_time, end_time, geo_loc, ptype in zip
     if not geo_loc:
         geo_locs[index] = pipsio.get_PIPS_loc(conv_df['GPS_status'], conv_df['GPS_lat'],
                                               conv_df['GPS_lon'], conv_df['GPS_alt'])
-    print("Lat/Lon/alt of {}: {}".format(PIPS_name, str(geo_loc)))
+    print("Lat/Lon/alt of {}: {}".format(PIPS_name, str(geo_locs[index])))
 
     # Calculate some additional thermodynamic parameters from the conventional data
     conv_df = pips.calc_thermo(conv_df)
@@ -144,6 +139,10 @@ for index, PIPS_filename, PIPS_name, start_time, end_time, geo_loc, ptype in zip
         DSD_interval = 10.
 
     PSD_datetimes = pips.get_PSD_datetimes(vd_matrix_da)
+    if start_time is None:
+        start_time = PSD_datetimes[0].strftime('%Y%m%d%H%M%S')
+    if end_time is None:
+        end_time = PSD_datetimes[-1].strftime('%Y%m%d%H%M%S')
     # Resample conventional data to the parsivel times
     sec_offset = PSD_datetimes[0].second
     conv_resampled_df = pips.resample_conv(ptype, DSD_interval, sec_offset, conv_df)
@@ -204,8 +203,8 @@ for index, PIPS_filename, PIPS_name, start_time, end_time, geo_loc, ptype in zip
     fits_ds.attrs['graupelonlyQC'] = int(graupelonlyQC)
     fits_ds.attrs['basicQC'] = int(basicQC)
 
-    ncfile_name = 'DSD_fits_params_{}_{:d}s_{}_{}.nc'.format(PIPS_name, int(DSD_interval), start_time,
-                                                             end_time)
+    ncfile_name = 'DSD_fits_params_{}_{:d}s_{}_{}.nc'.format(PIPS_name, int(DSD_interval),
+                                                             start_time, end_time)
     ncfile_path = os.path.join(PIPS_dir, ncfile_name)
     print("Dumping {}".format(ncfile_path))
     fits_ds.to_netcdf(ncfile_path)

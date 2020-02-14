@@ -71,13 +71,8 @@ end_times = config.PIPS_IO_dict.get('end_times', [None]*len(PIPS_names))
 geo_locs = config.PIPS_IO_dict.get('geo_locs', [None]*len(PIPS_names))
 requested_interval = config.PIPS_IO_dict.get('requested_interval', 10.)
 
-# Create the directory for the meteogram plots if it doesn't exist
-meteogram_image_dir = os.path.join(plot_dir, 'meteograms')
-if not os.path.exists(meteogram_image_dir):
-    os.makedirs(meteogram_image_dir)
-
 # Set up D0 and RR bins for the SATP procedure
-D0_bins = np.arange(0., 6.05, 0.05)
+D0_bins = np.arange(0.05, 6.05, 0.05)
 # Following is from
 # https://stackoverflow.com/questions/45234987/numpy-range-created-using-percentage-increment
 # TODO: make a function out of this and put in pyPIPS.utils
@@ -106,13 +101,13 @@ for index, PIPS_filename, PIPS_name, start_time, end_time, geo_loc, ptype in zip
     conv_df, parsivel_df, vd_matrix_da = pipsio.read_PIPS(PIPS_data_file_path,
                                                           start_timestamp=start_time,
                                                           end_timestamp=end_time, tripips=tripips)
-
+    print("Read {}".format(PIPS_filename))
     # We need the disdrometer locations. If they aren't supplied in the input control file, find
     # them from the GPS data
     if not geo_loc:
         geo_locs[index] = pipsio.get_PIPS_loc(conv_df['GPS_status'], conv_df['GPS_lat'],
                                               conv_df['GPS_lon'], conv_df['GPS_alt'])
-    print("Lat/Lon/alt of {}: {}".format(PIPS_name, str(geo_loc)))
+    print("Lat/Lon/alt of {}: {}".format(PIPS_name, str(geo_locs[index])))
 
     # Calculate some additional thermodynamic parameters from the conventional data
     conv_df = pips.calc_thermo(conv_df)
@@ -172,6 +167,10 @@ for index, PIPS_filename, PIPS_name, start_time, end_time, geo_loc, ptype in zip
     vd_matrix_da = vd_matrix_da.where(vd_matrix_da > 0.0)
     ND = pips.calc_ND(vd_matrix_da, fallspeed_spectrum, DSD_interval)
     ND = ND.where(ND > 0.)
+    # Drop all entries without DSDs
+    ND = ND.dropna(dim='time', how='all')
+    conv_resampled_df_index = conv_resampled_df.index.intersection(ND.indexes['time'])
+    conv_resampled_df = conv_resampled_df.loc[conv_resampled_df_index]
     # Compute rainrate using empirical fallspeed curve
     # TODO: allow for the use of the measured fallspeeds in the rainrate calculation.
     fallspeeds_emp = pips.calc_empirical_fallspeed(avg_diameter, correct_rho=True,
@@ -203,6 +202,7 @@ for index, PIPS_filename, PIPS_name, start_time, end_time, geo_loc, ptype in zip
     ND_list.append(ND)
 
 # Ok, now combine the list of DSD DataArrays into a single DataArray. This may take a while...
+print("Combining ND data")
 ND_combined = xr.concat(ND_list, dim='D0_RR')
 ND_combined.name = 'ND_combined_{}'.format(deployment_name)
 # Add some metadata
@@ -216,6 +216,7 @@ ND_combined.attrs['hailonlyQC'] = int(hailonlyQC)
 ND_combined.attrs['graupelonlyQC'] = int(graupelonlyQC)
 ND_combined.attrs['basicQC'] = int(basicQC)
 
+print("Grouping by D0-RR and averaging")
 # Group by D0-RR pairs:
 ND_groups = ND_combined.groupby('D0_RR')
 # Now average in each RR-D0 bin
