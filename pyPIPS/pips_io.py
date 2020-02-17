@@ -319,7 +319,7 @@ def read_PIPS(filename, start_timestamp=None, end_timestamp=None, tripips=False,
     # coordinate 'time'.
     vd_matrix_da = \
         xr.DataArray(vd_matrix_arr,
-                     name='velocity-diameter matrix',
+                     name='VD_matrix',
                      coords={'time': parsivel_datetime,
                              'fallspeed': ('fallspeed_bin', fallspeeds),
                              'diameter': ('diameter_bin', diameters),
@@ -451,25 +451,40 @@ def conv_df_to_ds(conv_df):
         Dataset version with additional metadata
     """
     conv_ds = conv_df.to_xarray()
+
+    # These are not present when conv_df is resampled to longer intervals
+    # TODO: update pips.resample_conv to properly handle these variables
+    try:
+        conv_ds['GPS_date'].attrs['units'] = 'DDMMYY'
+        conv_ds['GPS_dir'].attrs['units'] = 'degrees'
+        conv_ds['GPS_spd'].attrs['units'] = 'meters per second'
+        conv_ds['GPS_time'].attrs['units'] = 'HHMMSS'
+        conv_ds['compass_dir'].attrs['units'] = 'degrees'
+        conv_ds['winddirrel'].attrs['units'] = 'degrees'
+    except KeyError:
+        pass
+
     conv_ds['GPS_alt'].attrs['units'] = 'meters'
-    conv_ds['GPS_date'].attrs['units'] = 'DDMMYY'
-    conv_ds['GPS_dir'].attrs['units'] = 'degrees'
     conv_ds['GPS_lat'].attrs['units'] = 'degrees N'
     conv_ds['GPS_lon'].attrs['units'] = 'degrees E'
     conv_ds['GPS_lon'].attrs['description'] = 'west is negative'
-    conv_ds['GPS_spd'].attrs['units'] = 'meters per second'
-    conv_ds['GPS_time'].attrs['units'] = 'HHMMSS'
     conv_ds['RH'].attrs['units'] = 'percent'
     conv_ds['RH_derived'].attrs['units'] = 'percent'
-    conv_ds['compass_dir'].attrs['units'] = 'degrees'
     conv_ds['dewpoint'].attrs['units'] = 'degrees Celsius'
     conv_ds['fasttemp'].attrs['units'] = 'degrees Celsius'
     conv_ds['pressure'].attrs['units'] = 'hectoPascals'
     conv_ds['slowtemp'].attrs['units'] = 'degrees Celsius'
     conv_ds['voltage'].attrs['units'] = 'volts'
+    # TODO: add attributes to signify if the winds below are raw or resampled (i.e. averaged
+    # over a period)
     conv_ds['winddirabs'].attrs['units'] = 'degrees'
-    conv_ds['winddirrel'].attrs['units'] = 'degrees'
     conv_ds['windspd'].attrs['units'] = 'meters per second'
+    try:
+        conv_ds['windgust'].attrs['units'] = 'meters per second'
+        conv_ds['windgust'].attrs['description'] = \
+            'Max 3-s wind over interval (given by DSD_interval)'
+    except KeyError:
+        pass
 
     return conv_ds
 

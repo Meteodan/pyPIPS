@@ -141,9 +141,9 @@ def resample_wind(datetimes, offset, winddirs, windspds, intervalstr, gusts=True
     winddirsunitavgvec = (270.0 - (180. / np.pi) * np.arctan2(unit_vsavg, unit_usavg)) % 360.
 
     # Pack everything into a dictionary and then into a pd.DataFrame
-    wind_dict = {'windspdavg': windspdsavg, 'windspdavgvec': windspdsavgvec,
-                 'winddiravgvec': winddirsavgvec, 'winddirunitavgvec': winddirsunitavgvec,
-                 'windgustavg': windgustsavg, 'uavg': usavg, 'vavg': vsavg,
+    wind_dict = {'windspd': windspdsavg, 'windspdavgvec': windspdsavgvec,
+                 'winddirabs': winddirsavgvec, 'winddirunitavgvec': winddirsunitavgvec,
+                 'windgust': windgustsavg, 'uavg': usavg, 'vavg': vsavg,
                  'unit_uavg': unit_usavg, 'unit_vavg': unit_vsavg}
 
     wind_df = pd.DataFrame(wind_dict)

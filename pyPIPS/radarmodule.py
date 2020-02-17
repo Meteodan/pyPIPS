@@ -354,7 +354,7 @@ def readCFRadial_pyART(el, filename, sweeptime, fieldnames, radlat=None, radlon=
         f = None
         fieldtype = 'unknown'
         # Reflectivity
-        if fieldname in ['dBZ', 'DBZ', 'Z']:
+        if fieldname in ['dBZ', 'DBZ', 'Z', 'REF']:
             fieldtype = 'reflectivity'
             f = next((f for f in list(radarsweep.fields.items())
                       if f[0] in ['REF', 'DZ']), None)
@@ -401,7 +401,7 @@ def readCFRadial_pyART(el, filename, sweeptime, fieldnames, radlat=None, radlon=
                         print("Sorry, couldn't compute KDP!")
                         filefieldname = ''
                         filefield = np.empty((0))
-        if fieldname in ['rhv', 'RHV']:
+        if fieldname in ['rhv', 'RHV', 'RHO']:
             fieldtype = 'cross correlation coefficient'
             f = next((f for f in list(radarsweep.fields.items())
                       if f[0] in ['RHO']), None)
@@ -1629,6 +1629,8 @@ def get_PIPS_loc_relative_to_radar(PIPS_geo_loc, radarsweep):
     rlat = radarsweep.latitude['data'][0]
     rlon = radarsweep.longitude['data'][0]
 
+    print(PIPS_geo_loc[1], PIPS_geo_loc[0])
+
     dradx, drady = pyart.core.geographic_to_cartesian_aeqd(PIPS_geo_loc[1], PIPS_geo_loc[0],
                                                            rlon, rlat)
     dx = dradx[0]
@@ -1718,6 +1720,84 @@ def interp_sweeps_to_PIPS(radar_name, radarsweep_list, PIPS_names, dradlocs, ave
                              },
                      dims=['time', 'PIPS', 'fields'],
                      attrs={'Radar Name': radar_name})
+    return radar_fields_at_PIPS_da
+
+
+def interp_sweeps_to_one_PIPS(radar_name, radarsweep_list, PIPS_name, rad_loc, average_gates=True):
+    """Interpolates a series of radar sweeps to the locations of a single PIPS. Likely will
+       replace the original interp_sweeps_to_PIPS
+
+    Parameters
+    ----------
+    radar_name: str
+        Name of the radar
+    radarsweep_list : list
+        list of pyart radar sweep objects
+    PIPS_name : str
+        The name of the PIPS
+    rad_loc : tuple
+        Tuple containing the (x, y) cartesian coordinates of the PIPS relative to the radar
+    average_gates : bool, optional
+        Whether to average the closest 9 gates, by default True
+
+    Returns
+    -------
+    xr.DataArray
+        DataArray containing the values of the different radar fields for each time interpolated to
+        the PIPS location.
+    """
+    # Hardcoded subset of field names
+    field_names = ['REF', 'VEL', 'ZDR', 'PHI', 'RHO', 'SW']
+
+    radar_fields_at_PIPS_tlist = []
+
+    for radarsweep in radarsweep_list:
+        # Get Cartesian locations of radar gates
+        xrad, yrad, zrad = radarsweep.get_gate_x_y_z(0)
+        distance = np.sqrt((rad_loc[0] - xrad)**2. + (rad_loc[1] - yrad)**2.)
+        # Now, find the index of the closest radar gate
+        theta_index, range_index = np.unravel_index(distance.argmin(), distance.shape)
+        print("theta_index, range_index", theta_index, range_index)
+        print("Distance to closest gate: ", distance[theta_index, range_index])
+        radar_field_list = []
+        for field_name in field_names:
+            try:
+                field_data = radarsweep.fields[field_name]['data'].filled(np.nan)
+            except KeyError:
+                field_data = np.nan * np.ones_like(xrad)
+            if distance[theta_index, range_index] > 3000.:
+                field_at_PIPS = np.nan
+            else:
+                if not average_gates:
+                    field_at_PIPS = field_data[theta_index, range_index]
+                else:
+                    field_at_PIPS = np.nanmean(field_data[theta_index - 1:theta_index + 2,
+                                                          range_index - 1:range_index + 2])
+                radar_field_list.append(field_at_PIPS)
+        radar_fields_at_PIPS_tlist.append(radar_field_list)
+
+    radar_fields_at_PIPS_arr = np.array(radar_fields_at_PIPS_tlist)
+    # Create a list of datetimes from the radar time coverage start times
+    # For some reason have to do some additional massaging to get into the proper format
+    # in the DataArray (datetime64[ns] objects)
+    radar_datetimes = pd.to_datetime([radarsweep.metadata['time_coverage_start']
+                                      for radarsweep in radarsweep_list])
+    radar_datetimes = [radar_datetime.to_pydatetime() for radar_datetime in radar_datetimes]
+
+    # Create a DataArray with the radar fields interpolated to the PIPS location
+    radar_fields_at_PIPS_da = \
+        xr.DataArray(radar_fields_at_PIPS_arr,
+                     coords={
+                         'time': radar_datetimes,
+                         'fields': field_names,
+                     },
+                     dims=['time', 'fields'],
+                     attrs={
+                         'radar_name': radar_name,
+                         'PIPS_name': PIPS_name,
+                         'PIPS_x': rad_loc[0],
+                         'PIPS_y': rad_loc[1]
+                     })
     return radar_fields_at_PIPS_da
 
 

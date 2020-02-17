@@ -3,7 +3,7 @@ import os
 from glob import glob
 
 PIPS_IO_dict = {
-    'deployment_name': 'full_dataset',
+    'dataset_name': 'full_dataset',
     'PIPS_dir': '/Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset_links',
     'plot_dir': '/Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset_links',
     'requested_interval': 60.
@@ -13,6 +13,25 @@ PIPS_file_path_list = glob(PIPS_IO_dict['PIPS_dir'] + '/PIPS*txt')
 numfiles = len(PIPS_file_path_list)
 PIPS_filenames = [os.path.basename(PIPS_file_path) for PIPS_file_path in PIPS_file_path_list]
 PIPS_names = [PIPS_filename[:6] for PIPS_filename in PIPS_filenames]
+
+# Figure out the deployment names
+deployment_names = []
+for PIPS_filename in PIPS_filenames:
+    if 'FMCW' in PIPS_filename:
+        deployment_name = 'FMCW_2017'
+    elif 'IOP' in PIPS_filename:
+        IOP_name = PIPS_filename[PIPS_filename.index('IOP'):PIPS_filename.index('.txt')]
+        if '2016' in PIPS_filename:
+            IOP_year = '2016'
+        elif '2017' in PIPS_filename:
+            IOP_year = '2017'
+        else:
+            IOP_year = 'unknown'
+        deployment_name = IOP_name + '_' + IOP_year
+    else:
+        deployment_name = 'unknown'
+    deployment_names.append(deployment_name)
+PIPS_IO_dict['deployment_names'] = deployment_names
 
 PIPS_IO_dict['PIPS_types'] = ['PIPS'] * numfiles
 PIPS_IO_dict['PIPS_names'] = PIPS_names
