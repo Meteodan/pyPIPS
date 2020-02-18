@@ -192,15 +192,13 @@ for index, PIPS_filename, PIPS_name, start_time, end_time, geo_loc, ptype, deplo
 
     # Dump to netCDF files
 
-    ncfile_name = 'parsivel_combined_{}_{}_{:d}s_{}_{}.nc'.format(deployment_name, PIPS_name,
-                                                                  int(DSD_interval),
-                                                                  start_time, end_time)
+    ncfile_name = 'parsivel_combined_{}_{}_{:d}s.nc'.format(deployment_name, PIPS_name,
+                                                            int(DSD_interval))
     ncfile_path = os.path.join(PIPS_dir, ncfile_name)
     print("Dumping {}".format(ncfile_path))
     parsivel_combined_ds.to_netcdf(ncfile_path)
 
-    ncfile_name = 'conventional_raw_{}_{}_{}_{}.nc'.format(deployment_name, PIPS_name,
-                                                           start_time, end_time)
+    ncfile_name = 'conventional_raw_{}_{}.nc'.format(deployment_name, PIPS_name)
     ncfile_path = os.path.join(PIPS_dir, ncfile_name)
     print("Dumping {}".format(ncfile_path))
     conv_ds.to_netcdf(ncfile_path)

@@ -1050,7 +1050,7 @@ def fit_DSD_TMM(M2, M4, M6, D_min, D_max):
             LDmx = lam_tmf * D_max[t]
         mu_tmf.append(mu)
         lamda_tmf.append(lam_tmf)
-        print("Working on time {:d}".format(t))
+        # print("Working on time {:d}".format(t))
 
     mu_tmf = np.array(mu_tmf)
     lamda_tmf = np.array(lamda_tmf)
@@ -1168,6 +1168,22 @@ def calc_sigma(D, dD, ND):
 
 
 def calc_rainrate_from_bins(ND, correct_rho=False, rho=None):
+    """[summary]
+
+    Parameters
+    ----------
+    ND : [type]
+        [description]
+    correct_rho : bool, optional
+        [description], by default False
+    rho : [type], optional
+        [description], by default None
+
+    Returns
+    -------
+    [type]
+        [description]
+    """
 
     avg_diameter_mm = ND['diameter']
     bin_width_mm = (ND['max_diameter'] - ND['min_diameter'])
@@ -1175,3 +1191,23 @@ def calc_rainrate_from_bins(ND, correct_rho=False, rho=None):
     rainrate_bin = (6. * 10.**-4.) * np.pi * fallspeed * avg_diameter_mm**3. * ND * bin_width_mm
     rainrate = rainrate_bin.sum(dim='diameter_bin')
     return rainrate
+
+
+def calc_CG_polynomial(lamda, mu):
+    """Computes a least-squares quadratic polynomial fit to the mu-lamda points
+
+    Parameters
+    ----------
+    lamda : array_like
+        Array of lamda values
+    mu : array_like
+        Corresponding array of mu values
+
+    Returns
+    -------
+    tuple (np.ndarray, np.polynomial.polynomial.Polynomial)
+        The coefficients of the polynomial along with the Polynomial class object
+    """
+    CG_poly_coeff = np.polynomial.polynomial.polyfit(lamda, mu, 2)
+    CG_poly = np.polynomial.polynomial.Polynomial(CG_poly_coeff)
+    return CG_poly_coeff, CG_poly

@@ -84,13 +84,13 @@ wavelength = config.radar_config_dict.get('wavelength', 10.7)
 # Get a list of the combined parsivel netCDF data files that are present in the PIPS directory
 
 parsivel_combined_filenames = [
-    'parsivel_combined_{}_{}_{:d}s*nc'.format(deployment_name, PIPS_name, int(requested_interval))
+    'parsivel_combined_{}_{}_{:d}s.nc'.format(deployment_name, PIPS_name, int(requested_interval))
     for deployment_name, PIPS_name in zip(deployment_names, PIPS_names)]
-parsivel_combined_filelist = [glob(PIPS_dir + '/' + parsivel_combined_filename)
-                              for parsivel_combined_filename in parsivel_combined_filenames]
-parsivel_combined_filelist = [parsivel_combined_file for parsivel_combined_filesublist in
-                              parsivel_combined_filelist for parsivel_combined_file in
-                              parsivel_combined_filesublist]
+# parsivel_combined_filelist = [glob(PIPS_dir + '/' + parsivel_combined_filename)
+#                               for parsivel_combined_filename in parsivel_combined_filenames]
+# parsivel_combined_filelist = [parsivel_combined_file for parsivel_combined_filesublist in
+#                               parsivel_combined_filelist for parsivel_combined_file in
+#                               parsivel_combined_filesublist]
 
 # The following assumes that the same radar will be used for each PIPS in the deployment.
 # TODO: make this more flexible

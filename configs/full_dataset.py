@@ -4,8 +4,8 @@ from glob import glob
 
 PIPS_IO_dict = {
     'dataset_name': 'full_dataset',
-    'PIPS_dir': '/Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset_links',
-    'plot_dir': '/Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset_links',
+    'PIPS_dir': '/Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset',
+    'plot_dir': '/Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset',
     'requested_interval': 60.
 }
 
@@ -18,7 +18,7 @@ PIPS_names = [PIPS_filename[:6] for PIPS_filename in PIPS_filenames]
 deployment_names = []
 for PIPS_filename in PIPS_filenames:
     if 'FMCW' in PIPS_filename:
-        deployment_name = 'FMCW_2017'
+        deployment_name = 'FMCW_2017_{}'.format(PIPS_filename[-10:-4])
     elif 'IOP' in PIPS_filename:
         IOP_name = PIPS_filename[PIPS_filename.index('IOP'):PIPS_filename.index('.txt')]
         if '2016' in PIPS_filename:

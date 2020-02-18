@@ -1,0 +1,172 @@
+
+## You are using the Python ARM Radar Toolkit (Py-ART), an open source
+## library for working with weather radar data. Py-ART is partly
+## supported by the U.S. Department of Energy as part of the Atmospheric
+## Radiation Measurement (ARM) Climate Research Facility, an Office of
+## Science user facility.
+##
+## If you use this software to prepare a publication, please cite:
+##
+##     JJ Helmus and SM Collis, JORS 2016, doi: 10.5334/jors.119
+
+Case config file is ../configs/full_dataset.py
+Successfully imported case configuration parameters!
+Plotting configuration file is plot_config.py
+Warning: Unable to import user-defined pyPIPS control parameters! Reverting to defaults.
+['parsivel_combined_FMCW_2017_040517_PIPS2A_60s.nc', 'parsivel_combined_FMCW_2017_050117_PIPS2A_60s.nc', 'parsivel_combined_IOP4B_D1_2016_PIPS2A_60s.nc', 'parsivel_combined_IOP3_D1_2016_PIPS1B_60s.nc', 'parsivel_combined_FMCW_2017_040717_PIPS2A_60s.nc', 'parsivel_combined_FMCW_2017_041317_PIPS2A_60s.nc', 'parsivel_combined_IOP4B_D1_2016_PIPS1A_60s.nc', 'parsivel_combined_IOP3_D1_2016_PIPS2B_60s.nc', 'parsivel_combined_IOP4B_D1_2016_PIPS2B_60s.nc', 'parsivel_combined_IOP1B_D1_2017_PIPS2B_60s.nc', 'parsivel_combined_IOP4C_D2_2016_PIPS2A_60s.nc', 'parsivel_combined_FMCW_2017_043017_PIPS2A_60s.nc', 'parsivel_combined_FMCW_2017_040817_PIPS2A_60s.nc', 'parsivel_combined_IOP2_D1_2016_PIPS1A_60s.nc', 'parsivel_combined_IOP3_D1_2016_PIPS1A_60s.nc', 'parsivel_combined_FMCW_2017_041217_PIPS2A_60s.nc', 'parsivel_combined_IOP4C_D1_2016_PIPS1B_60s.nc', 'parsivel_combined_IOP1B_D2_2017_PIPS1B_60s.nc', 'parsivel_combined_IOP2_D1_2017_PIPS1A_60s.nc', 'parsivel_combined_IOP4C_D1_2017_PIPS1A_60s.nc', 'parsivel_combined_IOP4C_D1_2016_PIPS1A_60s.nc', 'parsivel_combined_FMCW_2017_041717_PIPS2A_60s.nc', 'parsivel_combined_IOP2_D1_2016_PIPS1B_60s.nc', 'parsivel_combined_FMCW_2017_032417_PIPS2A_60s.nc', 'parsivel_combined_IOP4A_D1_2016_PIPS1A_60s.nc', 'parsivel_combined_FMCW_2017_032617_PIPS2A_60s.nc', 'parsivel_combined_FMCW_2017_041417_PIPS2A_60s.nc', 'parsivel_combined_FMCW_2017_041117_PIPS2A_60s.nc', 'parsivel_combined_IOP2_D1_2017_PIPS1B_60s.nc', 'parsivel_combined_FMCW_2017_032917_PIPS2A_60s.nc', 'parsivel_combined_FMCW_2017_032517_PIPS2A_60s.nc', 'parsivel_combined_IOP3B_D1_2017_PIPS1B_60s.nc', 'parsivel_combined_FMCW_2017_042317_PIPS2A_60s.nc', 'parsivel_combined_FMCW_2017_040617_PIPS2A_60s.nc', 'parsivel_combined_FMCW_2017_040317_PIPS2A_60s.nc', 'parsivel_combined_FMCW_2017_041917_PIPS2A_60s.nc', 'parsivel_combined_FMCW_2017_042717_PIPS2A_60s.nc', 'parsivel_combined_IOP4C_D1_2016_PIPS2A_60s.nc', 'parsivel_combined_IOP1B_D2_2017_PIPS2B_60s.nc', 'parsivel_combined_FMCW_2017_042117_PIPS2A_60s.nc', 'parsivel_combined_FMCW_2017_040217_PIPS2A_60s.nc', 'parsivel_combined_FMCW_2017_041617_PIPS2A_60s.nc', 'parsivel_combined_FMCW_2017_042517_PIPS2A_60s.nc', 'parsivel_combined_IOP4C_D1_2016_PIPS2B_60s.nc', 'parsivel_combined_FMCW_2017_033017_PIPS2A_60s.nc', 'parsivel_combined_IOP1_D1_2016_PIPS2B_60s.nc', 'parsivel_combined_IOP1_D1_2016_PIPS2A_60s.nc', 'parsivel_combined_FMCW_2017_042617_PIPS2A_60s.nc', 'parsivel_combined_FMCW_2017_041017_PIPS2A_60s.nc', 'parsivel_combined_IOP3_D1_2016_PIPS2A_60s.nc', 'parsivel_combined_IOP1B_D2_2017_PIPS1A_60s.nc', 'parsivel_combined_FMCW_2017_032817_PIPS2A_60s.nc', 'parsivel_combined_IOP4B_D1_2016_PIPS1B_60s.nc', 'parsivel_combined_IOP1B_D1_2017_PIPS1B_60s.nc', 'parsivel_combined_IOP4C_D1_2017_PIPS1B_60s.nc', 'parsivel_combined_FMCW_2017_040417_PIPS2A_60s.nc', 'parsivel_combined_FMCW_2017_033117_PIPS2A_60s.nc', 'parsivel_combined_IOP4A_D1_2017_PIPS1B_60s.nc', 'parsivel_combined_IOP4C_D1_2017_PIPS2B_60s.nc', 'parsivel_combined_IOP1A_D1_2017_PIPS1A_60s.nc', 'parsivel_combined_FMCW_2017_032717_PIPS2A_60s.nc', 'parsivel_combined_IOP1_D1_2016_PIPS1B_60s.nc', 'parsivel_combined_IOP1B_D1_2017_PIPS1A_60s.nc', 'parsivel_combined_FMCW_2017_042417_PIPS2A_60s.nc', 'parsivel_combined_FMCW_2017_041517_PIPS2A_60s.nc', 'parsivel_combined_FMCW_2017_040917_PIPS2A_60s.nc', 'parsivel_combined_IOP4A_D1_2017_PIPS1A_60s.nc', 'parsivel_combined_FMCW_2017_040117_PIPS2A_60s.nc', 'parsivel_combined_IOP1A_D1_2017_PIPS1B_60s.nc', 'parsivel_combined_IOP2_D1_2016_PIPS2A_60s.nc', 'parsivel_combined_IOP_4A_4D_D1_2016_PIPS1A_60s.nc', 'parsivel_combined_FMCW_2017_042217_PIPS2A_60s.nc', 'parsivel_combined_FMCW_2017_041817_PIPS2A_60s.nc', 'parsivel_combined_IOP1A_D1_2017_PIPS2B_60s.nc', 'parsivel_combined_IOP1_D1_2016_PIPS1A_60s.nc', 'parsivel_combined_FMCW_2017_042017_PIPS2A_60s.nc', 'parsivel_combined_FMCW_2017_042817_PIPS2A_60s.nc', 'parsivel_combined_FMCW_2017_042917_PIPS2A_60s.nc']
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_FMCW_2017_040517_PIPS2A_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_FMCW_2017_040517_PIPS2A_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_FMCW_2017_050117_PIPS2A_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_FMCW_2017_050117_PIPS2A_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_IOP4B_D1_2016_PIPS2A_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_IOP4B_D1_2016_PIPS2A_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_IOP3_D1_2016_PIPS1B_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_IOP3_D1_2016_PIPS1B_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_FMCW_2017_040717_PIPS2A_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_FMCW_2017_040717_PIPS2A_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_FMCW_2017_041317_PIPS2A_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_FMCW_2017_041317_PIPS2A_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_IOP4B_D1_2016_PIPS1A_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_IOP4B_D1_2016_PIPS1A_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_IOP3_D1_2016_PIPS2B_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_IOP3_D1_2016_PIPS2B_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_IOP4B_D1_2016_PIPS2B_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_IOP4B_D1_2016_PIPS2B_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_IOP1B_D1_2017_PIPS2B_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_IOP1B_D1_2017_PIPS2B_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_IOP4C_D2_2016_PIPS2A_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_IOP4C_D2_2016_PIPS2A_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_FMCW_2017_043017_PIPS2A_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_FMCW_2017_043017_PIPS2A_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_FMCW_2017_040817_PIPS2A_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_FMCW_2017_040817_PIPS2A_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_IOP2_D1_2016_PIPS1A_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_IOP2_D1_2016_PIPS1A_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_IOP3_D1_2016_PIPS1A_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_IOP3_D1_2016_PIPS1A_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_FMCW_2017_041217_PIPS2A_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_FMCW_2017_041217_PIPS2A_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_IOP4C_D1_2016_PIPS1B_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_IOP4C_D1_2016_PIPS1B_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_IOP1B_D2_2017_PIPS1B_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_IOP1B_D2_2017_PIPS1B_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_IOP2_D1_2017_PIPS1A_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_IOP2_D1_2017_PIPS1A_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_IOP4C_D1_2017_PIPS1A_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_IOP4C_D1_2017_PIPS1A_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_IOP4C_D1_2016_PIPS1A_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_IOP4C_D1_2016_PIPS1A_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_FMCW_2017_041717_PIPS2A_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_FMCW_2017_041717_PIPS2A_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_IOP2_D1_2016_PIPS1B_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_IOP2_D1_2016_PIPS1B_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_FMCW_2017_032417_PIPS2A_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_FMCW_2017_032417_PIPS2A_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_IOP4A_D1_2016_PIPS1A_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_IOP4A_D1_2016_PIPS1A_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_FMCW_2017_032617_PIPS2A_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_FMCW_2017_032617_PIPS2A_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_FMCW_2017_041417_PIPS2A_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_FMCW_2017_041417_PIPS2A_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_FMCW_2017_041117_PIPS2A_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_FMCW_2017_041117_PIPS2A_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_IOP2_D1_2017_PIPS1B_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_IOP2_D1_2017_PIPS1B_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_FMCW_2017_032917_PIPS2A_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_FMCW_2017_032917_PIPS2A_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_FMCW_2017_032517_PIPS2A_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_FMCW_2017_032517_PIPS2A_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_IOP3B_D1_2017_PIPS1B_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_IOP3B_D1_2017_PIPS1B_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_FMCW_2017_042317_PIPS2A_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_FMCW_2017_042317_PIPS2A_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_FMCW_2017_040617_PIPS2A_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_FMCW_2017_040617_PIPS2A_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_FMCW_2017_040317_PIPS2A_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_FMCW_2017_040317_PIPS2A_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_FMCW_2017_041917_PIPS2A_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_FMCW_2017_041917_PIPS2A_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_FMCW_2017_042717_PIPS2A_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_FMCW_2017_042717_PIPS2A_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_IOP4C_D1_2016_PIPS2A_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_IOP4C_D1_2016_PIPS2A_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_IOP1B_D2_2017_PIPS2B_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_IOP1B_D2_2017_PIPS2B_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_FMCW_2017_042117_PIPS2A_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_FMCW_2017_042117_PIPS2A_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_FMCW_2017_040217_PIPS2A_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_FMCW_2017_040217_PIPS2A_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_FMCW_2017_041617_PIPS2A_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_FMCW_2017_041617_PIPS2A_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_FMCW_2017_042517_PIPS2A_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_FMCW_2017_042517_PIPS2A_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_IOP4C_D1_2016_PIPS2B_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_IOP4C_D1_2016_PIPS2B_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_FMCW_2017_033017_PIPS2A_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_FMCW_2017_033017_PIPS2A_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_IOP1_D1_2016_PIPS2B_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_IOP1_D1_2016_PIPS2B_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_IOP1_D1_2016_PIPS2A_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_IOP1_D1_2016_PIPS2A_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_FMCW_2017_042617_PIPS2A_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_FMCW_2017_042617_PIPS2A_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_FMCW_2017_041017_PIPS2A_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_FMCW_2017_041017_PIPS2A_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_IOP3_D1_2016_PIPS2A_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_IOP3_D1_2016_PIPS2A_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_IOP1B_D2_2017_PIPS1A_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_IOP1B_D2_2017_PIPS1A_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_FMCW_2017_032817_PIPS2A_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_FMCW_2017_032817_PIPS2A_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_IOP4B_D1_2016_PIPS1B_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_IOP4B_D1_2016_PIPS1B_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_IOP1B_D1_2017_PIPS1B_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_IOP1B_D1_2017_PIPS1B_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_IOP4C_D1_2017_PIPS1B_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_IOP4C_D1_2017_PIPS1B_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_FMCW_2017_040417_PIPS2A_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_FMCW_2017_040417_PIPS2A_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_FMCW_2017_033117_PIPS2A_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_FMCW_2017_033117_PIPS2A_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_IOP4A_D1_2017_PIPS1B_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_IOP4A_D1_2017_PIPS1B_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_IOP4C_D1_2017_PIPS2B_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_IOP4C_D1_2017_PIPS2B_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_IOP1A_D1_2017_PIPS1A_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_IOP1A_D1_2017_PIPS1A_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_FMCW_2017_032717_PIPS2A_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_FMCW_2017_032717_PIPS2A_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_IOP1_D1_2016_PIPS1B_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_IOP1_D1_2016_PIPS1B_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_IOP1B_D1_2017_PIPS1A_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_IOP1B_D1_2017_PIPS1A_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_FMCW_2017_042417_PIPS2A_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_FMCW_2017_042417_PIPS2A_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_FMCW_2017_041517_PIPS2A_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_FMCW_2017_041517_PIPS2A_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_FMCW_2017_040917_PIPS2A_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_FMCW_2017_040917_PIPS2A_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_IOP4A_D1_2017_PIPS1A_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_IOP4A_D1_2017_PIPS1A_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_FMCW_2017_040117_PIPS2A_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_FMCW_2017_040117_PIPS2A_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_IOP1A_D1_2017_PIPS1B_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_IOP1A_D1_2017_PIPS1B_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_IOP2_D1_2016_PIPS2A_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_IOP2_D1_2016_PIPS2A_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_IOP_4A_4D_D1_2016_PIPS1A_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_IOP_4A_4D_D1_2016_PIPS1A_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_FMCW_2017_042217_PIPS2A_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_FMCW_2017_042217_PIPS2A_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_FMCW_2017_041817_PIPS2A_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_FMCW_2017_041817_PIPS2A_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_IOP1A_D1_2017_PIPS2B_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_IOP1A_D1_2017_PIPS2B_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_IOP1_D1_2016_PIPS1A_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_IOP1_D1_2016_PIPS1A_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_FMCW_2017_042017_PIPS2A_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_FMCW_2017_042017_PIPS2A_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_FMCW_2017_042817_PIPS2A_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_FMCW_2017_042817_PIPS2A_60s.nc
+Reading /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/parsivel_combined_FMCW_2017_042917_PIPS2A_60s.nc
+Dumping /Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/DSD_fits_params_qc_FMCW_2017_042917_PIPS2A_60s.nc

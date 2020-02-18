@@ -60,7 +60,7 @@ except Exception:
     import configs.plot_config_default as pc
 
 # Extract needed lists and variables from PIPS_IO_dict configuration dictionary
-deployment_name = config.PIPS_IO_dict.get('deployment_name', None)
+dataset_name = config.PIPS_IO_dict.get('dataset_name', None)
 PIPS_dir = config.PIPS_IO_dict.get('PIPS_dir', None)
 plot_dir = config.PIPS_IO_dict.get('plot_dir', None)
 PIPS_types = config.PIPS_IO_dict.get('PIPS_types', None)
@@ -196,15 +196,13 @@ for index, PIPS_filename, PIPS_name, start_time, end_time, geo_loc, ptype in zip
     # Change the name of dimension 'time' to 'D0_RR' since we don't care about the timestamps
     # here. Also, this allows us to concatenate each
     # deployment's data into a single DataArray for later grouping and averaging by RR-D0 bin
-    # The dimension is still called 'time', however, but no longer has the time coordinate
-    # associated with it.
     ND = ND.swap_dims({'time': 'D0_RR'})
     ND_list.append(ND)
 
 # Ok, now combine the list of DSD DataArrays into a single DataArray. This may take a while...
 print("Combining ND data")
 ND_combined = xr.concat(ND_list, dim='D0_RR')
-ND_combined.name = 'ND_combined_{}'.format(deployment_name)
+ND_combined.name = 'ND_combined_{}'.format(dataset_name)
 # Add some metadata
 ND_combined.attrs['DSD_interval'] = DSD_interval
 ND_combined.attrs['strongwindQC'] = int(strongwindQC)
@@ -230,7 +228,7 @@ ND_avg = ND_avg.rename({'D0_RR_level_0': 'D0_idx', 'D0_RR_level_1': 'RR_idx'})
 ND_avg = ND_avg.reindex({'D0_idx': range(D0_bins.size), 'RR_idx': range(RR_bins.size)})
 ND_avg.coords['D0'] = ('D0_idx', D0_bins)
 ND_avg.coords['RR'] = ('RR_idx', RR_bins)
-ND_avg.name = 'SATP_ND_{}'.format(deployment_name)
+ND_avg.name = 'SATP_ND_{}'.format(dataset_name)
 # Add some metadata
 ND_avg.attrs['DSD_interval'] = DSD_interval
 ND_avg.attrs['strongwindQC'] = int(strongwindQC)
@@ -248,12 +246,12 @@ ND_avg.attrs['basicQC'] = int(basicQC)
 # MultiIndex upon reading it back from the file if we want to use it to group and average
 # as above. There's a function "reconstruct_MultiIndex" in pips_io.py for this purpose
 ND_combined = ND_combined.reset_index('D0_RR')
-ND_combined_ncfile_name = 'ND_combined_{}_{:d}s.nc'.format(deployment_name, int(DSD_interval))
+ND_combined_ncfile_name = 'ND_combined_{}_{:d}s.nc'.format(dataset_name, int(DSD_interval))
 ND_combined_ncfile_path = os.path.join(PIPS_dir, ND_combined_ncfile_name)
 print("Dumping {}".format(ND_combined_ncfile_path))
 ND_combined.to_netcdf(ND_combined_ncfile_path)
 
-ND_avg_ncfile_name = 'ND_avg_{}_{:d}s.nc'.format(deployment_name, int(DSD_interval))
+ND_avg_ncfile_name = 'ND_avg_{}_{:d}s.nc'.format(dataset_name, int(DSD_interval))
 ND_avg_ncfile_path = os.path.join(PIPS_dir, ND_avg_ncfile_name)
 print("Dumping {}".format(ND_avg_ncfile_path))
 ND_avg.to_netcdf(ND_avg_ncfile_path)

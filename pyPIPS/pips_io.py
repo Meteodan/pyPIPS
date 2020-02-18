@@ -518,7 +518,7 @@ def parsivel_df_to_ds(parsivel_df):
     return parsivel_ds
 
 
-def combine_parsivel_data(parsivel_ds, data_array, name=None):
+def combine_parsivel_data(parsivel_ds, data_array, name=None, coord='time'):
     """Adds a new DataArray to an existing Parsivel Dataset.
 
     Parameters
@@ -530,6 +530,8 @@ def combine_parsivel_data(parsivel_ds, data_array, name=None):
     name : str, optional
         name of the new DataArray, by default None. If None, will attempt to extract the name
         from the DataArray.name attribute.
+    coord : str, optional
+        coordinate name to check for consistency, by default 'time'
 
     Returns
     -------
@@ -538,8 +540,9 @@ def combine_parsivel_data(parsivel_ds, data_array, name=None):
     """
 
     try:
-        if not np.array_equal(parsivel_ds['time'].values, data_array['time'].values):
-            print("parsivel telegram and new data array times do not match!")
+        if not np.array_equal(parsivel_ds[coord].values, data_array[coord].values):
+            message = "Coordinate values {} for parsivel dataset and new data array do not match!"
+            print(message.format(coord))
             return
         else:
             if name is None:
