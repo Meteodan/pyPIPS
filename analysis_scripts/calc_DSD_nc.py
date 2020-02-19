@@ -94,7 +94,10 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
     DSD_MM246 = dsd.fit_DSD_MM246(M2, M4, M6)
     DSD_MM234 = dsd.fit_DSD_MM234(M2, M3, M4)
 
-    D_min, D_max = dsd.get_max_min_diameters(ND)
+    # Gotcha, if at some point all the zeros in the ND bins have been turn to nan's, the
+    # call below to calculate D_min and D_max won't work properly, so here we fill the nans
+    # with zeros for the purposes of calculating it.
+    D_min, D_max = dsd.get_max_min_diameters(ND.fillna(0.0))
     DSD_TMM246 = dsd.fit_DSD_TMM_xr(M2, M4, M6, D_min, D_max)
 
     # Wrap fits into a DataSet and dump to netCDF file
