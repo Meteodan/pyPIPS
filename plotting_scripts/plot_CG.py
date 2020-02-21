@@ -37,6 +37,8 @@ parser.add_argument('case_config_path', metavar='<path/to/case/config/file.py>',
                     help='The path to the case configuration file')
 parser.add_argument('--ND-tag', dest='ND_tag', default='qc',
                     help='tag for ND variable in file (either qc or RB15)')
+parser.add_argument('--plot-SATP', action='store_true', dest='plot_SATP',
+                    help='plot for the SATP-filtered dataset')
 
 args = parser.parse_args()
 ND_tag = args.ND_tag
@@ -77,7 +79,7 @@ parsivel_combined_filelist = [os.path.join(PIPS_dir, pcf) for pcf in parsivel_co
 # print(DSD_fits_filenames)
 
 # Open entire multi-file dataset
-print("Opening dataswet {}".format(dataset_name))
+print("Opening dataset {}".format(dataset_name))
 parsivel_combined_ds = xr.open_mfdataset(parsivel_combined_filelist)
 DSD_interval = parsivel_combined_ds.DSD_interval
 PIPS_name = parsivel_combined_ds.probe_name

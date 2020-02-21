@@ -36,6 +36,8 @@ parser.add_argument('case_config_path', metavar='<path/to/case/config/file.py>',
                     help='The path to the case configuration file')
 parser.add_argument('--ND-tag', dest='ND_tag', default='qc',
                     help='tag for ND variable in file (either qc or RB15)')
+parser.add_argument('--calc-for-SATP', action='store_true', dest='calc_for_SATP',
+                    help='calculate for the SATP-filtered dataset')
 
 args = parser.parse_args()
 ND_tag = args.ND_tag
@@ -64,21 +66,33 @@ end_times = config.PIPS_IO_dict.get('end_times', [None]*len(PIPS_names))
 geo_locs = config.PIPS_IO_dict.get('geo_locs', [None]*len(PIPS_names))
 requested_interval = config.PIPS_IO_dict.get('requested_interval', 10.)
 
-# Get a list of the combined parsivel netCDF data files that are present in the PIPS directory
-
-parsivel_combined_filenames = [
-    'parsivel_combined_{}_{}_{:d}s.nc'.format(deployment_name, PIPS_name, int(requested_interval))
-    for deployment_name, PIPS_name in zip(deployment_names, PIPS_names)]
-parsivel_combined_filelist = [os.path.join(PIPS_dir, pcf) for pcf in parsivel_combined_filenames]
-print(parsivel_combined_filenames)
+if not args.calc_for_SATP:
+    # Get a list of the combined parsivel netCDF data files that are present in the PIPS directory
+    parsivel_combined_filenames = [
+        'parsivel_combined_{}_{}_{:d}s.nc'.format(deployment_name, PIPS_name, int(requested_interval))
+        for deployment_name, PIPS_name in zip(deployment_names, PIPS_names)]
+    parsivel_combined_filelist = [os.path.join(PIPS_dir, pcf) for pcf in parsivel_combined_filenames]
+else:
+    # Just read in the single combined SATP dataset
+    parsivel_combined_filename = 'ND_avg_full_dataset_{:d}s.nc'.format(int(requested_interval))
+    parsivel_combined_filelist = [os.path.join(PIPS_dir, parsivel_combined_filename)]
 
 for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
     print("Reading {}".format(parsivel_combined_file))
     parsivel_combined_ds = xr.load_dataset(parsivel_combined_file)
-    DSD_interval = parsivel_combined_ds.DSD_interval
-    PIPS_name = parsivel_combined_ds.probe_name
-    deployment_name = parsivel_combined_ds.deployment_name
-    ND = parsivel_combined_ds['ND_{}'.format(ND_tag)]
+
+    if not args.calc_for_SATP:
+        DSD_interval = parsivel_combined_ds.DSD_interval
+        PIPS_name = parsivel_combined_ds.probe_name
+        deployment_name = parsivel_combined_ds.deployment_name
+        ND = parsivel_combined_ds['ND_{}'.format(ND_tag)]
+        coord_to_combine = 'time'
+    else:
+        ND = parsivel_combined_ds['SATP_ND_full_dataset']
+        DSD_interval = ND.DSD_interval
+        ND = pipsio.reconstruct_MultiIndex(ND, ['D0_idx', 'RR_idx'], 'D0_RR')
+        coord_to_combine = 'D0_RR'
+
     ND = ND.where(ND > 0.)
 
     # Compute various fits using the MM and TMM
@@ -115,8 +129,8 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
     Dm = dsd.calc_Dmpq_binned(4, 3, ND)
     sigma = dsd.calc_sigma(D, dD, ND)
 
-    fits_ds = pipsio.combine_parsivel_data(fits_ds, Dm, name='Dm43')
-    fits_ds = pipsio.combine_parsivel_data(fits_ds, sigma, name='sigma')
+    fits_ds = pipsio.combine_parsivel_data(fits_ds, Dm, name='Dm43', coord=coord_to_combine)
+    fits_ds = pipsio.combine_parsivel_data(fits_ds, sigma, name='sigma', coord=coord_to_combine)
 
     # Update parsivel_combined_ds with new fits_ds and save updated Dataset
     parsivel_combined_ds.update(fits_ds)
