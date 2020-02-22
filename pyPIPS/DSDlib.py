@@ -918,13 +918,15 @@ def fit_DSD_MM234(M2, M3, M4):
     return N0, lamda, mu
 
 
-def get_max_min_diameters(ND):
+def get_max_min_diameters(ND, dim='time'):
     """Gets the maximum and minimum diameters of an array of binned distributions
 
     Parameters
     ----------
     ND : array_like
         binned number density
+    dim : str
+        name of the dimension along which ND is changing, default 'time'
 
     Returns
     -------
@@ -937,12 +939,12 @@ def get_max_min_diameters(ND):
     # along the time dimension, and then index using two DataArrays, both dimensioned by time
     # The first is just the index of each time, the second is the index of the diameter we
     # want (for each time). It's clunky, but it works. Not sure there is a better way.
-    ntimes = ND.sizes['time']
-    tindices = xr.DataArray(range(ntimes), dims='time')
-    D_min_indices = xr.DataArray(first_nonzero(ND, 1), dims='time')
-    D_max_indices = xr.DataArray(last_nonzero(ND, 1), dims='time')
-    D_min = ND['diameter'].expand_dims({'time': ntimes})[tindices, D_min_indices] / 1000.
-    D_max = ND['diameter'].expand_dims({'time': ntimes})[tindices, D_max_indices] / 1000.
+    ntimes = ND.sizes[dim]
+    tindices = xr.DataArray(range(ntimes), dims=dim)
+    D_min_indices = xr.DataArray(first_nonzero(ND, 1), dims=dim)
+    D_max_indices = xr.DataArray(last_nonzero(ND, 1), dims=dim)
+    D_min = ND['diameter'].expand_dims({dim: ntimes})[tindices, D_min_indices] / 1000.
+    D_max = ND['diameter'].expand_dims({dim: ntimes})[tindices, D_max_indices] / 1000.
 
     return D_min, D_max
 

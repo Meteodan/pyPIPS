@@ -225,7 +225,8 @@ ND_avg = ND_avg.unstack(dim='D0_RR')
 # resets the names of the multiindex levels. Also do some reindexing and naming of coords.
 # TODO change coordinates to midpoints of bins instead of edges
 ND_avg = ND_avg.rename({'D0_RR_level_0': 'D0_idx', 'D0_RR_level_1': 'RR_idx'})
-ND_avg = ND_avg.reindex({'D0_idx': range(D0_bins.size), 'RR_idx': range(RR_bins.size)})
+# Never mind, don't reindex, the combined D0_RR index
+# ND_avg = ND_avg.reindex({'D0_idx': range(D0_bins.size), 'RR_idx': range(RR_bins.size)})
 ND_avg.coords['D0'] = ('D0_idx', D0_bins)
 ND_avg.coords['RR'] = ('RR_idx', RR_bins)
 ND_avg.name = 'SATP_ND_{}'.format(dataset_name)

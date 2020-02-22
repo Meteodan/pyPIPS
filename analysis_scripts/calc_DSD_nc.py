@@ -69,12 +69,14 @@ requested_interval = config.PIPS_IO_dict.get('requested_interval', 10.)
 if not args.calc_for_SATP:
     # Get a list of the combined parsivel netCDF data files that are present in the PIPS directory
     parsivel_combined_filenames = [
-        'parsivel_combined_{}_{}_{:d}s.nc'.format(deployment_name, PIPS_name, int(requested_interval))
+        'parsivel_combined_{}_{}_{:d}s.nc'.format(deployment_name, PIPS_name,
+                                                  int(requested_interval))
         for deployment_name, PIPS_name in zip(deployment_names, PIPS_names)]
-    parsivel_combined_filelist = [os.path.join(PIPS_dir, pcf) for pcf in parsivel_combined_filenames]
+    parsivel_combined_filelist = [os.path.join(PIPS_dir, pcf)
+                                  for pcf in parsivel_combined_filenames]
 else:
     # Just read in the single combined SATP dataset
-    parsivel_combined_filename = 'ND_avg_full_dataset_{:d}s.nc'.format(int(requested_interval))
+    parsivel_combined_filename = 'ND_avg_{}_{:d}s.nc'.format(dataset_name, int(requested_interval))
     parsivel_combined_filelist = [os.path.join(PIPS_dir, parsivel_combined_filename)]
 
 for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
@@ -88,7 +90,8 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
         ND = parsivel_combined_ds['ND_{}'.format(ND_tag)]
         coord_to_combine = 'time'
     else:
-        ND = parsivel_combined_ds['SATP_ND_full_dataset']
+        ND = parsivel_combined_ds['SATP_ND_{}'.format(dataset_name)]
+        ND = ND.rename({'D0_RR_level_0': 'D0_idx', 'D0_RR_level_1': 'RR_idx'})
         DSD_interval = ND.DSD_interval
         ND = pipsio.reconstruct_MultiIndex(ND, ['D0_idx', 'RR_idx'], 'D0_RR')
         coord_to_combine = 'D0_RR'
@@ -111,7 +114,7 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
     # Gotcha, if at some point all the zeros in the ND bins have been turn to nan's, the
     # call below to calculate D_min and D_max won't work properly, so here we fill the nans
     # with zeros for the purposes of calculating it.
-    D_min, D_max = dsd.get_max_min_diameters(ND.fillna(0.0))
+    D_min, D_max = dsd.get_max_min_diameters(ND.fillna(0.0), dim=coord_to_combine)
     DSD_TMM246 = dsd.fit_DSD_TMM_xr(M2, M4, M6, D_min, D_max)
 
     # Wrap fits into a DataSet and dump to netCDF file
@@ -134,5 +137,8 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
 
     # Update parsivel_combined_ds with new fits_ds and save updated Dataset
     parsivel_combined_ds.update(fits_ds)
+    if args.calc_for_SATP:
+        parsivel_combined_ds = parsivel_combined_ds.reset_index('D0_RR')
+        parsivel_combined_ds.attrs = ND.attrs
     print("Dumping {}".format(parsivel_combined_file))
     parsivel_combined_ds.to_netcdf(parsivel_combined_file)

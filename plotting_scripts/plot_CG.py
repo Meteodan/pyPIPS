@@ -39,9 +39,19 @@ parser.add_argument('--ND-tag', dest='ND_tag', default='qc',
                     help='tag for ND variable in file (either qc or RB15)')
 parser.add_argument('--plot-SATP', action='store_true', dest='plot_SATP',
                     help='plot for the SATP-filtered dataset')
+parser.add_argument('--filter_RR', dest='filter_RR', type=float, default=None,
+                    help='filter rainrate < # (mm)')
+parser.add_argument('--filter_counts', dest='filter_counts', type=int, default=None,
+                    help='filter particle counts < #')
 
 args = parser.parse_args()
 ND_tag = args.ND_tag
+if args.plot_SATP:
+    filter_RR = None
+    filter_counts = None
+else:
+    filter_RR = args.filter_RR
+    filter_counts = args.filter_counts
 
 # Dynamically import the case configuration file
 utils.log("Case config file is {}".format(args.case_config_path))
@@ -67,24 +77,43 @@ end_times = config.PIPS_IO_dict.get('end_times', [None]*len(PIPS_names))
 geo_locs = config.PIPS_IO_dict.get('geo_locs', [None]*len(PIPS_names))
 requested_interval = config.PIPS_IO_dict.get('requested_interval', 10.)
 
-# Get a list of the DSD fit netCDF data files that are present in the PIPS directory
 
-# Get a list of the combined parsivel netCDF data files that are present in the PIPS directory
+if not args.plot_SATP:
+    # Get a list of the combined parsivel netCDF data files that are present in the PIPS directory
+    parsivel_combined_filenames = [
+        'parsivel_combined_{}_{}_{:d}s.nc'.format(deployment_name, PIPS_name,
+                                                  int(requested_interval))
+        for deployment_name, PIPS_name in zip(deployment_names, PIPS_names)]
+    parsivel_combined_filelist = [os.path.join(PIPS_dir, pcf)
+                                  for pcf in parsivel_combined_filenames]
 
-parsivel_combined_filenames = [
-    'parsivel_combined_{}_{}_{:d}s.nc'.format(deployment_name, PIPS_name, int(requested_interval))
-    for deployment_name, PIPS_name in zip(deployment_names, PIPS_names)]
-parsivel_combined_filelist = [os.path.join(PIPS_dir, pcf) for pcf in parsivel_combined_filenames]
+    # print(DSD_fits_filenames)
 
-# print(DSD_fits_filenames)
+    # Open entire multi-file dataset
+    print("Opening dataset {}".format(dataset_name))
+    parsivel_combined_ds = xr.open_mfdataset(parsivel_combined_filelist)
+    plot_tag = 'no_SATP'
+    dim = 'time'
+else:
+    parsivel_combined_filename = 'ND_avg_{}_{:d}s.nc'.format(dataset_name, int(requested_interval))
+    parsivel_combined_filepath = os.path.join(PIPS_dir, parsivel_combined_filename)
+    parsivel_combined_ds = xr.open_dataset(parsivel_combined_filepath)
+    plot_tag = 'SATP'
+    dim = 'D0_RR'
 
-# Open entire multi-file dataset
-print("Opening dataset {}".format(dataset_name))
-parsivel_combined_ds = xr.open_mfdataset(parsivel_combined_filelist)
+# Filter by RR and pcount if desired
+filter_RR_tag = 'no_RR_filter'
+filter_counts_tag = 'no_counts_filter'
+if filter_RR:
+    parsivel_combined_ds = parsivel_combined_ds.where(
+        parsivel_combined_ds['precipintensity'] >= filter_RR, drop=True)
+    filter_RR_tag = 'RR_filter_{:d}mm'.format(int(filter_RR))
+if filter_counts:
+    parsivel_combined_ds = parsivel_combined_ds.where(
+        parsivel_combined_ds['pcount'] >= filter_counts, drop=True)
+    filter_counts_tag = 'counts_filter_{:d}'.format(filter_counts)
+
 DSD_interval = parsivel_combined_ds.DSD_interval
-PIPS_name = parsivel_combined_ds.probe_name
-deployment_name = parsivel_combined_ds.deployment_name
-
 
 # Get the untruncated and truncated moment fits MM246.
 # TODO: update this for greater flexibility later
@@ -94,11 +123,15 @@ DSD_TMM246 = parsivel_combined_ds['DSD_TMM246']
 # Drop points where mu > 30 or lambda > 20000
 DSD_MM246 = DSD_MM246.where(DSD_MM246.sel(parameter='lamda') < 20000.)
 DSD_MM246 = DSD_MM246.where(DSD_MM246.sel(parameter='alpha') < 30.)
-DSD_MM246 = DSD_MM246.dropna(dim='time', how='any')
+
+if filter_RR:
+    DSD_MM246 = DSD_MM246.where(DSD_MM246.sel(parameter='lamda') < 20000.)
+
+DSD_MM246 = DSD_MM246.dropna(dim=dim, how='any')
 
 DSD_TMM246 = DSD_TMM246.where(DSD_TMM246.sel(parameter='lamda') < 20000.)
 DSD_TMM246 = DSD_TMM246.where(DSD_TMM246.sel(parameter='alpha') < 30.)
-DSD_TMM246 = DSD_TMM246.dropna(dim='time', how='any')
+DSD_TMM246 = DSD_TMM246.dropna(dim=dim, how='any')
 
 # Fit polynomials
 lamda_MM246 = DSD_MM246.sel(parameter='lamda') / 1000. # Get to mm^-1
@@ -109,7 +142,10 @@ print("The MM246 polynomial coefficients are: ", MM246_poly_coeff)
 
 # Plot the relationship on a scatterplot along with the Cao and Zhang relations
 fig, ax = pm.plot_mu_lamda(lamda_MM246, mu_MM246, MM246_poly_coeff, MM246_poly, title='Untruncated')
-plt.savefig(plot_dir + '/Untruncated_MM246_mu_lamda.png', dpi=200, bbox_inches='tight')
+plt.savefig(plot_dir +
+            '/Untruncated_MM246_mu_lamda_{}_{}_{}.png'.format(plot_tag, filter_RR_tag,
+                                                              filter_counts_tag),
+            dpi=200, bbox_inches='tight')
 
 # Fit polynomials
 lamda_TMM246 = DSD_TMM246.sel(parameter='lamda') / 1000. # Get to mm^-1
@@ -120,4 +156,7 @@ print("The TMM246 polynomial coefficients are: ", TMM246_poly_coeff)
 
 # Plot the relationship on a scatterplot along with the Cao and Zhang relations
 pm.plot_mu_lamda(lamda_TMM246, mu_TMM246, TMM246_poly_coeff, TMM246_poly, title='Truncated')
-plt.savefig(plot_dir + '/Truncated_MM246_mu_lamda.png', dpi=200, bbox_inches='tight')
+plt.savefig(plot_dir +
+            '/Truncated_MM246_mu_lamda_{}_{}_{}.png'.format(plot_tag, filter_RR_tag,
+                                                            filter_counts_tag),
+            dpi=200, bbox_inches='tight')
