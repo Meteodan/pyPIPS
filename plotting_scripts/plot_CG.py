@@ -124,9 +124,6 @@ DSD_TMM246 = parsivel_combined_ds['DSD_TMM246']
 DSD_MM246 = DSD_MM246.where(DSD_MM246.sel(parameter='lamda') < 20000.)
 DSD_MM246 = DSD_MM246.where(DSD_MM246.sel(parameter='alpha') < 30.)
 
-if filter_RR:
-    DSD_MM246 = DSD_MM246.where(DSD_MM246.sel(parameter='lamda') < 20000.)
-
 DSD_MM246 = DSD_MM246.dropna(dim=dim, how='any')
 
 DSD_TMM246 = DSD_TMM246.where(DSD_TMM246.sel(parameter='lamda') < 20000.)

@@ -160,6 +160,11 @@ def resample_conv(probe_type, resample_interval, sec_offset, conv_df, gusts=Fals
         windspdkey = 'windspd'
         other_data = ['fasttemp', 'slowtemp', 'RH', 'RH_derived', 'pressure',
                       'GPS_lat', 'GPS_lon', 'GPS_alt', 'voltage', 'dewpoint', 'rho']
+    elif probe_type == 'TriPIPS':
+        winddirkey = 'winddirabs'
+        windspdkey = 'windspd'
+        other_data = ['slowtemp', 'RH', 'RH_derived', 'pressure',
+                      'GPS_lat', 'GPS_lon', 'GPS_alt', 'voltage', 'dewpoint', 'rho']
     elif probe_type == 'CU':
         winddirkey = 'bwinddirabs'
         windspdkey = 'bwindspd'

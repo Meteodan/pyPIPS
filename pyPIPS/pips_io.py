@@ -471,7 +471,10 @@ def conv_df_to_ds(conv_df):
     conv_ds['RH'].attrs['units'] = 'percent'
     conv_ds['RH_derived'].attrs['units'] = 'percent'
     conv_ds['dewpoint'].attrs['units'] = 'degrees Celsius'
-    conv_ds['fasttemp'].attrs['units'] = 'degrees Celsius'
+    try:
+        conv_ds['fasttemp'].attrs['units'] = 'degrees Celsius'
+    except KeyError:  # TriPIPS doesn't yet have fasttemp
+        pass
     conv_ds['pressure'].attrs['units'] = 'hectoPascals'
     conv_ds['slowtemp'].attrs['units'] = 'degrees Celsius'
     conv_ds['voltage'].attrs['units'] = 'volts'

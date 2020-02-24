@@ -1213,3 +1213,22 @@ def calc_CG_polynomial(lamda, mu):
     CG_poly_coeff = np.polynomial.polynomial.polyfit(lamda, mu, 2)
     CG_poly = np.polynomial.polynomial.Polynomial(CG_poly_coeff)
     return CG_poly_coeff, CG_poly
+
+
+def calc_mu_lamda(lamda, coefficients):
+    """Calculates mu from lamda given the C-G coefficients
+
+    Parameters
+    ----------
+    lamda : array_like
+        array of lamda values
+    coefficients : 3-tuple of floats
+        coefficients of the polynomial (as output of numpy.polynomial.polynomial.polyfit)
+
+    Returns
+    -------
+    array_like
+        array of mu values
+    """
+    polynomial = np.polynomial.polynomial.Polynomial(coefficients)
+    return polynomial(lamda)

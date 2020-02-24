@@ -85,7 +85,6 @@ if not os.path.exists(meteogram_image_dir):
     os.makedirs(meteogram_image_dir)
 
 # Get a list of the combined parsivel netCDF data files that are present in the PIPS directory
-
 parsivel_combined_filenames = [
     'parsivel_combined_{}_{}_{:d}s.nc'.format(deployment_name, PIPS_name, int(requested_interval))
     for deployment_name, PIPS_name in zip(deployment_names, PIPS_names)]

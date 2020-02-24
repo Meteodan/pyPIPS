@@ -31,12 +31,13 @@ max_fall_bins = pp.parsivel_parameters['max_fallspeed_bins_mps']
 avg_fall_bins = pp.parsivel_parameters['avg_fallspeed_bins_mps']
 
 # Parse the command line options
-description = "Computes and plots CG relations from PIPS data (netCDF version)"
+description = "Plots Dm-sigma scatter and CG prediction from PIPS data (netCDF version)"
 parser = argparse.ArgumentParser(description=description)
 parser.add_argument('case_config_path', metavar='<path/to/case/config/file.py>',
                     help='The path to the case configuration file')
-parser.add_argument('--ND-tag', dest='ND_tag', default='qc',
-                    help='tag for ND variable in file (either qc or RB15)')
+parser.add_argument('--coefficients', nargs=3, metavar=('c1', 'c2', 'c3'), type=float,
+                    dest='coefficients',
+                    help='coefficients of mu-lambda polynomial (in decreasing order of exponent')
 parser.add_argument('--plot-SATP', action='store_true', dest='plot_SATP',
                     help='plot for the SATP-filtered dataset')
 parser.add_argument('--filter_RR', dest='filter_RR', type=float, default=None,
@@ -45,7 +46,6 @@ parser.add_argument('--filter_counts', dest='filter_counts', type=int, default=N
                     help='filter particle counts < #')
 
 args = parser.parse_args()
-ND_tag = args.ND_tag
 if args.plot_SATP:
     filter_RR = None
     filter_counts = None
@@ -115,48 +115,35 @@ if filter_counts:
 
 DSD_interval = parsivel_combined_ds.DSD_interval
 
-# Get the untruncated and truncated moment fits MM246.
-# TODO: update this for greater flexibility later
-DSD_MM246 = parsivel_combined_ds['DSD_MM246']
-DSD_TMM246 = parsivel_combined_ds['DSD_TMM246']
-
 # Drop points where mu > 30 or lambda > 20000
-DSD_MM246 = DSD_MM246.where(DSD_MM246.sel(parameter='lamda') < 20000.)
-DSD_MM246 = DSD_MM246.where(DSD_MM246.sel(parameter='alpha') < 30.)
+parsivel_combined_ds = parsivel_combined_ds.where(
+    parsivel_combined_ds['DSD_TMM246'].sel(parameter='lamda') < 20000.)
+parsivel_combined_ds = parsivel_combined_ds.where(
+    parsivel_combined_ds['DSD_TMM246'].sel(parameter='alpha') < 30.)
+parsivel_combined_ds = parsivel_combined_ds.dropna(dim=dim, how='any')
 
-if filter_RR:
-    DSD_MM246 = DSD_MM246.where(DSD_MM246.sel(parameter='lamda') < 20000.)
+# Get the truncated moment fits TMM246.
+# TODO: update this for greater flexibility later
+DSD_TMM246 = parsivel_combined_ds['DSD_TMM246']
+lamda_obs = DSD_TMM246.sel(parameter='lamda') / 1000.  # Get to mm^-1
+mu_obs = DSD_TMM246.sel(parameter='alpha')
 
-DSD_MM246 = DSD_MM246.dropna(dim=dim, how='any')
+lamda_CG = lamda_obs
+mu_CG = dsd.calc_mu_lamda(lamda_CG, args.coefficients)
 
-DSD_TMM246 = DSD_TMM246.where(DSD_TMM246.sel(parameter='lamda') < 20000.)
-DSD_TMM246 = DSD_TMM246.where(DSD_TMM246.sel(parameter='alpha') < 30.)
-DSD_TMM246 = DSD_TMM246.dropna(dim=dim, how='any')
+Dm43_obs = parsivel_combined_ds['Dm43'] * 1000.  # Get to mm
+sigma_obs = parsivel_combined_ds['sigma'] * 1000. # Get to mm
 
-# Fit polynomials
-lamda_MM246 = DSD_MM246.sel(parameter='lamda') / 1000. # Get to mm^-1
-mu_MM246 = DSD_MM246.sel(parameter='alpha')
+Dm43_CG = (4. + mu_CG) / lamda_CG
+sigma_CG = np.sqrt((4. + mu_CG) / lamda_CG**2.)
 
-MM246_poly_coeff, MM246_poly = dsd.calc_CG_polynomial(lamda_MM246, mu_MM246)
-print("The MM246 polynomial coefficients are: ", MM246_poly_coeff)
+# Plot the sigma-Dm scatterplot and C-G prediction
+fig, ax = plt.subplots(figsize=(10, 10))
+ax.scatter(Dm43_obs, sigma_obs, color='k')
+ax.scatter(Dm43_CG, sigma_CG, color='b')
+ax.set_xlim(0.0, 5.0)
+ax.set_ylim(0.0, 2.5)
 
-# Plot the relationship on a scatterplot along with the Cao and Zhang relations
-fig, ax = pm.plot_mu_lamda(lamda_MM246, mu_MM246, MM246_poly_coeff, MM246_poly, title='Untruncated')
 plt.savefig(plot_dir +
-            '/Untruncated_MM246_mu_lamda_{}_{}_{}.png'.format(plot_tag, filter_RR_tag,
-                                                              filter_counts_tag),
-            dpi=200, bbox_inches='tight')
-
-# Fit polynomials
-lamda_TMM246 = DSD_TMM246.sel(parameter='lamda') / 1000. # Get to mm^-1
-mu_TMM246 = DSD_TMM246.sel(parameter='alpha')
-
-TMM246_poly_coeff, TMM246_poly = dsd.calc_CG_polynomial(lamda_TMM246, mu_TMM246)
-print("The TMM246 polynomial coefficients are: ", TMM246_poly_coeff)
-
-# Plot the relationship on a scatterplot along with the Cao and Zhang relations
-pm.plot_mu_lamda(lamda_TMM246, mu_TMM246, TMM246_poly_coeff, TMM246_poly, title='Truncated')
-plt.savefig(plot_dir +
-            '/Truncated_MM246_mu_lamda_{}_{}_{}.png'.format(plot_tag, filter_RR_tag,
-                                                            filter_counts_tag),
+            '/sigma_Dm_{}_{}_{}_{}.png'.format(dataset, plot_tag, filter_RR_tag, filter_counts_tag),
             dpi=200, bbox_inches='tight')
