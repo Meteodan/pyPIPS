@@ -1040,9 +1040,8 @@ def read_sweeps(radar_dict):
         sweeptime = radar._getsweeptime(radpath)
 
         if radstarttimedt <= sweeptime and sweeptime <= radstoptimedt:
-            outfieldnames, radarsweep = radar.readCFRadial_pyART(el_req, radpath, sweeptime,
-                                                                 fieldnames, compute_kdp=False)
-            outfieldnameslist.append(outfieldnames)
+            radarsweep = radar.readCFRadial_pyART(el_req, radpath, sweeptime,
+                                                  fieldnames, compute_kdp=False)
             radarsweeplist.append(radarsweep)
             sweeptimelist.append(sweeptime)
 
@@ -1051,11 +1050,7 @@ def read_sweeps(radar_dict):
     sorted_radarsweeplist = [x for _, x in sorted(zip(sweeptimelist, radarsweeplist),
                                                   key=lambda pair: pair[0])]
 
-    sorted_outfieldnameslist = [x for _, x in sorted(zip(sweeptimelist, outfieldnameslist),
-                                                     key=lambda pair: pair[0])]
-
     # Stuff the lists into the dictionary
-    radar_dict['outfieldnameslist'] = sorted_outfieldnameslist
     radar_dict['radarsweeplist'] = sorted_radarsweeplist
     radar_dict['sweeptimelist'] = sorted_sweeptimelist
 

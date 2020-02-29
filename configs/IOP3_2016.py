@@ -34,11 +34,11 @@ radar_config_dict = {
     'clean_radar': False,
     'calc_dualpol': True,
     'radar_name': 'KGWX',
-    'radar_dir': '/Users/ddawson/Dropbox/Projects/VORTEXSE/obs_data/NEXRAD/IOP3_2016/KGWX/CFRadial',
+    'radar_dir': '/Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/2016/NEXRAD/IOP_3/CFRadial',
     'field_names': ['REF', 'ZDR', 'RHO'],
     'el_req': 0.5,
     'radar_start_timestamp': '20160331220000',
-    'radar_end_timestamp': '20160331234000',
+    'radar_end_timestamp': '20160331221000', # '20160331234000',
     'scatt_dir': '/Users/dawson29/Projects/pyPIPS/tmatrix/S-Band/',
     'wavelength': 10.7
 }

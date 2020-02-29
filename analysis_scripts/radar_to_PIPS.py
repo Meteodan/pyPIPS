@@ -71,6 +71,7 @@ comp_radar = config.radar_config_dict.get('comp_radar', False)
 clean_radar = config.radar_config_dict.get('comp_radar', False)
 calc_dualpol = config.radar_config_dict.get('calc_dualpol', False)
 radar_name = config.radar_config_dict.get('radar_name', None)
+radar_type = config.radar_config_dict.get('radar_type', 'NEXRAD')
 radar_dir = config.radar_config_dict.get('radar_dir', None)
 field_names = config.radar_config_dict.get('field_names', ['REF'])
 if not calc_dualpol:
@@ -90,8 +91,10 @@ parsivel_combined_filelist = [os.path.join(PIPS_dir, pcf) for pcf in parsivel_co
 
 # The following assumes that the same radar will be used for each PIPS in the deployment.
 # TODO: make this more flexible
-radar_dict = radar.read_sweeps(radar_name, radar_dir, radar_start_timestamp,
-                               radar_end_timestamp, field_names=field_names, el_req=el_req)
+radar_paths = glob(radar_dir + '/*{}*.nc'.format(radar_name))
+radar_dict = radar.read_sweeps(radar_paths, radar_start_timestamp,
+                               radar_end_timestamp, field_names=field_names, el_req=el_req,
+                               radar_type=radar_type)
 
 # Outer file loop
 for parsivel_combined_file in parsivel_combined_filelist:
@@ -100,17 +103,17 @@ for parsivel_combined_file in parsivel_combined_filelist:
     geo_loc_str = parsivel_combined_ds.location
     geo_loc = list(map(np.float, geo_loc_str.strip('()').split(',')))
     rad_loc = radar.get_PIPS_loc_relative_to_radar(geo_loc, radar_dict['radarsweeplist'][0])
-    radar_fields_at_PIPS_da = radar.interp_sweeps_to_one_PIPS(radar_name,
-                                                              radar_dict['radarsweeplist'],
-                                                              PIPS_name, rad_loc)
+    radar_fields_at_PIPS_da = \
+        radar.interp_sweeps_to_one_PIPS(radar_name, radar_dict['radarsweeplist'], PIPS_name,
+                                        rad_loc, sweeptime_list=radar_dict['sweeptimelist'],
+                                        average_gates=False)
     # Interpolate radar fields to the PIPS times
     radar_fields_at_PIPS_da = radar_fields_at_PIPS_da.interp_like(parsivel_combined_ds)
-    print(parsivel_combined_ds)
     parsivel_combined_ds = pipsio.combine_parsivel_data(parsivel_combined_ds,
                                                         radar_fields_at_PIPS_da,
                                                         name='{}_at_PIPS'.format(radar_name))
     print(parsivel_combined_ds)
-    #parsivel_combined_ds.close()
+    parsivel_combined_ds.close()
     # Save updated dataset back to file
     parsivel_combined_ds.to_netcdf(parsivel_combined_file)
 

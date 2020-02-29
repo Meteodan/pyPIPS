@@ -1,7 +1,6 @@
 name: pyPIPS
 channels:
   - conda-forge
-  - defaults
 dependencies:
   - arm_pyart
   - autopep8
@@ -11,20 +10,17 @@ dependencies:
   - cartopy
   - cftime
   - flake8
-  - ipykernel
-  - ipyvolume
   - jupyter
   - matplotlib
   - metpy
   - nbdime
   - netcdf4
+  - numba
   - numpy
   - pandas
   - pip
   - pylint
-  - pyngl
   - pynio
-  - python=3.7
   - pytz
   - scipy
   - urllib3

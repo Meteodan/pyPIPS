@@ -40,9 +40,9 @@ parser.add_argument('--coefficients', nargs=3, metavar=('c1', 'c2', 'c3'), type=
                     help='coefficients of mu-lambda polynomial (in decreasing order of exponent')
 parser.add_argument('--plot-SATP', action='store_true', dest='plot_SATP',
                     help='plot for the SATP-filtered dataset')
-parser.add_argument('--filter_RR', dest='filter_RR', type=float, default=None,
+parser.add_argument('--filter-RR', dest='filter_RR', type=float, default=None,
                     help='filter rainrate < # (mm)')
-parser.add_argument('--filter_counts', dest='filter_counts', type=int, default=None,
+parser.add_argument('--filter-counts', dest='filter_counts', type=int, default=None,
                     help='filter particle counts < #')
 
 args = parser.parse_args()
@@ -116,23 +116,16 @@ if filter_counts:
 DSD_interval = parsivel_combined_ds.DSD_interval
 
 # Drop points where mu > 30 or lambda > 20000
-parsivel_combined_ds = parsivel_combined_ds.where(
-    parsivel_combined_ds['DSD_TMM246'].sel(parameter='lamda') < 20000.)
-parsivel_combined_ds = parsivel_combined_ds.where(
-    parsivel_combined_ds['DSD_TMM246'].sel(parameter='alpha') < 30.)
-parsivel_combined_ds = parsivel_combined_ds.dropna(dim=dim, how='any')
+# parsivel_combined_ds = parsivel_combined_ds.where(
+#     parsivel_combined_ds['DSD_TMM246'].sel(parameter='lamda') < 20000., drop=True)
+# parsivel_combined_ds = parsivel_combined_ds.where(
+#     parsivel_combined_ds['DSD_TMM246'].sel(parameter='alpha') < 30., drop=True)
 
-# Get the truncated moment fits TMM246.
-# TODO: update this for greater flexibility later
-DSD_TMM246 = parsivel_combined_ds['DSD_TMM246']
-lamda_obs = DSD_TMM246.sel(parameter='lamda') / 1000.  # Get to mm^-1
-mu_obs = DSD_TMM246.sel(parameter='alpha')
-
-lamda_CG = lamda_obs
+lamda_CG = np.linspace(0., 20., num=1000.)
 mu_CG = dsd.calc_mu_lamda(lamda_CG, args.coefficients)
 
 Dm43_obs = parsivel_combined_ds['Dm43'] * 1000.  # Get to mm
-sigma_obs = parsivel_combined_ds['sigma'] * 1000. # Get to mm
+sigma_obs = parsivel_combined_ds['sigma'] * 1000.  # Get to mm
 
 Dm43_CG = (4. + mu_CG) / lamda_CG
 sigma_CG = np.sqrt((4. + mu_CG) / lamda_CG**2.)
@@ -140,10 +133,12 @@ sigma_CG = np.sqrt((4. + mu_CG) / lamda_CG**2.)
 # Plot the sigma-Dm scatterplot and C-G prediction
 fig, ax = plt.subplots(figsize=(10, 10))
 ax.scatter(Dm43_obs, sigma_obs, color='k')
-ax.scatter(Dm43_CG, sigma_CG, color='b')
+ax.plot(Dm43_CG, sigma_CG, color='b')
 ax.set_xlim(0.0, 5.0)
 ax.set_ylim(0.0, 2.5)
+ax.set_xlabel(r'$D_m$ (mm)')
+ax.set_ylabel(r'$\sigma_m$ (mm)')
 
 plt.savefig(plot_dir +
-            '/sigma_Dm_{}_{}_{}_{}.png'.format(dataset, plot_tag, filter_RR_tag, filter_counts_tag),
-            dpi=200, bbox_inches='tight')
+            '/sigma_Dm_{}_{}_{}_{}.png'.format(dataset_name, plot_tag, filter_RR_tag,
+                                               filter_counts_tag), dpi=200, bbox_inches='tight')

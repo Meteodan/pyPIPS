@@ -1,6 +1,7 @@
 # radarmodule.py: A collection of functions to read and plot radar data
 
 import Nio
+import netCDF4
 import numpy as np
 import matplotlib
 # matplotlib.use('TkAgg')
@@ -18,12 +19,16 @@ from . import obanmodule as oban
 import glob
 import os
 import pyart
+from pyart.config import get_metadata
+from pyart.core import Radar
 from . import utils
 from . import timemodule as tm
 from . import PIPS as pips
 import pickle
 import xarray as xr
 import pandas as pd
+import pytz
+import cartopy.crs as ccrs
 
 clevels_ref = np.arange(0.0, 85.0, 5.0)          # Contour levels for reflectivity (dBZ)
 clevels_zdr = np.arange(0.0, 6.25, 0.25)         # Contour levels for Zdr (dB)
@@ -46,6 +51,106 @@ cmapvr = cm.RdBu_r
 cmapkdp = cm.Set1
 cmaprhv = cm.Spectral
 cmapretrievals = cm.viridis
+
+REF_plot_dict = {
+    'cmap': pyart.config.get_field_colormap('reflectivity'),
+    'clevels': np.arange(0.0, 85.0, 5.0),
+    'cbint': 5.0,
+    'disfmtstr': "{:3.1f} dBZ"
+}
+
+ZDR_plot_dict = {
+    'cmap': pyart.config.get_field_colormap('differential_reflectivity'),
+    'clevels': np.arange(0.0, 6.25, 0.25),
+    'cbint': 0.5,
+    'disfmtstr': "{:3.1f} dB"
+}
+
+KDP_plot_dict = {
+    'cmap': pyart.config.get_field_colormap('specific_differential_phase'),
+    'clevels': np.arange(0.0, 12.5, 0.5),
+    'cbint': 0.5,
+    'disfmtstr': "{:3.1f} deg/km"
+}
+
+RHV_plot_dict = {
+    'cmap': pyart.config.get_field_colormap('cross_correlation_ratio'),
+    'clevels': np.arange(0.5, 1.1, 0.1),
+    'cbint': 0.1,
+    'disfmtstr': "{:3.1f}"
+}
+
+VR_plot_dict = {
+    'cmap': pyart.config.get_field_colormap('velocity'),
+    'clevels': np.arange(-40.0, 41.0, 1.0),
+    'cbint': 5.0,
+    'disfmtstr': "{:3.1f} m/s"
+}
+
+# Contains some common aliases for the different fields to match up with the above parameter dicts
+REF_aliases = ['dBZ', 'DBZ', 'Z', 'REF', 'DZ', 'reflectivity']
+ZDR_aliases = ['Zdr', 'ZDR', 'DB_ZDR', 'differential_reflectivity']
+KDP_aliases = ['Kdp', 'KDP', 'KD', 'specific_differential_phase']
+PHI_aliases = ['PHI', 'differential_phase']
+RHV_aliases = ['rhv', 'RHV', 'RHO', 'cross_correlation_ratio']
+VR_aliases = ['vr', 'VR', 'Vr', 'VEL', 'velocity']
+
+radar_plot_param_matching = {
+}
+
+for fieldname in REF_aliases:
+    radar_plot_param_matching[fieldname] = REF_plot_dict
+
+for fieldname in ZDR_aliases:
+    radar_plot_param_matching[fieldname] = ZDR_plot_dict
+
+for fieldname in KDP_aliases:
+    radar_plot_param_matching[fieldname] = KDP_plot_dict
+
+for fieldname in RHV_aliases:
+    radar_plot_param_matching[fieldname] = RHV_plot_dict
+
+for fieldname in VR_aliases:
+    radar_plot_param_matching[fieldname] = VR_plot_dict
+
+
+# TODO: Add dicts for retrieved parameters based on following if/else statement taken from plotsweep
+
+        # elif(fieldname == 'Rain'):
+        #     clevels = clevels_rain
+        #     cmap = cmapretrievals
+        #     clvls = [0.1, 1.0, 3.0, 5.0, 10.0, 15.0, 20.0, 30.0, 50.0, 75.0, 100.0, 150.0, 200.0]
+        #     disfmtstr = "{:3.1f} mm/hr"
+        # elif(fieldname == 'D0'):
+        #     clevels = clevels_d0
+        #     cmap = cmapretrievals
+        #     clvls = 0.5
+        #     disfmtstr = "{:3.1f} mm"
+        # elif(fieldname == 'W'):
+        #     clevels = clevels_lwc
+        #     cmap = cmapretrievals
+        #     clvls = [0.01, 0.1, 0.3, 0.5, 1.0, 1.5, 2., 3., 5., 7.5, 10.]
+        #     disfmtstr = "{:3.1f} g m^-3"
+        # elif(fieldname == 'Nt'):
+        #     clevels = clevels_nt
+        #     cmap = cmapretrievals
+        #     clvls = 0.5
+        #     disfmtstr = "{:3.1f} # m^3"
+        # elif(fieldname == 'sigm'):
+        #     clevels = clevels_sigm
+        #     cmap = cmapretrievals
+        #     clvls = 0.2
+        #     disfmtstr = "{:3.1f} mm"
+        # elif(fieldname == 'mu'):
+        #     clevels = clevels_mu
+        #     cmap = cmapretrievals
+        #     clvls = 2.0
+        #     disfmtstr = "{:3.1f}"
+        # elif(fieldname == 'lam'):
+        #     clevels = clevels_lam
+        #     cmap = cmapretrievals
+        #     clvls = 2.0
+        #     disfmtstr = "{:3.1f}"
 
 
 def mtokm(val, pos):
@@ -146,6 +251,11 @@ def _getsweeptime(path, CFRadial=True):
     return datetime(radyear, radmonth, radday, radhour, radmin, radsec)
 
 
+def _getelev(path):
+    sweepfile_netcdf = Nio.open_file(path)
+    return sweepfile_netcdf.variables['elevation'][-1]
+
+
 def getradarfilelist(radar_dir, radar_save_dir, starttime=None, stoptime=None, platform='NEXRAD',
                      radar_name=None, el_req=0.5):
     """
@@ -225,208 +335,126 @@ def getradarfilelist(radar_dir, radar_save_dir, starttime=None, stoptime=None, p
 
 
 def readCFRadial_pyART(el, filename, sweeptime, fieldnames, radlat=None, radlon=None,
-                       radalt=None, compute_kdp=True):
-    """Reads radar data from a CFRadial netCDF file.  Attempts to extract fields given by
-       the input list "fieldnames".  For nexrad files, which contain an entire volume
-       (apparently), only the desired elevation angle will be returned.  The fields are
-       returned in numpy arrays dimensioned by (range,azimuth), along with other details
-       about the radar. This version utilizes the pyART libraries."""
-
-    fieldlist = []
-
+                       radalt=None, compute_kdp=True, verbose=True):
+    """
+    Reads radar data from a CFRadial netCDF file using pyART. For nexrad files that contain an
+    entire volume, only the desired elevation angle will be returned.
+    """
     print("Opening file: ", filename)
     radarobj = pyart.io.read_cfradial(filename)
-
     elevs = radarobj.elevation['data']
-
     # Try to match up requested elevation angle with one in the file
     # Pick closest elevation angle to that requested
-
     elev_list = []
     for elev in radarobj.iter_elevation():
         elev_list.append(elev[0])  # Just grab the elevation of the first ray in each sweep
-
-    # print "elev_list",elev_list
-
     elev_list = np.array(elev_list)
-
-    print("Requested elevation angle ", el)
 
     # Returns index of sweep with closest elevation angle to that requested
     sweepindex = (np.abs(elev_list - el)).argmin()
     radarsweep = radarobj.extract_sweeps([sweepindex])
 
-    el = elevs[sweepindex]
-    # print elevs[swp_start_index:swp_end_index]
-    print("Actual elevation angle at start of sweep: ", el)
-    # print "swp_start_index,swp_end_index",swp_start_index,swp_end_index
+    if verbose:
+        el_actual = elevs[sweepindex]
+        print("Requested elevation angle ", el)
+        print("Actual elevation angle at start of sweep: ", el_actual)
 
     # Grab the time information from the file
-    if(not sweeptime):
+    if not sweeptime:
         sweeptime = _getsweeptime(filename, True)
+    if verbose:
+        print("Time of sweep = ", sweeptime.strftime(tm.timefmt))
+        numgates = radarsweep.ngates              # Number of gates
 
-    print("Time of sweep = ", sweeptime.strftime(tm.timefmt))
+        if radlat is None:
+            rlat = radarsweep.latitude['data']
+            rlon = radarsweep.longitude['data']
+            ralt = radarsweep.altitude['data']
 
-    # Assign some needed variables from the PyART radar object
-
-    numgates = radarsweep.ngates              # Number of gates
-    # sweep_start_ray_index and sweep_end_ray_index contain the time index of the start and
-    # end of each sweep (i.e. at one elevation angle) of radar data
-
-#     try:
-#         ray_n_gates = sweepfile_netcdf.variables['ray_n_gates'][:]
-#         twoDarray = False
-#         # ray_start_index contains the data indices of the start of each ray of radar data
-#         # needed below to reshape the 1D data arrays into 2D arrays by azimuth and range
-#         ray_start_index = sweepfile_netcdf.variables['ray_start_index'][:]
-#     except:
-#         print "No ray_n_gates in file, assuming 2D arrays (azimuth,range)"
-#         twoDarray = True
-
-    if(radlat is None):
-        rlat = radarsweep.latitude['data']
-        rlon = radarsweep.longitude['data']
-        ralt = radarsweep.altitude['data']
-
-        if(np.size(rlat) > 1):
-            rlat = rlat[0]
-        if(np.size(rlon) > 1):
-            rlon = rlon[0]
-        if(np.size(ralt) > 1):
-            ralt = ralt[0]
-    else:
-        rlat = radlat
-        rlon = radlon
-        ralt = radalt
-
-    print("Number of gates: ", numgates)
-    print("Radar lat,lon,alt", rlat, rlon, ralt)
-
-    range = radarsweep.range['data']
-    gatewidth = range[1] - range[0]  # gate spacing
-
-    print("Gatewidth ", gatewidth)
-
-    # Get the Azimuth info
-
-    beam_width = radarsweep.instrument_parameters['radar_beam_width_h']['data'][0]
-    print("Radar beam width (degrees): " + str(beam_width))
-
-    num_azim = radarsweep.nrays
-
-    print("Number of azimuths in sweep ", num_azim)
-    # print azimuth_rad
-
-    # Roll the azimuth dimension around so that it starts at 0 and ends at 360
-
-#     try:
-#         shift = np.where(azimuth_rad < azimuth_rad[0])[0][0]
-#     except:
-#         shift = 0   # Not sure if this is correct
-#
-#     #print "shift = ",shift
-#
-#     azimuth_rad = np.roll(azimuth_rad,shift=-shift)
-
-#     beamwidth = azimuth_rad[1:]-azimuth_rad[0:-1]
-#     # For plotting we need the azimuth at the borders of each ray (start of each ray plus one
-#     # more on the end)
-#     azimuth_start = np.zeros((np.size(azimuth)+1))
-#
-#     # Find azimuth of "start" of each gate (in azimuth) -- approximate
-#     azimuth_start[1:-1] = azimuth[1:]-0.5*beamwidth[:]
-#     azimuth_start_rad[0] = azimuth_rad[0]-0.5*beamwidth[0]
-#     azimuth_start_rad[-1] = azimuth_rad[-1]+0.5*beamwidth[-1]
-#
-#     azimuth_rad = azimuth_rad*deg2rad
-#     azimuth_start_rad = azimuth_start_rad*deg2rad
-
-    # Read the desired fields from the file, if they exist
-    # Need to find better solution than nested try/excepts
-
-    # print fieldnames
-
-    # outfieldnames = []
-    outfieldnames = {}
-
-    # TODO: refactor this. The filefieldlist isn't even being used for anything anymore
-    for fieldname in fieldnames:
-        f = None
-        fieldtype = 'unknown'
-        # Reflectivity
-        if fieldname in ['dBZ', 'DBZ', 'Z', 'REF']:
-            fieldtype = 'reflectivity'
-            f = next((f for f in list(radarsweep.fields.items())
-                      if f[0] in ['REF', 'DZ']), None)
-        if fieldname in ['Zdr', 'ZDR']:
-            fieldtype = 'differential reflectivity'
-            f = next((f for f in list(radarsweep.fields.items())
-                      if f[0] in ['ZDR', 'DB_ZDR']), None)
-        if fieldname in ['Kdp', 'KDP']:
-            fieldtype = 'specific differential phase'
-            f = next((f for f in list(radarsweep.fields.items())
-                      if f[0] in ['KD']), None)
-            # In this case, if Kdp isn't found, we may want to additionally check if PhiDP is in
-            # the file, and if it is, compute Kdp using the PyART built-in linear programming method
-            if(not f and compute_kdp):
-                tempfield = next(
-                    (field_data['data'] for field_key,
-                     field_data in list(radarsweep.fields.items()) if field_key in ['PHI']),
-                    np.empty(
-                        (0)))
-                if(tempfield.size):
-                    # First check that normalized coherent power is in the file.  If not, set to
-                    # all ones (Scott Collis, personal communication 2016). It seems the level-II
-                    # data doesn't have this field.
-                    ncp_exists = any(
-                        x in list(radarsweep.fields.keys()) for x in [
-                            'normalized_coherent_power', 'SQI', 'SQI2', 'NCP', 'NCP_F'])
-                    if(not ncp_exists):
-                        ncp_field = pyart.config.get_field_name('normalized_coherent_power')
-                        ncp = pyart.config.get_metadata(ncp_field)
-                        ncp['data'] = np.ones_like(tempfield)
-                        radarsweep.add_field('normalized_coherent_power', ncp)
-                    print("Computing specific differential phase from differential phase.")
-                    refl_field_name = next((field_key for field_key in radarsweep.fields
-                                            if field_key in ['REF', 'DZ']), None)
-                    rhv_field_name = next((field_key for field_key in radarsweep.fields
-                                           if field_key in ['RHO']), None)
-                    if(refl_field_name and rhv_field_name):
-                        phidp, kdp = pyart.correct.phase_proc_lp(
-                            radarsweep, 0.0, refl_field=refl_field_name, rhv_field=rhv_field_name,
-                            phidp_field='PHI', debug=True)
-                        f = (fieldname, kdp)
-                        radarsweep.add_field(fieldname, kdp)
-                    else:
-                        print("Sorry, couldn't compute KDP!")
-                        filefieldname = ''
-                        filefield = np.empty((0))
-        if fieldname in ['rhv', 'RHV', 'RHO']:
-            fieldtype = 'cross correlation coefficient'
-            f = next((f for f in list(radarsweep.fields.items())
-                      if f[0] in ['RHO']), None)
-        if fieldname in ['vr', 'VR', 'Vr']:
-            fieldtype = 'radial velocity'
-            f = next((f for f in list(radarsweep.fields.items())
-                      if f[0] in ['VEL', 'VR']), None)
-        if(not f):
-            fieldname = ''
-            filefield = np.empty((0))
+            if np.size(rlat) > 1:
+                rlat = rlat[0]
+            if np.size(rlon) > 1:
+                rlon = rlon[0]
+            if np.size(ralt) > 1:
+                ralt = ralt[0]
         else:
-            filefieldname = f[0]
-            filefield = f[1]['data']
-        if(not filefield.size and fieldtype != 'unknown'):
-            print("Cannot find " + fieldtype + " field in file, setting to to empty")
-        elif(fieldtype == 'unknown'):
-            print("Unknown or unimplemented field: " + fieldname)
-        if(filefield.size):
-            outfieldnames[fieldname] = filefieldname
-            fieldlist.append(filefield)
+            rlat = radlat
+            rlon = radlon
+            ralt = radalt
 
-    # Return stuff
+        print("Number of gates: ", numgates)
+        print("Radar lat,lon,alt", rlat, rlon, ralt)
 
-    # return outfieldnames,fieldlist,range,azimuth,rlat_rad,rlon_rad,ralt,el_rad
-    return outfieldnames, radarsweep
+        grange = radarsweep.range['data']
+        gatewidth = grange[1] - grange[0]  # gate spacing
+        print("Gatewidth ", gatewidth)
+
+        # Get the Azimuth info
+
+        try:
+            beam_width = radarsweep.instrument_parameters['radar_beam_width_h']['data'][0]
+            print("Radar beam width (degrees): " + str(beam_width))
+        except (KeyError, TypeError):
+            # TODO: fix XTRRA CFRadial files to include beam width. Not that we really use it here.
+            print("No radar beam width information in file!")
+
+        num_azim = radarsweep.nrays
+
+        print("Number of azimuths in sweep ", num_azim)
+
+    if compute_kdp:
+        kdp = next((f for f in list(radarsweep.fields.items())
+                    if f[0] in KDP_aliases), None)
+        if not kdp:
+            phi_name, phi = next(
+                (field for field in list(radarsweep.fields.items()) if field[0] in PHI_aliases),
+                ('', np.empty((0))))
+            phi = phi['data']
+            if phi.size:
+                # First check that normalized coherent power is in the file.  If not, set to
+                # all ones (Scott Collis, personal communication 2016). It seems the level-II
+                # data doesn't have this field.
+                ncp_exists = any(
+                    x in list(radarsweep.fields.keys()) for x in [
+                        'normalized_coherent_power', 'SQI', 'SQI2', 'NCP', 'NCP_F'])
+                if not ncp_exists:
+                    ncp_field = pyart.config.get_field_name('normalized_coherent_power')
+                    ncp = pyart.config.get_metadata(ncp_field)
+                    ncp['data'] = np.ones_like(tempfield)
+                    radarsweep.add_field('normalized_coherent_power', ncp)
+                print("Computing specific differential phase from differential phase.")
+                refl_field_name = next((field_key for field_key in radarsweep.fields
+                                        if field_key in REF_aliases), None)
+                rhv_field_name = next((field_key for field_key in radarsweep.fields
+                                       if field_key in RHV_aliases), None)
+                if refl_field_name and rhv_field_name:
+                    phidp, kdp = pyart.correct.phase_proc_lp(
+                        radarsweep, 0.0, refl_field=refl_field_name, rhv_field=rhv_field_name,
+                        phidp_field=phi_name, debug=True)
+                    radarsweep.add_field('KDP', kdp)
+                else:
+                    print("Sorry, couldn't compute KDP!")
+    return radarsweep
+
+
+def get_field_to_plot(radar_obj, field_name_list):
+    """Attempts to retrieve a field from a pyART radar object using a list of common aliases for
+       that field.
+
+    Parameters
+    ----------
+    radar_obj : pyart.core.Radar
+        The pyART radar object
+    field_name_list : list
+        list of field names
+
+    Returns
+    -------
+    tuple
+        (field_name, field)
+    """
+    return next((f for f in list(radar_obj.fields.items()) if f[0] in field_name_list), None)
+
 
 
 def readCFRadial(nexrad, el, radlat, radlon, radalt, file, sweeptime, fieldnames):
@@ -1122,204 +1150,270 @@ def plotsweep(radlims, plotlims, fieldnames, fieldlist, masklist, range_start, r
     return figlist, gridlist
 
 
-def plotsweep_pyART(radlims, plotlims, fieldnames, radarsweep, ovrmap, ovrdis, dis_name_list,
-                    dxy_list, fields_D_list, xoffset=0.0, yoffset=0.0, alpha=0.5):
+def plotsweep_pyART(radar_obj, sweeptime, PIPS_names, PIPS_geo_locs, PIPS_rad_locs, radar_fields,
+                    PIPS_fields=None, bounds=[-20., 20., -20., 20.]):
     """
     Plots an individual radar sweep, with an option to overlay a map.  This version uses pyART
     routines and assumes the radar sweep has been read in using readCFRadial_pyART.
     """
 
-    # STOPPED HERE!
+    display = pyart.graph.RadarMapDisplay(radar_obj)
+    projection = ccrs.LambertConformal(central_latitude=radar_obj.latitude['data'][0],
+                                       central_longitude=radar_obj.longitude['data'][0])
 
-    # Plot approximate locations of storm at certain time intervals based on
-    # assume storm motion? (no effect for now)
-    # plot_interval = False
-    # storm_u = 12.55
-    # storm_v = 0.0
-    # time_interval = 30.0
-    # Number of intervals (plus and minus) to plot around each center time and associated scan
-    # num_intervals = 2
-
-    # Low reflectivity threshold
-    # dBZthresh = 5.0
-
-    # Unpack range and azimuth limits for plot
-    minrange = radlims[0]
-    maxrange = radlims[1]
-    minazim = radlims[2]
-    maxazim = radlims[3]
-
-    # Unpack plotting limits
-    plotxmin = plotlims[0]
-    plotxmax = plotlims[1]
-    plotymin = plotlims[2]
-    plotymax = plotlims[3]
-
-    # Find the indices corresponding to the plot limits
-    range = radarsweep.range['data']
-    minrangeindex = np.where(range > minrange)[0][0]
-    try:
-        maxrangeindex = np.where(range > maxrange)[0][0]
-    except Exception:
-        maxrangeindex = np.size(range)
-    # print "minrangeindex,maxrangeindex",minrangeindex,maxrangeindex
-
-    azimuth = radarsweep.azimuth['data']
-    minazimindex = np.where(azimuth >= min(azimuth[0], minazim))[0][0]
-    # print "minazimindex,azimuth_start_rad[minazimindex] =
-    # ",minazimindex,azimuth_start_rad[minazimindex]/deg2rad
-    try:
-        maxazimindex = np.where(azimuth >= maxazim)[0][0]
-    except Exception:
-        maxazimindex = np.size(azimuth) - 1
-
-    # print "maxazimindex,azimuth_start_rad[maxazimindex] =
-    # ",maxazimindex,azimuth_start_rad[maxazimindex]/deg2rad
-
-    # print azimuth_start_rad/deg2rad
-    # Set up the coordinate arrays
-    # theta,rad = np.meshgrid(azimuth_start_rad[minazimindex:maxazimindex+1],
-    #                         range_start[minrangeindex:maxrangeindex])
-    # theta_c,rad_c = np.meshgrid(azimuth_rad[minazimindex:maxazimindex+1],
-    #                             range[minrangeindex:maxrangeindex])
-
-    # Plot on rectangular mesh using x,y points derived from r,theta
-    # The points are valid on the edges of the gates, while the reflectivity values
-    # are valid at the centers.  This is so that pcolor will plot the gates in the correct
-    # locations (hopefully).
-
-    xplt, yplt, zplt = radarsweep.get_gate_x_y_z(0, edges=True)
-    xplt = xplt[minazimindex:maxazimindex + 1, minrangeindex:maxrangeindex]
-    yplt = yplt[minazimindex:maxazimindex + 1, minrangeindex:maxrangeindex]
-    xplt = xplt + xoffset
-    yplt = yplt + yoffset
+    PIPS_x = [PIPS_rad_loc[0] for PIPS_rad_loc in PIPS_rad_locs]
+    PIPS_y = [PIPS_rad_loc[1] for PIPS_rad_loc in PIPS_rad_locs]
+    xmin = min(PIPS_x) + bounds[0] * 1000.
+    xmax = max(PIPS_x) + bounds[1] * 1000.
+    ymin = min(PIPS_y) + bounds[2] * 1000.
+    ymax = max(PIPS_y) + bounds[3] * 1000.
 
     figlist = []
-    gridlist = []
+    axlist = []
 
-    # Loop through the provided fields and prepare them for plotting
+    # Try to match up each field with what is in the file
+    fields_to_plot = []
+    for field in radar_fields:
+        # Reflectivity
+        if field in REF_aliases:
+            field_to_plot = get_field_to_plot(radar_obj, REF_aliases)
+        elif field in ZDR_aliases:
+            field_to_plot = get_field_to_plot(radar_obj, ZDR_aliases)
+        elif field in KDP_aliases:
+            field_to_plot = get_field_to_plot(radar_obj, KDP_aliases)
+        elif field in RHV_aliases:
+            field_to_plot = get_field_to_plot(radar_obj, RHV_aliases)
+        elif field in VR_aliases:
+            field_to_plot = get_field_to_plot(radar_obj, VR_aliases)
 
-    for fieldname, filefieldname in list(fieldnames.items()):
-        #
-        #         # mask array by provided mask, if desired (usually some reflectivity threshold)
-        #         if(mask != None):
-        #             field = np.ma.masked_array(field,mask=mask)
+        if field_to_plot:
+            fields_to_plot.append(field_to_plot[0])
 
-        field = radarsweep.fields[filefieldname]['data']
-        fieldplt = field[minazimindex:maxazimindex + 1, minrangeindex:maxrangeindex]
-        fieldplt = np.ma.masked_invalid(fieldplt)
+    for field in fields_to_plot:
+        fig, ax = plt.subplots(figsize=(10, 8))
+        titlestringfmt = 'Radar name: {}; Field: {}; Time: {}; elevation: {}'
+        titlestring = titlestringfmt.format(radar_obj.metadata['instrument_name'], field,
+                                            sweeptime.strftime(tm.timefmt3),
+                                            radar_obj.elevation['data'][0])
+        field_plot_params = radar_plot_param_matching[field]
 
-        # Decide whether to perform a shift in time and space (disabled for now)
-#         subtimes = []
-#         if(plot_interval):
-#             for dt in np.arange(-num_intervals*time_interval,
-#                                 num_intervals*time_interval+time_interval,time_interval):
-#                 subtime = sweeptime+timedelta(seconds=dt)
-#                 subtimes.append(subtime)
-#         else:
-#             subtimes.append(sweeptime)
-#
-#         for dt,time in zip(np.arange(-num_intervals*time_interval,
-#                                      num_intervals*time_interval+time_interval,
-#                                      time_interval),subtimes):
-#             if(plot_interval):
-#                 xplttmp = xplt+dt*storm_u
-#                 xplt_ctmp = xplt_c+dt*storm_u
-#             else:
-#                 xplttmp = xplt
-#                 xplt_ctmp = xplt_c
+        # TODO: add colorbar label levels, other arguments
+        display.plot_ppi_map(field, 0, title=titlestring, cmap=field_plot_params['cmap'],
+                             vmin=field_plot_params['clevels'][0],
+                             vmax=field_plot_params['clevels'][-1], colorbar_label='', ax=ax,
+                             resolution='10m', projection=projection, fig=fig,
+                             lat_lines=np.arange(30, 46, 0.1), lon_lines=np.arange(-110, -75, 0.1))
 
-        norm = None
-        if fieldname in ['dBZ', 'DBZ', 'Z']:
-            clevels = clevels_ref
-            cmap = cmapdBZ
-            norm = normdBZ
-            clvls = 5.0
-            # disfmtstr = "{:3.1f} dBZ"
-        if fieldname in ['Zdr', 'ZDR']:
-            clevels = clevels_zdr
-            cmap = cmapzdr
-            clvls = 0.5
-            # disfmtstr = "{:3.1f} dB"
-        if fieldname in ['Kdp', 'KDP']:
-            clevels = clevels_kdp
-            cmap = cmapkdp
-            clvls = 0.5
-            # disfmtstr = "{:3.1f} deg/km"
-        if fieldname in ['rhv', 'RHV']:
-            clevels = clevels_rhv
-            cmap = cmaprhv
-            clvls = 0.1
-            # disfmtstr = "{:3.1f}"
-        if fieldname in ['vr', 'VR', 'Vr', 'VEL']:
-            clevels = clevels_vr
-            cmap = cmapvr
-            clvls = 5.0
-            # disfmtstr = "{:3.1f} m/s"
+        # Overlay locations of the PIPS
+        for PIPS_geo_loc, PIPS_name in zip(PIPS_geo_locs, PIPS_names):
+            display.plot_point(PIPS_geo_loc[1], PIPS_geo_loc[0], 'r*', ms=20, label_text=PIPS_name)
 
-        fig = plt.figure()
-        grid = ImageGrid(
-            fig,
-            111,
-            nrows_ncols=(
-                1,
-                1),
-            axes_pad=0.0,
-            cbar_mode="single",
-            cbar_location="right",
-            aspect=True,
-            label_mode="1")
-        ax = grid[0]
-        if norm is None:
-            norm = matplotlib.colors.BoundaryNorm(clevels, cmap.N)
-        plot1 = ax.pcolormesh(xplt, yplt, fieldplt, vmin=clevels[0], vmax=clevels[-1], cmap=cmap,
-                              norm=norm, edgecolors='None', antialiased=False, alpha=alpha)
-
-        # DTD: originally did this outside the function, but have to do it here
-        # because of some weird problem
-        # FIXME
-        # if(ovrdis):
-        #     fields_D = fields_D_dict[fieldname]
-        #     for dname, dloc, field_D in zip(dis_name_list, dxy_list, fields_D):
-        #         Dx = dloc[0] + xoffset
-        #         Dy = dloc[1] + yoffset
-        #         ax.plot(Dx, Dy, 'k*', ms=8)
-        #         ax.annotate(dname, (Dx + 250., Dy + 250.), clip_on=True)
-        #         if(field_D is not None):
-        #             ax.annotate(disfmtstr.format(field_D), (Dx + 250., Dy - 250.), clip_on=True)
-
-        # Determine plot bounds
-        if(plotxmin == -1):
-            plotxmin = np.min(xplt)
-        if(plotxmax == -1):
-            plotxmax = np.max(xplt)
-        if(plotymin == -1):
-            plotymin = np.min(yplt)
-        if(plotymax == -1):
-            plotymax = np.max(yplt)
-
-        clvllocator = ticker.MultipleLocator(base=clvls)
-        # grid.cbar_axes[0].colorbar(plot1)
-        plt.colorbar(plot1, orientation='vertical', ticks=clvllocator, cax=grid.cbar_axes[0])
-        # FIXME: something is screwed up with ImageGrid colorbar ticks, but it looks like the
-        # correct behavior can be recovered by reverting to the matplotlib version above
-#         grid.cbar_axes[0].toggle_label(True)
-#         grid.cbar_axes[0].yaxis.set_major_locator(clvllocator)
-        # plt.title('dBZ at el = %.2f'%(el/deg2rad)+'and time '+time.strftime(fmt))
-        ax.set_xlim(plotxmin, plotxmax)
-        ax.set_ylim(plotymin, plotymax)
-        formatter = ticker.FuncFormatter(mtokm)
-        ax.xaxis.set_major_formatter(formatter)
-        ax.yaxis.set_major_formatter(formatter)
-        ax.xaxis.set_major_locator(ticker.MultipleLocator(base=10000.0))
-        ax.yaxis.set_major_locator(ticker.MultipleLocator(base=10000.0))
-        ax.set_aspect('equal')
+        display.ax.set_extent([xmin, xmax, ymin, ymax], crs=projection)
 
         figlist.append(fig)
-        gridlist.append(grid)
+        axlist.append(ax)
 
-    return figlist, gridlist
-#        plt.savefig(image_dir+fieldname+time.strftime(fmt3).strip()+'.png',dpi=200)
+    return figlist, axlist, fields_to_plot
+
+
+# def plotsweep_pyART(radlims, plotlims, fieldnames, radarsweep, ovrmap, ovrdis, dis_name_list,
+#                     dxy_list, fields_D_list, xoffset=0.0, yoffset=0.0, alpha=0.5):
+#     """
+#     Plots an individual radar sweep, with an option to overlay a map.  This version uses pyART
+#     routines and assumes the radar sweep has been read in using readCFRadial_pyART.
+#     """
+
+#     # STOPPED HERE!
+
+#     # Plot approximate locations of storm at certain time intervals based on
+#     # assume storm motion? (no effect for now)
+#     # plot_interval = False
+#     # storm_u = 12.55
+#     # storm_v = 0.0
+#     # time_interval = 30.0
+#     # Number of intervals (plus and minus) to plot around each center time and associated scan
+#     # num_intervals = 2
+
+#     # Low reflectivity threshold
+#     # dBZthresh = 5.0
+
+#     # Unpack range and azimuth limits for plot
+#     minrange = radlims[0]
+#     maxrange = radlims[1]
+#     minazim = radlims[2]
+#     maxazim = radlims[3]
+
+#     # Unpack plotting limits
+#     plotxmin = plotlims[0]
+#     plotxmax = plotlims[1]
+#     plotymin = plotlims[2]
+#     plotymax = plotlims[3]
+
+#     # Find the indices corresponding to the plot limits
+#     range = radarsweep.range['data']
+#     minrangeindex = np.where(range > minrange)[0][0]
+#     try:
+#         maxrangeindex = np.where(range > maxrange)[0][0]
+#     except Exception:
+#         maxrangeindex = np.size(range)
+#     # print "minrangeindex,maxrangeindex",minrangeindex,maxrangeindex
+
+#     azimuth = radarsweep.azimuth['data']
+#     minazimindex = np.where(azimuth >= min(azimuth[0], minazim))[0][0]
+#     # print "minazimindex,azimuth_start_rad[minazimindex] =
+#     # ",minazimindex,azimuth_start_rad[minazimindex]/deg2rad
+#     try:
+#         maxazimindex = np.where(azimuth >= maxazim)[0][0]
+#     except Exception:
+#         maxazimindex = np.size(azimuth) - 1
+
+#     # print "maxazimindex,azimuth_start_rad[maxazimindex] =
+#     # ",maxazimindex,azimuth_start_rad[maxazimindex]/deg2rad
+
+#     # print azimuth_start_rad/deg2rad
+#     # Set up the coordinate arrays
+#     # theta,rad = np.meshgrid(azimuth_start_rad[minazimindex:maxazimindex+1],
+#     #                         range_start[minrangeindex:maxrangeindex])
+#     # theta_c,rad_c = np.meshgrid(azimuth_rad[minazimindex:maxazimindex+1],
+#     #                             range[minrangeindex:maxrangeindex])
+
+#     # Plot on rectangular mesh using x,y points derived from r,theta
+#     # The points are valid on the edges of the gates, while the reflectivity values
+#     # are valid at the centers.  This is so that pcolor will plot the gates in the correct
+#     # locations (hopefully).
+
+#     xplt, yplt, zplt = radarsweep.get_gate_x_y_z(0, edges=True)
+#     xplt = xplt[minazimindex:maxazimindex + 1, minrangeindex:maxrangeindex]
+#     yplt = yplt[minazimindex:maxazimindex + 1, minrangeindex:maxrangeindex]
+#     xplt = xplt + xoffset
+#     yplt = yplt + yoffset
+
+#     figlist = []
+#     gridlist = []
+
+#     # Loop through the provided fields and prepare them for plotting
+
+#     for fieldname, filefieldname in list(fieldnames.items()):
+#         #
+#         #         # mask array by provided mask, if desired (usually some reflectivity threshold)
+#         #         if(mask != None):
+#         #             field = np.ma.masked_array(field,mask=mask)
+
+#         field = radarsweep.fields[filefieldname]['data']
+#         fieldplt = field[minazimindex:maxazimindex + 1, minrangeindex:maxrangeindex]
+#         fieldplt = np.ma.masked_invalid(fieldplt)
+
+#         # Decide whether to perform a shift in time and space (disabled for now)
+# #         subtimes = []
+# #         if(plot_interval):
+# #             for dt in np.arange(-num_intervals*time_interval,
+# #                                 num_intervals*time_interval+time_interval,time_interval):
+# #                 subtime = sweeptime+timedelta(seconds=dt)
+# #                 subtimes.append(subtime)
+# #         else:
+# #             subtimes.append(sweeptime)
+# #
+# #         for dt,time in zip(np.arange(-num_intervals*time_interval,
+# #                                      num_intervals*time_interval+time_interval,
+# #                                      time_interval),subtimes):
+# #             if(plot_interval):
+# #                 xplttmp = xplt+dt*storm_u
+# #                 xplt_ctmp = xplt_c+dt*storm_u
+# #             else:
+# #                 xplttmp = xplt
+# #                 xplt_ctmp = xplt_c
+
+#         norm = None
+#         if fieldname in ['dBZ', 'DBZ', 'Z']:
+#             clevels = clevels_ref
+#             cmap = cmapdBZ
+#             norm = normdBZ
+#             clvls = 5.0
+#             # disfmtstr = "{:3.1f} dBZ"
+#         if fieldname in ['Zdr', 'ZDR']:
+#             clevels = clevels_zdr
+#             cmap = cmapzdr
+#             clvls = 0.5
+#             # disfmtstr = "{:3.1f} dB"
+#         if fieldname in ['Kdp', 'KDP']:
+#             clevels = clevels_kdp
+#             cmap = cmapkdp
+#             clvls = 0.5
+#             # disfmtstr = "{:3.1f} deg/km"
+#         if fieldname in ['rhv', 'RHV']:
+#             clevels = clevels_rhv
+#             cmap = cmaprhv
+#             clvls = 0.1
+#             # disfmtstr = "{:3.1f}"
+#         if fieldname in ['vr', 'VR', 'Vr', 'VEL']:
+#             clevels = clevels_vr
+#             cmap = cmapvr
+#             clvls = 5.0
+#             # disfmtstr = "{:3.1f} m/s"
+
+#         fig = plt.figure()
+#         grid = ImageGrid(
+#             fig,
+#             111,
+#             nrows_ncols=(
+#                 1,
+#                 1),
+#             axes_pad=0.0,
+#             cbar_mode="single",
+#             cbar_location="right",
+#             aspect=True,
+#             label_mode="1")
+#         ax = grid[0]
+#         if norm is None:
+#             norm = matplotlib.colors.BoundaryNorm(clevels, cmap.N)
+#         plot1 = ax.pcolormesh(xplt, yplt, fieldplt, vmin=clevels[0], vmax=clevels[-1], cmap=cmap,
+#                               norm=norm, edgecolors='None', antialiased=False, alpha=alpha)
+
+#         # DTD: originally did this outside the function, but have to do it here
+#         # because of some weird problem
+#         # FIXME
+#         # if(ovrdis):
+#         #     fields_D = fields_D_dict[fieldname]
+#         #     for dname, dloc, field_D in zip(dis_name_list, dxy_list, fields_D):
+#         #         Dx = dloc[0] + xoffset
+#         #         Dy = dloc[1] + yoffset
+#         #         ax.plot(Dx, Dy, 'k*', ms=8)
+#         #         ax.annotate(dname, (Dx + 250., Dy + 250.), clip_on=True)
+#         #         if(field_D is not None):
+#         #             ax.annotate(disfmtstr.format(field_D), (Dx + 250., Dy - 250.), clip_on=True)
+
+#         # Determine plot bounds
+#         if(plotxmin == -1):
+#             plotxmin = np.min(xplt)
+#         if(plotxmax == -1):
+#             plotxmax = np.max(xplt)
+#         if(plotymin == -1):
+#             plotymin = np.min(yplt)
+#         if(plotymax == -1):
+#             plotymax = np.max(yplt)
+
+#         clvllocator = ticker.MultipleLocator(base=clvls)
+#         # grid.cbar_axes[0].colorbar(plot1)
+#         plt.colorbar(plot1, orientation='vertical', ticks=clvllocator, cax=grid.cbar_axes[0])
+#         # FIXME: something is screwed up with ImageGrid colorbar ticks, but it looks like the
+#         # correct behavior can be recovered by reverting to the matplotlib version above
+# #         grid.cbar_axes[0].toggle_label(True)
+# #         grid.cbar_axes[0].yaxis.set_major_locator(clvllocator)
+#         # plt.title('dBZ at el = %.2f'%(el/deg2rad)+'and time '+time.strftime(fmt))
+#         ax.set_xlim(plotxmin, plotxmax)
+#         ax.set_ylim(plotymin, plotymax)
+#         formatter = ticker.FuncFormatter(mtokm)
+#         ax.xaxis.set_major_formatter(formatter)
+#         ax.yaxis.set_major_formatter(formatter)
+#         ax.xaxis.set_major_locator(ticker.MultipleLocator(base=10000.0))
+#         ax.yaxis.set_major_locator(ticker.MultipleLocator(base=10000.0))
+#         ax.set_aspect('equal')
+
+#         figlist.append(fig)
+#         gridlist.append(grid)
+
+#     return figlist, gridlist
+# #        plt.savefig(image_dir+fieldname+time.strftime(fmt3).strip()+'.png',dpi=200)
 
 
 def readsweeps2PIPS(fieldnames, pc, ib):
@@ -1556,17 +1650,15 @@ def plotsweeps(pc, ib, sb, sweepstart=-1, sweepstop=-1):
                 plt.close(fig)
 
 
-def read_sweeps(radar_name, radar_dir, starttime, stoptime, field_names=['dBZ'], el_req=0.5,
-                compute_kdp=False):
+def read_sweeps(radar_paths, starttime, stoptime, field_names=['dBZ'], el_req=0.5,
+                compute_kdp=False, radar_type='NEXRAD'):
     """Reads sweeps from a list of CFRadial files between the start and stop times requested
     and at the elevation angle requested. Returns a dictionary with the sweeps (pyART radar objects)
 
     Parameters
     ----------
-    radar_name : str
-        4-letter ID of the radar
-    radar_dir : str
-        Directory containing the radar files
+    radar_paths: list
+        list of absolute paths to radar files
     starttime : str
         starting timestamp in '%Y%m%d%H%M%S' format
     stoptime : str
@@ -1584,38 +1676,44 @@ def read_sweeps(radar_name, radar_dir, starttime, stoptime, field_names=['dBZ'],
         dictionary containing the list of sweep objects, as well as the timestamps for each and
         the list of fields that were read in from the files.
     """
-    radpathlist = glob.glob(radar_dir + '/*{}*nc'.format(radar_name))
 
     # Now read in all the sweeps between radstarttime and radstoptime closest to the requested
     # elevation angle
     radstarttimedt = datetime.strptime(starttime, tm.timefmt3)
     radstoptimedt = datetime.strptime(stoptime, tm.timefmt3)
-
-    outfieldnameslist = []
     radarsweeplist = []
     sweeptimelist = []
 
-    for radpath in radpathlist:
-        sweeptime = _getsweeptime(radpath)
+    # Determine which sweeps are between radstarttime and radstoptime, as well as which ones have
+    # the elevation angle we need
 
+    radar_paths_keepers = []
+    for radar_path in radar_paths:
+        sweeptime = _getsweeptime(radar_path)
         if radstarttimedt <= sweeptime and sweeptime <= radstoptimedt:
-            outfieldnames, radarsweep = readCFRadial_pyART(el_req, radpath, sweeptime,
-                                                           field_names, compute_kdp=compute_kdp)
-            outfieldnameslist.append(outfieldnames)
-            radarsweeplist.append(radarsweep)
-            sweeptimelist.append(sweeptime)
+            # XTRRA has one sweep per file. TODO: add other radar options in here as appropriate
+            if 'XTRRA' in radar_type:
+                elevation = _getelev(radar_path)
+                if np.abs(elevation - el_req) < 0.1:
+                    radar_paths_keepers.append(radar_path)
+                    sweeptimelist.append(sweeptime)
+            else:  # NEXRAD
+                radar_paths_keepers.append(radar_path)
+                sweeptimelist.append(sweeptime)
+
+    for radpath, sweeptime in zip(radar_paths_keepers, sweeptimelist):
+
+        radarsweep = readCFRadial_pyART(el_req, radpath, sweeptime,
+                                        field_names, compute_kdp=compute_kdp)
+        radarsweeplist.append(radarsweep)
 
     # Sort the lists by increasing time since glob doesn't sort in any particular order
     sorted_sweeptimelist = sorted(sweeptimelist)
     sorted_radarsweeplist = [x for _, x in sorted(zip(sweeptimelist, radarsweeplist),
                                                   key=lambda pair: pair[0])]
 
-    sorted_outfieldnameslist = [x for _, x in sorted(zip(sweeptimelist, outfieldnameslist),
-                                                     key=lambda pair: pair[0])]
-
     # Stuff the lists into a dictionary
     radar_dict = {
-        'outfieldnameslist': sorted_outfieldnameslist,
         'radarsweeplist': sorted_radarsweeplist,
         'sweeptimelist': sorted_sweeptimelist
     }
@@ -1723,7 +1821,8 @@ def interp_sweeps_to_PIPS(radar_name, radarsweep_list, PIPS_names, dradlocs, ave
     return radar_fields_at_PIPS_da
 
 
-def interp_sweeps_to_one_PIPS(radar_name, radarsweep_list, PIPS_name, rad_loc, average_gates=True):
+def interp_sweeps_to_one_PIPS(radar_name, radarsweep_list, PIPS_name, rad_loc, average_gates=True,
+                              ngates2avg=1, sweeptime_list=None):
     """Interpolates a series of radar sweeps to the locations of a single PIPS. Likely will
        replace the original interp_sweeps_to_PIPS
 
@@ -1747,9 +1846,16 @@ def interp_sweeps_to_one_PIPS(radar_name, radarsweep_list, PIPS_name, rad_loc, a
         the PIPS location.
     """
     # Hardcoded subset of field names
-    field_names = ['REF', 'VEL', 'ZDR', 'PHI', 'RHO', 'SW']
+    # FIXME: need to set this up to use aliases
+    # NOTE: just read and interpolate all fields in the radar object for now
+    # field_names = ['REF', 'VEL', 'ZDR', 'PHI', 'RHO', 'SW']
 
     radar_fields_at_PIPS_tlist = []
+
+    # Sanity check for consistency of number of fields in the radarsweep
+    all_field_names = [list(radarsweep.fields.keys()) for radarsweep in radarsweep_list]
+    all_field_names_flat = [item for sublist in all_field_names for item in sublist]
+    all_field_names = list(set(all_field_names_flat))
 
     for radarsweep in radarsweep_list:
         # Get Cartesian locations of radar gates
@@ -1759,44 +1865,56 @@ def interp_sweeps_to_one_PIPS(radar_name, radarsweep_list, PIPS_name, rad_loc, a
         theta_index, range_index = np.unravel_index(distance.argmin(), distance.shape)
         print("theta_index, range_index", theta_index, range_index)
         print("Distance to closest gate: ", distance[theta_index, range_index])
+        zrad_at_PIPS = zrad[theta_index, range_index]
+        print("Height of radar beam at gate: ", zrad_at_PIPS)
         radar_field_list = []
-        for field_name in field_names:
-            try:
-                field_data = radarsweep.fields[field_name]['data'].filled(np.nan)
-            except KeyError:
-                field_data = np.nan * np.ones_like(xrad)
-            if distance[theta_index, range_index] > 3000.:
-                field_at_PIPS = np.nan
-            else:
-                if not average_gates:
-                    field_at_PIPS = field_data[theta_index, range_index]
+        # for field_name, field in list(radarsweep.fields.items()):
+        for field_name in all_field_names:
+            if field_name in list(radarsweep.fields.keys()):
+                field = radarsweep.fields[field_name]
+                field_data = field['data']
+                if distance[theta_index, range_index] > 3000.:
+                    field_at_PIPS = np.nan
                 else:
-                    field_at_PIPS = np.nanmean(field_data[theta_index - 1:theta_index + 2,
-                                                          range_index - 1:range_index + 2])
-                radar_field_list.append(field_at_PIPS)
-        radar_fields_at_PIPS_tlist.append(radar_field_list)
+                    if not average_gates:
+                        field_at_PIPS = field_data[theta_index, range_index]
+                    else:
+                        field_neighborhood = field_data[
+                            theta_index-ngates2avg:theta_index+ngates2avg+1,
+                            range_index-ngates2avg:range_index+ngates2avg+1
+                        ]
+                        field_at_PIPS = field_neighborhood.mean()
+            else:
+                field_at_PIPS = np.nan
 
+            radar_field_list.append(field_at_PIPS)
+
+        radar_fields_at_PIPS_tlist.append(radar_field_list)
     radar_fields_at_PIPS_arr = np.array(radar_fields_at_PIPS_tlist)
     # Create a list of datetimes from the radar time coverage start times
     # For some reason have to do some additional massaging to get into the proper format
     # in the DataArray (datetime64[ns] objects)
-    radar_datetimes = pd.to_datetime([radarsweep.metadata['time_coverage_start']
-                                      for radarsweep in radarsweep_list])
-    radar_datetimes = [radar_datetime.to_pydatetime() for radar_datetime in radar_datetimes]
+    if sweeptime_list is not None:
+        radar_datetimes = sweeptime_list
+    else:
+        radar_datetimes = pd.to_datetime([radarsweep.metadata['time_coverage_start']
+                                         for radarsweep in radarsweep_list])
+        radar_datetimes = [radar_datetime.to_pydatetime() for radar_datetime in radar_datetimes]
 
     # Create a DataArray with the radar fields interpolated to the PIPS location
     radar_fields_at_PIPS_da = \
         xr.DataArray(radar_fields_at_PIPS_arr,
                      coords={
                          'time': radar_datetimes,
-                         'fields': field_names,
+                         'fields_{}'.format(radar_name): all_field_names,
                      },
-                     dims=['time', 'fields'],
+                     dims=['time', 'fields_{}'.format(radar_name)],
                      attrs={
                          'radar_name': radar_name,
                          'PIPS_name': PIPS_name,
                          'PIPS_x': rad_loc[0],
-                         'PIPS_y': rad_loc[1]
+                         'PIPS_y': rad_loc[1],
+                         'beam_height': zrad_at_PIPS
                      })
     return radar_fields_at_PIPS_da
 
@@ -1812,3 +1930,101 @@ def dump_radar_fields_at_PIPS_nc(ncfile_path, radar_fields_at_PIPS_da):
         [description]
     """
     radar_fields_at_PIPS_da.to_dataset(name='radar_fields_at_PIPS').to_netcdf(ncfile_path)
+
+
+# From pyXTTRA: https://github.rcac.purdue.edu/WRRLOrganization/pyXTRRA
+def CreateRadarFromRXM25netCDF(netcdf_file, instrument_name, cfradial_outfile=None, heading=None):
+    data  = netCDF4.Dataset(netcdf_file, 'r')
+    #fileTime = datetime.datetime.strptime(netcdf_file[-22:-7],'%Y%m%d-%H%M%S')
+
+
+    ngates = data.dimensions['Gate'].size
+    rays_per_sweep = data.dimensions['Radial'].size
+    radar = pyart.testing.make_empty_ppi_radar(ngates, rays_per_sweep, 1)
+
+    # Time needs to be converted from nss1970 to nss1980 and added to radar object
+    nineteen89 = datetime(1989, 1, 1, 0, 0, 1, tzinfo = pytz.utc)
+    baseTime = np.array([datetime.fromtimestamp(t,tz=pytz.UTC) for t in data.variables['Time'][:]])
+    radar.time['data'] = np.array([t.total_seconds() for t in baseTime - nineteen89])
+
+    if heading is not None:
+        radar.heading = heading
+        radar.azimuth['data'] = np.mod(data['Azimuth'][:] - radar.heading, 360.)
+    else:
+        radar.azimuth['data'] = data['Azimuth'][:]
+
+    radar.longitude['data'] = np.array([data.Longitude], dtype='float64')
+    radar.latitude['data'] = np.array([data.Latitude], dtype='float64')
+    radar.elevation['data'] = data['Elevation'][:]
+    radar.altitude['data'] = np.array([data.Height], dtype='float64')
+
+    fixed_agl_data = np.empty((1, ), dtype='float32')
+    fixed_agl_data[:] = np.mean(
+        radar.elevation['data'][:rays_per_sweep])
+
+    radar.fixed_angle['data'] = fixed_agl_data
+
+    radar.range['data'] = np.linspace(
+        data['StartRange'][0]/1000,
+       (ngates - 1)*data['GateWidth'][0]/1000 + data['StartRange'][0]/1000,
+       ngates)
+
+    ref = data['Reflectivity'][:]
+    norm_pow = data['NormalizedCoherentPower'][:]
+    spec_w = data['SpectralWidth'][:]
+    vel = data['Velocity'][:]
+    corr_ref = data['CorrectedReflectivity'][:]
+    diff_ref = data['DifferentialReflectivity'][:]
+    diff_phase = data['DifferentialPhase'][:]
+    spec_phase = data['SpecificPhase'][:]
+    corr_diff_ref = data['CorrectedDifferentialReflectivity'][:]
+    sig_noise = data['SignalToNoiseRatio'][:]
+    rain_rate = data['RainfallRate'][:]
+    cross_ra = data['CrossPolCorrelation'][:]
+
+    fields = {
+        'reflectivity': get_metadata('reflectivity'),
+        'normalized_coherent_power': get_metadata('normalized_coherent_power'),
+        'spectral_width': get_metadata('spectral_width'),
+        'velocity': get_metadata('velocity'),
+        'corrected_reflectivity': get_metadata('correct_reflectivity'),
+        'differential_reflectivity': get_metadata('differential_reflectivity'),
+        'differential_phase': get_metadata('differential_phase'),
+        'specific_differential_phase': get_metadata('specific_differential_phase'),
+        'corrected_differential_reflectivity': get_metadata('corrected_differential_reflectivity'),
+        'signal_to_noise_ratio': get_metadata('signal_to_noise_ratio'),
+        'rain_rate': get_metadata('rain_rate'),
+        'cross_correlation_ratio': get_metadata('cross_correlation_ratio')}
+
+    radar.fields = fields
+#    radar.fields['reflectivity']['data'] = ref
+#    radar.fields['normalized_coherent_power']['data'] = norm_pow
+#    radar.fields['spectral_width']['data'] = spec_w
+#    radar.fields['velocity']['data'] = vel
+#    radar.fields['corrected_reflectivity']['data'] = corr_ref
+#    radar.fields['differential_reflectivity']['data'] = diff_ref
+#    radar.fields['differential_phase']['data'] = diff_phase
+#    radar.fields['specific_differential_phase']['data'] = spec_phase
+#    radar.fields['corrected_differential_reflectivity']['data'] = corr_diff_ref
+    radar.fields['reflectivity']['data'] = np.ma.masked_where(sig_noise < 3.,ref)
+    radar.fields['normalized_coherent_power']['data'] = norm_pow
+    radar.fields['spectral_width']['data'] = np.ma.masked_where(sig_noise < 3.,spec_w)
+    radar.fields['velocity']['data'] = np.ma.masked_where(sig_noise < 3.,vel)
+    radar.fields['corrected_reflectivity']['data'] = np.ma.masked_where(sig_noise < 3.,corr_ref)
+    radar.fields['differential_reflectivity']['data'] = np.ma.masked_where(sig_noise < 3.,diff_ref)
+    radar.fields['differential_phase']['data'] = np.ma.masked_where(sig_noise < 3.,diff_phase)
+    radar.fields['specific_differential_phase']['data'] = np.ma.masked_where(sig_noise < 3.,spec_phase)
+    radar.fields['corrected_differential_reflectivity']['data'] = np.ma.masked_where(sig_noise < 3.,corr_diff_ref)
+    radar.fields['signal_to_noise_ratio']['data'] = sig_noise
+    radar.fields['rain_rate']['data'] = rain_rate
+    radar.fields['cross_correlation_ratio']['data'] = cross_ra
+
+    radar.metadata['instrument_name'] = instrument_name
+    if cfradial_outfile is not None:
+        pyart.io.write_cfradial(cfradial_outfile, radar, arm_time_variables=True)
+
+    return radar
+
+
+def find_radar_field_name(fields_in_file, field_aliases):
+    return next((fname for fname in fields_in_file if fname in field_aliases), None)

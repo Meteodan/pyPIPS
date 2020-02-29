@@ -33,12 +33,13 @@ radar_config_dict = {
     'comp_radar': True,
     'clean_radar': False,
     'calc_dualpol': True,
-    'radar_name': 'KGWX',
-    'radar_dir': '/Users/ddawson/Dropbox/Projects/VORTEXSE/obs_data/NEXRAD/IOP3_2016/KGWX/CFRadial',
+    'radar_name': 'xtrra',
+    'radar_type': 'XTRRA',
+    'radar_dir': '/Users/dawson29/sshfs_mounts/depot/data/Projects/XTRRA/2019/09/27/CFRadial',
     'field_names': ['REF', 'ZDR', 'RHO'],
-    'el_req': 0.5,
-    'radar_start_timestamp': '20160331220000',
-    'radar_end_timestamp': '20160331234000',
+    'el_req': 3.1,
+    'radar_start_timestamp': '20190927190015',
+    'radar_end_timestamp': '20190927205801',
     'scatt_dir': '/Users/dawson29/Projects/pyPIPS/tmatrix/S-Band/',
     'wavelength': 10.7
 }

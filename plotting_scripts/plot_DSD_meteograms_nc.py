@@ -115,6 +115,10 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
     DSD_interval = parsivel_combined_ds.DSD_interval
     PIPS_name = parsivel_combined_ds.probe_name
     deployment_name = parsivel_combined_ds.deployment_name
+    fname_tag = tag
+    if comp_radar:
+        radar_fields_at_PIPS_da = parsivel_combined_ds['{}_at_PIPS'.format(radar_name)]
+        fname_tag = tag + '_{}'.format(radar_name)
 
     start_time = start_times[index]
     end_time = end_times[index]
@@ -192,30 +196,40 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
     }
     radvars = {}
     # If we are comparing with radar, grab associated radar variables for plotting
-    # if comp_radar:
-    #     # print(radar_fields_at_PIPS_da)
-    #     # At least add the reflectivity
-    #     dBZ_D_plt = radar_fields_at_PIPS_da.sel(fields='REF', PIPS=PIPS_name)
-    #     # indexrad = sb.outfieldnames.index('dBZ')
-    #     # dBZ_D_plt = sb.fields_D_tarr[:, index, indexrad]
-    #     radvars = {'radmidtimes': plotx_rad, 'REF': dBZ_D_plt}
-    #     # Add other polarimetric fields
-    #     if calc_dualpol:
-    #         for radvarname in ['ZDR', 'KDP', 'RHO']:
-    #             if radvarname in radar_fields_at_PIPS_da.fields:
-    #                 # indexrad = sb.outfieldnames.index(radvarname)
-    #                 # dualpol_rad_var = sb.fields_D_tarr[:, index, indexrad]
-    #                 dualpol_rad_var = radar_fields_at_PIPS_da.sel(fields=radvarname, PIPS=PIPS_name)
-    #                 if dualpol_rad_var.size:
-    #                     radvars[radvarname] = dualpol_rad_var
-    #         if clean_radar:
-    #             # remove non-precipitation echoes from radar data
-    #             gc_mask = np.where((radvars['RHO'] < 0.90), True, False)
-    #             for radvarname in ['ZDR', 'REF', 'RHO']:
-    #                 radvars[radvarname] = np.ma.masked_array(radvars[radvarname],
-    #                                                          mask=gc_mask)
+    if comp_radar:
+        # print(radar_fields_at_PIPS_da)
+        # At least add the reflectivity
+        # Find the name of the reflectivity field in the file
+        # STOPPED HERE. #TODO find name of reflectivity field in file using list of aliases
+        # in radarmodule.py
+        # First get list of radar fields in DataArray
+        dim_name = 'fields_{}'.format(radar_name)
+        radar_fields = radar_fields_at_PIPS_da.coords[dim_name].values
+        # Then find which one corresponds to reflectivity
+        # ref_name = next((fname for fname in radar_fields if fname in radar.REF_aliases))
+        ref_name = radar.find_radar_field_name(radar_fields, radar.REF_aliases)
+
+        dBZ_D_plt = radar_fields_at_PIPS_da.loc[{dim_name: ref_name}]
+        # indexrad = sb.outfieldnames.index('dBZ')
+        # dBZ_D_plt = sb.fields_D_tarr[:, index, indexrad]
+        radvars = {'radmidtimes': PSD_centertimes, 'REF': dBZ_D_plt}
+        # Add other polarimetric fields
+        if calc_dualpol:
+            for radvar_name, radvar_aliases in zip(['ZDR', 'RHO'],
+                                                   [radar.ZDR_aliases, radar.RHV_aliases]):
+                radvar_name_in_file = radar.find_radar_field_name(radar_fields, radvar_aliases)
+                if radvar_name_in_file:
+                    dualpol_rad_var = radar_fields_at_PIPS_da.loc[{dim_name: radvar_name_in_file}]
+                    if dualpol_rad_var.size:
+                        radvars[radvar_name] = dualpol_rad_var
+            if clean_radar:
+                # remove non-precipitation echoes from radar data
+                gc_mask = np.where((radvars['RHO'] < 0.90), True, False)
+                for radvarname in ['ZDR', 'REF', 'RHO']:
+                    radvars[radvarname] = np.ma.masked_array(radvars[radvarname],
+                                                             mask=gc_mask)
 
     # Make the plot
     PIPS_plot_name = '{}_{}_{}_{}_{}{}'.format(PIPS_name, deployment_name, start_time_string,
-                                               end_time_string, DSDtype, tag)
+                                               end_time_string, DSDtype, fname_tag)
     pm.plotDSDmeteograms(PIPS_plot_name, meteogram_image_dir, axparams, disvars, radvars.copy())
