@@ -7,6 +7,7 @@ import numpy as np
 from scipy.special import gamma as gamma_, gammainc as gammap, gammaln as gammln
 from . import thermolib as thermo
 from . import PIPS as PIPS
+from . import radarmodule as radar
 from .utils import first_nonzero, last_nonzero, enable_xarray_wrapper
 import xarray as xr
 from numba import jit
@@ -1232,3 +1233,239 @@ def calc_mu_lamda(lamda, coefficients):
     """
     polynomial = np.polynomial.polynomial.Polynomial(coefficients)
     return polynomial(lamda)
+
+@jit
+def calc_W_Cao_empirical(ZH_lin, ZDR):
+    return ZH_lin * 10.**(-0.0493*ZDR**3. + 0.430*ZDR**2. - 1.524*ZDR - 3.019)
+
+@jit
+def calc_D0_Cao_empirical(ZDR):
+    return 0.0436*ZDR**3. - 0.216*ZDR**2. + 1.076*ZDR + 0.659
+
+@jit
+def calc_Nt_Cao_empirical(ZH_lin, ZDR):
+    return ZH_lin * 10.**(-0.0837*ZDR**3. + 0.702*ZDR**2. - 2.062*ZDR + 0.794)
+
+@jit
+def calc_RR_Cao_empirical(ZH_lin, ZDR):
+    return ZH_lin * 10.**(-0.0363*ZDR**3. + 0.316*ZDR**2. - 1.178*ZDR - 1.1964)
+
+@jit
+def calc_Nt_Brandes2004_empirical(ZH_lin, ZDR):
+    return 2.085 * ZH_lin * 10.**(0.728 * ZDR**2. - 2.066 * ZDR)
+
+@jit
+def calc_W_Brandes2004_empirical(ZH_lin, ZDR):
+    return 5.589 * 10**-4. * ZH_lin * 10.**(0.223 * ZDR**2. - 1.124 * ZDR)
+
+@jit
+def calc_RR_Brandes2004_empirical(ZH_lin, ZDR):
+    return 7.6 * 10**-3 * ZH_lin * 10.**(0.165 * ZDR**2. - 0.897 * ZDR)
+
+@jit
+def calc_D0_Brandes2004_empirical(ZDR):
+    return 0.717 + 1.479 * ZDR - 0.725 * ZDR**2. + 0.171 * ZDR**3.
+
+@jit
+def calc_sigma_Brandes2004_empirical(ZDR):
+    return 0.163 + 0.519 * ZDR - 0.0247 * ZDR**2.
+
+
+def retrieval_Cao_xr(ZH, ZDR, ND, D, dD, fa2, fb2, wavelength, mu_lamda_coeff, ZDR_thresh=3.):
+
+    ZH_arr = ZH.values
+    ZDR_arr = ZDR.values
+    full_len = len(D.values)
+    trunc_len = len(fa2)
+    D_arr = D.values[:trunc_len]
+    dD_arr = dD.values[:trunc_len]
+
+    ntimes = len(ZH)
+    retr_dict_list = []
+    for t in range(ntimes):
+        retr_dict = retrieval_Cao(ZH_arr[t], ZDR_arr[t], D_arr, dD_arr, fa2, fb2, wavelength,
+                                  mu_lamda_coeff, ZDR_thresh=ZDR_thresh)
+        ND_retr = np.array(retr_dict['ND_retr'])
+        #print(ND_retr)
+        ND_retr = np.append(ND_retr, [np.nan] * (full_len - trunc_len))
+
+        retr_dict['ND_retr'] = ND_retr
+        retr_dict_list.append(retr_dict)
+
+    retr_dict_alltimes = {k: [dic[k] for dic in retr_dict_list] for k in retr_dict_list[0]}
+    ND_retr = retr_dict_alltimes['ND_retr']
+    ND_retr_da = ND.copy(data=ND_retr)
+    retr_dict_alltimes['ND_retr'] = ND_retr_da
+    for name, values in retr_dict_alltimes.items():
+        if name not in "ND_retr":
+            retr_dict_alltimes[name] = ZH.copy(data=values)
+    return retr_dict_alltimes
+
+
+#@jit
+def retrieval_Cao(ZH, ZDR, D, dD, fa2, fb2, wavelength, mu_lamda_coeff, ZDR_thresh=3.):
+    Dmx = 9.     # maximum diameter of 9 mm
+    wavelength_mm = wavelength * 10.    # radar wavelength in mm
+    # TODO: think about allowing for correction of fallspeed based on air density
+    v_terminal = PIPS.calc_empirical_fallspeed(D)
+
+    fp = -1.0   # # used to test loop condition for ZDR
+    delta_lamda = 0.1   # step through lamda values by this amount (cm)
+    min_lamda = 1.
+    lamda_1 = min_lamda
+    max_lamda = 30.     # Maximum lamda value
+    lamda_range = np.arange(min_lamda, max_lamda + delta_lamda, delta_lamda)
+
+    ZDR_lin = 10.**(ZDR / 10.)  # ZDR in linear units
+    ZH_lin = 10.**(ZH / 10.)      # ZH in linear units
+
+    if np.all([ZH_lin >= 1., Dmx >= 0.4, ZDR_lin >= 1.]):
+        if ZDR < 0.1:   # Use emperical relations when ZDR is small
+            W = calc_W_Cao_empirical(ZH_lin, ZDR)
+            D0 = calc_D0_Cao_empirical(ZDR)
+            Nt = calc_Nt_Cao_empirical(ZH_lin, ZDR)
+            RR = calc_RR_Cao_empirical(ZH_lin, ZDR)
+            Dm = D0     # Why?
+            mu = np.nan
+            lamda = np.nan
+            N0 = np.nan
+            sigma = np.nan
+        elif ZDR > ZDR_thresh:
+            W = np.nan
+            D0 = np.nan
+            Dm = np.nan
+            mu = np.nan
+            lamda = np.nan
+            N0 = np.nan
+            sigma = np.nan
+            RR = np.nan
+            Nt = np.nan
+        else:
+            # Do the retrieval iteration
+            for lamda in lamda_range:
+                tflag = 0
+                # Compute mu from mu_lamda relation
+                mu = mu_lamda_coeff[0] + mu_lamda_coeff[1]*lamda + \
+                     mu_lamda_coeff[2] * lamda**2.
+                #print(lamda, mu)
+                ND = D**mu * np.exp(-lamda*D)
+                ND[D > Dmx] = 0.0   # Zero out bins greater than Dmx
+                ZH_lin_tmp = np.nansum(fa2*ND*dD)
+                ZV_lin_tmp = np.nansum(fb2*ND*dD)
+                if ZV_lin_tmp == 0.:
+                    continue
+                ZDR_lin_tmp = ZH_lin_tmp / ZV_lin_tmp
+                ZDR_lin_diff = ZDR_lin - ZDR_lin_tmp
+                #print(ZDR_lin, ZDR_lin_tmp)
+                # if the observed linear zdr is greater than the calculated one, exit loop with
+                # these values
+                if ZDR_lin_diff * fp < 0:
+                    #print("Here!")
+                    lamda = lamda_1 - np.abs(fp / (ZDR_lin_diff - fp)) * delta_lamda
+                    #print(lamda)
+                    tflag = 1
+                    break
+                else:
+                    fp = ZDR_lin_diff
+                    lamda_1 = lamda
+
+            # think this means a good lambda value was never found or that calculated zdr larger
+            # than observed?
+            if tflag == 0.:
+                N0 = np.nan
+                mu = np.nan
+                lamda = np.nan
+                D0 = np.nan
+                Dm = np.nan
+                sigma = np.nan
+
+                # TODO: Zhang's code uses the relations from Brandes et al. 2004.
+                # But since these are based on *their* CG relation, it seems we'll have to
+                # update these for ours...
+                Nt = calc_Nt_Brandes2004_empirical(ZH_lin, ZDR)
+                W = calc_W_Brandes2004_empirical(ZH_lin, ZDR)
+                RR = calc_RR_Brandes2004_empirical(ZH_lin, ZDR)
+                if ZDR <= 0.35:
+                    D0 = calc_D0_Brandes2004_empirical(ZDR)
+                    sigma = calc_sigma_Brandes2004_empirical(ZDR)
+            else:
+                # Recompute mu from CG relation
+                mu = mu_lamda_coeff[0] + mu_lamda_coeff[1]*lamda + \
+                        mu_lamda_coeff[2] * lamda**2.
+
+                # TODO: below is transcription from Cao and Zhang's original code. Will clean up
+                # to make things clearer...
+                ND = D**mu * np.exp(-lamda*D)   # N0 is multiplied here later... confusing
+                ND[D > Dmx] = 0.0
+                ZH_0 = np.nansum(fa2*ND*dD)
+                M3 = np.nansum(ND*D**3.*dD)
+                M4 = np.nansum(ND*D**4.*dD)
+                RR_0 = np.nansum(np.pi*6.e-4*v_terminal*D**3.*ND*dD)
+                Dm_0 = np.nansum(ND*dD)
+
+                Dm = M4 / M3
+                sigma2 = np.nansum((D - Dm)**2. * ND * D**3. * dD)
+                sigma = np.sqrt(sigma2 / M3)
+                #print(ZH_lin, radar.K2, wavelength_mm, ZH_0)
+                fhh2 = ZH_lin * np.pi**4. * radar.K2 / 4. / wavelength_mm**4.
+                N0 = fhh2 / ZH_0
+                Nt = Dm_0 * N0
+                RR = RR_0 * N0
+                W = 1.e-3 * np.pi / 6. * N0 * M3
+
+                # Compute ND again...this is convoluted... this time *actual* ND
+                ND = N0 * D**mu * np.exp(-lamda * D)
+                ND[D > Dmx] = 0.0
+                M3_bin = ND*D**3.*dD
+                mtp1 = np.nansum(M3_bin)
+                mtp2 = 0.
+                m = 0
+                mas = 0.
+
+                # Compute D0
+                if mtp1 > 0.:
+                    while mas < 0.5:
+                        masp = mtp2 / mtp1
+                        mtp2 = mtp2 + M3_bin[m]
+                        m = m + 1
+                        mas = mtp2 / mtp1
+                    D0 = D[m] - (mas - 0.5) / (mas - masp) * dD[m]
+                else:
+                    D0 = 0.
+    else:
+        RR = np.nan
+        D0 = np.nan
+        Dm = np.nan
+        mu = np.nan
+        lamda = np.nan
+        N0 = np.nan
+        Nt = np.nan
+        W = np.nan
+        sigma = np.nan
+
+    ND = N0 * D**mu * np.exp(-lamda * D)
+    ND[D > Dmx] = 0.0
+
+    retr_dict = {
+        'RR_retr': RR,
+        'D0_retr': D0,
+        'mu_retr': mu,
+        'lamda_retr': lamda,
+        'N0_retr': N0,
+        'Nt_retr': Nt,
+        'W_retr': W,
+        'sigma_retr': sigma,
+        'Dm_retr': Dm,
+        'ND_retr': ND
+    }
+
+    return retr_dict
+
+
+
+
+
+
+
+
+

@@ -365,7 +365,7 @@ def calc_ND_onedrop(sample_interval, correct_rho=False, rho=None):
         xr.DataArray(vd_matrix_onedrop,
                      name='velocity_diameter_onedrop_per_bin',
                      coords={
-                         'time': rho.index,
+                         'time': rho['time'],
                          'diameter': ('diameter_bin', diameter_bins)
                      },
                      dims=['time', 'fallspeed_bin', 'diameter_bin'])
@@ -403,7 +403,7 @@ def calc_fallspeed_spectrum(diameter_bins, fallspeed_bins,
         # exit
         fallspeed_da = xr.DataArray(fallspeed_spectrum,
                                     coords={
-                                        'time': rho.index,
+                                        'time': rho['time'],
                                         'diameter': ('diameter_bin', diameter_bins),
                                     },
                                     dims=['time', 'diameter_bin'])

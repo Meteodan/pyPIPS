@@ -112,7 +112,7 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
         # Compute rainrate using empirical fallspeed curve
         # TODO: allow for the use of the measured fallspeeds in the rainrate calculation.
         fallspeeds_emp = pips.calc_empirical_fallspeed(avg_diameter, correct_rho=True,
-                                                    rho=parsivel_combined_ds['rho'])
+                                                       rho=parsivel_combined_ds['rho'])
         rainrate_bin = (6. * 10.**-4.) * np.pi * fallspeeds_emp * avg_diameter**3. * ND * bin_width
         rainrate = rainrate_bin.sum(dim='diameter_bin')
     else:

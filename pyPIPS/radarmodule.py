@@ -88,8 +88,8 @@ VR_plot_dict = {
 }
 
 # Contains some common aliases for the different fields to match up with the above parameter dicts
-REF_aliases = ['dBZ', 'DBZ', 'Z', 'REF', 'DZ', 'reflectivity']
-ZDR_aliases = ['Zdr', 'ZDR', 'DB_ZDR', 'differential_reflectivity']
+REF_aliases = ['dBZ', 'DBZ', 'Z', 'REF', 'DZ', 'corrected_reflectivity']
+ZDR_aliases = ['Zdr', 'ZDR', 'DB_ZDR', 'corrected_differential_reflectivity']
 KDP_aliases = ['Kdp', 'KDP', 'KD', 'specific_differential_phase']
 PHI_aliases = ['PHI', 'differential_phase']
 RHV_aliases = ['rhv', 'RHV', 'RHO', 'cross_correlation_ratio']
@@ -112,7 +112,6 @@ for fieldname in RHV_aliases:
 
 for fieldname in VR_aliases:
     radar_plot_param_matching[fieldname] = VR_plot_dict
-
 
 # TODO: Add dicts for retrieved parameters based on following if/else statement taken from plotsweep
 
@@ -152,6 +151,66 @@ for fieldname in VR_aliases:
         #     clvls = 2.0
         #     disfmtstr = "{:3.1f}"
 
+# py-ART style metadata for retrieval fields
+retrieval_metadata = {
+    'D0': {
+        'units': 'mm',
+        'standard_name': 'median_volume_diameter',
+        'long_name': 'Median volume diameter',
+        'coordinates': 'elevation azimuth range',
+    },
+    'Dm': {
+        'units': 'mm',
+        'standard_name': 'mass_weighted_mean_diameter',
+        'long_name': 'Mass weighted mean diameter',
+        'coordinates': 'elevation azimuth range',
+    },
+    'N0': {
+        'units': 'per_m_cubed_per_mm_one_plus_mu',
+        'standard_name': 'intercept_parameter',
+        'long_name': 'Intercept parameter for gamma distribution',
+        'coordinates': 'elevation azimuth range',
+    },
+    'Nt': {
+        'units': 'per_m_cubed',
+        'standard_name': 'total_number_concentration',
+        'long_name': 'Total number concentration',
+        'coordinates': 'elevation azimuth range',
+    },
+    'RR': {
+        'units': 'mm_per_hour',
+        'standard_name': 'rain_rate',
+        'long_name': 'Rain rate',
+        'coordinates': 'elevation azimuth range',
+    },
+    'W': {
+        'units': 'g_per_m_cubed',
+        'standard_name': 'liquid_water_content',
+        'long_name': 'Liquid water content',
+        'coordinates': 'elevation azimuth range',
+    },
+    'lamda': {
+        'units': 'per_mm',
+        'standard_name': 'slope_parameter',
+        'long_name': 'Slope parameter for gamma distribution',
+        'coordinates': 'elevation azimuth range',
+    },
+    'mu': {
+        'units': 'unitless',
+        'standard_name': 'shape_parameter',
+        'long_name': 'Shape parameter for gamma distribution',
+        'coordinates': 'elevation azimuth range',
+    },
+    'sigma': {
+        'units': 'mm',
+        'standard_name': 'mass_std_deviation',
+        'long_name': 'Standard deviation of the mass distribution',
+        'coordinates': 'elevation azimuth range',
+    }
+}
+
+epr = 80.205 + 1j * 17.167  # Relative permittivity of liquid water
+K2 = np.abs((epr - 1) / (epr + 2))**2.  # Dielectric constant of liquid water squared
 
 def mtokm(val, pos):
     """Convert m to km for formatting axes tick labels"""
@@ -1711,11 +1770,13 @@ def read_sweeps(radar_paths, starttime, stoptime, field_names=['dBZ'], el_req=0.
     sorted_sweeptimelist = sorted(sweeptimelist)
     sorted_radarsweeplist = [x for _, x in sorted(zip(sweeptimelist, radarsweeplist),
                                                   key=lambda pair: pair[0])]
-
+    sorted_radar_paths_keepers = [x for _, x in sorted(zip(sweeptimelist, radar_paths_keepers),
+                                                       key=lambda pair: pair[0])]
     # Stuff the lists into a dictionary
     radar_dict = {
         'radarsweeplist': sorted_radarsweeplist,
-        'sweeptimelist': sorted_sweeptimelist
+        'sweeptimelist': sorted_sweeptimelist,
+        'radarpathlist': sorted_radar_paths_keepers
     }
     return radar_dict
 
@@ -1863,10 +1924,8 @@ def interp_sweeps_to_one_PIPS(radar_name, radarsweep_list, PIPS_name, rad_loc, a
         distance = np.sqrt((rad_loc[0] - xrad)**2. + (rad_loc[1] - yrad)**2.)
         # Now, find the index of the closest radar gate
         theta_index, range_index = np.unravel_index(distance.argmin(), distance.shape)
-        print("theta_index, range_index", theta_index, range_index)
-        print("Distance to closest gate: ", distance[theta_index, range_index])
         zrad_at_PIPS = zrad[theta_index, range_index]
-        print("Height of radar beam at gate: ", zrad_at_PIPS)
+        print("Height of radar beam at PIPS: ", zrad_at_PIPS)
         radar_field_list = []
         # for field_name, field in list(radarsweep.fields.items()):
         for field_name in all_field_names:

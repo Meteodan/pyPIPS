@@ -16,6 +16,7 @@ from . import PIPS as pips
 from itertools import cycle
 import numpy as np
 import pandas as pd
+import xarray.plot as xrplot
 
 # Set global font size for axes and colorbar labels, etc.
 
@@ -766,7 +767,7 @@ def plotDSDmeteograms(dis_name, image_dir, axparams, disvars, radvars=None, clos
     flaggedtimes = disvars.get('flaggedtimes', N.empty((0)))
     hailflag = disvars.get('hailflag', N.empty((0)))
     if radvars is not None:
-        # D_0_rad = radvars.get('D_0_rad', N.empty((0)))
+        D_0_rad = radvars.get('D_0_rad', N.empty((0)))
         radmidtimes = radvars.get('radmidtimes', N.empty((0)))
 
     # Try to find the desired dualpol variables for plotting in the provided dictionary
@@ -812,6 +813,14 @@ def plotDSDmeteograms(dis_name, image_dir, axparams, disvars, radvars=None, clos
             plotvars.append(D_0_dis)
             plotparamdict2 = {'type': 'line', 'linestyle': ':', 'color': 'r', 'linewidth': 1.0,
                               'label': r'$D_{0,dis} (mm)$'}
+            plotparamdicts.append(plotparamdict2)
+
+        # Retrieved median volume diameter
+        if D_0_rad.size:
+            xvals.append(PSDmidtimes)
+            plotvars.append(D_0_rad)
+            plotparamdict2 = {'type': 'line', 'linestyle': ':', 'color': 'purple', 'linewidth': 1.0,
+                              'label': r'$D_{0,rad} (mm)$'}
             plotparamdicts.append(plotparamdict2)
 
         # Vertical lines for flagged times (such as from wind contamination).
@@ -1046,11 +1055,11 @@ def plot_DSD(axdict, PSDdict, PSDfitdict, PSDparamdict):
     ax1.set_ylabel(r'N(D) $(m^{-4})$')
 
     # FIXME
-    # ypos = 0.95
-    # for paramname, paramtuple in PSDparamdict.items():
-    #     ax1.text(0.50, ypos, paramtuple[1] + ' = %2.2f' % paramtuple[0],
-    #              transform=ax1.transAxes)
-    #     ypos = ypos - 0.05
+    ypos = 0.95
+    for paramname, paramtuple in PSDparamdict.items():
+        ax1.text(0.50, ypos, paramtuple[1] + ' = {:2.2f}'.format(np.float(paramtuple[0])),
+                 transform=ax1.transAxes)
+        ypos = ypos - 0.05
 
     plt.legend(loc='upper left', numpoints=1, ncol=1, fontsize=8)
 
@@ -1350,3 +1359,50 @@ def plot_mu_lamda(lamda, mu, poly_coeff, poly, title=None):
     plt.legend(loc='upper left', numpoints=1, ncol=3, fontsize=12.)
 
     return fig, ax
+
+
+def plot_one2one(ds, var_x, var_y, axparams, compute_stats=True):
+    label_x = axparams.get('label_x', var_x)
+    label_y = axparams.get('label_y', var_y)
+    var_lims = axparams.get('var_lims', [0., 1.])
+    plot_log = axparams.get('plot_log', False)
+    col_field = axparams.get('col_field', None)
+    label_cb = axparams.get('label_cb', col_field)
+    norm = axparams.get('norm', None)
+    col_field_lims = axparams.get('col_field_lims', [0., 1.])
+    color = axparams.get('color', 'k')
+    alpha = axparams.get('alpha', 1.)
+    markersize = axparams.get('markersize', 10)
+
+    if plot_log:
+        var_lims = [10.**v for v in var_lims]
+
+    fig, ax = plt.subplots(figsize=(10, 10))
+    if col_field:
+        xrplot.scatter(ds, var_x, var_y, ax=ax, hue=col_field, hue_style='continuous', norm=norm,
+                       vmin=col_field_lims[0], vmax=col_field_lims[1], alpha=alpha, s=markersize,
+                       cbar_kwargs={'label': label_cb})
+    else:
+        xrplot.scatter(ds, var_x, var_y, ax=ax, colors=color)
+    ax.plot(var_lims, var_lims, color='k')
+
+    if compute_stats:
+        bias = (100. * (ds[var_y] - ds[var_x]).mean() / ds[var_x].mean()).values
+        cc = pd.DataFrame({'x': ds[var_x], 'y': ds[var_y]}).corr()
+        ax.text(0.1, 0.9, r'$\rho$: {:.2f}'.format(cc.iloc[0, 1]), transform=ax.transAxes)
+        ax.text(0.1, 0.85, r'Bias: {:.2f} %'.format(bias), transform=ax.transAxes)
+
+    ax.set_xlabel(label_x)
+    ax.set_ylabel(label_y)
+    if plot_log:
+        ax.set_xscale('log')
+        ax.set_yscale('log')
+    ax.set_xlim(var_lims)
+    ax.set_ylim(var_lims)
+    ax.set_aspect('equal')
+
+    return fig, ax
+
+
+
+

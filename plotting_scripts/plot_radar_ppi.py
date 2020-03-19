@@ -73,8 +73,6 @@ geo_locs = config.PIPS_IO_dict.get('geo_locs', [None]*len(PIPS_names))
 requested_interval = config.PIPS_IO_dict.get('requested_interval', 10.)
 
 # Extract needed lists and variables from the radar_dict configuration dictionary
-load_radar_at_PIPS = config.radar_config_dict.get('load_radar_at_PIPS', False)
-save_radar_at_PIPS = config.radar_config_dict.get('save_radar_at_PIPS', False)
 comp_radar = config.radar_config_dict.get('comp_radar', False)
 clean_radar = config.radar_config_dict.get('comp_radar', False)
 calc_dualpol = config.radar_config_dict.get('calc_dualpol', False)
@@ -129,8 +127,8 @@ for radar_obj, sweeptime in zip(radar_dict['radarsweeplist'], radar_dict['sweept
                                                             geo_locs, rad_locs, field_names)
 
     for fig, ax, field_name in zip(figlist, axlist, fields_plotted):
-        PIPS_plot_name = '{}_{}_{}_{}deg.png'.format(field_name, deployment_name,
-                                                     sweeptime_string, str(el_req))
+        PIPS_plot_name = '{}_{}_{}_{}_{}deg.png'.format(field_name, deployment_name,
+                                                        sweeptime_string, radar_name, str(el_req))
         PIPS_plot_path = os.path.join(radar_ppi_image_dir, PIPS_plot_name)
         fig.savefig(PIPS_plot_path, dpi=200, bbox_inches='tight')
         plt.close(fig)

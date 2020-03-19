@@ -37,9 +37,9 @@ radar_config_dict = {
     'radar_type': 'XTRRA',
     'radar_dir': '/Users/dawson29/sshfs_mounts/depot/data/Projects/XTRRA/2019/09/27/CFRadial',
     'field_names': ['REF', 'ZDR', 'RHO'],
-    'el_req': 3.1,
-    'radar_start_timestamp': '20190927190015',
-    'radar_end_timestamp': '20190927205801',
-    'scatt_dir': '/Users/dawson29/Projects/pyPIPS/tmatrix/S-Band/',
-    'wavelength': 10.7
+    'el_req': 5.1,
+    'radar_start_timestamp': '20190927190000',
+    'radar_end_timestamp': '20190927210000',
+    'scatt_dir': '/Users/dawson29/Projects/pyPIPS/tmatrix/X-Band/',
+    'wavelength': 3.2
 }

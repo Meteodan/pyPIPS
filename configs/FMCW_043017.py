@@ -30,13 +30,14 @@ radar_config_dict = {
     'comp_radar': True,
     'clean_radar': False,
     'calc_dualpol': True,
+    'plot_retrieval': True,
     'radar_name': 'KHTX',
     'radar_type': 'NEXRAD',
-    'radar_dir': '/Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/2017/NEXRAD/PIPS2A_FMCW/0430/CFRadial',
+    'radar_dir': '/Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/2017/NEXRAD/PIPS2A_FMCW/0430/CFRadial/modified/',
     'field_names': ['REF', 'ZDR', 'RHO'],
     'el_req': 0.5,
     'radar_start_timestamp': '20170430190000',
     'radar_end_timestamp': '20170430235959',
-    'scatt_dir': '/Users/dawson29/Projects/pyPIPS/tmatrix/X-Band/',
-    'wavelength': 3.2
+    'scatt_dir': '/Users/dawson29/Projects/pyPIPS/tmatrix/S-Band/',
+    'wavelength': 10.7
 }

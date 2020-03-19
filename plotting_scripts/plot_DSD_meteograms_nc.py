@@ -37,7 +37,6 @@ parser.add_argument('--plot-config-path', dest='plot_config_path',
 parser.add_argument('--plot-raw', action='store_true', dest='plot_raw',
                     help='plot raw ND')
 
-
 args = parser.parse_args()
 
 plot_raw = args.plot_raw
@@ -86,6 +85,7 @@ save_radar_at_PIPS = config.radar_config_dict.get('save_radar_at_PIPS', False)
 comp_radar = config.radar_config_dict.get('comp_radar', False)
 clean_radar = config.radar_config_dict.get('comp_radar', False)
 calc_dualpol = config.radar_config_dict.get('calc_dualpol', False)
+plot_retrieval = config.radar_config_dict.get('plot_retrieval', False)
 radar_name = config.radar_config_dict.get('radar_name', None)
 radar_dir = config.radar_config_dict.get('radar_dir', None)
 field_names = config.radar_config_dict.get('field_names', ['REF'])
@@ -199,9 +199,6 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
     if comp_radar:
         # print(radar_fields_at_PIPS_da)
         # At least add the reflectivity
-        # Find the name of the reflectivity field in the file
-        # STOPPED HERE. #TODO find name of reflectivity field in file using list of aliases
-        # in radarmodule.py
         # First get list of radar fields in DataArray
         dim_name = 'fields_{}'.format(radar_name)
         radar_fields = radar_fields_at_PIPS_da.coords[dim_name].values
@@ -215,8 +212,9 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
         radvars = {'radmidtimes': PSD_centertimes, 'REF': dBZ_D_plt}
         # Add other polarimetric fields
         if calc_dualpol:
-            for radvar_name, radvar_aliases in zip(['ZDR', 'RHO'],
-                                                   [radar.ZDR_aliases, radar.RHV_aliases]):
+            for radvar_name, radvar_aliases in zip(['ZDR', 'RHO', 'KDP'],
+                                                   [radar.ZDR_aliases, radar.RHV_aliases,
+                                                    radar.KDP_aliases]):
                 radvar_name_in_file = radar.find_radar_field_name(radar_fields, radvar_aliases)
                 if radvar_name_in_file:
                     dualpol_rad_var = radar_fields_at_PIPS_da.loc[{dim_name: radvar_name_in_file}]
@@ -228,6 +226,10 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
                 for radvarname in ['ZDR', 'REF', 'RHO']:
                     radvars[radvarname] = np.ma.masked_array(radvars[radvarname],
                                                              mask=gc_mask)
+        if plot_retrieval:
+            # Plot D_0 as overlay on other plots for now
+            radvars['D_0_rad'] = radar_fields_at_PIPS_da.loc[{dim_name: 'D0'}]
+
 
     # Make the plot
     PIPS_plot_name = '{}_{}_{}_{}_{}{}'.format(PIPS_name, deployment_name, start_time_string,
