@@ -107,12 +107,15 @@ for parsivel_combined_file in parsivel_combined_filelist:
         radar.interp_sweeps_to_one_PIPS(radar_name, radar_dict['radarsweeplist'], PIPS_name,
                                         rad_loc, sweeptime_list=radar_dict['sweeptimelist'],
                                         average_gates=False)
+    # Get rid of existing interpolated fields
+    if '{}_at_PIPS'.format(radar_name) in parsivel_combined_ds:
+        parsivel_combined_ds = parsivel_combined_ds.drop('{}_at_PIPS'.format(radar_name))
+        parsivel_combined_ds = parsivel_combined_ds.drop('fields_{}'.format(radar_name))
     # Interpolate radar fields to the PIPS times
     radar_fields_at_PIPS_da = radar_fields_at_PIPS_da.interp_like(parsivel_combined_ds)
     parsivel_combined_ds = pipsio.combine_parsivel_data(parsivel_combined_ds,
                                                         radar_fields_at_PIPS_da,
                                                         name='{}_at_PIPS'.format(radar_name))
-    print(parsivel_combined_ds)
     parsivel_combined_ds.close()
     # Save updated dataset back to file
     parsivel_combined_ds.to_netcdf(parsivel_combined_file)

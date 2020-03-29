@@ -164,10 +164,12 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
     # Set up axis parameters
     try:
         start_datetime = datetime.strptime(start_time, tm.timefmt3)
+        print('start_datetime', start_datetime)
     except (ValueError, TypeError):
         start_datetime = PSD_edgetimes[0]
     try:
         end_datetime = datetime.strptime(end_time, tm.timefmt3)
+        print('end_datetime', end_datetime)
     except (ValueError, TypeError):
         end_datetime = PSD_edgetimes[-1]
     timelimits = [start_datetime, end_datetime]
