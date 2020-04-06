@@ -1361,7 +1361,8 @@ def plot_mu_lamda(lamda, mu, poly_coeff, poly, title=None):
     return fig, ax
 
 
-def plot_one2one(ds, var_x, var_y, axparams, compute_stats=True):
+def plot_one2one(ds, var_x, var_y, axparams, fig=None, ax=None, compute_stats=True,
+                 add_colorbar=True):
     label_x = axparams.get('label_x', var_x)
     label_y = axparams.get('label_y', var_y)
     var_lims = axparams.get('var_lims', [0., 1.])
@@ -1373,15 +1374,24 @@ def plot_one2one(ds, var_x, var_y, axparams, compute_stats=True):
     color = axparams.get('color', 'k')
     alpha = axparams.get('alpha', 1.)
     markersize = axparams.get('markersize', 10)
+    markerstyle = axparams.get('markerstyle', 'o')
+    stat_text_loc = axparams.get('stat_text_loc', [(0.1, 0.9), (0.1, 0.85)])
+    stat_labels = axparams.get('stat_labels', [r'$\rho_{{rd}}$: {:.2f}',
+                                               r'Bias$_{{rd}}$: {:.2f}'])
 
     if plot_log:
         var_lims = [10.**v for v in var_lims]
 
-    fig, ax = plt.subplots(figsize=(10, 10))
+    if not ax:
+        fig, ax = plt.subplots(figsize=(10, 10))
+    elif not fig:
+        fig = plt.gcf()
+
     if col_field:
         xrplot.scatter(ds, var_x, var_y, ax=ax, hue=col_field, hue_style='continuous', norm=norm,
                        vmin=col_field_lims[0], vmax=col_field_lims[1], alpha=alpha, s=markersize,
-                       cbar_kwargs={'label': label_cb})
+                       marker=markerstyle, cbar_kwargs={'label': label_cb},
+                       add_guide=add_colorbar)
     else:
         xrplot.scatter(ds, var_x, var_y, ax=ax, colors=color)
     ax.plot(var_lims, var_lims, color='k')
@@ -1389,8 +1399,8 @@ def plot_one2one(ds, var_x, var_y, axparams, compute_stats=True):
     if compute_stats:
         bias = (100. * (ds[var_y] - ds[var_x]).mean() / ds[var_x].mean()).values
         cc = pd.DataFrame({'x': ds[var_x], 'y': ds[var_y]}).corr()
-        ax.text(0.1, 0.9, r'$\rho$: {:.2f}'.format(cc.iloc[0, 1]), transform=ax.transAxes)
-        ax.text(0.1, 0.85, r'Bias: {:.2f} %'.format(bias), transform=ax.transAxes)
+        ax.text(*stat_text_loc[0], stat_labels[0].format(cc.iloc[0, 1]), transform=ax.transAxes)
+        ax.text(*stat_text_loc[1], stat_labels[1].format(bias), transform=ax.transAxes)
 
     ax.set_xlabel(label_x)
     ax.set_ylabel(label_y)
@@ -1401,6 +1411,76 @@ def plot_one2one(ds, var_x, var_y, axparams, compute_stats=True):
     ax.set_ylim(var_lims)
     ax.set_aspect('equal')
 
+    return fig, ax
+
+
+def plot_retr_timeseries(obs_dict, retr_dis_dict, retr_rad_dict, DSDmidtimes, axparams, fig=None,
+                         ax=None, compute_stats=True, name=None):
+
+    obs = obs_dict.get('field', None)
+    retr_dis = retr_dis_dict.get('field', None)
+    retr_rad = retr_rad_dict.get('field', None)
+
+    obs_param_dict = obs_dict.get('plotparams', {
+        'linestyle': '-',
+        'color': 'k',
+        'alpha': 0.25,
+        'plotmin': 0,
+        'label': r'observed'
+    })
+
+    retr_dis_param_dict = retr_dis_dict.get('plotparams', {
+        'linestyle': '-',
+        'color': 'c',
+        'alpha': 0.25,
+        'plotmin': 0,
+        'label': r'dis retrieved'
+    })
+
+    retr_rad_param_dict = retr_rad_dict.get('plotparams', {
+        'linestyle': '-',
+        'color': 'g',
+        'alpha': 0.25,
+        'plotmin': 0,
+        'label': r'rad retrieved'
+    })
+
+    if compute_stats:
+        bias_dis = (100. * (retr_dis - obs).mean() / obs.mean()).values
+        bias_rad = (100. * (retr_rad - obs).mean() / obs.mean()).values
+        cc_dis = pd.DataFrame({'x': obs, 'y': retr_dis}).corr()
+        cc_rad = pd.DataFrame({'x': obs, 'y': retr_rad}).corr()
+
+    if not ax:
+        fig, ax = plt.subplots(figsize=(10, 10))
+    elif not fig:
+        fig = plt.gcf()
+
+    fields = [obs, retr_dis, retr_rad]
+    fieldparamdicts = [obs_param_dict, retr_dis_param_dict, retr_rad_param_dict]
+    xvals = [DSDmidtimes] * len(fields)
+    ax = plotmeteogram(ax, xvals, fields, fieldparamdicts)
+    axparamdicts = [axparams]
+    ax, = set_meteogram_axes([ax], axparamdicts)
+    if (name == 'Nt' or name == 'R'):
+        ax.set_yscale('log')
+    ax.text(0.05, 0.93, 'Dis Retr. Bias =%2.2f' % bias_dis + '%', transform=ax.transAxes)
+    ax.text(0.05, 0.86, 'Rad Retr. Bias =%2.2f' % bias_rad + '%', transform=ax.transAxes)
+    ax.text(0.05, 0.79, 'Dis Retr. Corr Coeff =%2.3f' %
+            cc_dis.iloc[0, 1], transform=ax.transAxes)
+    ax.text(0.05, 0.72, 'Rad Retr. Corr Coeff =%2.3f' %
+            cc_rad.iloc[0, 1], transform=ax.transAxes)
+    ax.legend(
+        bbox_to_anchor=(
+            1.,
+            1.),
+        loc='upper right',
+        ncol=1,
+        fancybox=True,
+        shadow=False,
+        prop=fontP)
+    # plt.savefig(image_dir + 'meteograms/' + dis_name + '_' + name + '.png', dpi=300)
+    # plt.close(fig)
     return fig, ax
 
 
