@@ -36,6 +36,9 @@ parser.add_argument('case_config_path', metavar='<path/to/case/config/file.py>',
                     help='The path to the case configuration file')
 parser.add_argument('--plot-config-path', dest='plot_config_path',
                     default='plot_config.py', help='Location of the plot configuration file')
+parser.add_argument('--plot-filtered-fields', dest='plot_filtered', default=False,
+                    action='store_true',
+                    help='Whether to also plot previously filtered dBZ and ZDR fields for the retrieval')
 
 args = parser.parse_args()
 
@@ -114,6 +117,9 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
     PIPS_name = parsivel_combined_ds.probe_name
     PIPS_names.append(PIPS_name)
     deployment_name = parsivel_combined_ds.deployment_name
+    image_dir = os.path.join(radar_ppi_image_dir, deployment_name)
+    if not os.path.exists(image_dir):
+        os.makedirs(image_dir)
     geo_loc_str = parsivel_combined_ds.location
     geo_loc = list(map(np.float, geo_loc_str.strip('()').split(',')))
     geo_locs.append(geo_loc)
@@ -124,12 +130,13 @@ for radar_obj, sweeptime in zip(radar_dict['radarsweeplist'], radar_dict['sweept
     print(radar_obj.info())
     sweeptime_string = sweeptime.strftime(tm.timefmt3)
     figlist, axlist, fields_plotted = radar.plotsweep_pyART(radar_obj, sweeptime, PIPS_names,
-                                                            geo_locs, rad_locs, field_names)
+                                                            geo_locs, rad_locs, field_names,
+                                                            plot_filtered=args.plot_filtered)
 
     for fig, ax, field_name in zip(figlist, axlist, fields_plotted):
         PIPS_plot_name = '{}_{}_{}_{}_{}deg.png'.format(field_name, deployment_name,
                                                         sweeptime_string, radar_name, str(el_req))
-        PIPS_plot_path = os.path.join(radar_ppi_image_dir, PIPS_plot_name)
+        PIPS_plot_path = os.path.join(image_dir, PIPS_plot_name)
         fig.savefig(PIPS_plot_path, dpi=200, bbox_inches='tight')
         plt.close(fig)
 

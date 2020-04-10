@@ -42,6 +42,11 @@ parser = argparse.ArgumentParser(description=description)
 parser.add_argument('case_config_path', metavar='<path/to/case/config/file.py>',
                     help='The path to the case configuration file')
 parser.add_argument('--lookup-dir', dest='lookup_dir', help='directory where lookup tables reside')
+parser.add_argument('--use-filtered-fields', dest='use_filtered_fields', default=False,
+                    action='store_true',
+                    help='Whether to use previously filtered dBZ and ZDR fields for the retrieval')
+parser.add_argument('--radar-output-dir', metavar='<directory_name>', dest='radar_output_dir',
+                    help='The output subdirectory for the modified radar files')
 args = parser.parse_args()
 
 # Dynamically import the case configuration file
@@ -91,18 +96,23 @@ radar_dict = radar.read_sweeps(radar_paths, radar_start_timestamp,
 
 new_radar_paths = radar_dict['radarpathlist']
 
-radar_output_dir = os.path.join(radar_dir, 'modified')
+radar_output_dir = os.path.join(radar_dir, args.radar_output_dir)
 if not os.path.exists(radar_output_dir):
     os.makedirs(radar_output_dir)
 
 radar_output_paths = [os.path.join(radar_output_dir, os.path.basename(radar_path)) for radar_path
                       in new_radar_paths]
 
+if args.use_filtered_fields:
+    tag = '_filtered'
+else:
+    tag = None
+
 for radar_obj, radar_output_path in zip(radar_dict['radarsweeplist'], radar_output_paths):
     print("Getting ZH and ZDR fields")
     # Get the ZH and ZDR fields from the radar object
-    ZH_rad_tuple = radar.get_field_to_plot(radar_obj, radar.REF_aliases)
-    ZDR_rad_tuple = radar.get_field_to_plot(radar_obj, radar.ZDR_aliases)
+    ZH_rad_tuple = radar.get_field_to_plot(radar_obj, radar.REF_aliases, tag=tag)
+    ZDR_rad_tuple = radar.get_field_to_plot(radar_obj, radar.ZDR_aliases, tag=tag)
     ZH_rad = ZH_rad_tuple[1]['data']
     ZDR_rad = ZDR_rad_tuple[1]['data']
     # Get the masks for both ZH_rad and ZDR_rad. These will be used later to mask the retrieved

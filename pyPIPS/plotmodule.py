@@ -1361,12 +1361,11 @@ def plot_mu_lamda(lamda, mu, poly_coeff, poly, title=None):
     return fig, ax
 
 
-def plot_one2one(ds, var_x, var_y, axparams, fig=None, ax=None, compute_stats=True,
-                 add_colorbar=True):
+def plot_scatter(ds, var_x, var_y, axparams, fig=None, ax=None, add_colorbar=True):
     label_x = axparams.get('label_x', var_x)
     label_y = axparams.get('label_y', var_y)
-    var_lims = axparams.get('var_lims', [0., 1.])
-    plot_log = axparams.get('plot_log', False)
+    var_lims = axparams.get('var_lims', [[0., 1.], [0., 1.]])
+    plot_log = axparams.get('plot_log', [False, False])
     col_field = axparams.get('col_field', None)
     label_cb = axparams.get('label_cb', col_field)
     norm = axparams.get('norm', None)
@@ -1375,12 +1374,11 @@ def plot_one2one(ds, var_x, var_y, axparams, fig=None, ax=None, compute_stats=Tr
     alpha = axparams.get('alpha', 1.)
     markersize = axparams.get('markersize', 10)
     markerstyle = axparams.get('markerstyle', 'o')
-    stat_text_loc = axparams.get('stat_text_loc', [(0.1, 0.9), (0.1, 0.85)])
-    stat_labels = axparams.get('stat_labels', [r'$\rho_{{rd}}$: {:.2f}',
-                                               r'Bias$_{{rd}}$: {:.2f}'])
 
-    if plot_log:
-        var_lims = [10.**v for v in var_lims]
+    if plot_log[0]:
+        var_lims[0] = [10.**v for v in var_lims[0]]
+    if plot_log[1]:
+        var_lims[1] = [10.**v for v in var_lims[1]]
 
     if not ax:
         fig, ax = plt.subplots(figsize=(10, 10))
@@ -1394,22 +1392,37 @@ def plot_one2one(ds, var_x, var_y, axparams, fig=None, ax=None, compute_stats=Tr
                        add_guide=add_colorbar)
     else:
         xrplot.scatter(ds, var_x, var_y, ax=ax, colors=color)
-    ax.plot(var_lims, var_lims, color='k')
+
+    ax.set_xlabel(label_x)
+    ax.set_ylabel(label_y)
+    if plot_log[0]:
+        ax.set_xscale('log')
+    if plot_log[1]:
+        ax.set_yscale('log')
+    ax.set_xlim(var_lims[0])
+    ax.set_ylim(var_lims[1])
+    ax.set_aspect('equal')
+
+    return fig, ax
+
+
+def plot_one2one(ds, var_x, var_y, axparams, fig=None, ax=None, compute_stats=True,
+                 add_colorbar=True):
+
+    var_lims = axparams.get('var_lims', [[0., 1.], [0., 1.]])
+    if compute_stats:
+        stat_text_loc = axparams.get('stat_text_loc', [(0.1, 0.9), (0.1, 0.85)])
+        stat_labels = axparams.get('stat_labels', [r'$\rho_{{rd}}$: {:.2f}',
+                                                   r'Bias$_{{rd}}$: {:.2f}'])
+
+    fig, ax = plot_scatter(ds, var_x, var_y, axparams, fig=fig, ax=ax, add_colorbar=add_colorbar)
+    ax.plot(var_lims[0], var_lims[1], color='k')
 
     if compute_stats:
         bias = (100. * (ds[var_y] - ds[var_x]).mean() / ds[var_x].mean()).values
         cc = pd.DataFrame({'x': ds[var_x], 'y': ds[var_y]}).corr()
         ax.text(*stat_text_loc[0], stat_labels[0].format(cc.iloc[0, 1]), transform=ax.transAxes)
         ax.text(*stat_text_loc[1], stat_labels[1].format(bias), transform=ax.transAxes)
-
-    ax.set_xlabel(label_x)
-    ax.set_ylabel(label_y)
-    if plot_log:
-        ax.set_xscale('log')
-        ax.set_yscale('log')
-    ax.set_xlim(var_lims)
-    ax.set_ylim(var_lims)
-    ax.set_aspect('equal')
 
     return fig, ax
 

@@ -106,6 +106,9 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
     DSD_interval = parsivel_combined_ds.DSD_interval
     PIPS_name = parsivel_combined_ds.probe_name
     deployment_name = parsivel_combined_ds.deployment_name
+    image_dir = os.path.join(meteogram_image_dir, deployment_name)
+    if not os.path.exists(image_dir):
+        os.makedirs(image_dir)
     fname_tag = ''
     if comp_radar:
         radar_fields_at_PIPS_da = parsivel_combined_ds['{}_at_PIPS'.format(radar_name)]
@@ -185,6 +188,6 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
     plot_name = '{}_{}_{}_{}_{}_{}_retr'.format(PIPS_name, deployment_name, start_time_string,
                                                 end_time_string, 'D0', fname_tag)
 
-    plot_path = os.path.join(meteogram_image_dir, plot_name)
+    plot_path = os.path.join(image_dir, plot_name)
     fig.savefig(plot_path, dpi=200, bbox_inches='tight')
     plt.close(fig)

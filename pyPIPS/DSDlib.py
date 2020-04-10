@@ -1196,6 +1196,26 @@ def calc_rainrate_from_bins(ND, correct_rho=False, rho=None):
     return rainrate
 
 
+def calc_empirical_polyfit(var_x, var_y, order=3):
+    """Compute a 3rd-order polynomial fit to two variables
+
+    Parameters
+    ----------
+    var_x : array_like
+        first variable
+    var_y : array_like
+        second variable
+
+    Returns
+    -------
+    tuple (np.ndarray, np.polynomial.polynomial.Polynomial)
+        The coefficients of the polynomial along with the Polynomial class object
+    """
+
+    poly_coeff = np.polynomial.polynomial.polyfit(var_x, var_y, order)
+    poly = np.polynomial.polynomial.Polynomial(poly_coeff)
+    return poly_coeff, poly
+
 def calc_CG_polynomial(lamda, mu):
     """Computes a least-squares quadratic polynomial fit to the mu-lamda points
 

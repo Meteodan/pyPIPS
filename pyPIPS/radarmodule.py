@@ -496,7 +496,7 @@ def readCFRadial_pyART(el, filename, sweeptime, fieldnames, radlat=None, radlon=
     return radarsweep
 
 
-def get_field_to_plot(radar_obj, field_name_list):
+def get_field_to_plot(radar_obj, field_name_list, tag=None):
     """Attempts to retrieve a field from a pyART radar object using a list of common aliases for
        that field.
 
@@ -512,7 +512,11 @@ def get_field_to_plot(radar_obj, field_name_list):
     tuple
         (field_name, field)
     """
-    return next((f for f in list(radar_obj.fields.items()) if f[0] in field_name_list), None)
+    if tag:
+        new_field_name_list = [field_name+tag for field_name in field_name_list]
+    else:
+        new_field_name_list = field_name_list
+    return next((f for f in list(radar_obj.fields.items()) if f[0] in new_field_name_list), None)
 
 
 
@@ -1210,7 +1214,7 @@ def plotsweep(radlims, plotlims, fieldnames, fieldlist, masklist, range_start, r
 
 
 def plotsweep_pyART(radar_obj, sweeptime, PIPS_names, PIPS_geo_locs, PIPS_rad_locs, radar_fields,
-                    PIPS_fields=None, bounds=[-20., 20., -20., 20.]):
+                    PIPS_fields=None, bounds=[-20., 20., -20., 20.], plot_filtered=False):
     """
     Plots an individual radar sweep, with an option to overlay a map.  This version uses pyART
     routines and assumes the radar sweep has been read in using readCFRadial_pyART.
@@ -1248,13 +1252,23 @@ def plotsweep_pyART(radar_obj, sweeptime, PIPS_names, PIPS_geo_locs, PIPS_rad_lo
         if field_to_plot:
             fields_to_plot.append(field_to_plot[0])
 
+        if plot_filtered:
+            if field in REF_aliases:
+                field_to_plot = get_field_to_plot(radar_obj, REF_aliases, tag='_filtered')
+            elif field in ZDR_aliases:
+                field_to_plot = get_field_to_plot(radar_obj, ZDR_aliases, tag='_filtered')
+            if field_to_plot:
+                fields_to_plot.append(field_to_plot[0])
+
     for field in fields_to_plot:
         fig, ax = plt.subplots(figsize=(10, 8))
         titlestringfmt = 'Radar name: {}; Field: {}; Time: {}; elevation: {}'
         titlestring = titlestringfmt.format(radar_obj.metadata['instrument_name'], field,
                                             sweeptime.strftime(tm.timefmt3),
                                             radar_obj.elevation['data'][0])
-        field_plot_params = radar_plot_param_matching[field]
+
+        field_to_match = field.replace('_filtered', '')
+        field_plot_params = radar_plot_param_matching[field_to_match]
 
         # TODO: add colorbar label levels, other arguments
         display.plot_ppi_map(field, 0, title=titlestring, cmap=field_plot_params['cmap'],

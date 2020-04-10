@@ -36,6 +36,9 @@ parser.add_argument('--plot-config-path', dest='plot_config_path',
                     default='plot_config.py', help='Location of the plot configuration file')
 parser.add_argument('--plot-raw', action='store_true', dest='plot_raw',
                     help='plot raw ND')
+parser.add_argument('--use-filtered-fields', dest='use_filtered_fields', default=False,
+                    action='store_true',
+                    help='Whether to use previously filtered dBZ and ZDR fields for the retrieval')
 
 args = parser.parse_args()
 
@@ -115,6 +118,9 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
     DSD_interval = parsivel_combined_ds.DSD_interval
     PIPS_name = parsivel_combined_ds.probe_name
     deployment_name = parsivel_combined_ds.deployment_name
+    image_dir = os.path.join(meteogram_image_dir, deployment_name)
+    if not os.path.exists(image_dir):
+        os.makedirs(image_dir)
     fname_tag = tag
     if comp_radar:
         radar_fields_at_PIPS_da = parsivel_combined_ds['{}_at_PIPS'.format(radar_name)]
@@ -207,7 +213,8 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
         # Then find which one corresponds to reflectivity
         # ref_name = next((fname for fname in radar_fields if fname in radar.REF_aliases))
         ref_name = radar.find_radar_field_name(radar_fields, radar.REF_aliases)
-
+        if args.use_filtered_fields:
+            ref_name = ref_name + '_filtered'
         dBZ_D_plt = radar_fields_at_PIPS_da.loc[{dim_name: ref_name}]
         # indexrad = sb.outfieldnames.index('dBZ')
         # dBZ_D_plt = sb.fields_D_tarr[:, index, indexrad]
@@ -218,10 +225,13 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
                                                    [radar.ZDR_aliases, radar.RHV_aliases,
                                                     radar.KDP_aliases]):
                 radvar_name_in_file = radar.find_radar_field_name(radar_fields, radvar_aliases)
+                if radvar_name == 'ZDR' and args.use_filtered_fields:
+                    radvar_name_in_file = radvar_name_in_file + '_filtered'
                 if radvar_name_in_file:
                     dualpol_rad_var = radar_fields_at_PIPS_da.loc[{dim_name: radvar_name_in_file}]
                     if dualpol_rad_var.size:
                         radvars[radvar_name] = dualpol_rad_var
+            # TODO: this code below is obsolescent, as filtering is done elsewhere now.
             if clean_radar:
                 # remove non-precipitation echoes from radar data
                 gc_mask = np.where((radvars['RHO'] < 0.90), True, False)
@@ -236,4 +246,4 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
     # Make the plot
     PIPS_plot_name = '{}_{}_{}_{}_{}{}'.format(PIPS_name, deployment_name, start_time_string,
                                                end_time_string, DSDtype, fname_tag)
-    pm.plotDSDmeteograms(PIPS_plot_name, meteogram_image_dir, axparams, disvars, radvars.copy())
+    pm.plotDSDmeteograms(PIPS_plot_name, image_dir, axparams, disvars, radvars.copy())
