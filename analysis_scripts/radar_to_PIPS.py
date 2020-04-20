@@ -40,6 +40,8 @@ description = "interpolates radar observations to the PIPS locations and times"
 parser = argparse.ArgumentParser(description=description)
 parser.add_argument('case_config_path', metavar='<path/to/case/config/file.py>',
                     help='The path to the case configuration file')
+parser.add_argument('--average-gates', dest='average_gates', default=False, action='store_true',
+                    help='Whether to average the nearest gates when interpolating to PIPS location')
 args = parser.parse_args()
 
 # Dynamically import the case configuration file
@@ -106,7 +108,7 @@ for parsivel_combined_file in parsivel_combined_filelist:
     radar_fields_at_PIPS_da = \
         radar.interp_sweeps_to_one_PIPS(radar_name, radar_dict['radarsweeplist'], PIPS_name,
                                         rad_loc, sweeptime_list=radar_dict['sweeptimelist'],
-                                        average_gates=False)
+                                        average_gates=args.average_gates)
     # Get rid of existing interpolated fields
     if '{}_at_PIPS'.format(radar_name) in parsivel_combined_ds:
         parsivel_combined_ds = parsivel_combined_ds.drop('{}_at_PIPS'.format(radar_name))

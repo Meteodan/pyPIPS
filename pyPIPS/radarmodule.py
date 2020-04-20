@@ -519,7 +519,6 @@ def get_field_to_plot(radar_obj, field_name_list, tag=None):
     return next((f for f in list(radar_obj.fields.items()) if f[0] in new_field_name_list), None)
 
 
-
 def readCFRadial(nexrad, el, radlat, radlon, radalt, file, sweeptime, fieldnames):
     """Reads radar data from a CFRadial netCDF file.  Attempts to extract fields given by
        the input list "fieldnames".  For nexrad files, which contain an entire volume
