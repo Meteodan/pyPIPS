@@ -34,11 +34,11 @@ radar_config_dict = {
     'plot_retrieval': True,
     'radar_name': 'KHTX',
     'radar_type': 'NEXRAD',
-    'radar_dir': '/Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/2016/NEXRAD/IOP_4C/HTX/CFRadial/filtered/SATP_retr',
-    'field_names': ['REF', 'ZDR', 'RHO'],
+    'radar_dir': '/Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/2016/NEXRAD/IOP_4C/HTX/CFRadial/filtered/SATP_retr/',
+    'field_names': ['REF', 'ZDR', 'RHO', 'Dm', 'sigma', 'RR', 'mu', 'lamda'],
     'el_req': 0.5,
     'radar_start_timestamp': '20160430190000',
-    'radar_end_timestamp': '20160430221000',
+    'radar_end_timestamp': '20160430191000', # s'20160501000000',
     'scatt_dir': '/Users/dawson29/Projects/pyPIPS/tmatrix/S-Band/',
     'wavelength': 10.7
 }

@@ -4,7 +4,7 @@ import Nio
 import netCDF4
 import numpy as np
 import matplotlib
-# matplotlib.use('TkAgg')
+matplotlib.use('Agg')
 # matplotlib.use('MacOSX')
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
@@ -87,6 +87,55 @@ VR_plot_dict = {
     'disfmtstr': "{:3.1f} m/s"
 }
 
+D0_plot_dict = {
+    'cmap': cmapretrievals,
+    'clevels': clevels_d0,
+    'cbint': 0.5,
+    'disfmtstr': "{:3.1f} mm"
+}
+
+Dm_plot_dict = {
+    'cmap': cmapretrievals,
+    'clevels': clevels_d0,
+    'cbint': 0.5,
+    'disfmtstr': "{:3.1f} mm"
+}
+
+RR_plot_dict = {
+    'cmap': cmapretrievals,
+    'clevels': clevels_rain,
+    'cbint': [0.1, 1.0, 3.0, 5.0, 10.0, 15.0, 20.0, 30.0, 50.0, 75.0, 100.0, 150.0, 200.0],
+    'disfmtstr': "{:3.1f} mm/hr"
+}
+
+W_plot_dict = {
+    'cmap': cmapretrievals,
+    'clevels': clevels_lwc,
+    'cbint': [0.01, 0.1, 0.3, 0.5, 1.0, 1.5, 2., 3., 5., 7.5, 10.],
+    'disfmtstr': "{:3.1f} g m^-3"
+}
+
+mu_plot_dict = {
+    'cmap': cmapretrievals,
+    'clevels': clevels_mu,
+    'cbint': 2.0,
+    'disfmtstr': "{:3.1f}"
+}
+
+lamda_plot_dict = {
+    'cmap': cmapretrievals,
+    'clevels': clevels_lam,
+    'cbint': 2.0,
+    'disfmtstr': "{:3.1f} mm^-1"
+}
+
+sigma_plot_dict = {
+    'cmap': cmapretrievals,
+    'clevels': clevels_sigm,
+    'cbint': 0.2,
+    'disfmtstr': "{:3.1f} mm"
+}
+
 # Contains some common aliases for the different fields to match up with the above parameter dicts
 REF_aliases = ['dBZ', 'DBZ', 'Z', 'REF', 'DZ', 'corrected_reflectivity']
 ZDR_aliases = ['Zdr', 'ZDR', 'DB_ZDR', 'corrected_differential_reflectivity']
@@ -94,6 +143,16 @@ KDP_aliases = ['Kdp', 'KDP', 'KD', 'specific_differential_phase']
 PHI_aliases = ['PHI', 'differential_phase']
 RHV_aliases = ['rhv', 'RHV', 'RHO', 'cross_correlation_ratio']
 VR_aliases = ['vr', 'VR', 'Vr', 'VEL', 'velocity']
+D0_aliases = ['D0']
+Dm_aliases = ['Dm']
+N0_aliases = ['N0']
+Nt_aliases = ['Nt']
+RR_aliases = ['RR']
+W_aliases = ['W']
+lamda_aliases = ['lamda']
+mu_aliases = ['mu']
+sigma_aliases = ['sigma']
+
 
 radar_plot_param_matching = {
 }
@@ -113,45 +172,24 @@ for fieldname in RHV_aliases:
 for fieldname in VR_aliases:
     radar_plot_param_matching[fieldname] = VR_plot_dict
 
+retr_alias_list = [D0_aliases, Dm_aliases, RR_aliases, W_aliases, mu_aliases, lamda_aliases,
+                   sigma_aliases]
+retr_plot_dict_list = [D0_plot_dict, Dm_plot_dict, RR_plot_dict, W_plot_dict, mu_plot_dict,
+                       lamda_plot_dict, sigma_plot_dict]
+
+for aliases, plot_dict in zip(retr_alias_list, retr_plot_dict_list):
+    for fieldname in aliases:
+        radar_plot_param_matching[fieldname] = plot_dict
+
 # TODO: Add dicts for retrieved parameters based on following if/else statement taken from plotsweep
 
-        # elif(fieldname == 'Rain'):
-        #     clevels = clevels_rain
-        #     cmap = cmapretrievals
-        #     clvls = [0.1, 1.0, 3.0, 5.0, 10.0, 15.0, 20.0, 30.0, 50.0, 75.0, 100.0, 150.0, 200.0]
-        #     disfmtstr = "{:3.1f} mm/hr"
-        # elif(fieldname == 'D0'):
-        #     clevels = clevels_d0
-        #     cmap = cmapretrievals
-        #     clvls = 0.5
-        #     disfmtstr = "{:3.1f} mm"
-        # elif(fieldname == 'W'):
-        #     clevels = clevels_lwc
-        #     cmap = cmapretrievals
-        #     clvls = [0.01, 0.1, 0.3, 0.5, 1.0, 1.5, 2., 3., 5., 7.5, 10.]
-        #     disfmtstr = "{:3.1f} g m^-3"
         # elif(fieldname == 'Nt'):
         #     clevels = clevels_nt
         #     cmap = cmapretrievals
         #     clvls = 0.5
         #     disfmtstr = "{:3.1f} # m^3"
-        # elif(fieldname == 'sigm'):
-        #     clevels = clevels_sigm
-        #     cmap = cmapretrievals
-        #     clvls = 0.2
-        #     disfmtstr = "{:3.1f} mm"
-        # elif(fieldname == 'mu'):
-        #     clevels = clevels_mu
-        #     cmap = cmapretrievals
-        #     clvls = 2.0
-        #     disfmtstr = "{:3.1f}"
-        # elif(fieldname == 'lam'):
-        #     clevels = clevels_lam
-        #     cmap = cmapretrievals
-        #     clvls = 2.0
-        #     disfmtstr = "{:3.1f}"
-
 # py-ART style metadata for retrieval fields
+
 retrieval_metadata = {
     'D0': {
         'units': 'mm',
@@ -1234,6 +1272,7 @@ def plotsweep_pyART(radar_obj, sweeptime, PIPS_names, PIPS_geo_locs, PIPS_rad_lo
     axlist = []
 
     # Try to match up each field with what is in the file
+    # TODO: split this part off into a separate function
     fields_to_plot = []
     for field in radar_fields:
         # Reflectivity
@@ -1247,7 +1286,13 @@ def plotsweep_pyART(radar_obj, sweeptime, PIPS_names, PIPS_geo_locs, PIPS_rad_lo
             field_to_plot = get_field_to_plot(radar_obj, RHV_aliases)
         elif field in VR_aliases:
             field_to_plot = get_field_to_plot(radar_obj, VR_aliases)
-
+        else:
+            # Try to find the field "as is" in the file
+            try:
+                field_arr = radar_obj.fields[field]
+                field_to_plot = (field, field_arr)
+            except KeyError:
+                field_to_plot = None
         if field_to_plot:
             fields_to_plot.append(field_to_plot[0])
 
@@ -1261,7 +1306,7 @@ def plotsweep_pyART(radar_obj, sweeptime, PIPS_names, PIPS_geo_locs, PIPS_rad_lo
 
     for field in fields_to_plot:
         fig, ax = plt.subplots(figsize=(10, 8))
-        titlestringfmt = 'Radar name: {}; Field: {}; Time: {}; elevation: {}'
+        titlestringfmt = 'Radar name: {}; Field: {}; Time: {}; elevation: {:2.1f}'
         titlestring = titlestringfmt.format(radar_obj.metadata['instrument_name'], field,
                                             sweeptime.strftime(tm.timefmt3),
                                             radar_obj.elevation['data'][0])
@@ -1278,7 +1323,8 @@ def plotsweep_pyART(radar_obj, sweeptime, PIPS_names, PIPS_geo_locs, PIPS_rad_lo
 
         # Overlay locations of the PIPS
         for PIPS_geo_loc, PIPS_name in zip(PIPS_geo_locs, PIPS_names):
-            display.plot_point(PIPS_geo_loc[1], PIPS_geo_loc[0], 'r*', ms=20, label_text=PIPS_name)
+            display.plot_point(PIPS_geo_loc[1], PIPS_geo_loc[0], 'r*', ms=10, alpha=0.5,
+                               label_text=PIPS_name)
 
         display.ax.set_extent([xmin, xmax, ymin, ymax], crs=projection)
 
@@ -1794,23 +1840,26 @@ def read_sweeps(radar_paths, starttime, stoptime, field_names=['dBZ'], el_req=0.
     return radar_dict
 
 
-def get_PIPS_loc_relative_to_radar(PIPS_geo_loc, radarsweep):
+def get_PIPS_loc_relative_to_radar(PIPS_geo_loc, radarsweep, verbose=True):
     """Gets the cartesian location of the PIPS relative to the radar."""
 
     # Grab radar location information from the first sweep in radar_dict
     rlat = radarsweep.latitude['data'][0]
     rlon = radarsweep.longitude['data'][0]
+    ralt = radarsweep.altitude['data'][0]
 
-    print(PIPS_geo_loc[1], PIPS_geo_loc[0])
+    if verbose:
+        print("Radar location (lat, lon, alt)", rlat, rlon, ralt)
+        print("Disdrometer location (lat, lon, alt)", PIPS_geo_loc[0], PIPS_geo_loc[1], PIPS_geo_loc[2])
 
     dradx, drady = pyart.core.geographic_to_cartesian_aeqd(PIPS_geo_loc[1], PIPS_geo_loc[0],
                                                            rlon, rlat)
     dx = dradx[0]
     dy = drady[0]
-    # print(dx, dy)
-    PIPS_rad_loc = (dx, dy)
-
-    return PIPS_rad_loc
+    dz = PIPS_geo_loc[2] - ralt  # PIPS altitude relative to radar altitude
+    if verbose:
+        print("PIPS location relative to radar (x, y, z)", dx, dy, dz)
+    return (dx, dy, dz)
 
 
 def interp_sweeps_to_PIPS(radar_name, radarsweep_list, PIPS_names, dradlocs, average_gates=True):
@@ -1937,7 +1986,9 @@ def interp_sweeps_to_one_PIPS(radar_name, radarsweep_list, PIPS_name, rad_loc, a
         distance = np.sqrt((rad_loc[0] - xrad)**2. + (rad_loc[1] - yrad)**2.)
         # Now, find the index of the closest radar gate
         theta_index, range_index = np.unravel_index(distance.argmin(), distance.shape)
-        zrad_at_PIPS = zrad[theta_index, range_index]
+        zrad_at_PIPS = zrad[theta_index, range_index] - rad_loc[2]
+        print("Location of radar gate (x, y, z)", xrad[theta_index, range_index],
+              yrad[theta_index, range_index], zrad[theta_index, range_index])
         print("Height of radar beam at PIPS: ", zrad_at_PIPS)
         radar_field_list = []
         # for field_name, field in list(radarsweep.fields.items()):

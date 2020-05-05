@@ -96,7 +96,6 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
     ND = ND.where(ND > 0.)
     # Drop all entries without DSDs
     ND = ND.dropna(dim='time', how='all')
-
     # # Compute binned number concentration
     # fallspeed_spectrum = pips.calc_fallspeed_spectrum(avg_diameter, avg_fall_bins, correct_rho=True,
     #                                                   rho=parsivel_combined_ds['rho'])
