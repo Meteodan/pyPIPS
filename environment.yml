@@ -10,6 +10,7 @@ dependencies:
   - cartopy
   - cftime
   - flake8
+  - joblib
   - jupyter
   - matplotlib
   - metpy

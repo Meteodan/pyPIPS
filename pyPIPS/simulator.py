@@ -1,5 +1,6 @@
 # simulator.py: a collection of functions related to the Parsivel simulator
 
+import inspect
 import numpy as np
 from scipy.stats import gamma, uniform
 # from . import disdrometer_module as dis
@@ -20,7 +21,11 @@ import pyart as pyart
 import matplotlib.pyplot as plt
 from metpy.plots import ctables
 import matplotlib.ticker as ticker
-from mpl_toolkits.basemap import Basemap
+import xarray as xr
+from pyCRMtools.modules import utils as CRMutils
+from pyCRMtools.pycaps import arps_read
+from pyCRMtools.pycaps import pycaps_fields
+from joblib import Parallel, delayed
 
 # Some global parameters to make my life easier
 rhoacst = 1.0  # kg m^-3
@@ -168,7 +173,8 @@ def create_random_gamma_DSD(Nt, lamda, alpha, Vt, sampling_length, sampling_widt
     print(Dedges.shape)
     # Dedges = Dedges[:Dmax_index + 1]
     pcount_binned, _ = np.histogram(diameters, Dedges)
-    # print('diameters shape, dedges shape, pcount_binned shape', diameters.shape, Dedges.shape, pcount_binned.shape)
+    # print('diameters shape, dedges shape, pcount_binned shape', diameters.shape, Dedges.shape,
+    # pcount_binned.shape)
     # Compute ND of sample in original Parsivel diameter and velocity bins
     # Gets particle count/unit volume/diameter interval
     ND = calc_ND(pcount_binned, sampling_volumes_D, Dr, Dl, Dmax)
@@ -697,11 +703,11 @@ def read_probe_time_series(dis_dict, radar_dict):
 
     # Stuff all the data into the dis_dict dictionary
     dis_dict['timeseries'] = {'windspdavgvec': windspdavgveclist,
-                                        'winddiravgvec': winddiravgveclist,
-                                        'temp': templist, 'dewpoint': dewpointlist,
-                                        'pressure': pressurelist, 'rho': rholist, 'ND': NDlist,
-                                        'intensity': intensitylist, 'pcount': pcountlist,
-                                        'times': timeslist}
+                              'winddiravgvec': winddiravgveclist,
+                              'temp': templist, 'dewpoint': dewpointlist,
+                              'pressure': pressurelist, 'rho': rholist, 'ND': NDlist,
+                              'intensity': intensitylist, 'pcount': pcountlist,
+                              'times': timeslist}
 
     return dis_dict
 
@@ -941,7 +947,8 @@ def read_convdata_at_sweeptimes(dis_dict, radar_dict, resample_interval=60.):
     #                         center=False)
     #     elif dis_type in 'PIPS':
     #         windspdsavg, windspdsavgvec, winddirsavgvec, windgusts, windgustsavg = dis.avgwind(
-    #             winddirabss, windspds, windavgintv, gusts=True, gustintv=windgustintv, center=False)
+    #             winddirabss, windspds, windavgintv, gusts=True, gustintv=windgustintv,
+    # center=False)
     # #     offset = 0
     # #     windspdsavg,windspdsavgvec,winddirsavgvec,winddirsunitavgvec,windgusts,windgustsavg, \
     # #       usavg,vsavg,unit_usavg,unit_vsavg = \
@@ -1032,7 +1039,7 @@ def read_sweeps(radar_dict):
     radstarttimedt = datetime.strptime(radstarttime, '%Y%m%d%H%M%S')
     radstoptimedt = datetime.strptime(radstoptime, '%Y%m%d%H%M%S')
 
-    outfieldnameslist = []
+    # outfieldnameslist = []
     radarsweeplist = []
     sweeptimelist = []
 
@@ -1130,7 +1137,7 @@ def get_dis_geoloc(dis_dict):
     return dis_dict
 
 
-def get_dis_locs_arps_real_grid(dis_dict, grid_dict):
+def get_dis_locs_arps_real_grid(grid_dict, PIPS_geo_locs):
     """Returns the locations of the disdrometers within the ARPS grid. Only works for real cases
        with a map projection."""
     # Get model coordinates
@@ -1139,27 +1146,19 @@ def get_dis_locs_arps_real_grid(dis_dict, grid_dict):
     # Get basemap instance
     bgmap = grid_dict['bgmap']
 
-    try:
-        PIPS_locs = dis_dict['dgeoloclist']
-    except KeyError:
-        dis_dict = get_dis_geoloc(dis_dict)
-        PIPS_locs = dis_dict['dgeoloclist']
-
     # Find coordinates of PIPS stations in the model
     dx = grid_dict['dx']
     dy = grid_dict['dy']
     modloc_list = []
     coord_list = []
-    for i, PIPS_loc in enumerate(PIPS_locs):
+    for i, PIPS_loc in enumerate(PIPS_geo_locs):
         xloc, yloc = bgmap(PIPS_loc[1], PIPS_loc[0])
         modloc_list.append(np.array([xloc, yloc]))
         iloc = (xloc - xc[1]) / dx
         jloc = (yloc - yc[1]) / dy
         coord_list.append(np.array([iloc, jloc]))
 
-    dis_dict['dmodloclist'] = modloc_list
-    dis_dict['dmodcrdlist'] = coord_list
-    return dis_dict
+    return modloc_list, coord_list
 
 
 def set_dh(model_dict, radar_dict, fixed_time=True):
@@ -1993,3 +1992,236 @@ def get_ARPS_member_dir_and_prefix(member, cycle):
             member_prefix = 'enf{:03d}'.format(int(member))
 
     return member_dir, member_prefix
+
+
+def read_ARPS_ensemble(f, member_list, f_args=None, f_kwargs=None, iterate_over='member_list',
+                       process_parallel=True, n_jobs=5, verbose=0):
+    """
+    Reads multiple runs either in serial or parallel (using joblib). TODO. This is duplicating some
+    functionality written by T. Supinie for pycaps (util.run_concurrently). Maybe just use that
+    instead?
+
+    Parameters
+    ----------
+    f : callable
+        A function used to read in data from a particular run. It must have a positional argument
+        that will be iterated over, the name of which is given by "iterate_over"
+    member_list : list
+        List of member numbers to read
+    args : tuple
+        List of positional arguments to pass to f
+    iterate_over : str
+        The name of the positional argument in args to iterate over
+    process_parallel : bool
+        Whether to process the runs in parallel or not (using joblib)
+    n_jobs : int
+        Number of jobs to run in parallel
+    verbose : int
+        verbosity level passed on to joblib.Parallel
+    kwargs : dict
+        List of keyword arguments to pass to f
+    Returns
+    -------
+    list
+        A list of updated run dictionaries
+
+    """
+    # The following avoids this gotcha:
+    # https://pythonconquerstheuniverse.wordpress.com/2012/02/15/mutable-default-arguments/
+    if f_args is None:
+        f_args = ()
+    if f_kwargs is None:
+        f_kwargs = {}
+    # Get a list of the function argument names, and find the one that we want to iterate over
+    f_argnames = inspect.getargspec(f).args
+    try:
+        arg_to_iterate = f_argnames.index(iterate_over)
+    except ValueError:
+        print("{} not found in the function argument list! Stopping!".format(iterate_over))
+        return
+
+    # Define a wrapper function to replace the value of the iterated argument in f with a new one
+    # Not sure if this is the most elegant way to do this, but it works and lets us use the
+    # joblib.Parallel function with list comprehension for the "val" argument
+    def g(f, val):
+        new_args = tuple(val if i == arg_to_iterate else f_args[i] for i in range(len(f_args)))
+        return f(*new_args, **f_kwargs)
+
+    if process_parallel:
+        runs = Parallel(n_jobs=n_jobs, verbose=verbose)(delayed(g)(f, val) for val in member_list)
+    else:
+        runs = []
+        for val in member_list:
+            print("Reading files for member {:d}".format(val))
+            runs.append(g(f, val))
+    return runs
+
+
+def read_ARPS_member_data(basedir, expname, member, cycle, fileformat, time_range, varnames,
+                          filetype='history', ibgn=None, iend=None, jbgn=None, jend=None, klvls=[1],
+                          nproc_x=1, nproc_y=1, dump_nc_output=True, ncdir=None,
+                          datetime_range=None, x=None, y=None, mid_diameters=None):
+    """[summary]
+
+    Parameters
+    ----------
+    basedir : [type]
+        [description]
+    expname : [type]
+        [description]
+    member : [type]
+        [description]
+    cycle : [type]
+        [description]
+    fileformat : [type]
+        [description]
+    time_range : [type]
+        [description]
+    varnames : [type]
+        [description]
+    filetype : str, optional
+        [description], by default 'history'
+    ibgn : [type], optional
+        [description], by default None
+    iend : [type], optional
+        [description], by default None
+    jbgn : [type], optional
+        [description], by default None
+    jend : [type], optional
+        [description], by default None
+    klvls : list, optional
+        [description], by default [1]
+    nproc_x : int, optional
+        [description], by default 1
+    nproc_y : int, optional
+        [description], by default 1
+    dump_nc_output : bool, optional
+        [description], by default True
+    ncdir : [type], optional
+        [description], by default None
+    datetime_range : [type], optional
+        [description], by default None
+    x : [type], optional
+        [description], by default None
+    y : [type], optional
+        [description], by default None
+    mid_diameters : [type], optional
+        [description], by default None
+    """
+    print("Loading member #{:d}".format(member))
+    # Get member run prefix
+    member_dir, member_prefix = get_ARPS_member_dir_and_prefix(member, cycle)
+    member_absdir = os.path.join(basedir, expname, member_dir)
+    vardict_list = []
+    # all_files_exist_list = []
+    for time in time_range:
+        print("Loading time ", time)
+        # Get member file path
+        filepath = arps_read.get_file_path(member_absdir, member_prefix, fileformat, time=time,
+                                           filetype='history')
+#         all_files_exist = True
+#         for ip in range(1, nproc_x + 1):
+#             for jp in range(1, nproc_y + 1):
+#                 filenamepatch = filepath + "_%03d" % ip + "%03d" % jp
+#                 if not os.path.exists(filenamepatch):
+#                     print("File {} does not exist!".format(filenamepatch))
+#                     all_files_exist = False
+#         all_files_exist_list.append(all_files_exist)
+        # Get variables from file
+        print(filepath)
+        vardict = arps_read.read_hdfvars(filepath, varnames, ibgn=ibgn, jbgn=jbgn, iend=iend,
+                                         jend=jend, klvls=klvls, nproc_x=nproc_x, nproc_y=nproc_y)
+        vardict_list.append(vardict)
+
+    if dump_nc_output:
+        dump_ARPS_xyslice_nc(ncdir=ncdir, vardict_list=vardict_list, member_prefix=member_prefix,
+                             time=datetime_range, x=x, y=y, mid_diameters=mid_diameters, ibgn=ibgn,
+                             iend=iend, jbgn=jbgn, jend=jend)
+
+    return vardict_list  # all_files_exist_list
+
+
+def dump_ARPS_xyslice_nc(ncdir=None, vardict_list=None, member_prefix=None, time=None, x=None,
+                         y=None, mid_diameters=None, ibgn=None, iend=None, jbgn=None, jend=None):
+    """[summary]
+
+    Parameters
+    ----------
+    ncdir : [type], optional
+        [description], by default None
+    vardict_list : [type], optional
+        [description], by default None
+    member_prefix : [type], optional
+        [description], by default None
+    time : [type], optional
+        [description], by default None
+    x : [type], optional
+        [description], by default None
+    y : [type], optional
+        [description], by default None
+    mid_diameters : [type], optional
+        [description], by default None
+    ibgn : [type], optional
+        [description], by default None
+    iend : [type], optional
+        [description], by default None
+    jbgn : [type], optional
+        [description], by default None
+    jend : [type], optional
+        [description], by default None
+    """
+    coord_dict = {'time': time,
+                  'yc': ('yc', y),
+                  'xc': ('xc', x)}
+    # First, create a dict of lists out of the above list of dicts
+    vardict_combined = CRMutils.make_dict_of_lists(vardict_list)
+    # Set things up for creating the xr Dataset
+    for varname, var in vardict_combined.items():
+        var_arr = np.array(var).T.squeeze()
+        var_arr = np.rollaxis(var_arr, 2, 0)
+        # Trim variables down to just the patch we want to work with
+        var_arr_patch = var_arr[:, jbgn:jend+1, ibgn:iend+1]
+        vardict_combined[varname] = (['time', 'yc', 'xc'], var_arr_patch)
+
+    # Create an xarray Dataset out of the variable dictionary
+    var_ds = xr.Dataset(vardict_combined, coords=coord_dict)
+
+    # Compute raw model DSD paramters and add them to the model Dataset
+    rhor = 1000.
+    cr = np.pi / 6. * rhor
+    var_ds['rho'] = thermo.calrho(var_ds['p'], var_ds['pt'], var_ds['qv'])
+
+    # Shape parameter
+    var_ds['alphar'] = dsd.solve_alpha(var_ds['rho'], cr, var_ds['qr'], var_ds['nr'], var_ds['zr'])
+    # var_ds['alphar'] = var_ds['alphar'].interpolate_na()
+    # Intercept parameter
+    var_ds['N0r'] = dsd.calc_N0_gamma(var_ds['rho'], var_ds['qr'], var_ds['nr'], cr, var_ds['alphar'])
+    # Slope parameter
+    var_ds['lamdar'] = dsd.calc_lamda_gamma(var_ds['rho'], var_ds['qr'], var_ds['nr'], cr, var_ds['alphar'])
+
+    # Try computing ND and logND here
+
+    # Broadcast DSD parameter DataArrays to get everyone on the same dimensional page
+    mid_diameters, N0r_model_da, lamdar_model_da, alphar_model_da = \
+        xr.broadcast(mid_diameters, var_ds['N0r'], var_ds['lamdar'] , var_ds['alphar'])
+
+    # Transpose these DataArrays to get time as the first dimension
+    mid_diameters = mid_diameters.transpose('time', 'diameter_bin', 'yc', 'xc')
+    N0r_model_da = N0r_model_da.transpose('time', 'diameter_bin', 'yc', 'xc')
+    lamdar_model_da = lamdar_model_da.transpose('time', 'diameter_bin', 'yc', 'xc')
+    alphar_model_da = alphar_model_da.transpose('time', 'diameter_bin', 'yc', 'xc')
+
+    ND_model = dsd.calc_binned_DSD_from_params(N0r_model_da, lamdar_model_da, alphar_model_da, mid_diameters)
+    ND_model = ND_model.fillna(0.0)
+    logND_model = np.log10(ND_model)
+    logND_model = logND_model.where(logND_model > -np.inf)
+    #logND_model = logND_model.fillna(0.0)
+    #logND_model = logND_model.where(logND_model > -1.0)
+
+    var_ds['ND'] = ND_model
+    var_ds['logND'] = logND_model
+    print(var_ds)
+    # Save Dataset to nc file
+    filename = "{}_fields.nc".format(member_prefix)
+    filepath = os.path.join(ncdir, filename)
+    var_ds.to_netcdf(filepath)
