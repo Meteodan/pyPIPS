@@ -177,6 +177,24 @@ member_list = range(1, num_members)
 klvls = [args.model_level]
 xc_patch = xc[ibgn:iend+1]
 yc_patch = yc[jbgn:jend+1]
+xe_patch = xe[ibgn:iend+2]
+ye_patch = ye[jbgn:jend+2]
+
+grid_dict_patch = {
+    'nx_full': nx,
+    'ny_full': ny,
+    'dx': dx,
+    'dy': dy,
+    'xc': xc_patch,
+    'yc': yc_patch,
+    'xe': xe_patch,
+    'ye': ye_patch,
+    'ctrlat': ctrlat,
+    'ctrlon': ctrlon,
+    'trulat1': trulat1,
+    'trulat2': trulat2,
+    'trulon': trulon
+}
 
 # Pack the args and kwargs for the call to the parallel reader wrapper function
 f_args = (basedir, expname, member, cycle, fileformat, trange_sec, varnames)
@@ -191,9 +209,9 @@ f_kwargs = {
     'nproc_y': nproc_y,
     'ncdir': args.output_dir,
     'datetime_range': datetime_range,
-    'x': xc_patch,
-    'y': yc_patch,
-    'mid_diameters': mid_diameters_da
+    'mid_diameters': mid_diameters_da,
+    'grid_dict': grid_dict_patch,
+    'fileprefix': expname+'_',
     }
 
 # Set up the parallel read of all the model members

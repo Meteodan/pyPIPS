@@ -2059,8 +2059,8 @@ def read_ARPS_ensemble(f, member_list, f_args=None, f_kwargs=None, iterate_over=
 
 def read_ARPS_member_data(basedir, expname, member, cycle, fileformat, time_range, varnames,
                           filetype='history', ibgn=None, iend=None, jbgn=None, jend=None, klvls=[1],
-                          nproc_x=1, nproc_y=1, dump_nc_output=True, ncdir=None,
-                          datetime_range=None, x=None, y=None, mid_diameters=None):
+                          nproc_x=1, nproc_y=1, dump_nc_output=True, ncdir=None, fileprefix='',
+                          grid_dict=None, datetime_range=None, x=None, y=None, mid_diameters=None):
     """[summary]
 
     Parameters
@@ -2134,15 +2134,17 @@ def read_ARPS_member_data(basedir, expname, member, cycle, fileformat, time_rang
         vardict_list.append(vardict)
 
     if dump_nc_output:
-        dump_ARPS_xyslice_nc(ncdir=ncdir, vardict_list=vardict_list, member_prefix=member_prefix,
+        output_prefix = fileprefix + member_prefix
+        dump_ARPS_xyslice_nc(ncdir=ncdir, vardict_list=vardict_list, member_prefix=output_prefix,
                              time=datetime_range, x=x, y=y, mid_diameters=mid_diameters, ibgn=ibgn,
-                             iend=iend, jbgn=jbgn, jend=jend)
+                             iend=iend, jbgn=jbgn, jend=jend, grid_dict=grid_dict)
 
     return vardict_list  # all_files_exist_list
 
 
 def dump_ARPS_xyslice_nc(ncdir=None, vardict_list=None, member_prefix=None, time=None, x=None,
-                         y=None, mid_diameters=None, ibgn=None, iend=None, jbgn=None, jend=None):
+                         y=None, mid_diameters=None, ibgn=None, iend=None, jbgn=None, jend=None,
+                         grid_dict=None):
     """[summary]
 
     Parameters
@@ -2170,9 +2172,18 @@ def dump_ARPS_xyslice_nc(ncdir=None, vardict_list=None, member_prefix=None, time
     jend : [type], optional
         [description], by default None
     """
-    coord_dict = {'time': time,
-                  'yc': ('yc', y),
-                  'xc': ('xc', x)}
+
+    xc = grid_dict['xc']
+    yc = grid_dict['yc']
+    xe = grid_dict['xe']
+    ye = grid_dict['ye']
+    coord_dict = {
+        'time': time,
+        'yc': ('yc', yc),
+        'xc': ('xc', xc),
+        'ye': ('ye', ye),
+        'xe': ('xe', xe)
+        }
     # First, create a dict of lists out of the above list of dicts
     vardict_combined = CRMutils.make_dict_of_lists(vardict_list)
     # Set things up for creating the xr Dataset
@@ -2180,8 +2191,15 @@ def dump_ARPS_xyslice_nc(ncdir=None, vardict_list=None, member_prefix=None, time
         var_arr = np.array(var).T.squeeze()
         var_arr = np.rollaxis(var_arr, 2, 0)
         # Trim variables down to just the patch we want to work with
-        var_arr_patch = var_arr[:, jbgn:jend+1, ibgn:iend+1]
-        vardict_combined[varname] = (['time', 'yc', 'xc'], var_arr_patch)
+        if varname == 'u':
+            var_arr_patch = var_arr[:, jbgn:jend+1, ibgn:iend+2]
+            vardict_combined[varname] = (['time', 'yc', 'xe'], var_arr_patch)
+        elif varname == 'v':
+            var_arr_patch = var_arr[:, jbgn:jend+2, ibgn:iend+1]
+            vardict_combined[varname] = (['time', 'ye', 'xc'], var_arr_patch)
+        else:
+            var_arr_patch = var_arr[:, jbgn:jend+1, ibgn:iend+1]
+            vardict_combined[varname] = (['time', 'yc', 'xc'], var_arr_patch)
 
     # Create an xarray Dataset out of the variable dictionary
     var_ds = xr.Dataset(vardict_combined, coords=coord_dict)
@@ -2203,7 +2221,7 @@ def dump_ARPS_xyslice_nc(ncdir=None, vardict_list=None, member_prefix=None, time
 
     # Broadcast DSD parameter DataArrays to get everyone on the same dimensional page
     mid_diameters, N0r_model_da, lamdar_model_da, alphar_model_da = \
-        xr.broadcast(mid_diameters, var_ds['N0r'], var_ds['lamdar'] , var_ds['alphar'])
+        xr.broadcast(mid_diameters, var_ds['N0r'], var_ds['lamdar'], var_ds['alphar'])
 
     # Transpose these DataArrays to get time as the first dimension
     mid_diameters = mid_diameters.transpose('time', 'diameter_bin', 'yc', 'xc')
@@ -2211,7 +2229,8 @@ def dump_ARPS_xyslice_nc(ncdir=None, vardict_list=None, member_prefix=None, time
     lamdar_model_da = lamdar_model_da.transpose('time', 'diameter_bin', 'yc', 'xc')
     alphar_model_da = alphar_model_da.transpose('time', 'diameter_bin', 'yc', 'xc')
 
-    ND_model = dsd.calc_binned_DSD_from_params(N0r_model_da, lamdar_model_da, alphar_model_da, mid_diameters)
+    ND_model = dsd.calc_binned_DSD_from_params(N0r_model_da, lamdar_model_da, alphar_model_da,
+                                               mid_diameters)
     ND_model = ND_model.fillna(0.0)
     logND_model = np.log10(ND_model)
     logND_model = logND_model.where(logND_model > -np.inf)
@@ -2220,7 +2239,18 @@ def dump_ARPS_xyslice_nc(ncdir=None, vardict_list=None, member_prefix=None, time
 
     var_ds['ND'] = ND_model
     var_ds['logND'] = logND_model
-    print(var_ds)
+
+    var_ds.attrs['nx_full'] = grid_dict['nx_full']
+    var_ds.attrs['ny_full'] = grid_dict['ny_full']
+    var_ds.attrs['dx'] = grid_dict['dx']
+    var_ds.attrs['dy'] = grid_dict['dy']
+    var_ds.attrs['ctrlat'] = grid_dict['ctrlat']
+    var_ds.attrs['ctrlon'] = grid_dict['ctrlon']
+    var_ds.attrs['trulat1'] = grid_dict['trulat1']
+    var_ds.attrs['trulat2'] = grid_dict['trulat2']
+    var_ds.attrs['trulon'] = grid_dict['trulon']
+
+    # print(var_ds)
     # Save Dataset to nc file
     filename = "{}_fields.nc".format(member_prefix)
     filepath = os.path.join(ncdir, filename)
