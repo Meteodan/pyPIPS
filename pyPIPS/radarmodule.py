@@ -1850,7 +1850,8 @@ def get_PIPS_loc_relative_to_radar(PIPS_geo_loc, radarsweep, verbose=True):
 
     if verbose:
         print("Radar location (lat, lon, alt)", rlat, rlon, ralt)
-        print("Disdrometer location (lat, lon, alt)", PIPS_geo_loc[0], PIPS_geo_loc[1], PIPS_geo_loc[2])
+        print("Disdrometer location (lat, lon, alt)", PIPS_geo_loc[0], PIPS_geo_loc[1],
+              PIPS_geo_loc[2])
 
     dradx, drady = pyart.core.geographic_to_cartesian_aeqd(PIPS_geo_loc[1], PIPS_geo_loc[0],
                                                            rlon, rlat)
@@ -1980,6 +1981,7 @@ def interp_sweeps_to_one_PIPS(radar_name, radarsweep_list, PIPS_name, rad_loc, a
     all_field_names_flat = [item for sublist in all_field_names for item in sublist]
     all_field_names = list(set(all_field_names_flat))
 
+    zrad_at_PIPS_list = []
     for radarsweep in radarsweep_list:
         # Get Cartesian locations of radar gates
         xrad, yrad, zrad = radarsweep.get_gate_x_y_z(0)
@@ -1990,6 +1992,7 @@ def interp_sweeps_to_one_PIPS(radar_name, radarsweep_list, PIPS_name, rad_loc, a
         print("Location of radar gate (x, y, z)", xrad[theta_index, range_index],
               yrad[theta_index, range_index], zrad[theta_index, range_index])
         print("Height of radar beam at PIPS: ", zrad_at_PIPS)
+        zrad_at_PIPS_list.append(zrad_at_PIPS)
         radar_field_list = []
         # for field_name, field in list(radarsweep.fields.items()):
         for field_name in all_field_names:
@@ -2037,9 +2040,20 @@ def interp_sweeps_to_one_PIPS(radar_name, radarsweep_list, PIPS_name, rad_loc, a
                          'PIPS_name': PIPS_name,
                          'PIPS_x': rad_loc[0],
                          'PIPS_y': rad_loc[1],
-                         'beam_height': zrad_at_PIPS
                      })
-    return radar_fields_at_PIPS_da
+    zrad_at_PIPS_da = xr.DataArray(np.array(zrad_at_PIPS_list),
+                                   coords={
+                                       'time': radar_datetimes
+                                   },
+                                   dims=['time'],
+                                   attrs={
+                                       'radar_name': radar_name,
+                                       'PIPS_name': PIPS_name,
+                                       'PIPS_x': rad_loc[0],
+                                       'PIPS_y': rad_loc[1]
+                                   })
+
+    return radar_fields_at_PIPS_da, zrad_at_PIPS_da
 
 
 def dump_radar_fields_at_PIPS_nc(ncfile_path, radar_fields_at_PIPS_da):

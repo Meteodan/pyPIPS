@@ -3,8 +3,8 @@
 PIPS_IO_dict = {
     'dataset_name': 'FMCW_2017_043017',
     'deployment_names': ['FMCW_2017_043017'],
-    'PIPS_dir': '/Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset',
-    'plot_dir': '/Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/plots',
+    'PIPS_dir': '/Volumes/scr_fast/Projects/VORTEXSE/obsdata/full_PIPS_dataset/SATP_retr',
+    'plot_dir': '/Volumes/scr_fast/Projects/VORTEXSE/obsdata/full_PIPS_dataset/SATP_retr/plots',
     'PIPS_types': ['PIPS'],
     'PIPS_names': ['PIPS2A'],
     'PIPS_filenames': ['PIPS2A_FMCW_043017.txt'],
@@ -33,10 +33,10 @@ radar_config_dict = {
     'plot_retrieval': True,
     'radar_name': 'KHTX',
     'radar_type': 'NEXRAD',
-    'radar_dir': '/Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/2017/NEXRAD/PIPS2A_FMCW/0430/CFRadial/modified/',
+    'radar_dir': '/Volumes/scr_fast/Projects/VORTEXSE/obsdata/2017/NEXRAD/PIPS2A_FMCW/0430/CFRadial/SATP_retr/',
     'field_names': ['REF', 'ZDR', 'RHO'],
     'el_req': 0.5,
-    'radar_start_timestamp': '20170430190000',
+    'radar_start_timestamp': '20170430000000',
     'radar_end_timestamp': '20170430235959',
     'scatt_dir': '/Users/dawson29/Projects/pyPIPS/tmatrix/S-Band/',
     'wavelength': 10.7

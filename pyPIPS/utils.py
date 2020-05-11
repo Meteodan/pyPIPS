@@ -358,3 +358,45 @@ def DDMtoDD(DDM, hem):
         sign = -1.
 
     return sign * (degrees + DM / 60.)
+
+
+def interp_along_1D(ds, da1D, dim_to_interp, dim_fixed):
+    """Interpolates 2D+ arrays in a Dataset ds to values given by a 1D DataArray da1D.
+    The DataArray is dimensioned by "dim_fixed" and contains values to which to interpolate along
+    "dim_to_interp" for each label of "dim_fixed".
+    The result for each DataArray in ds (that is dimensioned by at least dim_fixed and
+    dim_to_interp) is to reduce the dimension by one, yielding the interpolated values of that
+    DataArray to the desired points in "dim_to_interp" for each label of "dim_fixed".
+
+    Parameters
+    ----------
+    ds : xr.DataSet
+        The DataSet containing the arrays to interpolate
+    da1D : xr.DataArray
+        1D DataArray containing the points to interpolate to along dimension "dim_to_interp".
+        Dimensioned by dim_fixed.
+    dim_to_interp : str
+        Name of dimension along which to interpolate
+    dim_fixed : str
+        Name of dimension to hold fixed. The interpolation will be done along dim_to_interp for
+        each value in da1D that corresponds to each label of dim_fixed.
+
+    Returns
+    -------
+    xr.DataSet
+        The DataSet containing the interpolated fields.
+    """
+    # First, rename the fixed dimension to 'temp' in da1D
+    da1D = da1D.rename({dim_fixed: 'temp'})
+    # Extract the associated coordinate
+    temp_dim = da1D.coords['temp']
+
+    # Interpolate ds along the fixed dimension using the values in da1D
+    ds_interp = ds.interp({dim_to_interp: da1D, dim_fixed: temp_dim})
+    # Drop the old "fixed_dim" coords, and then rename the "temp" coord to the original
+    # name of the "fixed_dim" coords
+    ds_interp = ds_interp.reset_coords(dim_fixed, drop=True)
+    ds_interp = ds_interp.rename({'temp': dim_fixed})
+
+    return ds_interp
+

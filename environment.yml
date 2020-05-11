@@ -7,6 +7,7 @@ dependencies:
   - basemap
   - basemap-data-hires
   - beautifulsoup4
+  - bottleneck
   - cartopy
   - cftime
   - flake8

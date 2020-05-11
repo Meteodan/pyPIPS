@@ -105,7 +105,7 @@ for parsivel_combined_file in parsivel_combined_filelist:
     geo_loc_str = parsivel_combined_ds.location
     geo_loc = list(map(np.float, geo_loc_str.strip('()').split(',')))
     rad_loc = radar.get_PIPS_loc_relative_to_radar(geo_loc, radar_dict['radarsweeplist'][0])
-    radar_fields_at_PIPS_da = \
+    radar_fields_at_PIPS_da, beam_height_da = \
         radar.interp_sweeps_to_one_PIPS(radar_name, radar_dict['radarsweeplist'], PIPS_name,
                                         rad_loc, sweeptime_list=radar_dict['sweeptimelist'],
                                         average_gates=args.average_gates)
@@ -113,11 +113,20 @@ for parsivel_combined_file in parsivel_combined_filelist:
     if '{}_at_PIPS'.format(radar_name) in parsivel_combined_ds:
         parsivel_combined_ds = parsivel_combined_ds.drop('{}_at_PIPS'.format(radar_name))
         parsivel_combined_ds = parsivel_combined_ds.drop('fields_{}'.format(radar_name))
+    if '{}_beam_height_at_PIPS'.format(radar_name) in parsivel_combined_ds:
+        parsivel_combined_ds = \
+            parsivel_combined_ds.drop('{}_beam_height_at_PIPS'.format(radar_name))
     # Interpolate radar fields to the PIPS times
     radar_fields_at_PIPS_da = radar_fields_at_PIPS_da.interp_like(parsivel_combined_ds)
+    radar_fields_at_PIPS_da.attrs['elevation_angle'] = el_req
     parsivel_combined_ds = pipsio.combine_parsivel_data(parsivel_combined_ds,
                                                         radar_fields_at_PIPS_da,
                                                         name='{}_at_PIPS'.format(radar_name))
+    beam_height_da = beam_height_da.interp_like(parsivel_combined_ds)
+    beam_height_da.attrs['elevation_angle'] = el_req
+    parsivel_combined_ds = \
+        pipsio.combine_parsivel_data(parsivel_combined_ds, beam_height_da,
+                                     name='{}_beam_height_at_PIPS'.format(radar_name))
     parsivel_combined_ds.close()
     # Save updated dataset back to file
     parsivel_combined_ds.to_netcdf(parsivel_combined_file)
