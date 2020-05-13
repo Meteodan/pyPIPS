@@ -33,6 +33,9 @@ parser.add_argument('--input-dir', metavar='</path/to/input/dir>', dest='input_d
                     help='Input directory for intermediate model nc files')
 parser.add_argument('--output-dir', metavar='</path/to/output/dir>', dest='output_dir',
                     help='Output directory for timeseries nc files')
+parser.add_argument('--member-range', nargs=2, metavar='<start> <end>', type=int,
+                    dest='member_range',
+                    help='Range of members to compute for', default=(1, -1))
 args = parser.parse_args()
 
 # Create output directory if it doesn't already exist
@@ -78,6 +81,12 @@ num_members = config.model_config_dict['nens']
 nproc_x = config.model_config_dict['nproc_x']
 nproc_y = config.model_config_dict['nproc_y']
 
+member_start = args.member_range[0]
+if args.member_range[1] == -1:
+    member_end = num_members + 1
+else:
+    member_end = args.member_range[1] + 1
+
 # Extract needed lists and variables from PIPS_IO_dict configuration dictionary
 deployment_names = config.PIPS_IO_dict.get('deployment_names', None)
 PIPS_dir = config.PIPS_IO_dict.get('PIPS_dir', None)
@@ -94,7 +103,7 @@ requested_interval = config.PIPS_IO_dict.get('requested_interval', 10.)
 
 cycle = 'posterior'
 varnames = ['p', 'pt', 'qv', 'u', 'v', 'qr', 'nr', 'zr']
-member_list = range(1, num_members+1)
+member_list = range(member_start, member_end)
 # Read in the ensemble members
 var_ds_list = []
 for member in member_list:
@@ -121,7 +130,7 @@ for member in member_list:
         yc = ye + 0.5*dy
     var_ds_list.append(var_ds)
 
-var_full_ds = xr.concat(var_ds_list, pd.Index(range(1, num_members+1), name='member'))
+var_full_ds = xr.concat(var_ds_list, pd.Index(range(member_start, member_end), name='member'))
 
 grid_dict = {
     'xs': xc,

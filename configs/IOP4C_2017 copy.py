@@ -2,18 +2,19 @@
 
 PIPS_IO_dict = {
     'dataset_name': 'IOP4C_2017',
-    'deployment_names': ['IOP4C_D1_2017'] * 3,
+    'deployment_names': ['IOP4C_D1_2017'] * 4,
     'PIPS_dir': '/Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset',
     'plot_dir': '/Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/plots',
-    'PIPS_types': ['PIPS'] * 3,
-    'PIPS_names': ['PIPS1A', 'PIPS1B', 'PIPS2B'],
+    'PIPS_types': ['PIPS'] * 4,
+    'PIPS_names': ['PIPS1A', 'PIPS1B', 'PIPS2A', 'PIPS2B'],
     'PIPS_filenames': ['PIPS1A_2016_IOP4C_D1.txt', 'PIPS1B_2016_IOP4C_D1.txt',
-                       'PIPS2B_2016_IOP4C_D1.txt'],
+                       'PIPS2A_2016_IOP4C_D1.txt', 'PIPS2B_2016_IOP4C_D1.txt'],
     'PIPS_filenames_nc': ['parsivel_combined_IOP4C_D1_2017_PIPS1A_60s.nc',
                           'parsivel_combined_IOP4C_D1_2017_PIPS1B_60s.nc',
-                          'parsivel_combined_IOP4C_D1_2017_PIPS2B_60s.nc'],
-    'start_times': [None] * 3,
-    'end_times': [None] * 3,
+                          'parsivel_combined_IOP4C_D1_2017_PIPS2A_60s.nc',
+                          'parsivel_combined_IOP4C_D1_2017_PIPS2B_60s.nc']
+    'start_times': [None] * 4,
+    'end_times': [None] * 4,
     'requested_interval': 60.
 }
 
@@ -47,7 +48,7 @@ radar_config_dict = {
 }
 
 model_config_dict = {
-    'runname': '1km243x243_3km153x153_043017_NAM',
+    'runname': '1km243x243_3km153x153_043017',
     'nens': 40,
     'fileformat': 'hdf',
     'microphys': 'ZVD',
