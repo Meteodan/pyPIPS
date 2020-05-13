@@ -6,10 +6,12 @@
 # resulting timeseries at the PIPS locations, but at the model times.
 
 import os
+import sys
 import argparse
 from datetime import datetime
 import numpy as np
 import xarray as xr
+import pandas as pd
 from mpl_toolkits.basemap import Basemap
 import pyPIPS.parsivel_params as pp
 import pyPIPS.utils as utils
@@ -89,9 +91,10 @@ end_times = config.PIPS_IO_dict.get('end_times', [None]*len(PIPS_names))
 geo_locs = config.PIPS_IO_dict.get('geo_locs', [None]*len(PIPS_names))
 requested_interval = config.PIPS_IO_dict.get('requested_interval', 10.)
 
+
 cycle = 'posterior'
 varnames = ['p', 'pt', 'qv', 'u', 'v', 'qr', 'nr', 'zr']
-member_list = range(1, num_members)
+member_list = range(1, num_members+1)
 # Read in the ensemble members
 var_ds_list = []
 for member in member_list:
@@ -101,7 +104,40 @@ for member in member_list:
     ncfilepath = os.path.join(args.input_dir, ncfilename)
     # Open the Dataset
     var_ds = xr.open_dataset(ncfilepath)
+    # Get grid information from first file
+    if member == member_list[0]:
+        nx = var_ds.attrs['nx_full']
+        ny = var_ds.attrs['ny_full']
+        dx = var_ds.attrs['dx']
+        dy = var_ds.attrs['dy']
+        ctrlat = var_ds.attrs['ctrlat']
+        ctrlon = var_ds.attrs['ctrlon']
+        trulat1 = var_ds.attrs['trulat1']
+        trulat2 = var_ds.attrs['trulat2']
+        trulon = var_ds.attrs['trulon']
+        xe = -dx + range(nx)*dx
+        ye = -dy + range(ny)*dy
+        xc = xe + 0.5*dx
+        yc = ye + 0.5*dy
     var_ds_list.append(var_ds)
+
+var_full_ds = xr.concat(var_ds_list, pd.Index(range(1, num_members+1), name='member'))
+
+grid_dict = {
+    'xs': xc,
+    'x': xe,
+    'ys': yc,
+    'y': ye,
+    'dx': dx,
+    'dy': dy
+}
+
+mapwidth = nx * dx
+mapheight = ny * dy
+bgmap = Basemap(projection='lcc', width=mapwidth, height=mapheight, lat_1=trulat1,
+                lat_2=trulat2, lat_0=ctrlat, lon_0=ctrlon, resolution='h',
+                area_thresh=10., suppress_ticks=False)
+grid_dict['bgmap'] = bgmap
 
 # Read in PIPS data
 parsivel_combined_filelist = [os.path.join(PIPS_dir, pcf) for pcf in parsivel_combined_filenames]
@@ -117,6 +153,7 @@ for parsivel_combined_file in parsivel_combined_filelist:
     PIPS_names.append(PIPS_name)
     geo_loc_list.append(geo_loc)
     parsivel_combined_ds_list.append(parsivel_combined_ds)
+DSD_interval = parsivel_combined_ds.DSD_interval
 
 # Find coordinates of PIPS stations in the model
 modloc_list, coord_list = sim.get_dis_locs_arps_real_grid(grid_dict, geo_loc_list)
@@ -129,140 +166,36 @@ x_coords_da = xr.DataArray(x_coords, coords=[PIPS_names], dims=['PIPS'])
 y_coords_da = xr.DataArray(y_coords, coords=[PIPS_names], dims=['PIPS'])
 
 var_ds_interp_list = []
-for var_ds in var_ds_list:
-    var_ds_interp = var_ds.interp(xc=x_coords_da, yc=y_coords_da)
+for deployment_name, PIPS_name in zip(deployment_names, PIPS_names):
+    var_ds_interp = var_full_ds.interp(xc=x_coords_da.sel({'PIPS': PIPS_name}),
+                                       yc=y_coords_da.sel({'PIPS': PIPS_name}),
+                                       xe=x_coords_da.sel({'PIPS': PIPS_name}),
+                                       ye=y_coords_da.sel({'PIPS': PIPS_name}))
+    print("Interpolating members to {}".format(PIPS_name))
     var_ds_interp_list.append(var_ds_interp)
 
-# STOPPED HERE!
+# Interpolate PIPS variables to the model times
+var_ds_interp_new_list = []
+for parsivel_combined_ds, var_ds_interp in zip(parsivel_combined_ds_list, var_ds_interp_list):
+    print("Interpolating {} to model times".format(parsivel_combined_ds.probe_name))
+    parsivel_combined_ds_at_model_times = parsivel_combined_ds.interp_like(var_ds_interp)
+    # Model fields and PIPS fields both have 'rho'. Rename 'rho' to 'density' in the PIPS timeseries
+    # to distinguish them.
+    # TODO: Probably should go through all the variable names and rename them to better distinguish
+    # Model and PIPS fields...
+    parsivel_combined_ds_at_model_times = \
+        parsivel_combined_ds_at_model_times.rename({'rho': 'density'})
+    var_ds_interp = xr.merge([var_ds_interp, parsivel_combined_ds_at_model_times])
+    var_ds_interp.attrs = parsivel_combined_ds_at_model_times.attrs
+    print(var_ds_interp)
+    var_ds_interp_new_list.append(var_ds_interp)
 
-# TODO: remove old stuff below after completing script
 
-# Load the ARPS grid
-# Get file path for grdbas file (note that call to read_grid handles the reading of the individual
-# patches)
-# If the grdbas file doesn't exist, fall back to a history file
-member = 1  # 0 is for ensemble mean
-cycle = 'posterior'
-member_dir, member_prefix = sim.get_ARPS_member_dir_and_prefix(member, cycle)
-member_absdir = os.path.join(basedir, expname, member_dir)
-trailer = ''
-grdbas_path = arps_read.get_file_path(member_absdir, member_prefix, fileformat, filetype='grdbas')
-patch_x = 1
-patch_y = 1
-grdbas_path_test = arps_read.add_patch_number(grdbas_path, patch_x, patch_y)
-if not os.path.exists(grdbas_path_test):
-    print("grdbas file doesn't exist, trying a history file!")
-    grdbas_path = arps_read.get_file_path(member_absdir, member_prefix, fileformat,
-                                          time=trange_sec[0], filetype='history')
-    grdbas_path_test = arps_read.add_patch_number(grdbas_path, patch_x, patch_y)
-
-    # print(grdbas_path_test)
-    # print(os.path.exists(grdbas_path_test))
-
-# Read in grid information
-grid_dict = arps_read.readarpsgrid(grdbas_path, nproc_x=nproc_x, nproc_y=nproc_y)
-# print(grid_dict.keys())
-
-# Get map projection information and create a Basemap instance
-# TODO: convert to use cartopy!
-
-ctrlat, ctrlon, trulat1, trulat2, trulon = arps_read.readarpsmap(grdbas_path, nproc_x=nproc_x,
-                                                                 nproc_y=nproc_y)
-dx = grid_dict['dx']
-dy = grid_dict['dy']
-nx = grid_dict['nx']
-ny = grid_dict['ny']
-mapwidth = nx * dx
-mapheight = ny * dy
-bgmap = Basemap(projection='lcc', width=mapwidth, height=mapheight, lat_1=trulat1,
-                lat_2=trulat2, lat_0=ctrlat, lon_0=ctrlon, resolution='h',
-                area_thresh=10., suppress_ticks=False)
-grid_dict['bgmap'] = bgmap
-
-# Read in PIPS data (we just need the geographic locations)
-parsivel_combined_filelist = [os.path.join(PIPS_dir, pcf) for pcf in parsivel_combined_filenames]
-
-geo_loc_list = []
-for parsivel_combined_file in parsivel_combined_filelist:
-    parsivel_combined_ds = xr.load_dataset(parsivel_combined_file)
-    PIPS_name = parsivel_combined_ds.probe_name
-    geo_loc_str = parsivel_combined_ds.location
-    geo_loc = list(map(np.float, geo_loc_str.strip('()').split(',')))
-    geo_loc_list.append(geo_loc)
-
-# A bit clunky, but extract the diameter bins as a DataArray from the last parsivel_combined_ds
-# Later maybe can just promote avg_diameter to a DataArray
-mid_diameters_da = parsivel_combined_ds['diameter']
-
-# Find coordinates of PIPS stations in the model
-modloc_list, coord_list = sim.get_dis_locs_arps_real_grid(grid_dict, geo_loc_list)
-coord_array = np.array(coord_list)
-dxlist = [i[0] for i in modloc_list]
-dylist = [i[1] for i in modloc_list]
-xc = grid_dict['xs']
-yc = grid_dict['ys']
-xe = grid_dict['x']
-ye = grid_dict['y']
-# Set model grid limits to center on the disdrometer locations
-Dxmin = min(dxlist)
-Dxmax = max(dxlist)
-Dymin = min(dylist)
-Dymax = max(dylist)
-gridlims = [Dxmin - 25000., Dxmax + 25000., Dymin - 25000., Dymax + 25000.]
-ibgn = np.searchsorted(xc, gridlims[0])
-iend = np.searchsorted(xc, gridlims[1]) + 1
-jbgn = np.searchsorted(yc, gridlims[2])
-jend = np.searchsorted(yc, gridlims[3]) + 1
-
-# print(gridlims)
-# print(ibgn, iend, jbgn, jend)
-
-# Read in ensemble and dump slice patches to netCDF files
-# TODO: put varname list in config file
-varnames = ['p', 'pt', 'qv', 'u', 'v', 'qr', 'nr', 'zr']
-member_list = range(1, num_members)
-klvls = [args.model_level]
-xc_patch = xc[ibgn:iend+1]
-yc_patch = yc[jbgn:jend+1]
-xe_patch = xe[ibgn:iend+2]
-ye_patch = ye[jbgn:jend+2]
-
-grid_dict_patch = {
-    'nx_full': nx,
-    'ny_full': ny,
-    'dx': dx,
-    'dy': dy,
-    'xc': xc_patch,
-    'yc': yc_patch,
-    'xe': xe_patch,
-    'ye': ye_patch,
-    'ctrlat': ctrlat,
-    'ctrlon': ctrlon,
-    'trulat1': trulat1,
-    'trulat2': trulat2,
-    'trulon': trulon
-}
-
-# Pack the args and kwargs for the call to the parallel reader wrapper function
-f_args = (basedir, expname, member, cycle, fileformat, trange_sec, varnames)
-f_kwargs = {
-    'filetype': filetype,
-    'ibgn': ibgn,
-    'iend': iend,
-    'jbgn': jbgn,
-    'jend': jend,
-    'klvls': klvls,
-    'nproc_x': nproc_x,
-    'nproc_y': nproc_y,
-    'ncdir': args.output_dir,
-    'datetime_range': datetime_range,
-    'mid_diameters': mid_diameters_da,
-    'grid_dict': grid_dict_patch,
-    'fileprefix': expname+'_',
-    }
-
-# Set up the parallel read of all the model members
-runs_list = sim.read_ARPS_ensemble(sim.read_ARPS_member_data, member_list, f_args=f_args,
-                                   f_kwargs=f_kwargs, iterate_over='member',
-                                   process_parallel=args.process_parallel,
-                                   n_jobs=args.n_jobs, verbose=10)
+# Dump interpolated timeseries to netCDF files
+for deployment_name, PIPS_name, var_ds_interp in zip(deployment_names, PIPS_names,
+                                                     var_ds_interp_new_list):
+    output_file_name = 'ARPS_at_{}_{}_{:d}s.nc'.format(deployment_name, PIPS_name,
+                                                       int(DSD_interval))
+    output_file_path = os.path.join(args.output_dir, output_file_name)
+    print("Writing {}".format(output_file_path))
+    var_ds_interp.to_netcdf(output_file_path)

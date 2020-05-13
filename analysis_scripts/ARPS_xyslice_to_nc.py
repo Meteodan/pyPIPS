@@ -173,7 +173,7 @@ jend = np.searchsorted(yc, gridlims[3]) + 1
 # Read in ensemble and dump slice patches to netCDF files
 # TODO: put varname list in config file
 varnames = ['p', 'pt', 'qv', 'u', 'v', 'qr', 'nr', 'zr']
-member_list = range(1, num_members)
+member_list = range(1, num_members+1)
 klvls = [args.model_level]
 xc_patch = xc[ibgn:iend+1]
 yc_patch = yc[jbgn:jend+1]

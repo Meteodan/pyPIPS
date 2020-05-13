@@ -355,7 +355,8 @@ def calc_D0_bin(ND):
     # of the bin just below that, thresholding on the smallest bin
     medindices = (pro_cumsum > 0.5).argmax(dim='diameter_bin')
     medindices_m1 = medindices - 1
-    medindices_m1[medindices_m1 < 0] = 0
+    medindices_m1 = medindices_m1.where(medindices_m1 >= 0, other=0)
+    # medindices_m1[medindices_m1 < 0] = 0
     b1 = Dl[medindices]  # Lower boundaries of mass-midpoint bin
     b2 = Dr[medindices]  # Upper boundaries of mass-midpoint bin
     pro_med = pro.loc[dict(diameter_bin=medindices)]
@@ -364,11 +365,13 @@ def calc_D0_bin(ND):
     # a given bin bounded by Dl and Dr which contains the half-mass point
     D0 = b1 + ((0.5 - pro_cumsum_med_m1) / pro_med) * (b2 - b1)
     # Don't let D0 be any smaller than the midpoint of the smallest bin
-    D0[D0 < Dm[0]] = Dm[0]
+    D0 = D0.where(D0 >= Dm[0], other=Dm[0])
     # Finally remove coordinates that we don't need (there's some issue with xarray where
     # their dimensions are reset to an incorrect one anyway. i.e. diameter(diameter_bin) becomes
     # diameter(time) for some reason)
-    D0 = D0.reset_coords(names=['diameter', 'min_diameter', 'max_diameter'], drop=True)
+    # TODO 05/12/2020. After above modifications to use where() instead of fancy indexing
+    # this step doesn't appear to be needed anymore. Suspicious...
+    # D0 = D0.reset_coords(names=['diameter', 'min_diameter', 'max_diameter'], drop=True)
     return D0
 
 
@@ -1215,6 +1218,7 @@ def calc_empirical_polyfit(var_x, var_y, order=3):
     poly_coeff = np.polynomial.polynomial.polyfit(var_x, var_y, order)
     poly = np.polynomial.polynomial.Polynomial(poly_coeff)
     return poly_coeff, poly
+
 
 def calc_CG_polynomial(lamda, mu):
     """Computes a least-squares quadratic polynomial fit to the mu-lamda points

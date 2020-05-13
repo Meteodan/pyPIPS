@@ -769,6 +769,9 @@ def plotDSDmeteograms(dis_name, image_dir, axparams, disvars, radvars=None, clos
     if radvars is not None:
         D_0_rad = radvars.get('D_0_rad', N.empty((0)))
         radmidtimes = radvars.get('radmidtimes', N.empty((0)))
+    else:
+        D_0_rad = N.empty((0))
+        radmidtimes = N.empty((0))
 
     # Try to find the desired dualpol variables for plotting in the provided dictionary
 
