@@ -79,7 +79,7 @@ else:
     parsivel_combined_filename = 'ND_avg_{}_{:d}s.nc'.format(dataset_name, int(requested_interval))
     parsivel_combined_filelist = [os.path.join(PIPS_dir, parsivel_combined_filename)]
 
-for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
+for index, parsivel_combined_file in enumerate(parsivel_combined_filelist[:22]):
     print("Reading {}".format(parsivel_combined_file))
     parsivel_combined_ds = xr.load_dataset(parsivel_combined_file)
 

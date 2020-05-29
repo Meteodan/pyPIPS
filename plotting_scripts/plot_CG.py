@@ -43,6 +43,9 @@ parser.add_argument('--filter_RR', dest='filter_RR', type=float, default=None,
                     help='filter rainrate < # (mm)')
 parser.add_argument('--filter_counts', dest='filter_counts', type=int, default=None,
                     help='filter particle counts < #')
+parser.add_argument('--use-parsivel-params', dest='use_parsivel_params', action='store_true',
+                    default=False, help='Use parsivel RR and counts instead of computed')
+parser.add_argument('--fig-fmt', dest='figfmt', default='png', help='format of saved figure')
 
 args = parser.parse_args()
 ND_tag = args.ND_tag
@@ -91,7 +94,8 @@ if not args.plot_SATP:
 
     # Open entire multi-file dataset
     print("Opening dataset {}".format(dataset_name))
-    parsivel_combined_ds = xr.open_mfdataset(parsivel_combined_filelist)
+    parsivel_combined_ds = xr.open_mfdataset(parsivel_combined_filelist, combine='nested',
+                                             concat_dim='time', preprocess=pipsio.remove_unneeded)
     plot_tag = 'no_SATP'
     dim = 'time'
 else:
@@ -101,19 +105,28 @@ else:
     plot_tag = 'SATP'
     dim = 'D0_RR'
 
+DSD_interval = parsivel_combined_ds.DSD_interval
+
 # Filter by RR and pcount if desired
 filter_RR_tag = 'no_RR_filter'
 filter_counts_tag = 'no_counts_filter'
 if filter_RR:
+    if args.use_parsivel_params:
+        rainrate_key = 'precipintensity'
+    else:
+        rainrate_key = 'rainrate_derived_{}'.format(ND_tag)
     parsivel_combined_ds = parsivel_combined_ds.where(
-        parsivel_combined_ds['precipintensity'] >= filter_RR, drop=True)
+        parsivel_combined_ds[rainrate_key] >= filter_RR, drop=True)
     filter_RR_tag = 'RR_filter_{:d}mm'.format(int(filter_RR))
 if filter_counts:
+    if args.use_parsivel_params:
+        counts_key = 'pcount'
+    else:
+        counts_key = 'pcount_derived_{}'.format(ND_tag)
     parsivel_combined_ds = parsivel_combined_ds.where(
-        parsivel_combined_ds['pcount'] >= filter_counts, drop=True)
+        parsivel_combined_ds[counts_key] >= filter_counts, drop=True)
     filter_counts_tag = 'counts_filter_{:d}'.format(filter_counts)
 
-DSD_interval = parsivel_combined_ds.DSD_interval
 
 # Get the untruncated and truncated moment fits MM246.
 # TODO: update this for greater flexibility later
@@ -140,8 +153,8 @@ print("The MM246 polynomial coefficients are: ", MM246_poly_coeff)
 # Plot the relationship on a scatterplot along with the Cao and Zhang relations
 fig, ax = pm.plot_mu_lamda(lamda_MM246, mu_MM246, MM246_poly_coeff, MM246_poly, title='Untruncated')
 plt.savefig(plot_dir +
-            '/Untruncated_MM246_mu_lamda_{}_{}_{}.png'.format(plot_tag, filter_RR_tag,
-                                                              filter_counts_tag),
+            '/Untruncated_MM246_mu_lamda_{}_{}_{}.{}'.format(plot_tag, filter_RR_tag,
+                                                             filter_counts_tag, args.figfmt),
             dpi=200, bbox_inches='tight')
 
 # Fit polynomials
@@ -154,6 +167,6 @@ print("The TMM246 polynomial coefficients are: ", TMM246_poly_coeff)
 # Plot the relationship on a scatterplot along with the Cao and Zhang relations
 pm.plot_mu_lamda(lamda_TMM246, mu_TMM246, TMM246_poly_coeff, TMM246_poly, title='Truncated')
 plt.savefig(plot_dir +
-            '/Truncated_MM246_mu_lamda_{}_{}_{}.png'.format(plot_tag, filter_RR_tag,
-                                                            filter_counts_tag),
+            '/Truncated_MM246_mu_lamda_{}_{}_{}.{}'.format(plot_tag, filter_RR_tag,
+                                                           filter_counts_tag, args.figfmt),
             dpi=200, bbox_inches='tight')

@@ -45,8 +45,12 @@ parser.add_argument('--lookup-dir', dest='lookup_dir', help='directory where loo
 parser.add_argument('--use-filtered-fields', dest='use_filtered_fields', default=False,
                     action='store_true',
                     help='Whether to use previously filtered dBZ and ZDR fields for the retrieval')
-parser.add_argument('--radar-output-dir', metavar='<directory_name>', dest='radar_output_dir',
-                    help='The output subdirectory for the modified radar files')
+parser.add_argument('--retrieval-tag', dest='retrieval_tag', default='',
+                    help='nametag for the name of the mu-lambda relation (e.g. SATP, C08, Z01)')
+parser.add_argument('--input-tag', dest='input_tag', default=None,
+                    help='Input nametag to determine which files to read in')
+parser.add_argument('--output-tag', dest='output_tag', default=None,
+                    help='tag for output nc files to distinguish from original')
 args = parser.parse_args()
 
 # Dynamically import the case configuration file
@@ -89,19 +93,19 @@ scatt_dir = config.radar_config_dict.get('scatt_dir', None)
 wavelength = config.radar_config_dict.get('wavelength', 10.7)
 
 # Read radar sweeps
-radar_paths = glob(radar_dir + '/*{}*.nc'.format(radar_name))
+if args.input_tag is None:
+    radar_paths = glob(radar_dir + '/*{}*.nc'.format(radar_name))
+else:
+    radar_paths = glob(radar_dir + '/*{}*_{}.nc'.format(radar_name, args.input_tag))
 radar_dict = radar.read_sweeps(radar_paths, radar_start_timestamp,
                                radar_end_timestamp, field_names=field_names, el_req=el_req,
                                radar_type=radar_type)
 
-new_radar_paths = radar_dict['radarpathlist']
-
-radar_output_dir = os.path.join(radar_dir, args.radar_output_dir)
-if not os.path.exists(radar_output_dir):
-    os.makedirs(radar_output_dir)
-
-radar_output_paths = [os.path.join(radar_output_dir, os.path.basename(radar_path)) for radar_path
-                      in new_radar_paths]
+if args.output_tag:
+    radar_output_paths = [radar_path.replace('.nc', '_{}.nc'.format(args.output_tag))
+                          for radar_path in radar_dict['radarpathlist']]
+else:
+    radar_output_paths = radar_dict['radarpathlist']
 
 if args.use_filtered_fields:
     tag = '_filtered'
@@ -179,9 +183,10 @@ for radar_obj, radar_output_path in zip(radar_dict['radarsweeplist'], radar_outp
         retr_vals = radar.retrieval_metadata[retr_varname]
         retr_vals['data'] = retr_vals_data
         # Save the retrieved array as a new field in the radar sweep object
-        radar_obj.add_field(retr_varname, retr_vals, replace_existing=True)
+        retr_varname_out = '{}_{}'.format(retr_varname, args.retrieval_tag)
+        radar_obj.add_field(retr_varname_out, retr_vals, replace_existing=True)
         # Now mask the retrieved values using the original combined mask of ZH and ZDR
-        radar_obj.fields[retr_varname]['data'].mask = full_mask
+        radar_obj.fields[retr_varname_out]['data'].mask = full_mask
 
     # Now save the radar object to a new CFRadial file with the added retrieved fields
     print("Saving {}".format(radar_output_path))

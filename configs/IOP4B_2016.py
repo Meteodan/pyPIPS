@@ -34,7 +34,7 @@ radar_config_dict = {
     'plot_retrieval': True,
     'radar_name': 'KGWX',
     'radar_type': 'NEXRAD',
-    'radar_dir': '/Volumes/scr_fast/Projects/VORTEXSE/obsdata/2016/NEXRAD/IOP_4B/CFRadial/SATP_retr',
+    'radar_dir': '/Volumes/scr_fast/Projects/VORTEXSE/obsdata/2016/NEXRAD/IOP_4B/CFRadial/KGWX',
     'field_names': ['REF', 'ZDR', 'RHO', 'Dm', 'sigma', 'RR', 'mu', 'lamda'],
     'el_req': 0.5,
     'radar_start_timestamp': '20160429210000',

@@ -41,7 +41,10 @@ parser.add_argument('--calc-for-SATP', action='store_true', dest='calc_for_SATP'
 parser.add_argument('--coefficients', nargs=3, metavar=('c1', 'c2', 'c3'), type=float,
                     dest='coefficients',
                     help='coefficients of mu-lambda polynomial (in decreasing order of exponent')
-
+parser.add_argument('--retrieval-tag', dest='retrieval_tag', default='',
+                    help='nametag for the name of the mu-lambda relation (e.g. SATP, C08, Z01)')
+parser.add_argument('--output-tag', dest='output_tag', default='',
+                    help='tag for output nc files to distinguish from original if desired')
 
 args = parser.parse_args()
 ND_tag = args.ND_tag
@@ -121,15 +124,18 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
     fb2 = dualpol_dict['fb2']
 
     mu_lamda_coeff = args.coefficients[::-1]
-    retr_dict = dsd.retrieval_Cao_xr(ZH, ZDR, ND, D, dD, fa2, fb2, wavelength, mu_lamda_coeff)
+    retr_dict = dsd.retrieval_Cao_xr(ZH, ZDR, ND, D, dD, fa2, fb2, wavelength, mu_lamda_coeff,
+                                     retrieval_tag=args.retrieval_tag)
 
     retr_ds = xr.Dataset(retr_dict)
     parsivel_combined_ds.update(retr_ds)
     if args.calc_for_SATP:
         parsivel_combined_ds = parsivel_combined_ds.reset_index('D0_RR')
         parsivel_combined_ds.attrs = ND.attrs
-    parsivel_combined_ds.attrs['CG_coeff'] = mu_lamda_coeff
+    parsivel_combined_ds.attrs['CG_coeff_{}'.format(args.retrieval_tag)] = mu_lamda_coeff
     parsivel_combined_ds.attrs['retrieval_wavelength'] = wavelength
 
-    print("Dumping {}".format(parsivel_combined_file))
-    parsivel_combined_ds.to_netcdf(parsivel_combined_file)
+    parsivel_combined_output_file = parsivel_combined_file + args.output_tag
+    print("Dumping {}".format(parsivel_combined_output_file))
+    parsivel_combined_ds.to_netcdf(parsivel_combined_output_file)
+

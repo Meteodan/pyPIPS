@@ -39,6 +39,15 @@ parser.add_argument('--plot-raw', action='store_true', dest='plot_raw',
 parser.add_argument('--use-filtered-fields', dest='use_filtered_fields', default=False,
                     action='store_true',
                     help='Whether to use previously filtered dBZ and ZDR fields for the retrieval')
+parser.add_argument('--plot-dir', metavar='<path/to/plot/directory/>', dest='plot_dir',
+                    default=None,
+                    help='directory to store plots (overrides that in the config file')
+parser.add_argument('--filter_RR', dest='filter_RR', type=float, default=None,
+                    help='filter rainrate < # (mm)')
+parser.add_argument('--filter_counts', dest='filter_counts', type=int, default=None,
+                    help='filter particle counts < #')
+parser.add_argument('--use-parsivel-params', dest='use_parsivel_params', action='store_true',
+                    default=False, help='Use parsivel RR and counts instead of computed')
 
 args = parser.parse_args()
 
@@ -101,6 +110,8 @@ scatt_dir = config.radar_config_dict.get('scatt_dir', None)
 wavelength = config.radar_config_dict.get('wavelength', 10.7)
 
 # Create the directory for the meteogram plots if it doesn't exist
+if args.plot_dir:
+    plot_dir = args.plot_dir
 meteogram_image_dir = os.path.join(plot_dir, 'meteograms')
 if not os.path.exists(meteogram_image_dir):
     os.makedirs(meteogram_image_dir)
@@ -128,6 +139,22 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
 
     start_time = start_times[index]
     end_time = end_times[index]
+
+    # Filter by RR and pcount if desired
+    if args.filter_RR:
+        if args.use_parsivel_params:
+            rainrate_key = 'precipintensity'
+        else:
+            rainrate_key = 'rainrate_derived{}'.format(tag)
+        parsivel_combined_ds = parsivel_combined_ds.where(
+            parsivel_combined_ds[rainrate_key] >= args.filter_RR)
+    if args.filter_counts:
+        if args.use_parsivel_params:
+            counts_key = 'pcount'
+        else:
+            counts_key = 'pcount_derived{}'.format(tag)
+        parsivel_combined_ds = parsivel_combined_ds.where(
+            parsivel_combined_ds[counts_key] >= args.filter_counts)
 
     ND = parsivel_combined_ds['ND{}'.format(tag)]
     logND = np.log10(ND)
@@ -190,7 +217,9 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
 
     DSDtype = 'observed'
     locator = dates.MinuteLocator(byminute=[0, 15, 30, 45])
+    locator.MAXTICKS = 1500
     minorlocator = dates.MinuteLocator(byminute=range(0, 60, 5))
+    minorlocator.MAXTICKS = 1500
     dateformat = '%H:%M'
     formatter = dates.DateFormatter(dateformat)
 

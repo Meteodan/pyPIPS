@@ -421,7 +421,8 @@ def dealias(dataset, texture_kernel=3):
     return dataset
 
 
-def correct_fmcw_with_nexrad(fmcw_ds, PIPS_ds, radar_name='KHTX', plot=True):
+def correct_fmcw_with_nexrad(fmcw_ds, PIPS_ds, radar_name='KHTX', dBZ_field='REF_filtered',
+                             plot=True):
     beam_height = PIPS_ds['{}_beam_height_at_PIPS'.format(radar_name)]
     beam_height = beam_height.interpolate_na(dim='time')
     beam_height = beam_height.ffill(dim='time')
@@ -430,7 +431,7 @@ def correct_fmcw_with_nexrad(fmcw_ds, PIPS_ds, radar_name='KHTX', plot=True):
     fmcw_ds_interp = interp_along_1D(fmcw_ds, beam_height, 'height', 'time')
     fmcw_dBZ_at_nexrad_beam = fmcw_ds_interp['Ze']
     nexrad_dBZ_at_fmcw = PIPS_ds['{}_at_PIPS'.format(radar_name)].sel(
-        {'fields_{}'.format(radar_name): 'REF_filtered'})
+        {'fields_{}'.format(radar_name): dBZ_field})
     nexrad_dBZ_at_fmcw = nexrad_dBZ_at_fmcw.interp_like(fmcw_dBZ_at_nexrad_beam)
 
     if plot:

@@ -42,14 +42,16 @@ description = "Filters radar data for radar sweeps"
 parser = argparse.ArgumentParser(description=description)
 parser.add_argument('case_config_path', metavar='<path/to/case/config/file.py>',
                     help='The path to the case configuration file')
-parser.add_argument('--radar-output-dir', metavar='<directory_name>', dest='radar_output_dir',
-                    help='The output subdirectory for the modified radar files')
 parser.add_argument('--dBZ-thresh', type=float, dest='dBZ_thresh', default=5.,
                     help='Threshold of reflectivity below which to exclude (dBZ)')
 parser.add_argument('--RHV-thresh', type=float, dest='RHV_thresh', default=0.95,
                     help='Threshold of RHV below which to exclude')
 parser.add_argument('--med-filter-width', type=float, dest='med_filter_width', default=3,
                     help='Width of median filter in gates')
+parser.add_argument('--input-tag', dest='input_tag', default=None,
+                    help='Input nametag to determine which files to read in')
+parser.add_argument('--output-tag', dest='output_tag', default=None,
+                    help='tag for output nc files to distinguish from original')
 
 args = parser.parse_args()
 
@@ -93,19 +95,19 @@ scatt_dir = config.radar_config_dict.get('scatt_dir', None)
 wavelength = config.radar_config_dict.get('wavelength', 10.7)
 
 # Read radar sweeps
-radar_paths = glob(radar_dir + '/*{}*.nc'.format(radar_name))
+if args.input_tag is None:
+    radar_paths = glob(radar_dir + '/*{}*.nc'.format(radar_name))
+else:
+    radar_paths = glob(radar_dir + '/*{}*_{}.nc'.format(radar_name, args.input_tag))
 radar_dict = radar.read_sweeps(radar_paths, radar_start_timestamp,
                                radar_end_timestamp, field_names=field_names, el_req=el_req,
                                radar_type=radar_type)
 
-new_radar_paths = radar_dict['radarpathlist']
-
-radar_output_dir = os.path.join(radar_dir, args.radar_output_dir)
-if not os.path.exists(radar_output_dir):
-    os.makedirs(radar_output_dir)
-
-radar_output_paths = [os.path.join(radar_output_dir, os.path.basename(radar_path)) for radar_path
-                      in new_radar_paths]
+if args.output_tag:
+    radar_output_paths = [radar_path.replace('.nc', '_{}.nc'.format(args.output_tag))
+                          for radar_path in radar_dict['radarpathlist']]
+else:
+    radar_output_paths = radar_dict['radarpathlist']
 
 for radar_obj, radar_output_path in zip(radar_dict['radarsweeplist'], radar_output_paths):
     print("Getting fields")

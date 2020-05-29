@@ -42,6 +42,8 @@ parser.add_argument('case_config_path', metavar='<path/to/case/config/file.py>',
                     help='The path to the case configuration file')
 parser.add_argument('--average-gates', dest='average_gates', default=False, action='store_true',
                     help='Whether to average the nearest gates when interpolating to PIPS location')
+parser.add_argument('--input-tag', dest='input_tag', default=None,
+                    help='Input nametag to determine which files to read in')
 args = parser.parse_args()
 
 # Dynamically import the case configuration file
@@ -93,7 +95,11 @@ parsivel_combined_filelist = [os.path.join(PIPS_dir, pcf) for pcf in parsivel_co
 
 # The following assumes that the same radar will be used for each PIPS in the deployment.
 # TODO: make this more flexible
-radar_paths = glob(radar_dir + '/*{}*.nc'.format(radar_name))
+# Read radar sweeps
+if args.input_tag is None:
+    radar_paths = glob(radar_dir + '/*{}*.nc'.format(radar_name))
+else:
+    radar_paths = glob(radar_dir + '/*{}*_{}.nc'.format(radar_name, args.input_tag))
 radar_dict = radar.read_sweeps(radar_paths, radar_start_timestamp,
                                radar_end_timestamp, field_names=field_names, el_req=el_req,
                                radar_type=radar_type)

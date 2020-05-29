@@ -4,8 +4,8 @@ from glob import glob
 
 PIPS_IO_dict = {
     'dataset_name': 'full_dataset',
-    'PIPS_dir': '/Volumes/scr_fast/Projects/VORTEXSE/obsdata/full_PIPS_dataset/SATP_retr',
-    'plot_dir': '/Volumes/scr_fast/Projects/VORTEXSE/obsdata/full_PIPS_dataset/SATP_retr/plots',
+    'PIPS_dir': '/Volumes/scr_fast/Projects/VORTEXSE/obsdata/full_PIPS_dataset',
+    'plot_dir': '/Volumes/scr_fast/Projects/VORTEXSE/obsdata/full_PIPS_dataset/plots',
     'requested_interval': 60.
 }
 
@@ -58,7 +58,7 @@ PIPS_qc_dict = {
 radar_config_dict = {
     'load_radar_at_PIPS': True,
     'save_radar_at_PIPS': False,
-    'comp_radar': True,
+    'comp_radar': False,
     'clean_radar': False,
     'calc_dualpol': True,
     'radar_name': 'KGWX',

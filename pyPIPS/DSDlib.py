@@ -991,7 +991,7 @@ def fit_DSD_TMM_xr(M2, M4, M6, D_min, D_max):
     return N0_da, lamda_da, alpha_da
 
 
-@jit
+@jit(parallel=True)
 def fit_DSD_TMM(M2, M4, M6, D_min, D_max):
     """Fits gamma distributions using the Truncated Method of Moments (TMM) using M2, M4, and M6
     and D_min, and D_max. Operates on numpy arrays and uses numba jit to speed things up
@@ -1034,35 +1034,44 @@ def fit_DSD_TMM(M2, M4, M6, D_min, D_max):
     # N0_tmf = []
 
     for t in range(numtimes):
-        # print("D_max = ", D_max[t])
-        LDmx = lamda_init[t] * D_max[t]
-        for _ in range(10):
-            mu = mu_init[t]
-            # truncated moment ratio below. Equation A8 from Thurai
-            gm3 = gammap(3. + mu, LDmx) * np.exp(gammln(3. + mu))
-            gm5 = gammap(5. + mu, LDmx) * np.exp(gammln(5. + mu))
-            gm7 = gammap(7. + mu, LDmx) * np.exp(gammln(7. + mu))
-            z0 = G[t] - gm5**2. / gm3 / gm7
-            z1 = G[t] - gm5**2. / gm3 / gm7
+        # print("Working on time {:d}".format(t))
+        if M2[t] > 0. and M4[t] > 0. and M6[t] > 0.:
+            # print("D_max = ", D_max[t])
+            print("Working on time {:d}".format(t))
+            LDmx = lamda_init[t] * D_max[t]
+            LDmn = lamda_init[t] * D_min[t]
+            for _ in range(10):
+                mu = mu_init[t]
+                # truncated moment ratio below. Equation A8 from Thurai
+                gm3 = (gammap(3. + mu, LDmx) - gammap(3. + mu, LDmn)) * np.exp(gammln(3. + mu))
+                gm5 = (gammap(5. + mu, LDmx) - gammap(5. + mu, LDmn)) * np.exp(gammln(5. + mu))
+                gm7 = (gammap(7. + mu, LDmx) - gammap(7. + mu, LDmn)) * np.exp(gammln(7. + mu))
+                z0 = G[t] - gm5**2. / (gm3 * gm7)
+                z1 = G[t] - gm5**2. / (gm3 * gm7)
 
-            while z1 / z0 > 0.0:
-                mu = mu - 0.01
-                gm3 = gammap(3. + mu, LDmx) * np.exp(gammln(3. + mu))
-                gm5 = gammap(5. + mu, LDmx) * np.exp(gammln(5. + mu))
-                gm7 = gammap(7. + mu, LDmx) * np.exp(gammln(7. + mu))
-                z1 = G[t] - gm5**2. / gm3 / gm7
+                while z1 / z0 > 0.0:
+                    mu = mu - 0.01
+                    gm3 = (gammap(3. + mu, LDmx) - gammap(3. + mu, LDmn)) * np.exp(gammln(3. + mu))
+                    gm5 = (gammap(5. + mu, LDmx) - gammap(5. + mu, LDmn)) * np.exp(gammln(5. + mu))
+                    gm7 = (gammap(7. + mu, LDmx) - gammap(7. + mu, LDmn)) * np.exp(gammln(7. + mu))
+                    z1 = G[t] - gm5**2. / (gm3 * gm7)
 
-            lam_tmf = (M2[t] * gm5 / M4[t] / gm3)**0.5
-            LDmx = lam_tmf * D_max[t]
+                lam_tmf = ((M2[t] * gm5) / (M4[t] * gm3))**0.5
+                LDmx = lam_tmf * D_max[t]
+                LDmn = lam_tmf * D_min[t]
+        else:
+            mu = np.nan
+            lam_tmf = np.nan
         mu_tmf.append(mu)
         lamda_tmf.append(lam_tmf)
-        # print("Working on time {:d}".format(t))
 
     mu_tmf = np.array(mu_tmf)
     lamda_tmf = np.array(lamda_tmf)
     LDmx = lamda_tmf * D_max
-    N0_tmf = (M4 * lamda_tmf**(5. + mu_tmf)) / \
-        (gammap(5. + mu_tmf, LDmx) * np.exp(gammln(5. + mu_tmf)))
+    LDmn = lamda_tmf * D_min
+    N0_tmf = ((M4 * lamda_tmf**(5. + mu_tmf)) /
+              ((gammap(5. + mu_tmf, LDmx) - gammap(5. + mu_tmf, LDmn)) *
+               np.exp(gammln(5. + mu_tmf))))
 
     return N0_tmf, lamda_tmf, mu_tmf
 
@@ -1295,7 +1304,19 @@ def calc_sigma_Brandes2004_empirical(ZDR):
     return 0.163 + 0.519 * ZDR - 0.0247 * ZDR**2.
 
 
-def retrieval_Cao_xr(ZH, ZDR, ND, D, dD, fa2, fb2, wavelength, mu_lamda_coeff, ZDR_thresh=3.):
+def retrieval_Cao_xr(ZH, ZDR, ND, D, dD, fa2, fb2, wavelength, mu_lamda_coeff, ZDR_thresh=3.,
+                     retrieval_tag=''):
+
+    RR_key = 'RR_retr_' + retrieval_tag
+    D0_key = 'D0_retr_' + retrieval_tag
+    mu_key = 'mu_retr_' + retrieval_tag
+    lamda_key = 'lamda_retr_' + retrieval_tag
+    N0_key = 'N0_retr_' + retrieval_tag
+    Nt_key = 'Nt_retr_' + retrieval_tag
+    W_key = 'W_retr_' + retrieval_tag
+    sigma_key = 'sigma_retr_' + retrieval_tag
+    Dm_key = 'Dm_retr_' + retrieval_tag
+    ND_key = 'ND_retr_' + retrieval_tag
 
     ZH_arr = ZH.values
     ZDR_arr = ZDR.values
@@ -1307,27 +1328,47 @@ def retrieval_Cao_xr(ZH, ZDR, ND, D, dD, fa2, fb2, wavelength, mu_lamda_coeff, Z
     ntimes = len(ZH)
     retr_dict_list = []
     for t in range(ntimes):
-        retr_dict = retrieval_Cao(ZH_arr[t], ZDR_arr[t], D_arr, dD_arr, fa2, fb2, wavelength,
-                                  mu_lamda_coeff, ZDR_thresh=ZDR_thresh)
-        ND_retr = np.array(retr_dict['ND_retr'])
+        # retr_dict = retrieval_Cao(ZH_arr[t].item(), ZDR_arr[t].item(), D_arr, dD_arr,
+        #                           fa2, fb2, wavelength, mu_lamda_coeff, ZDR_thresh=ZDR_thresh,
+        #                           retrieval_tag=retrieval_tag)
+        retr_tuple = retrieval_Cao(ZH_arr[t].item(), ZDR_arr[t].item(), D_arr, dD_arr,
+                                   fa2, fb2, wavelength, mu_lamda_coeff, ZDR_thresh=ZDR_thresh,
+                                   retrieval_tag=retrieval_tag)
+        retr_dict = {
+            RR_key: retr_tuple[0],
+            D0_key: retr_tuple[1],
+            mu_key: retr_tuple[2],
+            lamda_key: retr_tuple[3],
+            N0_key: retr_tuple[4],
+            Nt_key: retr_tuple[5],
+            W_key: retr_tuple[6],
+            sigma_key: retr_tuple[7],
+            Dm_key: retr_tuple[8],
+            ND_key: retr_tuple[9]
+        }
+        # DTD: test weird numba error by temporarily removing ND from dictionary, so set it to
+        # empty here
+        ND_retr = np.array(retr_dict['ND_retr_{}'.format(retrieval_tag)])
+        # ND_retr = np.empty_like(D_arr)
         #print(ND_retr)
         ND_retr = np.append(ND_retr, [np.nan] * (full_len - trunc_len))
 
-        retr_dict['ND_retr'] = ND_retr
+        retr_dict['ND_retr_{}'.format(retrieval_tag)] = ND_retr
         retr_dict_list.append(retr_dict)
 
     retr_dict_alltimes = {k: [dic[k] for dic in retr_dict_list] for k in retr_dict_list[0]}
-    ND_retr = retr_dict_alltimes['ND_retr']
+    ND_retr = retr_dict_alltimes['ND_retr_{}'.format(retrieval_tag)]
     ND_retr_da = ND.copy(data=ND_retr)
-    retr_dict_alltimes['ND_retr'] = ND_retr_da
+    retr_dict_alltimes['ND_retr_{}'.format(retrieval_tag)] = ND_retr_da
     for name, values in retr_dict_alltimes.items():
-        if name not in "ND_retr":
+        if name not in 'ND_retr_{}'.format(retrieval_tag):
             retr_dict_alltimes[name] = ZH.copy(data=values)
     return retr_dict_alltimes
 
 
-#@jit
-def retrieval_Cao(ZH, ZDR, D, dD, fa2, fb2, wavelength, mu_lamda_coeff, ZDR_thresh=3.):
+@jit(parallel=True)
+def retrieval_Cao(ZH, ZDR, D, dD, fa2, fb2, wavelength, mu_lamda_coeff, ZDR_thresh=3.,
+                  retrieval_tag=''):
     Dmx = 9.     # maximum diameter of 9 mm
     wavelength_mm = wavelength * 10.    # radar wavelength in mm
     # TODO: think about allowing for correction of fallspeed based on air density
@@ -1339,11 +1380,13 @@ def retrieval_Cao(ZH, ZDR, D, dD, fa2, fb2, wavelength, mu_lamda_coeff, ZDR_thre
     lamda_1 = min_lamda
     max_lamda = 30.     # Maximum lamda value
     lamda_range = np.arange(min_lamda, max_lamda + delta_lamda, delta_lamda)
+    ND = np.empty_like(D)
 
     ZDR_lin = 10.**(ZDR / 10.)  # ZDR in linear units
     ZH_lin = 10.**(ZH / 10.)      # ZH in linear units
 
-    if np.all([ZH_lin >= 1., Dmx >= 0.4, ZDR_lin >= 1.]):
+#    if np.all([ZH_lin >= 1., Dmx >= 0.4, ZDR_lin >= 1.]):
+    if ZH_lin >= 1. and Dmx >= 0.4 and ZDR_lin >= 1.:
         if ZDR < 0.1:   # Use emperical relations when ZDR is small
             W = calc_W_Cao_empirical(ZH_lin, ZDR)
             D0 = calc_D0_Cao_empirical(ZDR)
@@ -1372,8 +1415,13 @@ def retrieval_Cao(ZH, ZDR, D, dD, fa2, fb2, wavelength, mu_lamda_coeff, ZDR_thre
                 mu = mu_lamda_coeff[0] + mu_lamda_coeff[1]*lamda + \
                      mu_lamda_coeff[2] * lamda**2.
                 #print(lamda, mu)
-                ND = D**mu * np.exp(-lamda*D)
-                ND[D > Dmx] = 0.0   # Zero out bins greater than Dmx
+                ND[:] = D**mu * np.exp(-lamda*D)
+                for i in range(ND.shape[0]):
+                    if D[i] > Dmx or D[i] < 0.3125:
+                        ND[i] = 0.0
+                # ND[D > Dmx] = 0.0   # Zero out bins greater than Dmx
+                # Test removal of diameters less than lowest recorded parsivel bin:
+                # ND[D < 0.3125] = 0.0
                 ZH_lin_tmp = np.nansum(fa2*ND*dD)
                 ZV_lin_tmp = np.nansum(fb2*ND*dD)
                 if ZV_lin_tmp == 0.:
@@ -1419,8 +1467,13 @@ def retrieval_Cao(ZH, ZDR, D, dD, fa2, fb2, wavelength, mu_lamda_coeff, ZDR_thre
 
                 # TODO: below is transcription from Cao and Zhang's original code. Will clean up
                 # to make things clearer...
-                ND = D**mu * np.exp(-lamda*D)   # N0 is multiplied here later... confusing
-                ND[D > Dmx] = 0.0
+                ND[:] = D**mu * np.exp(-lamda*D)   # N0 is multiplied here later... confusing
+                for i in range(ND.shape[0]):
+                    if D[i] > Dmx or D[i] < 0.3125:
+                        ND[i] = 0.0
+                # ND[D > Dmx] = 0.0
+                # Test removal of diameters less than lowest recorded parsivel bin:
+                # ND[D < 0.3125] = 0.0
                 ZH_0 = np.nansum(fa2*ND*dD)
                 M3 = np.nansum(ND*D**3.*dD)
                 M4 = np.nansum(ND*D**4.*dD)
@@ -1438,8 +1491,13 @@ def retrieval_Cao(ZH, ZDR, D, dD, fa2, fb2, wavelength, mu_lamda_coeff, ZDR_thre
                 W = 1.e-3 * np.pi / 6. * N0 * M3
 
                 # Compute ND again...this is convoluted... this time *actual* ND
-                ND = N0 * D**mu * np.exp(-lamda * D)
-                ND[D > Dmx] = 0.0
+                ND[:] = N0 * D**mu * np.exp(-lamda * D)
+                for i in range(ND.shape[0]):
+                    if D[i] > Dmx or D[i] < 0.3125:
+                        ND[i] = 0.0
+                # ND[D > Dmx] = 0.0
+                # Test removal of diameters less than lowest recorded parsivel bin:
+                # ND[D < 0.3125] = 0.0
                 M3_bin = ND*D**3.*dD
                 mtp1 = np.nansum(M3_bin)
                 mtp2 = 0.
@@ -1447,6 +1505,7 @@ def retrieval_Cao(ZH, ZDR, D, dD, fa2, fb2, wavelength, mu_lamda_coeff, ZDR_thre
                 mas = 0.
 
                 # Compute D0
+                # TODO: make this consistent with calc_D0_bin
                 if mtp1 > 0.:
                     while mas < 0.5:
                         masp = mtp2 / mtp1
@@ -1467,24 +1526,53 @@ def retrieval_Cao(ZH, ZDR, D, dD, fa2, fb2, wavelength, mu_lamda_coeff, ZDR_thre
         W = np.nan
         sigma = np.nan
 
-    ND = N0 * D**mu * np.exp(-lamda * D)
-    ND[D > Dmx] = 0.0
+    ND[:] = N0 * D**mu * np.exp(-lamda * D)
+    for i in range(ND.shape[0]):
+        if D[i] > Dmx or D[i] < 0.3125:
+            ND[i] = 0.0
+    # ND[D > Dmx] = 0.0
+    # ND[D < 0.3125] = 0.0
 
-    retr_dict = {
-        'RR_retr': RR,
-        'D0_retr': D0,
-        'mu_retr': mu,
-        'lamda_retr': lamda,
-        'N0_retr': N0,
-        'Nt_retr': Nt,
-        'W_retr': W,
-        'sigma_retr': sigma,
-        'Dm_retr': Dm,
-        'ND_retr': ND
-    }
+    # Have to do this because numba doesn't like str.format()...
+    # RR_key = 'RR_retr_' + retrieval_tag
+    # D0_key = 'D0_retr_' + retrieval_tag
+    # mu_key = 'mu_retr_' + retrieval_tag
+    # lamda_key = 'lamda_retr_' + retrieval_tag
+    # N0_key = 'N0_retr_' + retrieval_tag
+    # Nt_key = 'Nt_retr_' + retrieval_tag
+    # W_key = 'W_retr_' + retrieval_tag
+    # sigma_key = 'sigma_retr_' + retrieval_tag
+    # Dm_key = 'Dm_retr_' + retrieval_tag
+    # ND_key = 'ND_retr_' + retrieval_tag
 
-    return retr_dict
+    # retr_dict = {
+    #     RR_key: RR,
+    #     D0_key: D0,
+    #     mu_key: mu,
+    #     lamda_key: lamda,
+    #     N0_key: N0,
+    #     Nt_key: Nt,
+    #     W_key: W,
+    #     sigma_key: sigma,
+    #     Dm_key: Dm,
+    #     # ND_key: ND[:]
+    # }
+    # retr_dict = {
+    #     'RR_retr_{}'.format(retrieval_tag): RR,
+    #     'D0_retr_{}'.format(retrieval_tag): D0,
+    #     'mu_retr_{}'.format(retrieval_tag): mu,
+    #     'lamda_retr_{}'.format(retrieval_tag): lamda,
+    #     'N0_retr_{}'.format(retrieval_tag): N0,
+    #     'Nt_retr_{}'.format(retrieval_tag): Nt,
+    #     'W_retr_{}'.format(retrieval_tag): W,
+    #     'sigma_retr_{}'.format(retrieval_tag): sigma,
+    #     'Dm_retr_{}'.format(retrieval_tag): Dm,
+    #     'ND_retr_{}'.format(retrieval_tag): ND
+    # }
 
+    # return retr_dict
+
+    return RR, D0, mu, lamda, N0, Nt, W, sigma, Dm, ND
 
 
 

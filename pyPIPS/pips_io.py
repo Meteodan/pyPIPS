@@ -590,3 +590,19 @@ def reconstruct_MultiIndex(da, index_level_names, MultiIndex_name):
     da.coords[MultiIndex_name] = (dim_name,
                                   pd.MultiIndex.from_arrays(index_values, names=index_level_names))
     return da
+
+
+def remove_unneeded(ds):
+    dim_names = [dim for dim in ds.dims if 'fields' in dim]
+    ds = ds.drop_dims(dim_names, errors='ignore')
+    return ds
+
+
+def reset_time_index(ds):
+    return ds.reset_index('time')
+
+
+def preprocess_dataset(ds):
+    ds = remove_unneeded(ds)
+    ds = reset_time_index(ds)
+    return ds

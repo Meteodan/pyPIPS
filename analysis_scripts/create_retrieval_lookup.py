@@ -49,7 +49,7 @@ parser.add_argument('--ZDR-range', nargs=3, metavar=('zdb', 'zde', 'zdi'), type=
                     help='beginning, ending, and interval for ZDR range')
 parser.add_argument('--scatt-file-path', dest='scatt_file_path',
                     help='path to scattering amplitude lookup table file')
-parser.add_argument('--wavelength', type=float, dest='wavelength',
+parser.add_argument('--wavelength', type=float, dest='wavelength', default=10.7,
                     help='wavelength of radar in cm')
 parser.add_argument('--output-dir', dest='output_dir', help='output directory')
 args = parser.parse_args()
@@ -76,6 +76,7 @@ sigma = []
 Dm = []
 
 for ZH_val in ZH:
+    print("ZH = {:.2f}".format(ZH_val))
     RR2 = []
     D02 = []
     mu2 = []
@@ -86,17 +87,18 @@ for ZH_val in ZH:
     sigma2 = []
     Dm2 = []
     for ZDR_val in ZDR:
-        retr_dict = dsd.retrieval_Cao(ZH_val, ZDR_val, D_trunc, dD_trunc, fa2, fb2, args.wavelength,
-                                      args.coefficients[::-1])
-        RR2.append(retr_dict['RR_retr'])
-        D02.append(retr_dict['D0_retr'])
-        mu2.append(retr_dict['mu_retr'])
-        lamda2.append(retr_dict['lamda_retr'])
-        N02.append(retr_dict['N0_retr'])
-        Nt2.append(retr_dict['Nt_retr'])
-        W2.append(retr_dict['W_retr'])
-        sigma2.append(retr_dict['sigma_retr'])
-        Dm2.append(retr_dict['Dm_retr'])
+        retr_tuple = dsd.retrieval_Cao(ZH_val, ZDR_val, D_trunc, dD_trunc, fa2, fb2,
+                                       args.wavelength, args.coefficients[::-1])
+
+        RR2.append(retr_tuple[0])
+        D02.append(retr_tuple[1])
+        mu2.append(retr_tuple[2])
+        lamda2.append(retr_tuple[3])
+        N02.append(retr_tuple[4])
+        Nt2.append(retr_tuple[5])
+        W2.append(retr_tuple[6])
+        sigma2.append(retr_tuple[7])
+        Dm2.append(retr_tuple[8])
 
     RR.append(RR2)
     D0.append(D02)

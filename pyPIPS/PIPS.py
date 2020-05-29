@@ -7,6 +7,7 @@ from . import radarmodule as radar
 from . import thermolib as thermo
 from . import utils
 from .parsivel_params import parsivel_parameters
+from numba import jit
 
 deg2rad = np.pi / 180.
 
@@ -421,7 +422,7 @@ def calc_fallspeed_spectrum(diameter_bins, fallspeed_bins,
 
     return fallspeed_da
 
-
+@jit(parallel=True)
 def calc_empirical_fallspeed(d, correct_rho=False, rho=None):
     """Assigns a fall speed for a range of diameters based on code
        from David Dowell (originally from Terry Schuur).  It appears that

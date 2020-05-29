@@ -1345,9 +1345,9 @@ def plot_mu_lamda(lamda, mu, poly_coeff, poly, title=None):
     if title:
         plt.title(title)
     ax.scatter(lamda, mu, color='k', marker='.')
-    ax.plot(xx, yy, label='Our Relation')
-    ax.plot(xx, y_Cao, label='Cao Relation')
-    ax.plot(xx, y_Zhang, label='Zhang Relation')
+    ax.plot(xx, yy, label='Present study')
+    ax.plot(xx, y_Cao, label='C08')
+    ax.plot(xx, y_Zhang, label='Z01')
     ax.set_xlim(0.0, 20.0)
     ax.set_ylim(-5.0, 20.0)
     ax.set_xlabel(r'$\lambda$ (mm$^{-1}$)')

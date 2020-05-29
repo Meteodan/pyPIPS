@@ -110,20 +110,26 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
     if args.compute_rr:
         # Compute rainrate using empirical fallspeed curve
         # TODO: allow for the use of the measured fallspeeds in the rainrate calculation.
-        fallspeeds_emp = pips.calc_empirical_fallspeed(avg_diameter, correct_rho=True,
-                                                       rho=parsivel_combined_ds['rho'])
-        rainrate_bin = (6. * 10.**-4.) * np.pi * fallspeeds_emp * avg_diameter**3. * ND * bin_width
-        rainrate = rainrate_bin.sum(dim='diameter_bin')
+        # First, see if this has already been computed
+        try:
+            rainrate = parsivel_combined_ds['rainrate_derived_{}'.format(args.ND_tag)]
+        except KeyError:
+            fallspeeds_emp = pips.calc_empirical_fallspeed(avg_diameter, correct_rho=True,
+                                                           rho=parsivel_combined_ds['rho'])
+            rainrate_bin = ((6. * 10.**-4.) * np.pi * fallspeeds_emp * avg_diameter**3. * ND *
+                            bin_width)
+            rainrate = rainrate_bin.sum(dim='diameter_bin')
     else:
         rainrate = parsivel_combined_ds['precipintensity']
-        rainrate = rainrate.loc[ND.indexes['time']]
 
+    rainrate = rainrate.loc[ND.indexes['time']]
     rainrate = rainrate.where(rainrate <= RR_bins[-1])
-    rainrate = rainrate.where(rainrate > 0.)
+    rainrate = rainrate.where(rainrate >= RR_bins[0])
 
     # Compute D0 (in mm)
     D0 = dsd.calc_D0_bin(ND) * 1000.
     D0 = D0.where(D0 <= D0_bins[-1])
+    D0 = D0.where(D0 >= D0_bins[0])
 
     # Add D0 and RR coordinates to the ND DataArray
     ND.coords['D0'] = ('time', D0)
@@ -179,8 +185,6 @@ ND_avg = ND_groups.mean(dim='D0_RR')
 # ND_avg = ND_avg.reindex({'D0_idx': range(D0_bins.size), 'RR_idx': range(RR_bins.size)})
 # ND_avg.coords['D0_idx'] = ('D0_idx', range(D0_bins.size))
 # ND_avg.coords['RR_idx'] = ('RR_idx', range(RR_bins.size))
-# ND_avg.coords['D0_bins'] = ('D0_idx', D0_bins)
-# ND_avg.coords['RR_bins'] = ('RR_idx', RR_bins)
 
 ND_avg.name = 'SATP_ND_{}'.format(dataset_name)
 # Add some metadata
@@ -201,12 +205,18 @@ ND_avg.attrs = parsivel_combined_ds.attrs
 # MultiIndex upon reading it back from the file if we want to use it to group and average
 # as above. There's a function "reconstruct_MultiIndex" in pips_io.py for this purpose
 ND_combined = ND_combined.reset_index('D0_RR')
+ND_combined = ND_combined.to_dataset()
+ND_combined.coords['D0_bins'] = D0_bins
+ND_combined.coords['RR_bins'] = RR_bins
 ND_combined_ncfile_name = 'ND_combined_{}_{:d}s.nc'.format(dataset_name, int(DSD_interval))
 ND_combined_ncfile_path = os.path.join(PIPS_dir, ND_combined_ncfile_name)
 print("Dumping {}".format(ND_combined_ncfile_path))
 ND_combined.to_netcdf(ND_combined_ncfile_path)
 
 ND_avg = ND_avg.reset_index('D0_RR')
+ND_avg = ND_avg.to_dataset()
+ND_avg.coords['D0_bins'] = D0_bins
+ND_avg.coords['RR_bins'] = RR_bins
 ND_avg_ncfile_name = 'ND_avg_{}_{:d}s.nc'.format(dataset_name, int(DSD_interval))
 ND_avg_ncfile_path = os.path.join(PIPS_dir, ND_avg_ncfile_name)
 print("Dumping {}".format(ND_avg_ncfile_path))
