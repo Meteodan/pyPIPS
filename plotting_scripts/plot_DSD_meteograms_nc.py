@@ -95,7 +95,7 @@ requested_interval = config.PIPS_IO_dict.get('requested_interval', 10.)
 load_radar_at_PIPS = config.radar_config_dict.get('load_radar_at_PIPS', False)
 save_radar_at_PIPS = config.radar_config_dict.get('save_radar_at_PIPS', False)
 comp_radar = config.radar_config_dict.get('comp_radar', False)
-clean_radar = config.radar_config_dict.get('comp_radar', False)
+clean_radar = config.radar_config_dict.get('clean_radar', False)
 calc_dualpol = config.radar_config_dict.get('calc_dualpol', False)
 plot_retrieval = config.radar_config_dict.get('plot_retrieval', False)
 radar_name = config.radar_config_dict.get('radar_name', None)
@@ -177,7 +177,8 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
     }
 
     # Compute additional derived parameters
-    disvars['D_0'] = dsd.calc_D0_bin(ND) * 1000.  # Get to mm
+    # disvars['D_0'] = dsd.calc_D0_bin(ND) * 1000.  # Get to mm
+    disvars['D_m'] = parsivel_combined_ds['Dm43'] * 1000. # Get to mm
     if calc_dualpol:
         # Calculate polarimetric variables using the T-matrix technique
         # Note, may try to use pyDSD for this purpose.
@@ -269,8 +270,12 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
                                                              mask=gc_mask)
         if plot_retrieval:
             # Plot D_0 as overlay on other plots for now
-            radvars['D_0_rad'] = radar_fields_at_PIPS_da.loc[{dim_name: 'D0'}]
-
+            # radvars['D_0_rad'] = radar_fields_at_PIPS_da.loc[{dim_name: 'D0'}]
+            # Change to D_m and plot for multiple retrievals
+            radvars['D_m_rad_SATP'] = radar_fields_at_PIPS_da.loc[{dim_name: 'Dm_SATP_new'}]
+            radvars['D_m_rad_Z01'] = radar_fields_at_PIPS_da.loc[{dim_name: 'Dm_Z01'}]
+            radvars['D_m_rad_C08'] = radar_fields_at_PIPS_da.loc[{dim_name: 'Dm_C08'}]
+            radvars['D_m_rad_TMM_F'] = radar_fields_at_PIPS_da.loc[{dim_name: 'Dm_TMM_F'}]
 
     # Make the plot
     PIPS_plot_name = '{}_{}_{}_{}_{}{}'.format(PIPS_name, deployment_name, start_time_string,

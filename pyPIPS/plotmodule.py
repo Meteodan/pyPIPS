@@ -24,7 +24,7 @@ font = {'size': 10}
 matplotlib.rc('font', **font)
 
 fontP = FontProperties()
-fontP.set_size('small')
+fontP.set_size('x-small') # 'small'
 
 # Contour levels for reflectivity (dBZ)
 clevels_ref = N.arange(0.0, 85.0, 5.0)
@@ -762,12 +762,14 @@ def plotDSDmeteograms(dis_name, image_dir, axparams, disvars, radvars=None, clos
     if(not logND.size or not PSDstarttimes.size or not PSDmidtimes.size):
         print("No DSD info to plot! Quitting!")
         return
-    D_0_dis = disvars.get('D_0', N.empty((0)))
+    # D_0_dis = disvars.get('D_0', N.empty((0)))
+    D_m_dis = disvars.get('D_m', N.empty((0)))
     dBZ_ray_dis = disvars.get('dBZ_ray', N.empty((0)))
     flaggedtimes = disvars.get('flaggedtimes', N.empty((0)))
     hailflag = disvars.get('hailflag', N.empty((0)))
     if radvars is not None:
-        D_0_rad = radvars.get('D_0_rad', N.empty((0)))
+        # D_0_rad = radvars.get('D_0_rad', N.empty((0)))
+        D_m_keys = [k for k, v in radvars.items() if 'D_m' in k]
         radmidtimes = radvars.get('radmidtimes', N.empty((0)))
     else:
         D_0_rad = N.empty((0))
@@ -810,21 +812,43 @@ def plotDSDmeteograms(dis_name, image_dir, axparams, disvars, radvars=None, clos
                           'clabel': r'log[N ($m^{-3} mm^{-1}$)]'}
         plotparamdicts = [plotparamdict1]
 
-        # Median volume diameter
-        if(D_0_dis.size):
+        # # Median volume diameter
+        # if(D_0_dis.size):
+        #     xvals.append(PSDmidtimes)
+        #     plotvars.append(D_0_dis)
+        #     plotparamdict2 = {'type': 'line', 'linestyle': ':', 'color': 'r', 'linewidth': 1.0,
+        #                       'label': r'$D_{0,dis} (mm)$'}
+        #     plotparamdicts.append(plotparamdict2)
+
+        # # Retrieved median volume diameter
+        # if D_0_rad.size:
+        #     xvals.append(PSDmidtimes)
+        #     plotvars.append(D_0_rad)
+        #     plotparamdict2 = {'type': 'line', 'linestyle': ':', 'color': 'purple', 'linewidth': 1.0,
+        #                       'label': r'$D_{0,rad} (mm)$'}
+        #     plotparamdicts.append(plotparamdict2)
+
+        # Mass-weighted mean diameter
+        if(D_m_dis.size):
             xvals.append(PSDmidtimes)
-            plotvars.append(D_0_dis)
+            plotvars.append(D_m_dis)
             plotparamdict2 = {'type': 'line', 'linestyle': ':', 'color': 'r', 'linewidth': 1.0,
-                              'label': r'$D_{0,dis} (mm)$'}
+                              'label': r'$D_{m,dis} (mm)$'}
             plotparamdicts.append(plotparamdict2)
 
-        # Retrieved median volume diameter
-        if D_0_rad.size:
-            xvals.append(PSDmidtimes)
-            plotvars.append(D_0_rad)
-            plotparamdict2 = {'type': 'line', 'linestyle': ':', 'color': 'purple', 'linewidth': 1.0,
-                              'label': r'$D_{0,rad} (mm)$'}
-            plotparamdicts.append(plotparamdict2)
+        # Retrieved Mass-weighted mean diameter
+        if len(D_m_keys) > 0:
+            colors = ['purple', 'navy', 'navy', 'purple']
+            linestyles = [':', '--', '--', ':']
+            for col, ls, D_m_rad_key in zip(colors, linestyles, D_m_keys):
+                plot_key = D_m_rad_key.replace('D_m_rad_', '')
+                xvals.append(PSDmidtimes)
+                plotvars.append(radvars[D_m_rad_key])
+
+                plotparamdict2 = {'type': 'line', 'linestyle': ls, 'color': col, 'linewidth': 1.0,
+                                  'label': r'$D_{{m}}$ {} (mm)'.format(plot_key)}
+                plotparamdicts.append(plotparamdict2)
+
 
         # Vertical lines for flagged times (such as from wind contamination).
         if(flaggedtimes.size):

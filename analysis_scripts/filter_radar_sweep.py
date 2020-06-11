@@ -125,8 +125,8 @@ for radar_obj, radar_output_path in zip(radar_dict['radarsweeplist'], radar_outp
                                                               rhv_field=RHV_name,
                                                               refl_field=ZH_name,
                                                               min_ncp=None,
-                                                              min_rhv=args.dBZ_thresh,
-                                                              min_refl=args.RHV_thresh,
+                                                              min_rhv=args.RHV_thresh,
+                                                              min_refl=args.dBZ_thresh,
                                                               max_refl=None)
 
     # Make copies of the ZH and ZDR fields

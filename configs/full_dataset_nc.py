@@ -10,6 +10,8 @@ PIPS_IO_dict = {
 }
 
 PIPS_file_path_list = glob(PIPS_IO_dict['PIPS_dir'] + '/parsivel_combined*nc')
+# Remove file with duplicate data
+PIPS_file_path_list.remove(PIPS_IO_dict['PIPS_dir'] + '/parsivel_combined_IOP4C_D1_2017_PIPS2A_60s.nc')
 numfiles = len(PIPS_file_path_list)
 PIPS_filenames = [os.path.basename(PIPS_file_path) for PIPS_file_path in PIPS_file_path_list]
 PIPS_names = [PIPS_filename[-13:-7] for PIPS_filename in PIPS_filenames]

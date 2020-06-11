@@ -123,13 +123,16 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
         rainrate = parsivel_combined_ds['precipintensity']
 
     rainrate = rainrate.loc[ND.indexes['time']]
-    rainrate = rainrate.where(rainrate <= RR_bins[-1])
-    rainrate = rainrate.where(rainrate >= RR_bins[0])
+    RR_ind = (rainrate <= RR_bins[-1]) & (rainrate >= RR_bins[0])
+    rainrate = rainrate.where(RR_ind)
 
     # Compute D0 (in mm)
     D0 = dsd.calc_D0_bin(ND) * 1000.
-    D0 = D0.where(D0 <= D0_bins[-1])
-    D0 = D0.where(D0 >= D0_bins[0])
+    D0_ind = (D0 <= D0_bins[-1]) & (D0 >= D0_bins[0])
+    D0 = D0.where(D0_ind)
+
+    # Also mask out ND for D0 and RR outside of range
+    ND = ND.where(D0_ind & RR_ind)
 
     # Add D0 and RR coordinates to the ND DataArray
     ND.coords['D0'] = ('time', D0)

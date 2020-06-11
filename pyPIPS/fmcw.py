@@ -459,3 +459,53 @@ def correct_fmcw_with_nexrad(fmcw_ds, PIPS_ds, radar_name='KHTX', dBZ_field='REF
     fmcw_ds['Zef_corr'].attrs['bias'] = diff_dBZ_mean.values
 
     return fmcw_ds
+
+
+def neg_shift(fmcw_ds):
+    vbins = fmcw_ds['vels']-fmcw_ds['vels'][-1]
+    print(vbins)
+
+
+def plot_fmcw_spectra(fileName, timeIndex, neg_shift=False):
+    """
+    Plots raw spectra (sf) out as a PNG.
+
+    Input:
+        fileName : string
+           Name of the UMass FMCW data NetCDF file
+        index : int
+           UMass FMCW data files contain multiple times (run ncdump to get the length
+           of the 'time' dimension).
+        neg_shift : bool = False
+           Typically set to False for clear air data, and True for precip data.
+           If True, the image will be shifted left from the range (-Vmax, Vmax) to
+           (-2*Vmax, 0). This shift makes more sense because the spectra for falling
+           precipitation have their peak in the negative (downward) velocities.
+    Output:
+        A PNG file containing a plot of the raw spectral power as a function of height.
+    """
+    height, vbins, UTCtime, sn, Zef, sf, sff, PRF, Frequency, Wavelength, Vmax, \
+        snName, ZefName, sfName, sffName = readfmcw_spectra(fileName)
+    if neg_shift:
+        vbins = vbins-vbins[-1]
+        sf = N.roll(sf,128,axis=2)
+    plt.figure(figsize=(5,8.5))
+    m1 = plt.pcolormesh(vbins,height/1000.,sf[timeIndex],vmin=-40.,vmax=40.)
+    plt.xlabel(r'Doppler velocity (m s$^{-1}$)')
+    plt.ylabel('Height (km AGL)')
+    cb = plt.colorbar(m1)
+    cb.set_label('dB')
+    plt.title(sfName + ", " + str(UTCtime[timeIndex]))
+    if neg_shift:
+        plt.xlim(-2*Vmax, 0)
+    else:
+        plt.xlim(-Vmax, Vmax)
+    plt.ylim(0,2.5)
+    plt.savefig(UTCtime[timeIndex].strftime(format='%Y%m%d%H%M%S') + ".spectra.png", \
+                dpi=300)
+    # Need to have ImageMagick installed on your system for the following command to
+    # work. It deletes white space around the edges of the plot (thus saving disk space).
+    #os.system("convert -trim " + UTCtime[index].strftime(format='%Y%m%d%H%M%S') + \
+    #          ".spectra.png " + UTCtime[index].strftime(format='%Y%m%d%H%M%S') + \
+    #          ".spectra.png")
+
