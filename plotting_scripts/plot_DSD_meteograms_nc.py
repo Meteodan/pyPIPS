@@ -255,7 +255,7 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
                                                    [radar.ZDR_aliases, radar.RHV_aliases,
                                                     radar.KDP_aliases]):
                 radvar_name_in_file = radar.find_radar_field_name(radar_fields, radvar_aliases)
-                if radvar_name == 'ZDR' and args.use_filtered_fields:
+                if radvar_name in ['ZDR', 'RHO'] and args.use_filtered_fields:
                     radvar_name_in_file = radvar_name_in_file + '_filtered'
                 if radvar_name_in_file:
                     dualpol_rad_var = radar_fields_at_PIPS_da.loc[{dim_name: radvar_name_in_file}]
@@ -272,7 +272,7 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
             # Plot D_0 as overlay on other plots for now
             # radvars['D_0_rad'] = radar_fields_at_PIPS_da.loc[{dim_name: 'D0'}]
             # Change to D_m and plot for multiple retrievals
-            radvars['D_m_rad_SATP'] = radar_fields_at_PIPS_da.loc[{dim_name: 'Dm_SATP_new'}]
+            radvars['D_m_rad_SATP'] = radar_fields_at_PIPS_da.loc[{dim_name: 'Dm_SATP'}]
             radvars['D_m_rad_Z01'] = radar_fields_at_PIPS_da.loc[{dim_name: 'Dm_Z01'}]
             radvars['D_m_rad_C08'] = radar_fields_at_PIPS_da.loc[{dim_name: 'Dm_C08'}]
             radvars['D_m_rad_TMM_F'] = radar_fields_at_PIPS_da.loc[{dim_name: 'Dm_TMM_F'}]

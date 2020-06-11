@@ -124,35 +124,38 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
 
     rainrate = rainrate.loc[ND.indexes['time']]
     RR_ind = (rainrate <= RR_bins[-1]) & (rainrate >= RR_bins[0])
-    rainrate = rainrate.where(RR_ind)
+    # rainrate = rainrate.where(RR_ind)
 
     # Compute D0 (in mm)
     D0 = dsd.calc_D0_bin(ND) * 1000.
     D0_ind = (D0 <= D0_bins[-1]) & (D0 >= D0_bins[0])
-    D0 = D0.where(D0_ind)
+    # D0 = D0.where(D0_ind)
 
     # Also mask out ND for D0 and RR outside of range
-    ND = ND.where(D0_ind & RR_ind)
+    D0 = D0.where((D0_ind & RR_ind), drop=True)
+    rainrate = rainrate.where((D0_ind & RR_ind), drop=True)
+    ND = ND.where((D0_ind & RR_ind), drop=True)
 
-    # Add D0 and RR coordinates to the ND DataArray
-    ND.coords['D0'] = ('time', D0)
-    ND.coords['RR'] = ('time', rainrate)
-    # Digitize the D0 and RR using the bins computed earlier to get the indices
-    # of the bins for each D0/RR pair for each DSD and make a new MultiIndex out of it
-    D0_indices = np.digitize(D0, D0_bins)
-    RR_indices = np.digitize(rainrate, RR_bins)
-    ND.coords['D0_RR'] = ('time', pd.MultiIndex.from_arrays([D0_indices, RR_indices],
-                                                            names=['D0_idx', 'RR_idx']))
-    # Change the name of dimension 'time' to 'D0_RR' since we don't care about the timestamps
-    # here. Also, this allows us to concatenate each
-    # deployment's data into a single DataArray for later grouping and averaging by RR-D0 bin
-    ND = ND.swap_dims({'time': 'D0_RR'})
-    ND_list.append(ND)
+    if ND.sizes['time'] > 0:
+        # Add D0 and RR coordinates to the ND DataArray
+        ND.coords['D0'] = ('time', D0)
+        ND.coords['RR'] = ('time', rainrate)
+        # Digitize the D0 and RR using the bins computed earlier to get the indices
+        # of the bins for each D0/RR pair for each DSD and make a new MultiIndex out of it
+        D0_indices = np.digitize(D0, D0_bins)
+        RR_indices = np.digitize(rainrate, RR_bins)
+        ND.coords['D0_RR'] = ('time', pd.MultiIndex.from_arrays([D0_indices, RR_indices],
+                                                                names=['D0_idx', 'RR_idx']))
+        # Change the name of dimension 'time' to 'D0_RR' since we don't care about the timestamps
+        # here. Also, this allows us to concatenate each
+        # deployment's data into a single DataArray for later grouping and averaging by RR-D0 bin
+        ND = ND.swap_dims({'time': 'D0_RR'})
+        ND_list.append(ND)
 
 # Ok, now combine the list of DSD DataArrays into a single DataArray. This may take a while...
 print("Combining ND data")
 ND_combined = xr.concat(ND_list, dim='D0_RR')
-#print(ND_combined)
+print(ND_combined)
 ND_combined.name = 'ND_combined_{}'.format(dataset_name)
 # Add some metadata
 ND_combined.attrs = parsivel_combined_ds.attrs
@@ -171,7 +174,7 @@ print("Grouping by D0-RR and averaging")
 ND_groups = ND_combined.groupby('D0_RR')
 # Now average in each RR-D0 bin
 ND_avg = ND_groups.mean(dim='D0_RR')
-
+print(ND_avg)
 # TODO: Modify the following to keep D0_RR index but to also add the D0_idx and RR_idx dimensions
 # Along with coordinates. Can't add new dimensions to a DataArray so need to make this a Dataset
 # For now, uncomment this out so that we are just keeping the combined D0_RR index.

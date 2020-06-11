@@ -66,7 +66,10 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
     print("Reading {}".format(parsivel_combined_file))
     parsivel_combined_ds = xr.load_dataset(parsivel_combined_file)
     varlist = [k for k, v in parsivel_combined_ds.items()]
-    vars_to_remove = [var for var in varlist if any(x in var for x in ['KGWX', 'retr', 'KHTX'])]
+    # vars_to_remove = [var for var in varlist if any(x in var for x in ['KGWX', 'retr', 'KHTX'])]
+    vars_to_remove = [var for var in varlist if any(x in var for x in ['retr_SATP_new',
+                                                                       'retr_TMM_F_new'])]
+    # vars_to_remove = [var for var in varlist if var in args.vars]
     print("Variables to remove", vars_to_remove)
     parsivel_combined_ds = parsivel_combined_ds.drop_vars(vars_to_remove)
     parsivel_combined_output_file = parsivel_combined_file + args.output_tag

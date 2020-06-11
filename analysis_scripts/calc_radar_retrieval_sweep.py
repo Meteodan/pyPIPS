@@ -28,6 +28,7 @@ import pyart
 def roundPartial(value, resolution, decimals=4):
     return np.around(np.round(value / resolution) * resolution, decimals=decimals)
 
+
 min_diameter = pp.parsivel_parameters['min_diameter_bins_mm']
 max_diameter = pp.parsivel_parameters['max_diameter_bins_mm']
 bin_width = max_diameter - min_diameter
@@ -41,12 +42,14 @@ description = "Calculates radar retreivals for radar sweeps"
 parser = argparse.ArgumentParser(description=description)
 parser.add_argument('case_config_path', metavar='<path/to/case/config/file.py>',
                     help='The path to the case configuration file')
-parser.add_argument('--lookup-dir', dest='lookup_dir', help='directory where lookup tables reside')
+parser.add_argument('--lookup-dirs', dest='lookup_dirs', nargs='*',
+                    help='directory where lookup tables reside')
 parser.add_argument('--use-filtered-fields', dest='use_filtered_fields', default=False,
                     action='store_true',
                     help='Whether to use previously filtered dBZ and ZDR fields for the retrieval')
-parser.add_argument('--retrieval-tag', dest='retrieval_tag', default='',
-                    help='nametag for the name of the mu-lambda relation (e.g. SATP, C08, Z01)')
+parser.add_argument('--retrieval-tags', dest='retrieval_tags', nargs='*', default=[''],
+                    help=('list of nametag for the names of the mu-lambda relation'
+                          '(e.g. SATP, C08, Z01)'))
 parser.add_argument('--input-tag', dest='input_tag', default=None,
                     help='Input nametag to determine which files to read in')
 parser.add_argument('--output-tag', dest='output_tag', default=None,
@@ -124,8 +127,8 @@ for radar_obj, radar_output_path in zip(radar_dict['radarsweeplist'], radar_outp
     ZH_mask = ZH_rad.mask
     ZDR_mask = ZDR_rad.mask
     full_mask = np.ma.mask_or(ZH_mask, ZDR_mask)
-    # Read in a lookup table to get the interval between reflectivity and ZDR
-    lookup_path = os.path.join(args.lookup_dir, 'D0.csv')
+    # Read in first lookup table to get the interval between reflectivity and ZDR
+    lookup_path = os.path.join(args.lookup_dirs[0], 'D0.csv')
     retr_table = pd.read_csv(lookup_path, sep=',', header=0, index_col='dBZ')
     # Massage the index and column labels to get rid of extraneous zeros
     # Also convert column labels from strings to floats
@@ -155,38 +158,49 @@ for radar_obj, radar_output_path in zip(radar_dict['radarsweeplist'], radar_outp
     ZH_flat = ZH_round.flatten()
     ZDR_flat = ZDR_round.flatten()
 
-    for retr_varname in radar.retrieval_metadata.keys():
-        print("Retrieving {} using lookup table".format(retr_varname))
-        lookup_path = os.path.join(args.lookup_dir, '{}.csv'.format(retr_varname))
-        retr_table = pd.read_csv(lookup_path, sep=',', header=0, index_col='dBZ')
-        # Round the indices and columns of the DataFrame (i.e. the dBZ values) to some sane number
-        # of decimal places to facilitate using it as a lookup table. The floating point precision
-        # gets in the way sometimes here. For example 56.4 is dumped out as
-        # 56.4<some bunch of zeros>1
-        retr_table.index = retr_table.index.to_series().apply(np.around, decimals=4)
-        retr_table.columns = [np.around(np.float(col), decimals=4) for col in retr_table.columns]
-        # Gah, for some reason DataFrame.lookup sometimes barfs on perfectly good floating point
-        # values in columns, so convert them back to strings here. :rolleyes:
-        retr_table.columns = [str(col) for col in retr_table.columns]
-        #print(list(retr_table.index))
-        #print(list(retr_table.columns))
-        # Ok, now retrieve the desired retrieval variable
-        # for each ZH/ZDR pair in the flattened radar sweep
-        # for ZH, ZDR in zip(ZH_flat, ZDR_flat):
-        #     print(ZH, ZDR)
-        #     retr_val = retr_table.lookup([ZH], [str(ZDR)])
-        retr_vals = retr_table.lookup(ZH_flat, ZDR_flat.astype('str'))
-        # Reshape back to original shape
-        retr_vals_data = retr_vals.reshape(ZH_shape)
-        retr_vals_data = np.ma.masked_array(retr_vals_data, mask=full_mask)
-        # Construct the dictionary
-        retr_vals = radar.retrieval_metadata[retr_varname]
-        retr_vals['data'] = retr_vals_data
-        # Save the retrieved array as a new field in the radar sweep object
-        retr_varname_out = '{}_{}'.format(retr_varname, args.retrieval_tag)
-        radar_obj.add_field(retr_varname_out, retr_vals, replace_existing=True)
-        # Now mask the retrieved values using the original combined mask of ZH and ZDR
-        radar_obj.fields[retr_varname_out]['data'].mask = full_mask
+    for lookup_dir, retrieval_tag in zip(args.lookup_dirs, args.retrieval_tags):
+        print("Retrieving using {}".format(retrieval_tag))
+        for retr_varname in radar.retrieval_metadata.keys():
+            print("Retrieving {} using lookup tables".format(retr_varname))
+            lookup_path = os.path.join(lookup_dir, '{}.csv'.format(retr_varname))
+            retr_table = pd.read_csv(lookup_path, sep=',', header=0, index_col='dBZ')
+            # Round the indices and columns of the DataFrame (i.e. the dBZ values) to some sane
+            # number of decimal places to facilitate using it as a lookup table. The floating point
+            # precision gets in the way sometimes here. For example 56.4 is dumped out as
+            # 56.4<some bunch of zeros>1
+            retr_table.index = retr_table.index.to_series().apply(np.around, decimals=4)
+            retr_table.columns = [np.around(np.float(col), decimals=4) for col in
+                                  retr_table.columns]
+            # Gah, for some reason DataFrame.lookup sometimes barfs on perfectly good floating point
+            # values in columns, so convert them back to strings here. :rolleyes:
+            retr_table.columns = [str(col) for col in retr_table.columns]
+            #print(list(retr_table.index))
+            #print(list(retr_table.columns))
+            # Ok, now retrieve the desired retrieval variable
+            # for each ZH/ZDR pair in the flattened radar sweep
+            # for ZH, ZDR in zip(ZH_flat, ZDR_flat):
+            #     print(ZH, ZDR)
+            #     retr_val = retr_table.lookup([ZH], [str(ZDR)])
+            retr_vals = retr_table.lookup(ZH_flat, ZDR_flat.astype('str'))
+            # Reshape back to original shape
+            retr_vals_data = retr_vals.reshape(ZH_shape)
+            retr_vals_data = np.ma.masked_array(retr_vals_data, mask=full_mask)
+            # Construct the dictionary. NOTE: Gotcha! Apparently have to make a copy here,
+            # otherwise contents of 'data' don't get written when same dictionary is used later.
+            # Why? This behavior is mystifying...it should just overwrite the values. It's as if
+            # you are allowed to add a new key 'data' once, along with a value, but then after that
+            # you can't modify it, but it doesn't
+            retr_val_dict = radar.retrieval_metadata[retr_varname].copy()
+            retr_val_dict['data'] = retr_vals_data  # If I don't make a copy on the previous line
+                                                    # The contents of retr_val_dict['data'] are
+                                                    # not updated after the first time. This is
+                                                    # very weird.
+            # Save the retrieved array as a new field in the radar sweep object
+            retr_varname_out = '{}_{}'.format(retr_varname, retrieval_tag)
+            radar_obj.add_field(retr_varname_out, retr_val_dict, replace_existing=True)
+            # Now mask the retrieved values using the original combined mask of ZH and ZDR
+            radar_obj.fields[retr_varname_out]['data'].mask = full_mask
+
 
     # Now save the radar object to a new CFRadial file with the added retrieved fields
     print("Saving {}".format(radar_output_path))

@@ -366,6 +366,8 @@ def calc_D0_bin(ND):
     D0 = b1 + ((0.5 - pro_cumsum_med_m1) / pro_med) * (b2 - b1)
     # Don't let D0 be any smaller than the midpoint of the smallest bin
     D0 = D0.where(D0 >= Dm[0], other=Dm[0])
+    # Set to NaN whereever there is no DSD
+    D0 = D0.where(M3 > 0.)
     # Finally remove coordinates that we don't need (there's some issue with xarray where
     # their dimensions are reset to an incorrect one anyway. i.e. diameter(diameter_bin) becomes
     # diameter(time) for some reason)
