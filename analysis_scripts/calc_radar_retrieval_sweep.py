@@ -187,9 +187,6 @@ for radar_obj, radar_output_path in zip(radar_dict['radarsweeplist'], radar_outp
             retr_vals_data = np.ma.masked_array(retr_vals_data, mask=full_mask)
             # Construct the dictionary. NOTE: Gotcha! Apparently have to make a copy here,
             # otherwise contents of 'data' don't get written when same dictionary is used later.
-            # Why? This behavior is mystifying...it should just overwrite the values. It's as if
-            # you are allowed to add a new key 'data' once, along with a value, but then after that
-            # you can't modify it, but it doesn't
             retr_val_dict = radar.retrieval_metadata[retr_varname].copy()
             retr_val_dict['data'] = retr_vals_data  # If I don't make a copy on the previous line
                                                     # The contents of retr_val_dict['data'] are

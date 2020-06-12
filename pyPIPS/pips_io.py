@@ -10,7 +10,8 @@ from . import utils
 from . import parsivel_params
 
 
-PIPS_timestamp_format = '%Y-%m-%d %H:%M:%S'
+PIPS_timestamp_format1 = '%Y-%m-%d %H:%M:%S'
+PIPS_timestamp_format2 = '%Y-%m-%d %H:%M:%S.000'
 
 
 def parse_PIPS_record(record, tripips=False):
@@ -39,7 +40,10 @@ def parse_PIPS_record(record, tripips=False):
 
     tokens = record.strip().split(',')
     timestamp = tokens[curfieldnames.index('TIMESTAMP')]
-    token_dict['logger_datetime'] = datetime.strptime(timestamp, PIPS_timestamp_format)
+    if timestamp[-4:] == '.000':
+        token_dict['logger_datetime'] = datetime.strptime(timestamp, PIPS_timestamp_format2)
+    else:
+        token_dict['logger_datetime'] = datetime.strptime(timestamp, PIPS_timestamp_format1)
     token_dict['voltage'] = np.float(tokens[curfieldnames.index('BattV')])
     token_dict['winddirrel'] = np.float(tokens[curfieldnames.index('WindDir')])
     token_dict['windspd'] = np.float(tokens[curfieldnames.index('WS_ms')])

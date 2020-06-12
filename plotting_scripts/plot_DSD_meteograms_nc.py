@@ -217,12 +217,20 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
         diamytick = 1.0
 
     DSDtype = 'observed'
-    locator = dates.MinuteLocator(byminute=[0, 15, 30, 45])
+    try:
+        locator = pc.PIPS_plotting_dict['majorxlocator']
+    except KeyError:
+        locator = dates.MinuteLocator(byminute=[0, 15, 30, 45])
     locator.MAXTICKS = 1500
-    minorlocator = dates.MinuteLocator(byminute=range(0, 60, 5))
+    try:
+        minorlocator = pc.PIPS_plotting_dict['minorxlocator']
+    except KeyError:
+        minorlocator = dates.MinuteLocator(byminute=range(0, 60, 5))
     minorlocator.MAXTICKS = 1500
-    dateformat = '%H:%M'
-    formatter = dates.DateFormatter(dateformat)
+    try:
+        formatter = pc.PIPS_plotting_dict['majorxformatter']
+    except:
+        formatter = dates.DateFormatter('%H:%M')
 
     axparams = {
         'majorxlocator': locator,
