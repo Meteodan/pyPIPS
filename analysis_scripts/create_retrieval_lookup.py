@@ -41,7 +41,7 @@ description = "Computes lookup tables for radar retrievals"
 parser = argparse.ArgumentParser(description=description)
 parser.add_argument('--coefficients', nargs=3, metavar=('c1', 'c2', 'c3'), type=float,
                     dest='coefficients',
-                    help='coefficients of mu-lambda polynomial (in decreasing order of exponent')
+                    help='coefficients of mu-lambda polynomial (in increasing order of exponent')
 parser.add_argument('--ZH-range', nargs=3, metavar=('zb', 'ze', 'zi'), type=float, dest='ZH_range',
                     default=[0., 70., 0.1], help='beginning, ending, and interval for ZH range')
 parser.add_argument('--ZDR-range', nargs=3, metavar=('zdb', 'zde', 'zdi'), type=float,
@@ -88,7 +88,7 @@ for ZH_val in ZH:
     Dm2 = []
     for ZDR_val in ZDR:
         retr_tuple = dsd.retrieval_Cao(ZH_val, ZDR_val, D_trunc, dD_trunc, fa2, fb2,
-                                       args.wavelength, args.coefficients[::-1])
+                                       args.wavelength, args.coefficients)
 
         RR2.append(retr_tuple[0])
         D02.append(retr_tuple[1])

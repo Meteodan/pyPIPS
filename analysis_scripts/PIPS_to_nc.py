@@ -38,6 +38,8 @@ description = "Reads PIPS comma-delimited text data files and converts to netCDF
 parser = argparse.ArgumentParser(description=description)
 parser.add_argument('case_config_path', metavar='<path/to/case/config/file.py>',
                     help='The path to the case configuration file')
+parser.add_argument('--output-dir', dest='output_dir', default=None,
+                    help='Directory to put netCDF files. Defaults to input dir in config file')
 args = parser.parse_args()
 
 # Dynamically import the case configuration file
@@ -61,6 +63,11 @@ start_times = config.PIPS_IO_dict.get('start_times', [None]*len(PIPS_names))
 end_times = config.PIPS_IO_dict.get('end_times', [None]*len(PIPS_names))
 geo_locs = config.PIPS_IO_dict.get('geo_locs', [None]*len(PIPS_names))
 requested_interval = config.PIPS_IO_dict.get('requested_interval', 10.)
+
+if args.output_dir:
+    output_dir = args.output_dir
+else:
+    output_dir = PIPS_dir
 
 # Read in the PIPS data for the deployment
 conv_df_list = []
@@ -194,11 +201,11 @@ for index, PIPS_filename, PIPS_name, start_time, end_time, geo_loc, ptype, deplo
 
     ncfile_name = 'parsivel_combined_{}_{}_{:d}s.nc'.format(deployment_name, PIPS_name,
                                                             int(DSD_interval))
-    ncfile_path = os.path.join(PIPS_dir, ncfile_name)
+    ncfile_path = os.path.join(output_dir, ncfile_name)
     print("Dumping {}".format(ncfile_path))
     parsivel_combined_ds.to_netcdf(ncfile_path)
 
     ncfile_name = 'conventional_raw_{}_{}.nc'.format(deployment_name, PIPS_name)
-    ncfile_path = os.path.join(PIPS_dir, ncfile_name)
+    ncfile_path = os.path.join(output_dir, ncfile_name)
     print("Dumping {}".format(ncfile_path))
     conv_ds.to_netcdf(ncfile_path)

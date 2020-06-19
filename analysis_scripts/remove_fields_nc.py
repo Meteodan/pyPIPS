@@ -49,26 +49,21 @@ plot_dir = config.PIPS_IO_dict.get('plot_dir', None)
 PIPS_types = config.PIPS_IO_dict.get('PIPS_types', None)
 PIPS_names = config.PIPS_IO_dict.get('PIPS_names', None)
 PIPS_filenames = config.PIPS_IO_dict.get('PIPS_filenames', None)
+parsivel_combined_filenames = config.PIPS_IO_dict['PIPS_filenames_nc']
 start_times = config.PIPS_IO_dict.get('start_times', [None]*len(PIPS_names))
 end_times = config.PIPS_IO_dict.get('end_times', [None]*len(PIPS_names))
 geo_locs = config.PIPS_IO_dict.get('geo_locs', [None]*len(PIPS_names))
 requested_interval = config.PIPS_IO_dict.get('requested_interval', 10.)
 
 # Get a list of the combined parsivel netCDF data files that are present in the PIPS directory
-parsivel_combined_filenames = [
-    'parsivel_combined_{}_{}_{:d}s.nc'.format(deployment_name, PIPS_name,
-                                              int(requested_interval))
-    for deployment_name, PIPS_name in zip(deployment_names, PIPS_names)]
-parsivel_combined_filelist = [os.path.join(PIPS_dir, pcf)
-                              for pcf in parsivel_combined_filenames]
+parsivel_combined_filelist = [os.path.join(PIPS_dir, pcf) for pcf in parsivel_combined_filenames]
 
 for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
     print("Reading {}".format(parsivel_combined_file))
     parsivel_combined_ds = xr.load_dataset(parsivel_combined_file)
     varlist = [k for k, v in parsivel_combined_ds.items()]
     # vars_to_remove = [var for var in varlist if any(x in var for x in ['KGWX', 'retr', 'KHTX'])]
-    vars_to_remove = [var for var in varlist if any(x in var for x in ['retr_SATP_new',
-                                                                       'retr_TMM_F_new'])]
+    vars_to_remove = [var for var in varlist if any(x in var for x in ['_retr_'])]
     # vars_to_remove = [var for var in varlist if var in args.vars]
     print("Variables to remove", vars_to_remove)
     parsivel_combined_ds = parsivel_combined_ds.drop_vars(vars_to_remove)

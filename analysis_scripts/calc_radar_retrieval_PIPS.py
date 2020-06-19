@@ -38,9 +38,9 @@ parser.add_argument('--ND-tag', dest='ND_tag', default='qc',
                     help='tag for ND variable in file (either qc or RB15)')
 parser.add_argument('--calc-for-SATP', action='store_true', dest='calc_for_SATP',
                     help='calculate for the SATP-filtered dataset')
-parser.add_argument('--coefficients', nargs=3, metavar=('c1', 'c2', 'c3'), type=float,
+parser.add_argument('--coefficients', nargs=3, metavar=('c1', 'c2', 'c3'), default=None, type=float,
                     dest='coefficients',
-                    help='coefficients of mu-lambda polynomial (in decreasing order of exponent')
+                    help='coefficients of mu-lambda polynomial (in increasing order of exponent')
 parser.add_argument('--retrieval-tag', dest='retrieval_tag', default='',
                     help='nametag for the name of the mu-lambda relation (e.g. SATP, C08, Z01)')
 parser.add_argument('--output-tag', dest='output_tag', default='',
@@ -68,6 +68,7 @@ plot_dir = config.PIPS_IO_dict.get('plot_dir', None)
 PIPS_types = config.PIPS_IO_dict.get('PIPS_types', None)
 PIPS_names = config.PIPS_IO_dict.get('PIPS_names', None)
 PIPS_filenames = config.PIPS_IO_dict.get('PIPS_filenames', None)
+parsivel_combined_filenames = config.PIPS_IO_dict['PIPS_filenames_nc']
 start_times = config.PIPS_IO_dict.get('start_times', [None]*len(PIPS_names))
 end_times = config.PIPS_IO_dict.get('end_times', [None]*len(PIPS_names))
 geo_locs = config.PIPS_IO_dict.get('geo_locs', [None]*len(PIPS_names))
@@ -85,12 +86,8 @@ scatt_file = os.path.join(scatt_dir, 'SCTT_RAIN_fw100.dat')
 
 if not args.calc_for_SATP:
     # Get a list of the combined parsivel netCDF data files that are present in the PIPS directory
-    parsivel_combined_filenames = [
-        'parsivel_combined_{}_{}_{:d}s.nc'.format(deployment_name, PIPS_name,
-                                                  int(requested_interval))
-        for deployment_name, PIPS_name in zip(deployment_names, PIPS_names)]
-    parsivel_combined_filelist = [os.path.join(PIPS_dir, pcf)
-                                  for pcf in parsivel_combined_filenames]
+    parsivel_combined_filelist = [os.path.join(PIPS_dir, pcf) for pcf
+                                  in parsivel_combined_filenames]
 else:
     # Just read in the single combined SATP dataset
     parsivel_combined_filename = 'ND_avg_{}_{:d}s.nc'.format(dataset_name, int(requested_interval))
@@ -99,6 +96,12 @@ else:
 for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
     print("Reading {}".format(parsivel_combined_file))
     parsivel_combined_ds = xr.load_dataset(parsivel_combined_file)
+
+    if index == 0:
+        if args.coefficients:
+            mu_lambda_coeff = args.coefficients
+        else:
+            mu_lambda_coeff = parsivel_combined_ds.attrs['CG_coeff_{}'.format(args.retrieval_tag)]
 
     if not args.calc_for_SATP:
         DSD_interval = parsivel_combined_ds.DSD_interval
@@ -123,16 +126,17 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
     fa2 = dualpol_dict['fa2']
     fb2 = dualpol_dict['fb2']
 
-    mu_lamda_coeff = args.coefficients[::-1]
-    retr_dict = dsd.retrieval_Cao_xr(ZH, ZDR, ND, D, dD, fa2, fb2, wavelength, mu_lamda_coeff,
+    retr_dict = dsd.retrieval_Cao_xr(ZH, ZDR, ND, D, dD, fa2, fb2, wavelength, mu_lambda_coeff,
                                      retrieval_tag=args.retrieval_tag)
 
     retr_ds = xr.Dataset(retr_dict)
     parsivel_combined_ds.update(retr_ds)
     if args.calc_for_SATP:
+        # Save attrs (may not need to do this)
+        attrs = parsivel_combined_ds.attrs
         parsivel_combined_ds = parsivel_combined_ds.reset_index('D0_RR')
-        parsivel_combined_ds.attrs = ND.attrs
-    parsivel_combined_ds.attrs['CG_coeff_{}'.format(args.retrieval_tag)] = mu_lamda_coeff
+        parsivel_combined_ds.attrs = attrs
+    # parsivel_combined_ds.attrs['CG_coeff_{}'.format(args.retrieval_tag)] = mu_lambda_coeff
     parsivel_combined_ds.attrs['retrieval_wavelength'] = wavelength
 
     parsivel_combined_output_file = parsivel_combined_file + args.output_tag

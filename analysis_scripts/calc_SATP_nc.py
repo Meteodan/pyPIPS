@@ -59,6 +59,7 @@ plot_dir = config.PIPS_IO_dict.get('plot_dir', None)
 PIPS_types = config.PIPS_IO_dict.get('PIPS_types', None)
 PIPS_names = config.PIPS_IO_dict.get('PIPS_names', None)
 PIPS_filenames = config.PIPS_IO_dict.get('PIPS_filenames', None)
+parsivel_combined_filenames = config.PIPS_IO_dict['PIPS_filenames_nc']
 start_times = config.PIPS_IO_dict.get('start_times', [None]*len(PIPS_names))
 end_times = config.PIPS_IO_dict.get('end_times', [None]*len(PIPS_names))
 geo_locs = config.PIPS_IO_dict.get('geo_locs', [None]*len(PIPS_names))
@@ -77,12 +78,7 @@ RR_bins = RR_start * np.full(int(np.log(RR_stop / RR_start) / np.log(RR_incr)),
                              RR_incr).cumprod()
 
 # Get a list of the combined parsivel netCDF data files that are present in the PIPS directory
-
-parsivel_combined_filenames = [
-    'parsivel_combined_{}_{}_{:d}s.nc'.format(deployment_name, PIPS_name, int(requested_interval))
-    for deployment_name, PIPS_name in zip(deployment_names, PIPS_names)]
 parsivel_combined_filelist = [os.path.join(PIPS_dir, pcf) for pcf in parsivel_combined_filenames]
-print(parsivel_combined_filenames)
 
 ND_list = []
 
@@ -155,10 +151,10 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
 # Ok, now combine the list of DSD DataArrays into a single DataArray. This may take a while...
 print("Combining ND data")
 ND_combined = xr.concat(ND_list, dim='D0_RR')
-print(ND_combined)
+# print(ND_combined)
 ND_combined.name = 'ND_combined_{}'.format(dataset_name)
 # Add some metadata
-ND_combined.attrs = parsivel_combined_ds.attrs
+# ND_combined.attrs = parsivel_combined_ds.attrs
 # ND_combined.attrs['DSD_interval'] = DSD_interval
 # ND_combined.attrs['strongwindQC'] = int(strongwindQC)
 # ND_combined.attrs['splashingQC'] = int(splashingQC)
@@ -174,7 +170,7 @@ print("Grouping by D0-RR and averaging")
 ND_groups = ND_combined.groupby('D0_RR')
 # Now average in each RR-D0 bin
 ND_avg = ND_groups.mean(dim='D0_RR')
-print(ND_avg)
+# print(ND_avg)
 # TODO: Modify the following to keep D0_RR index but to also add the D0_idx and RR_idx dimensions
 # Along with coordinates. Can't add new dimensions to a DataArray so need to make this a Dataset
 # For now, uncomment this out so that we are just keeping the combined D0_RR index.
@@ -194,7 +190,7 @@ print(ND_avg)
 
 ND_avg.name = 'SATP_ND_{}'.format(dataset_name)
 # Add some metadata
-ND_avg.attrs = parsivel_combined_ds.attrs
+# ND_avg.attrs = parsivel_combined_ds.attrs
 # ND_avg.attrs['DSD_interval'] = DSD_interval
 # ND_avg.attrs['strongwindQC'] = int(strongwindQC)
 # ND_avg.attrs['splashingQC'] = int(splashingQC)
@@ -212,6 +208,10 @@ ND_avg.attrs = parsivel_combined_ds.attrs
 # as above. There's a function "reconstruct_MultiIndex" in pips_io.py for this purpose
 ND_combined = ND_combined.reset_index('D0_RR')
 ND_combined = ND_combined.to_dataset()
+ND_combined.attrs['DSD_interval'] = DSD_interval
+for attr_key, attr_val in parsivel_combined_ds.attrs.items():
+    if 'QC' in attr_key:
+        ND_combined.attrs[attr_key] = attr_val
 ND_combined.coords['D0_bins'] = D0_bins
 ND_combined.coords['RR_bins'] = RR_bins
 ND_combined_ncfile_name = 'ND_combined_{}_{:d}s.nc'.format(dataset_name, int(DSD_interval))
@@ -221,6 +221,10 @@ ND_combined.to_netcdf(ND_combined_ncfile_path)
 
 ND_avg = ND_avg.reset_index('D0_RR')
 ND_avg = ND_avg.to_dataset()
+ND_avg.attrs['DSD_interval'] = DSD_interval
+for attr_key, attr_val in parsivel_combined_ds.attrs.items():
+    if 'QC' in attr_key:
+        ND_avg.attrs[attr_key] = attr_val
 ND_avg.coords['D0_bins'] = D0_bins
 ND_avg.coords['RR_bins'] = RR_bins
 ND_avg_ncfile_name = 'ND_avg_{}_{:d}s.nc'.format(dataset_name, int(DSD_interval))

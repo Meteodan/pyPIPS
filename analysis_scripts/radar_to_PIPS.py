@@ -63,6 +63,7 @@ plot_dir = config.PIPS_IO_dict.get('plot_dir', None)
 PIPS_types = config.PIPS_IO_dict.get('PIPS_types', None)
 PIPS_names = config.PIPS_IO_dict.get('PIPS_names', None)
 PIPS_filenames = config.PIPS_IO_dict.get('PIPS_filenames', None)
+parsivel_combined_filenames = config.PIPS_IO_dict['PIPS_filenames_nc']
 start_times = config.PIPS_IO_dict.get('start_times', [None]*len(PIPS_names))
 end_times = config.PIPS_IO_dict.get('end_times', [None]*len(PIPS_names))
 geo_locs = config.PIPS_IO_dict.get('geo_locs', [None]*len(PIPS_names))
@@ -87,10 +88,6 @@ scatt_dir = config.radar_config_dict.get('scatt_dir', None)
 wavelength = config.radar_config_dict.get('wavelength', 10.7)
 
 # Get a list of the combined parsivel netCDF data files that are present in the PIPS directory
-
-parsivel_combined_filenames = [
-    'parsivel_combined_{}_{}_{:d}s.nc'.format(deployment_name, PIPS_name, int(requested_interval))
-    for deployment_name, PIPS_name in zip(deployment_names, PIPS_names)]
 parsivel_combined_filelist = [os.path.join(PIPS_dir, pcf) for pcf in parsivel_combined_filenames]
 
 # The following assumes that the same radar will be used for each PIPS in the deployment.
@@ -115,13 +112,23 @@ for parsivel_combined_file in parsivel_combined_filelist:
         radar.interp_sweeps_to_one_PIPS(radar_name, radar_dict['radarsweeplist'], PIPS_name,
                                         rad_loc, sweeptime_list=radar_dict['sweeptimelist'],
                                         average_gates=args.average_gates)
-    # Get rid of existing interpolated fields
+    # Get rid of existing interpolated fields. NOTE: for some reason this doesn't always seem
+    # to work. I've had to run this script *twice* in order for the removal of the previous
+    # version to "stick". This seems like a bug and doesn't make a lot of sense.
+    # NOTE: looks like the addition of the "drop_dims" call fixed this issue. And looks like
+    # I don't even need the next 2 calls but will leave them in there just in case.
     if '{}_at_PIPS'.format(radar_name) in parsivel_combined_ds:
-        parsivel_combined_ds = parsivel_combined_ds.drop('{}_at_PIPS'.format(radar_name))
-        parsivel_combined_ds = parsivel_combined_ds.drop('fields_{}'.format(radar_name))
+        print(parsivel_combined_ds)
+        parsivel_combined_ds = parsivel_combined_ds.drop_dims(['fields_{}'.format(radar_name)],
+                                                              errors='ignore')
+        print(parsivel_combined_ds)
+        parsivel_combined_ds = parsivel_combined_ds.drop('{}_at_PIPS'.format(radar_name),
+                                                         errors='ignore')
+        parsivel_combined_ds = parsivel_combined_ds.drop('fields_{}'.format(radar_name),
+                                                         errors='ignore')
     if '{}_beam_height_at_PIPS'.format(radar_name) in parsivel_combined_ds:
         parsivel_combined_ds = \
-            parsivel_combined_ds.drop('{}_beam_height_at_PIPS'.format(radar_name))
+            parsivel_combined_ds.drop('{}_beam_height_at_PIPS'.format(radar_name), errors='ignore')
     # Interpolate radar fields to the PIPS times
     radar_fields_at_PIPS_da = radar_fields_at_PIPS_da.interp_like(parsivel_combined_ds)
     radar_fields_at_PIPS_da.attrs['elevation_angle'] = el_req

@@ -61,6 +61,7 @@ plot_dir = config.PIPS_IO_dict.get('plot_dir', None)
 PIPS_types = config.PIPS_IO_dict.get('PIPS_types', None)
 PIPS_names = config.PIPS_IO_dict.get('PIPS_names', None)
 PIPS_filenames = config.PIPS_IO_dict.get('PIPS_filenames', None)
+parsivel_combined_filenames = config.PIPS_IO_dict['PIPS_filenames_nc']
 start_times = config.PIPS_IO_dict.get('start_times', [None]*len(PIPS_names))
 end_times = config.PIPS_IO_dict.get('end_times', [None]*len(PIPS_names))
 geo_locs = config.PIPS_IO_dict.get('geo_locs', [None]*len(PIPS_names))
@@ -68,18 +69,14 @@ requested_interval = config.PIPS_IO_dict.get('requested_interval', 10.)
 
 if not args.calc_for_SATP:
     # Get a list of the combined parsivel netCDF data files that are present in the PIPS directory
-    parsivel_combined_filenames = [
-        'parsivel_combined_{}_{}_{:d}s.nc'.format(deployment_name, PIPS_name,
-                                                  int(requested_interval))
-        for deployment_name, PIPS_name in zip(deployment_names, PIPS_names)]
-    parsivel_combined_filelist = [os.path.join(PIPS_dir, pcf)
-                                  for pcf in parsivel_combined_filenames]
+    parsivel_combined_filelist = [os.path.join(PIPS_dir, pcf) for pcf in
+                                  parsivel_combined_filenames]
 else:
     # Just read in the single combined SATP dataset
     parsivel_combined_filename = 'ND_avg_{}_{:d}s.nc'.format(dataset_name, int(requested_interval))
     parsivel_combined_filelist = [os.path.join(PIPS_dir, parsivel_combined_filename)]
 
-for index, parsivel_combined_file in enumerate(parsivel_combined_filelist[:22]):
+for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
     print("Reading {}".format(parsivel_combined_file))
     parsivel_combined_ds = xr.load_dataset(parsivel_combined_file)
 
@@ -92,7 +89,11 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist[:22]):
     else:
         ND = parsivel_combined_ds['SATP_ND_{}'.format(dataset_name)]
         ND = ND.rename({'D0_RR_level_0': 'D0_idx', 'D0_RR_level_1': 'RR_idx'})
-        DSD_interval = ND.DSD_interval
+        # NOTE: Below try-except block for backwards compatibility
+        try:
+            DSD_interval = ND.DSD_interval
+        except AttributeError:
+            DSD_interval = parsivel_combined_ds.DSD_interval
         ND = pipsio.reconstruct_MultiIndex(ND, ['D0_idx', 'RR_idx'], 'D0_RR')
         coord_to_combine = 'D0_RR'
 
@@ -138,7 +139,10 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist[:22]):
     # Update parsivel_combined_ds with new fits_ds and save updated Dataset
     parsivel_combined_ds.update(fits_ds)
     if args.calc_for_SATP:
+        # Save attrs (may not need to do this)
+        attrs = parsivel_combined_ds.attrs
         parsivel_combined_ds = parsivel_combined_ds.reset_index('D0_RR')
-        parsivel_combined_ds.attrs = ND.attrs
+        parsivel_combined_ds.attrs = attrs
+        # parsivel_combined_ds.attrs = ND.attrs
     print("Dumping {}".format(parsivel_combined_file))
     parsivel_combined_ds.to_netcdf(parsivel_combined_file)

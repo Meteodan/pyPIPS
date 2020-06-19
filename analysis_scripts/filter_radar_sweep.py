@@ -109,6 +109,9 @@ if args.output_tag:
 else:
     radar_output_paths = radar_dict['radarpathlist']
 
+print(radar_paths)
+
+
 for radar_obj, radar_output_path in zip(radar_dict['radarsweeplist'], radar_output_paths):
     print("Getting fields")
     # Get polarimetric fields from the radar object

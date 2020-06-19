@@ -3,8 +3,8 @@
 PIPS_IO_dict = {
     'dataset_name': 'IOP4C_2016',
     'deployment_names': ['IOP4C_D1_2016'] * 4,
-    'PIPS_dir': '/Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/SATP_retr',
-    'plot_dir': '/Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset/SATP_retr/plots',
+    'PIPS_dir': '/Volumes/scr_fast/Projects/VORTEXSE/obsdata/full_PIPS_dataset',
+    'plot_dir': '/Volumes/scr_fast/Projects/VORTEXSE/obsdata/full_PIPS_dataset/plots',
     'PIPS_types': ['PIPS'] * 4,
     'PIPS_names': ['PIPS1A', 'PIPS1B', 'PIPS2A', 'PIPS2B'],
     'PIPS_filenames': ['PIPS1A_2016_IOP4C_D1.txt', 'PIPS1B_2016_IOP4C_D1.txt',
@@ -34,11 +34,11 @@ radar_config_dict = {
     'plot_retrieval': True,
     'radar_name': 'KHTX',
     'radar_type': 'NEXRAD',
-    'radar_dir': '/Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/2016/NEXRAD/IOP_4C/HTX/CFRadial/filtered/SATP_retr/',
+    'radar_dir': '/Volumes/scr_fast/Projects/VORTEXSE/obsdata/2016/NEXRAD/IOP_4C/HTX/CFRadial',
     'field_names': ['REF', 'ZDR', 'RHO', 'Dm', 'sigma', 'RR', 'mu', 'lamda'],
     'el_req': 0.5,
     'radar_start_timestamp': '20160430190000',
-    'radar_end_timestamp': '20160430191000', # s'20160501000000',
+    'radar_end_timestamp': '20160501000000',
     'scatt_dir': '/Users/dawson29/Projects/pyPIPS/tmatrix/S-Band/',
     'wavelength': 10.7
 }

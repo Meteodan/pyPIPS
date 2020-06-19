@@ -127,7 +127,7 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
 
         if args.plot_series:
             for t, time in enumerate(vd_matrix_da['time'].to_index()):
-                if parsivel_combined_ds['pcount'].loc[time] > 0:
+                if parsivel_combined_ds['pcount_derived_qc'].loc[time] > 0:
                     print("Plotting for {} and time {}".format(PIPS_name,
                                                                time.strftime(tm.timefmt3)))
                     axdict['time'] = time
@@ -149,6 +149,7 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
 
         if args.plot_full:
             vd_matrix_da_full = vd_matrix_da.sum(dim='time')
+            vd_matrix_da_full = vd_matrix_da_full.where(vd_matrix_da_full > 0.)
             print("Plotting full-deployment v-d matrix for {} and {}".format(deployment_name,
                                                                              PIPS_name))
             axdict['cblim'] = (1, 1500)

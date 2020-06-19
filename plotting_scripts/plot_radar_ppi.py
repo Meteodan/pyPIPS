@@ -39,6 +39,8 @@ parser.add_argument('--plot-config-path', dest='plot_config_path',
 parser.add_argument('--plot-filtered-fields', dest='plot_filtered', default=False,
                     action='store_true',
                     help='Whether to also plot previously filtered dBZ and ZDR fields for the retrieval')
+parser.add_argument('--input-tag', dest='input_tag', default=None,
+                    help='Input nametag to determine which radar files to read in')
 
 args = parser.parse_args()
 
@@ -103,7 +105,10 @@ parsivel_combined_filenames = [
 parsivel_combined_filelist = [os.path.join(PIPS_dir, pcf) for pcf in parsivel_combined_filenames]
 
 # Read radar sweeps
-radar_paths = glob(radar_dir + '/*{}*.nc'.format(radar_name))
+if args.input_tag is None:
+    radar_paths = glob(radar_dir + '/*{}*SUR.nc'.format(radar_name))
+else:
+    radar_paths = glob(radar_dir + '/*{}*SUR_{}.nc'.format(radar_name, args.input_tag))
 radar_dict = radar.read_sweeps(radar_paths, radar_start_timestamp,
                                radar_end_timestamp, field_names=field_names, el_req=el_req,
                                radar_type=radar_type)

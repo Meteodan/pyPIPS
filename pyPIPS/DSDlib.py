@@ -1368,7 +1368,8 @@ def retrieval_Cao_xr(ZH, ZDR, ND, D, dD, fa2, fb2, wavelength, mu_lamda_coeff, Z
     return retr_dict_alltimes
 
 
-@jit(parallel=True)
+# @jit(parallel=True)
+@jit
 def retrieval_Cao(ZH, ZDR, D, dD, fa2, fb2, wavelength, mu_lamda_coeff, ZDR_thresh=3.,
                   retrieval_tag=''):
     Dmx = 9.     # maximum diameter of 9 mm
