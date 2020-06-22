@@ -9,6 +9,9 @@ PIPS_IO_dict = {
     'PIPS_names': ['PIPS1B', 'PIPS2A', 'PIPS2B'],
     'PIPS_filenames': ['PIPS1B_2016_IOP4C_D1.txt',
                        'PIPS2A_2016_IOP4C_D1.txt', 'PIPS2B_2016_IOP4C_D1.txt'],
+    'PIPS_filenames_nc': ['parsivel_combined_IOP4C_D1_2016_PIPS1B_60s.nc',
+                          'parsivel_combined_IOP4C_D1_2016_PIPS2A_60s.nc',
+                          'parsivel_combined_IOP4C_D1_2016_PIPS2B_60s.nc'],
     'start_times': ['20160430193000'] * 3,
     'end_times': ['20160430224500'] * 3,
     'requested_interval': 60.

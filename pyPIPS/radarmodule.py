@@ -431,7 +431,7 @@ def getradarfilelist(radar_dir, radar_save_dir, starttime=None, stoptime=None, p
     return radar_filelist, radtimes
 
 
-def readCFRadial_pyART(el, filename, sweeptime, fieldnames, radlat=None, radlon=None,
+def readCFRadial_pyART(el, filename, sweeptime, radlat=None, radlon=None,
                        radalt=None, compute_kdp=True, verbose=True):
     """
     Reads radar data from a CFRadial netCDF file using pyART. For nexrad files that contain an
@@ -1768,6 +1768,64 @@ def plotsweeps(pc, ib, sb, sweepstart=-1, sweepstop=-1):
                 plt.close(fig)
 
 
+def get_radar_paths(radar_paths, starttime, stoptime, el_req=0.5, radar_type='NEXRAD'):
+    """Get a list of radar paths between starttime and stoptime that contain the elevation angle
+    requested.
+
+    Parameters
+    ----------
+    radar_paths : list
+        list of absolute paths to radar files
+    starttime : str
+        starting timestamp in '%Y%m%d%H%M%S' format
+    stoptime : str
+        ending timestamp in '%Y%m%d%H%M%S' format
+    el_req : float, optional
+        desired elevation angle, by default 0.5. Has no effect for NEXRAD files since each file
+        contains an entire volume.
+    radar_type : str, optional
+        type of radar, by default 'NEXRAD'
+
+    Returns
+    -------
+    dict
+        dict containing a list of sorted paths and sweeptimes
+    """
+    radstarttimedt = datetime.strptime(starttime, tm.timefmt3)
+    radstoptimedt = datetime.strptime(stoptime, tm.timefmt3)
+    sweeptimelist = []
+
+    # Determine which sweeps are between radstarttime and radstoptime, as well as which ones have
+    # the elevation angle we need
+
+    radar_paths_keepers = []
+    for radar_path in radar_paths:
+        sweeptime = _getsweeptime(radar_path)
+        if radstarttimedt <= sweeptime and sweeptime <= radstoptimedt:
+            # XTRRA has one sweep per file. TODO: add other radar options in here as appropriate
+            if 'XTRRA' in radar_type:
+                elevation = _getelev(radar_path)
+                if np.abs(elevation - el_req) < 0.1:
+                    radar_paths_keepers.append(radar_path)
+                    sweeptimelist.append(sweeptime)
+            else:  # NEXRAD
+                radar_paths_keepers.append(radar_path)
+                sweeptimelist.append(sweeptime)
+
+    # Sort the lists by increasing time since glob doesn't sort in any particular order
+    sorted_sweeptimelist = sorted(sweeptimelist)
+    sorted_radar_paths_keepers = [x for _, x in sorted(zip(sweeptimelist, radar_paths_keepers),
+                                                       key=lambda pair: pair[0])]
+
+    # Stuff the lists into a dictionary
+    radar_dict = {
+        'sweeptimelist': sorted_sweeptimelist,
+        'radarpathlist': sorted_radar_paths_keepers
+    }
+    return radar_dict
+
+
+# TODO: the following function is obsolescent
 def read_sweeps(radar_paths, starttime, stoptime, field_names=['dBZ'], el_req=0.5,
                 compute_kdp=False, radar_type='NEXRAD'):
     """Reads sweeps from a list of CFRadial files between the start and stop times requested
@@ -1840,19 +1898,47 @@ def read_sweeps(radar_paths, starttime, stoptime, field_names=['dBZ'], el_req=0.
     return radar_dict
 
 
-def get_PIPS_loc_relative_to_radar(PIPS_geo_loc, radarsweep, verbose=True):
-    """Gets the cartesian location of the PIPS relative to the radar."""
+def read_sweeps_new(radar_dict, el_req=0.5, compute_kdp=False, radar_type='NEXRAD'):
+    """Reads sweeps from a list of CFRadial files between the start and stop times requested
+    and at the elevation angle requested. Returns a dictionary with the sweeps (pyART radar objects)
 
-    # Grab radar location information from the first sweep in radar_dict
-    rlat = radarsweep.latitude['data'][0]
-    rlon = radarsweep.longitude['data'][0]
-    ralt = radarsweep.altitude['data'][0]
+    Parameters
+    ----------
+    radar_paths: list
+        list of absolute paths to radar files
+    el_req : float, optional
+        desired elevation angle, by default 0.5
+    compute_kdp : bool, optional
+        whether to compute KDP, by default False
+
+    Returns
+    -------
+    dict
+        dictionary containing the list of sweep objects, as well as the timestamps for each and
+        the list of fields that were read in from the files.
+    """
+    radpath_list = radar_dict['radarpathlist']
+    sweeptimelist = radar_dict['sweeptimelist']
+    radarsweeplist = []
+
+    for radpath, sweeptime in zip(radpath_list, sweeptimelist):
+        radarsweep = readCFRadial_pyART(el_req, radpath, sweeptime, compute_kdp=compute_kdp)
+        radarsweeplist.append(radarsweep)
+
+    # Stuff the list of sweeps into the dictionary
+    radar_dict['radarsweeplist'] = radarsweeplist
+    return radar_dict
+
+
+def get_PIPS_loc_relative_to_radar(PIPS_geo_loc, rlat, rlon, ralt, verbose=True):
+    """Gets the cartesian location of the PIPS relative to the radar."""
 
     if verbose:
         print("Radar location (lat, lon, alt)", rlat, rlon, ralt)
         print("Disdrometer location (lat, lon, alt)", PIPS_geo_loc[0], PIPS_geo_loc[1],
               PIPS_geo_loc[2])
 
+    # TODO: Make this Lambert Conformal instead?
     dradx, drady = pyart.core.geographic_to_cartesian_aeqd(PIPS_geo_loc[1], PIPS_geo_loc[0],
                                                            rlon, rlat)
     dx = dradx[0]

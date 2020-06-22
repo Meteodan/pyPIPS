@@ -62,7 +62,7 @@ def calpolrain(wavelength, filename, Nd, intv):
     ZDR = 10. * np.log10(np.maximum(1.0, temp))
     temp = Zh * Zv
     # Added by Jess (was temp > 0).  Find out why...
-    rhv = np.where(Zh != Zv, Zhv / (np.sqrt(temp)), 0.0)
+    rhv = np.where(Zh != Zv, Zhv / (np.sqrt(temp)), np.nan)
     # np.savetxt('temp.txt', temp)
 
     dualpol_dict = {'ZH': Zh, 'ZV': Zv, 'ZHV': Zhv, 'REF': dBZ, 'ZDR': ZDR, 'KDP': Kdp, 'RHO': rhv,

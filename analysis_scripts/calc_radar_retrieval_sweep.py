@@ -95,27 +95,32 @@ radar_end_timestamp = config.radar_config_dict.get('radar_end_timestamp', None)
 scatt_dir = config.radar_config_dict.get('scatt_dir', None)
 wavelength = config.radar_config_dict.get('wavelength', 10.7)
 
-# Read radar sweeps
+# Get a list of radar paths between the start and stop times and containing the elevation
+# angle requested
 if args.input_tag is None:
     radar_paths = glob(radar_dir + '/*{}*.nc'.format(radar_name))
 else:
     radar_paths = glob(radar_dir + '/*{}*_{}.nc'.format(radar_name, args.input_tag))
-radar_dict = radar.read_sweeps(radar_paths, radar_start_timestamp,
-                               radar_end_timestamp, field_names=field_names, el_req=el_req,
-                               radar_type=radar_type)
 
+radar_path_dict = radar.get_radar_paths(radar_paths, radar_start_timestamp, radar_end_timestamp,
+                                        el_req=el_req, radar_type=radar_type)
+
+radar_input_paths = radar_path_dict['radarpathlist']
+radar_sweeptimes = radar_path_dict['sweeptimelist']
 if args.output_tag:
     radar_output_paths = [radar_path.replace('.nc', '_{}.nc'.format(args.output_tag))
-                          for radar_path in radar_dict['radarpathlist']]
+                          for radar_path in radar_input_paths]
 else:
-    radar_output_paths = radar_dict['radarpathlist']
+    radar_output_paths = radar_input_paths
 
 if args.use_filtered_fields:
     tag = '_filtered'
 else:
     tag = None
 
-for radar_obj, radar_output_path in zip(radar_dict['radarsweeplist'], radar_output_paths):
+for radar_input_path, sweeptime, radar_output_path in zip(radar_input_paths, radar_sweeptimes,
+                                                          radar_output_paths):
+    radar_obj = radar.readCFRadial_pyART(el_req, radar_input_path, sweeptime, compute_kdp=False)
     print("Getting ZH and ZDR fields")
     # Get the ZH and ZDR fields from the radar object
     ZH_rad_tuple = radar.get_field_to_plot(radar_obj, radar.REF_aliases, tag=tag)

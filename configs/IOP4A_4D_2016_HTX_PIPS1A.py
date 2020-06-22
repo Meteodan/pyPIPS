@@ -28,17 +28,17 @@ PIPS_qc_dict = {
 radar_config_dict = {
     'load_radar_at_PIPS': True,
     'save_radar_at_PIPS': False,
-    'comp_radar': False,
+    'comp_radar': True,
     'clean_radar': False,
-    'calc_dualpol': False,
-    'plot_retrieval': False,
+    'calc_dualpol': True,
+    'plot_retrieval': True,
     'radar_name': 'KHTX',
     'radar_type': 'NEXRAD',
     'radar_dir': '/Volumes/scr_fast/Projects/VORTEXSE/obsdata/2016/NEXRAD/IOP_4A_4C/HTX/CFRadial',
     'field_names': ['REF', 'ZDR', 'RHO', 'Dm', 'sigma', 'RR', 'mu', 'lamda'],
     'el_req': 0.5,
-    'radar_start_timestamp': '20160430120000',
-    'radar_end_timestamp': '20160430235959',
+    'radar_start_timestamp': '20160428000000',
+    'radar_end_timestamp': '20160501010000',
     'scatt_dir': '/Users/dawson29/Projects/pyPIPS/tmatrix/S-Band/',
     'wavelength': 10.7
 }

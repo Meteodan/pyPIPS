@@ -109,9 +109,6 @@ if args.output_tag:
 else:
     radar_output_paths = radar_dict['radarpathlist']
 
-print(radar_paths)
-
-
 for radar_obj, radar_output_path in zip(radar_dict['radarsweeplist'], radar_output_paths):
     print("Getting fields")
     # Get polarimetric fields from the radar object
@@ -122,54 +119,33 @@ for radar_obj, radar_output_path in zip(radar_dict['radarsweeplist'], radar_outp
     ZDR_name = ZDR_rad_tuple[0]
     RHV_name = RHV_rad_tuple[0]
 
+    # Make copies of polarimetric fields
+    for field_name in [ZH_name, ZDR_name, RHV_name]:
+        radar_obj.add_field_like(field_name, field_name+'_filtered',
+                                 radar_obj.fields[field_name]['data'].copy(), replace_existing=True)
+
+    print("Applying median filter")
+    for field_name in [ZH_name, ZDR_name, RHV_name]:
+        radar_obj.fields[field_name+'_filtered']['data'] = \
+            medfilt2d(radar_obj.fields[field_name+'_filtered']['data'],
+                      kernel_size=args.med_filter_width)
+
     print("Creating dBZ and RHV gate filter")
     # Create a gate filter to mask out areas with dBZ and RHV below thresholds
     rhoHV_ref_filter = pyart.correct.moment_based_gate_filter(radar_obj,
-                                                              rhv_field=RHV_name,
-                                                              refl_field=ZH_name,
+                                                              rhv_field=RHV_name+'_filtered',
+                                                              refl_field=ZH_name+'_filtered',
                                                               min_ncp=None,
                                                               min_rhv=args.RHV_thresh,
                                                               min_refl=args.dBZ_thresh,
                                                               max_refl=None)
 
-    # Make copies of polarimetric fields
-    radar_obj.add_field_like(ZH_name, ZH_name+'_filtered',
-                             radar_obj.fields[ZH_name]['data'].copy(), replace_existing=True)
-    radar_obj.add_field_like(ZDR_name, ZDR_name+'_filtered',
-                             radar_obj.fields[ZDR_name]['data'].copy(), replace_existing=True)
-    radar_obj.add_field_like(RHV_name, RHV_name+'_filtered',
-                             radar_obj.fields[RHV_name]['data'].copy(), replace_existing=True)
-
     print("Applying gate filter")
     # Mask fields using the dBZ/RHV mask
-    radar_obj.fields[ZH_name+'_filtered']['data'] = \
-        np.ma.masked_where(rhoHV_ref_filter.gate_excluded,
-                           radar_obj.fields[ZH_name+'_filtered']['data'])
-    radar_obj.fields[ZDR_name+'_filtered']['data'] = \
-        np.ma.masked_where(rhoHV_ref_filter.gate_excluded,
-                           radar_obj.fields[ZDR_name+'_filtered']['data'])
-    radar_obj.fields[RHV_name+'_filtered']['data'] = \
-        np.ma.masked_where(rhoHV_ref_filter.gate_excluded,
-                           radar_obj.fields[RHV_name+'_filtered']['data'])
-
-    print("Applying median filter")
-    # Apply the median filter
-    radar_obj.fields[ZH_name+'_filtered']['data'] = \
-        medfilt2d(radar_obj.fields[ZH_name+'_filtered']['data'], kernel_size=args.med_filter_width)
-    radar_obj.fields[ZH_name+'_filtered']['data'] = \
-        np.ma.masked_array(data=radar_obj.fields[ZH_name+'_filtered']['data'],
-                           mask=radar_obj.fields[ZH_name]['data'].mask)
-
-    radar_obj.fields[ZDR_name+'_filtered']['data'] = \
-        medfilt2d(radar_obj.fields[ZDR_name+'_filtered']['data'], kernel_size=args.med_filter_width)
-    radar_obj.fields[ZDR_name+'_filtered']['data'] = \
-        np.ma.masked_array(data=radar_obj.fields[ZDR_name+'_filtered']['data'],
-                           mask=radar_obj.fields[ZDR_name]['data'].mask)
-    radar_obj.fields[RHV_name+'_filtered']['data'] = \
-        medfilt2d(radar_obj.fields[RHV_name+'_filtered']['data'], kernel_size=args.med_filter_width)
-    radar_obj.fields[RHV_name+'_filtered']['data'] = \
-        np.ma.masked_array(data=radar_obj.fields[RHV_name+'_filtered']['data'],
-                           mask=radar_obj.fields[RHV_name]['data'].mask)
+    for field_name in [ZH_name, ZDR_name, RHV_name]:
+        radar_obj.fields[field_name+'_filtered']['data'] = \
+            np.ma.masked_where(rhoHV_ref_filter.gate_excluded,
+                               radar_obj.fields[field_name+'_filtered']['data'])
 
     # Now save the radar object to a new CFRadial file with the added filtered fields
     print("Saving {}".format(radar_output_path))

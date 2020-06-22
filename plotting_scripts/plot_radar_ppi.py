@@ -1,25 +1,15 @@
-# pyPIPS_meteograms.py
+# plot_radar_ppi.py
 #
 # This script plots radar PPI plots overlaid with the locations of the PIPS
 import os
 import argparse
 from glob import glob
-from datetime import datetime, timedelta
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 import xarray as xr
-import matplotlib.ticker as ticker
-import matplotlib.dates as dates
 import pyPIPS.parsivel_params as pp
 import pyPIPS.radarmodule as radar
-import pyPIPS.plotmodule as pm
-import pyPIPS.pips_io as pipsio
 import pyPIPS.utils as utils
-import pyPIPS.PIPS as pips
-import pyPIPS.parsivel_qc as pqc
-import pyPIPS.DSDlib as dsd
-import pyPIPS.polarimetric as dp
 import pyPIPS.timemodule as tm
 
 min_diameter = pp.parsivel_parameters['min_diameter_bins_mm']
@@ -105,13 +95,23 @@ parsivel_combined_filenames = [
 parsivel_combined_filelist = [os.path.join(PIPS_dir, pcf) for pcf in parsivel_combined_filenames]
 
 # Read radar sweeps
+
+# Get a list of radar paths between the start and stop times and containing the elevation
+# angle requested
 if args.input_tag is None:
-    radar_paths = glob(radar_dir + '/*{}*SUR.nc'.format(radar_name))
+    radar_paths = glob(radar_dir + '/*{}*.nc'.format(radar_name))
 else:
-    radar_paths = glob(radar_dir + '/*{}*SUR_{}.nc'.format(radar_name, args.input_tag))
-radar_dict = radar.read_sweeps(radar_paths, radar_start_timestamp,
-                               radar_end_timestamp, field_names=field_names, el_req=el_req,
-                               radar_type=radar_type)
+    radar_paths = glob(radar_dir + '/*{}*_{}.nc'.format(radar_name, args.input_tag))
+
+radar_path_dict = radar.get_radar_paths(radar_paths, radar_start_timestamp, radar_end_timestamp,
+                                        el_req=el_req, radar_type=radar_type)
+
+# Read first sweep in to get radar location
+first_sweep = radar.readCFRadial_pyART(el_req, radar_path_dict['radarpathlist'][0],
+                                       radar_path_dict['sweeptimelist'][0], compute_kdp=False)
+rlat = first_sweep.latitude['data'][0]
+rlon = first_sweep.longitude['data'][0]
+ralt = first_sweep.altitude['data'][0]
 
 geo_locs = []
 rad_locs = []
@@ -128,11 +128,12 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
     geo_loc_str = parsivel_combined_ds.location
     geo_loc = list(map(np.float, geo_loc_str.strip('()').split(',')))
     geo_locs.append(geo_loc)
-    rad_loc = radar.get_PIPS_loc_relative_to_radar(geo_loc, radar_dict['radarsweeplist'][0])
+    rad_loc = radar.get_PIPS_loc_relative_to_radar(geo_loc, rlat, rlon, ralt)
     rad_locs.append(rad_loc)
 
-for radar_obj, sweeptime in zip(radar_dict['radarsweeplist'], radar_dict['sweeptimelist']):
-    print(radar_obj.info())
+for radar_path, sweeptime in zip(radar_path_dict['radarpathlist'],
+                                 radar_path_dict['sweeptimelist']):
+    radar_obj = radar.readCFRadial_pyART(el_req, radar_path, sweeptime, compute_kdp=False)
     sweeptime_string = sweeptime.strftime(tm.timefmt3)
     figlist, axlist, fields_plotted = radar.plotsweep_pyART(radar_obj, sweeptime, PIPS_names,
                                                             geo_locs, rad_locs, field_names,
@@ -144,4 +145,3 @@ for radar_obj, sweeptime in zip(radar_dict['radarsweeplist'], radar_dict['sweept
         PIPS_plot_path = os.path.join(image_dir, PIPS_plot_name)
         fig.savefig(PIPS_plot_path, dpi=200, bbox_inches='tight')
         plt.close(fig)
-

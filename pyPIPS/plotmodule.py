@@ -837,9 +837,10 @@ def plotDSDmeteograms(dis_name, image_dir, axparams, disvars, radvars=None, clos
             plotparamdicts.append(plotparamdict2)
 
         # Retrieved Mass-weighted mean diameter
+
         if len(D_m_keys) > 0:
-            colors = ['purple', 'navy', 'navy', 'purple']
-            linestyles = [':', '--', '--', ':']
+            colors = ['purple', 'navy', 'navy', 'green']
+            linestyles = [':', '--', '-.', '-']
             for col, ls, D_m_rad_key in zip(colors, linestyles, D_m_keys):
                 plot_key = D_m_rad_key.replace('D_m_rad_', '')
                 xvals.append(PSDmidtimes)

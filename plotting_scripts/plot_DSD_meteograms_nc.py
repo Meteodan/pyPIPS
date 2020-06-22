@@ -46,6 +46,10 @@ parser.add_argument('--filter_RR', dest='filter_RR', type=float, default=None,
                     help='filter rainrate < # (mm)')
 parser.add_argument('--filter_counts', dest='filter_counts', type=int, default=None,
                     help='filter particle counts < #')
+parser.add_argument('--filter_RHO', dest='filter_rho', type=float, default=None,
+                    help='filter RHO < given value')
+parser.add_argument('--filter_REF', dest='filter_ref', type=float, default=None,
+                    help='filter REF < given value')
 parser.add_argument('--use-parsivel-params', dest='use_parsivel_params', action='store_true',
                     default=False, help='Use parsivel RR and counts instead of computed')
 
@@ -86,6 +90,7 @@ plot_dir = config.PIPS_IO_dict.get('plot_dir', None)
 PIPS_types = config.PIPS_IO_dict.get('PIPS_types', None)
 PIPS_names = config.PIPS_IO_dict.get('PIPS_names', None)
 PIPS_filenames = config.PIPS_IO_dict.get('PIPS_filenames', None)
+parsivel_combined_filenames = config.PIPS_IO_dict['PIPS_filenames_nc']
 start_times = config.PIPS_IO_dict.get('start_times', [None]*len(PIPS_names))
 end_times = config.PIPS_IO_dict.get('end_times', [None]*len(PIPS_names))
 geo_locs = config.PIPS_IO_dict.get('geo_locs', [None]*len(PIPS_names))
@@ -117,18 +122,14 @@ if not os.path.exists(meteogram_image_dir):
     os.makedirs(meteogram_image_dir)
 
 # Get a list of the combined parsivel netCDF data files that are present in the PIPS directory
-parsivel_combined_filenames = [
-    'parsivel_combined_{}_{}_{:d}s.nc'.format(deployment_name, PIPS_name, int(requested_interval))
-    for deployment_name, PIPS_name in zip(deployment_names, PIPS_names)]
 parsivel_combined_filelist = [os.path.join(PIPS_dir, pcf) for pcf in parsivel_combined_filenames]
-print(parsivel_combined_filenames)
 
 for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
     print("Reading {}".format(parsivel_combined_file))
     parsivel_combined_ds = xr.load_dataset(parsivel_combined_file)
     DSD_interval = parsivel_combined_ds.DSD_interval
     PIPS_name = parsivel_combined_ds.probe_name
-    deployment_name = parsivel_combined_ds.deployment_name
+    deployment_name = deployment_names[index]  # parsivel_combined_ds.deployment_name
     image_dir = os.path.join(meteogram_image_dir, deployment_name)
     if not os.path.exists(image_dir):
         os.makedirs(image_dir)
@@ -188,7 +189,7 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
         for varname in ['REF', 'ZDR', 'KDP', 'RHO']:
             var = dualpol_dis.get(varname, np.empty((0)))
             if var.size:
-                # If desired, perform centered running averages
+                # If desired, perform centered running averages. NOTE: disabled for now
                 if pc.PIPS_plotting_dict['avgwindow'] and False:
                     window = int(pc.PIPS_plotting_dict['avgwindow'] / DSD_interval)
                     var = pd.Series(var).rolling(
@@ -269,21 +270,38 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
                     dualpol_rad_var = radar_fields_at_PIPS_da.loc[{dim_name: radvar_name_in_file}]
                     if dualpol_rad_var.size:
                         radvars[radvar_name] = dualpol_rad_var
-            # TODO: this code below is obsolescent, as filtering is done elsewhere now.
-            if clean_radar:
-                # remove non-precipitation echoes from radar data
-                gc_mask = np.where((radvars['RHO'] < 0.90), True, False)
-                for radvarname in ['ZDR', 'REF', 'RHO']:
-                    radvars[radvarname] = np.ma.masked_array(radvars[radvarname],
-                                                             mask=gc_mask)
+
         if plot_retrieval:
             # Plot D_0 as overlay on other plots for now
             # radvars['D_0_rad'] = radar_fields_at_PIPS_da.loc[{dim_name: 'D0'}]
             # Change to D_m and plot for multiple retrievals
+            # TODO: allow for selection of retrievals to plot on command line
             radvars['D_m_rad_SATP'] = radar_fields_at_PIPS_da.loc[{dim_name: 'Dm_SATP'}]
-            radvars['D_m_rad_Z01'] = radar_fields_at_PIPS_da.loc[{dim_name: 'Dm_Z01'}]
-            radvars['D_m_rad_C08'] = radar_fields_at_PIPS_da.loc[{dim_name: 'Dm_C08'}]
-            radvars['D_m_rad_TMM_F'] = radar_fields_at_PIPS_da.loc[{dim_name: 'Dm_TMM_F'}]
+            # radvars['D_m_rad_Z01'] = radar_fields_at_PIPS_da.loc[{dim_name: 'Dm_Z01'}]
+            # radvars['D_m_rad_C08'] = radar_fields_at_PIPS_da.loc[{dim_name: 'Dm_C08'}]
+            # radvars['D_m_rad_TMM_F'] = radar_fields_at_PIPS_da.loc[{dim_name: 'Dm_TMM_F'}]
+
+        # TODO: this code below is obsolescent, as filtering is done elsewhere now.
+        # NOTE: reinstated this, with slight modifications, because the previous filtering
+        # was bugged. That is fixed now, but this is here just in case we are using the old
+        # bugged filtered fields
+        if args.filter_ref:
+            mask = np.where((radvars['REF'] < args.filter_ref), True, False)
+            for radvarname in ['ZDR', 'REF', 'RHO', 'D_m_rad_SATP']:
+                if radvarname in radvars:
+                    radvars[radvarname] = np.ma.masked_array(radvars[radvarname], mask=mask)
+            for disvarname in ['REF', 'ZDR', 'KDP', 'RHO', 'D_m']:
+                if disvarname in disvars:
+                    disvars[disvarname] = np.ma.masked_array(disvars[disvarname], mask=mask)
+        if args.filter_rho and 'RHO' in radvars:
+            mask = np.where((radvars['RHO'] < args.filter_rho), True, False)
+            for radvarname in ['ZDR', 'REF', 'RHO', 'D_m_rad_SATP']:
+                if radvarname in radvars:
+                    radvars[radvarname] = np.ma.masked_array(radvars[radvarname], mask=mask)
+            for disvarname in ['REF', 'ZDR', 'KDP', 'RHO', 'D_m']:
+                if disvarname in disvars:
+                    disvars[disvarname] = np.ma.masked_array(disvars[disvarname], mask=mask)
+
 
     # Make the plot
     PIPS_plot_name = '{}_{}_{}_{}_{}{}'.format(PIPS_name, deployment_name, start_time_string,

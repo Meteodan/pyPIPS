@@ -97,9 +97,10 @@ if args.input_tag is None:
     radar_paths = glob(radar_dir + '/*{}*.nc'.format(radar_name))
 else:
     radar_paths = glob(radar_dir + '/*{}*_{}.nc'.format(radar_name, args.input_tag))
-radar_dict = radar.read_sweeps(radar_paths, radar_start_timestamp,
-                               radar_end_timestamp, field_names=field_names, el_req=el_req,
-                               radar_type=radar_type)
+
+radar_path_dict = radar.get_radar_paths(radar_paths, radar_start_timestamp, radar_end_timestamp,
+                                        el_req=el_req, radar_type=radar_type)
+radar_dict = radar.read_sweeps_new(radar_path_dict, el_req=el_req, radar_type=radar_type)
 
 # Outer file loop
 for parsivel_combined_file in parsivel_combined_filelist:
