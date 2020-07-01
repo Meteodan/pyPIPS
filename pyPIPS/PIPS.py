@@ -2,14 +2,24 @@
 import numpy as np
 import pandas as pd
 import xarray as xr
-from . import obanmodule as oban
-from . import radarmodule as radar
 from . import thermolib as thermo
 from . import utils
+import pyPIPS.parsivel_params as pp
 from .parsivel_params import parsivel_parameters
+from .pips_io import combine_parsivel_data
 from numba import jit
 
 deg2rad = np.pi / 180.
+
+
+min_diameter = pp.parsivel_parameters['min_diameter_bins_mm']
+max_diameter = pp.parsivel_parameters['max_diameter_bins_mm']
+bin_width = max_diameter - min_diameter
+avg_diameter = pp.parsivel_parameters['avg_diameter_bins_mm']
+min_fall_bins = pp.parsivel_parameters['min_fallspeed_bins_mps']
+max_fall_bins = pp.parsivel_parameters['max_fallspeed_bins_mps']
+avg_fall_bins = pp.parsivel_parameters['avg_fallspeed_bins_mps']
+fall_bins_edges = np.append(min_fall_bins, max_fall_bins[-1])
 
 
 def calc_thermo(conv_df):
@@ -72,6 +82,57 @@ def wind_dir_and_speed_from_u_and_v(u, v):
     return windspdvec, winddirvec
 
 
+# TODO: not used right now, but will eventually refactor everything to use xarray DataArrays
+# instead of pandas DataFrames
+def resample_wind_da(wind_dir, wind_spd, intervalstr, offset, gusts=True, gustintervalstr='3S',
+                     center=False):
+    wind_spd_avg = wind_spd.resample(time=intervalstr, label='right', closed='right',
+                                     base=offset).mean()
+    if gusts:
+        wind_gust = wind_spd.resample(time=gustintervalstr, label='right', closed='right',
+                                      base=offset).mean()
+        wind_gust_avg = wind_gust.resample(time=intervalstr, label='right', closed='right',
+                                           base=offset).max()
+    else:
+        wind_gust = None
+        wind_gust_avg = None
+
+    # Compute vector average wind speed and direction
+    # First compute the u and v wind components
+    u = wind_spd * np.cos(np.deg2rad(-wind_dir + 270.))
+    v = wind_spd * np.sin(np.deg2rad(-wind_dir + 270.))
+
+    # Linearly interpolate for bad values of us,vs
+    # u = interpnan1D(u)
+    # v = interpnan1D(v)
+    # Compute averages of wind components
+    u_avg = u.resample(time=intervalstr, label='right', closed='right', base=offset).mean()
+    v_avg = v.resample(time=intervalstr, label='right', closed='right', base=offset).mean()
+
+    wind_spd_vec_avg = np.sqrt(u_avg**2. + v_avg**2.)
+    # Need to use %360 to keep wind dir between 0 and 360 degrees
+    wind_dir_vec_avg = (270.0 - (180. / np.pi) * np.arctan2(v_avg, u_avg)) % 360.
+
+    # unit average wind direction
+    unit_u = u / wind_spd
+    unit_v = v / wind_spd
+    unit_u_avg = unit_u.resample(time=intervalstr, label='right', closed='right',
+                                 base=offset).mean()
+    unit_v_avg = unit_v.resample(time=intervalstr, label='right', closed='right',
+                                 base=offset).mean()
+
+    # Need to use %360 to keep wind dir between 0 and 360 degrees
+    wind_dir_unit_vec_avg = (270.0 - (180. / np.pi) * np.arctan2(unit_u_avg, unit_v_avg)) % 360.
+
+    # Pack everything into a dictionary and return
+    wind_dict = {'windspd': wind_spd_avg, 'windspdavgvec': wind_spd_vec_avg,
+                 'winddirabs': wind_dir_vec_avg, 'winddirunitavgvec': wind_dir_unit_vec_avg,
+                 'windgust': wind_gust_avg, 'uavg': u_avg, 'vavg': v_avg,
+                 'unit_uavg': unit_u_avg, 'unit_vavg': unit_v_avg}
+
+    return wind_dict
+
+
 def resample_wind(datetimes, offset, winddirs, windspds, intervalstr, gusts=True, gustintvstr='3S',
                   center=False):
     """Given a timeseries of wind directions and speeds, and an interval for resampling,
@@ -87,8 +148,6 @@ def resample_wind(datetimes, offset, winddirs, windspds, intervalstr, gusts=True
                                                                        base=offset).mean()
         windgustsavg = windgusts.resample(intervalstr, label='right', closed='right',
                                           base=offset).max()
-        windgusts = windgusts
-        windgustsavg = windgustsavg
     else:
         windgusts = None
         windgustsavg = None
@@ -152,6 +211,33 @@ def resample_wind(datetimes, offset, winddirs, windspds, intervalstr, gusts=True
     return wind_df
 
 
+def resample_compass(datetimes, compass_dir, offset, intervalstr):
+
+    # Compute x- and y-components of compass direction
+    x = np.cos(np.deg2rad(-compass_dir + 270.))
+    y = np.sin(np.deg2rad(-compass_dir + 270.))
+
+    # Compute averages of components
+    x_avg = pd.Series(
+        data=x,
+        index=datetimes).resample(
+        intervalstr,
+        label='right',
+        closed='right',
+        base=offset).mean()
+    y_avg = pd.Series(
+        data=y,
+        index=datetimes).resample(
+        intervalstr,
+        label='right',
+        closed='right',
+        base=offset).mean()
+
+    # Need to use %360 to keep direction between 0 and 360 degrees
+    compass_dir_avg = (270.0 - (180. / np.pi) * np.arctan2(y_avg, x_avg)) % 360.
+    return compass_dir_avg
+
+
 def resample_conv(probe_type, resample_interval, sec_offset, conv_df, gusts=False, gustintvstr='3S',
                   center=False):
     """Resamples the conventional data to a longer interval"""
@@ -183,6 +269,12 @@ def resample_conv(probe_type, resample_interval, sec_offset, conv_df, gusts=Fals
     conv_resampled_df = resample_wind(conv_df.index, sec_offset, conv_df[winddirkey],
                                       conv_df[windspdkey], intervalstr, gusts=gusts,
                                       gustintvstr=gustintvstr, center=center)
+
+    # Resample compass direction
+    if probe_type == 'PIPS':
+        compass_dir_avg = resample_compass(conv_df.index, conv_df['compass_dir'], sec_offset,
+                                           intervalstr)
+        conv_resampled_df['compass_dir'] = compass_dir_avg
 
     # Special treatment for wind diagnostic flags
     # Note, have to use numpy max() as a lambda function because the
@@ -289,7 +381,8 @@ def resample_parsivel(resample_interval, parsivel_df):
 
     parsivel_df = parsivel_rs.agg({'precipintensity': np.mean, 'precipaccum': np.sum,
                                    'parsivel_dBZ': np.mean, 'pcount': np.sum,
-                                   'signal_amplitude': np.mean, 'pvoltage': np.mean, 'sensor_temp': np.mean,
+                                   'signal_amplitude': np.mean, 'pvoltage': np.mean,
+                                   'sensor_temp': np.mean,
                                    'sample_interval': np.mean}).fillna(0)
 
     return parsivel_df
@@ -339,10 +432,10 @@ def calc_ND(vd_matrix, fallspeed_spectrum, sample_interval, use_measured_fallspe
     array_like
         Binned number density (m^-3 mm^-1)
     """
-    eff_sensor_area = xr.DataArray(parsivel_parameters['eff_sensor_area_mm2'],
+    eff_sensor_area = xr.DataArray(pp.parsivel_parameters['eff_sensor_area_mm2'],
                                    dims=['diameter_bin']) * 1.e-6  # Get to m2
-    bin_width = xr.DataArray((parsivel_parameters['max_diameter_bins_mm'] -
-                              parsivel_parameters['min_diameter_bins_mm']), dims=['diameter_bin'])
+    bin_width = xr.DataArray((pp.parsivel_parameters['max_diameter_bins_mm'] -
+                              pp.parsivel_parameters['min_diameter_bins_mm']), dims=['diameter_bin'])
 
     if not use_measured_fallspeed:
         vd_matrix = vd_matrix.sum(dim='fallspeed_bin')
@@ -355,8 +448,8 @@ def calc_ND(vd_matrix, fallspeed_spectrum, sample_interval, use_measured_fallspe
 
 def calc_ND_onedrop(sample_interval, correct_rho=False, rho=None):
 
-    diameter_bins = parsivel_parameters['avg_diameter_bins_mm']
-    fallspeed_bins = parsivel_parameters['avg_fallspeed_bins_mps']
+    diameter_bins = pp.parsivel_parameters['avg_diameter_bins_mm']
+    fallspeed_bins = pp.parsivel_parameters['avg_fallspeed_bins_mps']
 
     fallspeed_spectrum = calc_fallspeed_spectrum(diameter_bins, fallspeed_bins,
                                                  correct_rho=correct_rho, rho=rho,
@@ -422,7 +515,8 @@ def calc_fallspeed_spectrum(diameter_bins, fallspeed_bins,
 
     return fallspeed_da
 
-@jit(parallel=True)
+
+# @jit
 def calc_empirical_fallspeed(d, correct_rho=False, rho=None):
     """Assigns a fall speed for a range of diameters based on code
        from David Dowell (originally from Terry Schuur).  It appears that
@@ -491,107 +585,12 @@ def avgwind(winddirs, windspds, avgintv, gusts=True, gustintv=3, center=True):
     return windspdsavg, windspdsavgvec, winddirsavgvec, windgusts, windgustsavg
 
 
-# TODO: refactor this function to use xarray
-def rad2DD2(fieldlist, range_start, rrange, azimuth_start_rad, azimuth_rad, rlat, rlon, ralt, el,
-            dlocs, average_gates=True, Cressman=False, roi=750., map_proj=1):
-    """
-    Another version of rad2DD: assumes radar sweep has been read in and computes values of fields in
-    fieldlist at the disdrometer location(s).  Eventually will allow for optional
-    advection/sedimentation correction of radar reflectivity to account for height above surface of
-    radar scan.  Returns list of lists of field values at each disdrometer location
-    """
-
-    # First find x,y locations of radar gates
-
-    xrad, yrad, xrad_c, yrad_c = radar.sweep2xy(
-        azimuth_start_rad, azimuth_rad, range_start, rrange, el, rlat, rlon, ralt, map_proj)
-
-    field_D_list = []
-    dxy_list = []
-
-    for dloc in dlocs:
-        Dx, Dy = oban.ll_to_xy(dloc[0] * deg2rad, dloc[1] * deg2rad, rlat, rlon, map_proj)
-        dxy_list.append((Dx, Dy))
-        # print "Dx,Dy",Dx,Dy
-
-        # Find closest gate to disdrometer location
-        # First find the closest azimuth
-
-#         theta_dis = -np.arctan2(Dy,Dx)+np.pi/2.       # I *think* this is correct
-#
-#         #print "azimuth of disdrometer: ",theta_dis/deg2rad
-#         #Find closest index of azimuth
-#
-#         theta_diff = theta_dis-theta_c[0,:]
-#         theta_index = np.argmin(np.abs(theta_diff))
-#
-#         # Now find index along range; first compute slant range
-#
-#         srange_dis = oban.computeslantrange([Dx],[Dy],el)
-#         rad_diff = srange_dis-rad_c[:,0]
-#         srange_index = np.argmin(np.abs(rad_diff))
-#         #print "range of disdrometer: ",srange_dis
-
-        # Try another way to get the indices (the above seems to have problems).
-        # EDIT: 03/18/2012 -- the following way is more reliable but is also slower.  Not sure why
-        # the above doesn't work in all situations, but it sometimes picks a gate adjacent to the
-        # onewe want...
-
-        field_list = []
-
-        for field in fieldlist:
-            field = field.swapaxes(0, 1)
-            field = np.ma.masked_invalid(field)
-
-            if Cressman:
-                # print xplt_c.shape,yplt_c.shape
-                field_D = oban.Cresmn(xrad_c, yrad_c, field, Dx, Dy, roi)
-                # print dBZ_D,dBZ_D.shape
-                # First, compute the euclidian distance of the x,y location of the disdrometer to
-                # each of the radar gate centers
-            else:
-                distance = np.sqrt(((Dx - xrad_c)**2. + (Dy - yrad_c)**2.))
-
-                # Now, find the index of the closest radar gate
-                srange_index, theta_index = np.unravel_index(distance.argmin(), distance.shape)
-                # print "srange_index,theta_index",srange_index,theta_index
-
-                print("Distance to closest gate: ", distance[srange_index, theta_index])
-
-                # Finally, grab field at closest gate to disdrometer
-                # Average the field in the closest gate and surrounding 8 gates if desired
-                # Disdrometer is probably not covered by sweep, set value to np.nan
-                if(distance[srange_index, theta_index] > 3000.):
-                    field_D = np.nan
-                else:
-                    if not average_gates:
-                        field_D = field[srange_index, theta_index]
-                    else:
-                        # field_D = (1./9.)*(field[srange_index-1,theta_index-1]+
-                        #                    field[srange_index,theta_index-1]+
-                        #                    field[srange_index-1,theta_index]+
-                        #                    field[srange_index,theta_index]+
-                        #                    field[srange_index+1,theta_index]+
-                        #                    field[srange_index,theta_index+1]+
-                        #                    field[srange_index+1,theta_index+1]+
-                        #                    field[srange_index+1,theta_index-1]+
-                        #                    field[srange_index-1,theta_index+1])
-                        field_D = np.nanmean(field[srange_index - 1:srange_index + 2,
-                                                   theta_index - 1:theta_index + 2])
-
-            # print "Value of field at disdrometer = ","%.2f"%field_D
-
-            field_list.append(field_D)
-
-        field_D_list.append(field_list)
-
-    field_D_arr = np.array(field_D_list)
-
-    return dxy_list, field_D_arr
-
-
 def get_PSD_datetimes(vd_matrix, dim_name='time'):
     return pd.to_datetime(vd_matrix[dim_name].values).to_pydatetime()
+
+
+def get_datetimes(PIPS_ds, dim_name='time'):
+    return pd.to_datetime(PIPS_ds[dim_name].values).to_pydatetime()
 
 
 def get_conv_datetimes(conv_df, dim_name='time'):
@@ -609,3 +608,137 @@ def get_PSD_time_bins(PSD_datetimes):
 
     return {'PSD_datetimes': PSD_datetimes, 'PSD_datetimes_edges': PSD_datetimes_edges,
             'PSD_datetimes_centers': PSD_datetimes_centers}
+
+
+def get_interval_str(interval):
+    return '{:d}S'.format(int(interval))
+
+
+def calc_parsivel_wind_angle(wind_dir, compass_dir, parsivel_angle):
+    parsivel_true = np.mod(compass_dir + parsivel_angle, 360.)
+    parsivel_wind_diff = wind_dir - parsivel_true
+    parsivel_wind_diff = np.abs(np.rad2deg(np.arcsin(np.sin(np.deg2rad(parsivel_wind_diff)))))
+    return parsivel_wind_diff
+
+
+def reindex_velocity_bins(VD_matrix, interval):
+    # Set up new regularly spaced bin edges
+    min_fallspeed = VD_matrix.coords['min_fallspeeds'][0]
+    max_fallspeed = VD_matrix.coords['max_fallspeeds'][-1]
+    new_vt_bin_edges = np.arange(min_fallspeed, max_fallspeed+interval, interval)
+    new_min_vt_bins = np.delete(new_vt_bin_edges, -1)
+    new_max_vt_bins = np.delete(new_vt_bin_edges, 0)
+    new_center_vt_bins = 0.5 * (new_min_vt_bins + new_max_vt_bins)
+    # Scale velocity counts by velocity bin width
+    weights = VD_matrix['max_fallspeeds'] - VD_matrix['min_fallspeeds']
+    VD_matrix_scaled = VD_matrix / weights
+    # Set the minimum velocity for each bin as the new index. Needed so that the reindexing will
+    # properly center the scaled counts in each sub-bin.
+    VD_matrix_scaled = VD_matrix_scaled.set_index(fallspeed_bin='min_fallspeeds')
+    # Now re-bin the scaled velocity counts into the new regularly spaced bins
+    VD_matrix_scaled_rebinned = VD_matrix_scaled.reindex({'fallspeed_bin': new_min_vt_bins},
+                                                         method='pad')
+    # Recover original counts. NOTE: in general there may now be fractional counts in the new bins,
+    # but the total number of drops is preserved by this procedure.
+    VD_matrix_rebinned = VD_matrix_scaled_rebinned * interval
+    # Set index back to fallspeed bin centers and add min_fallspeed coordinate back
+    VD_matrix_rebinned.coords['fallspeed'] = ('fallspeed_bin', new_center_vt_bins)
+    VD_matrix_rebinned = VD_matrix_rebinned.set_index(fallspeed_bin='fallspeed')
+    VD_matrix_rebinned.coords['fallspeed'] = ('fallspeed_bin', new_center_vt_bins)
+    VD_matrix_rebinned.coords['min_fallspeeds'] = ('fallspeed_bin', new_min_vt_bins)
+    VD_matrix_rebinned.coords['max_fallspeeds'] = ('fallspeed_bin', new_max_vt_bins)
+    # VD_matrix_rebinned.coords['diameter_bin'] = ('diameter_bin', VD_matrix_rebinned['diameter'])
+    return VD_matrix_rebinned
+
+
+def calc_mean_velocity(vd_matrix_rebinned):
+    # Need to iterate across diameter dimension, which is annoying.
+    mean_vels = []
+    for vel_da in vd_matrix_rebinned.transpose():
+        weights = vel_da.fillna(0)
+        velocities = vel_da.coords['fallspeed']
+        vel_weighted = velocities.weighted(weights)
+        mean_vel_d = vel_weighted.mean('fallspeed_bin')
+        mean_vels.append(mean_vel_d)
+    mean_vel = xr.concat(mean_vels, dim='diameter_bin')
+    return mean_vel
+
+
+def shift_mean_velocity(vd_matrix_rebinned, vt_rain):
+    # We have to iterate over both time and diameter dimensions, because the shift needed is a
+    # function of both
+    vel_interval = (vd_matrix_rebinned['fallspeed_bin'][1] -
+                    vd_matrix_rebinned['fallspeed_bin'][0].values)
+    # print(vel_interval)
+    mean_vel = calc_mean_velocity(vd_matrix_rebinned)
+    time_flag = 'time' in vd_matrix_rebinned.dims
+    if time_flag:
+        vt_rain = vt_rain.stack(stack_dim=['time', 'diameter_bin'])
+        mean_vel = mean_vel.stack(stack_dim=['time', 'diameter_bin'])
+        vd_matrix_rebinned = vd_matrix_rebinned.stack(stack_dim=['time', 'diameter_bin'])
+        groupby_dims = 'stack_dim'
+    else:
+        groupby_dims = 'diameter_bin'
+    vt_d_groups = vt_rain.groupby(groupby_dims, squeeze=False)
+    mean_vel_d_groups = mean_vel.groupby(groupby_dims, squeeze=False)
+    vel_da_groups = vd_matrix_rebinned.groupby(groupby_dims, squeeze=False)
+    if time_flag:
+        vd_matrix_rebinned = vd_matrix_rebinned.unstack('stack_dim')
+    for vt_l, mean_vel_l, vel_da_l in zip(list(vt_d_groups), list(mean_vel_d_groups),
+                                          list(vel_da_groups)):
+        vt_d = vt_l[1]
+        mean_vel_d = mean_vel_l[1]
+        vel_da = vel_da_l[1]
+        vt_diff = vt_d - mean_vel_d
+        if np.isfinite(vt_diff.values):
+            vt_shift = int(vt_diff / vel_interval)
+        else:
+            vt_shift = 0
+        vel_da = vel_da.shift(fallspeed_bin=vt_shift)
+        if time_flag:
+            vel_da = vel_da.unstack('stack_dim')
+            vd_matrix_rebinned.loc[dict(time=vel_da['time'].values,
+                                        diameter_bin=vel_da['diameter_bin'].values)] = vel_da
+        else:
+            vd_matrix_rebinned.loc[dict(diameter_bin=vel_da['diameter_bin'])] = vel_da
+    return vd_matrix_rebinned
+
+
+def rebin_to_parsivel(vd_matrix_rebinned):
+    # Regroup into original fallspeed bins and get the dimension and coordinate names back in order.
+    # This is rather clunky, but it works
+    vd_matrix_groups = vd_matrix_rebinned.groupby_bins('fallspeed_bin', fall_bins_edges)
+    vd_matrix = vd_matrix_groups.sum()
+    vd_matrix = vd_matrix.swap_dims({'fallspeed_bin_bins': 'fallspeed_bin'})
+    vd_matrix = vd_matrix.rename({'fallspeed_bin_bins': 'fallspeed_bin'})
+    vd_matrix = vd_matrix.reindex({'fallspeed_bin': avg_fall_bins})
+    vd_matrix.coords['min_fallspeeds'] = ('fallspeed_bin', min_fall_bins)
+    vd_matrix.coords['max_fallspeeds'] = ('fallspeed_bin', max_fall_bins)
+    vd_matrix.coords['fallspeed'] = ('fallspeed_bin', avg_fall_bins)
+    # Get the dimensions back into their original order
+    vd_matrix = vd_matrix.transpose('time', 'fallspeed_bin', 'diameter_bin')
+    return vd_matrix
+
+
+def correct_ND_RB15(parsivel_ds, ND_name='ND_RB15_vshift_qc'):
+    ND = parsivel_ds[ND_name]
+    ND_RB15 = ND.copy()
+    RR_edges = np.append(pp.RB15_RR_min, pp.RB15_RR_max[-1])
+    # According to RB15, should use internal parsivel rainrate ('precipintensity') to categorize
+    parsivel_ds_RR_groups = parsivel_ds.groupby_bins('precipintensity', RR_edges, right=False,
+                                                     labels=pp.RB15_RR_min)
+    # For some reason the group labels aren't sorted in increasing order...
+
+    # Get indices in original array of each member of each group
+    group_indices = parsivel_ds_RR_groups.groups
+    # Perform correction to ND using the appropriate correction factors for each rainrate category
+    for group in parsivel_ds_RR_groups:
+        group_idx = group_indices[group[0]]
+        ND_temp = ND[group_idx]
+        RB15_correction_factor = pp.RB15_correction_factors.sel(rainrate=group[0])
+        ND_temp2 = RB15_correction_factor * ND_temp
+        ND_temp2 = ND_temp2.transpose()
+        ND_RB15[group_idx] = ND_temp2
+
+    # Add the corrected ND to the parsivel_ds
+    return combine_parsivel_data(parsivel_ds, ND_RB15, name='ND_RB15_qc')

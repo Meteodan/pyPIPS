@@ -14,7 +14,18 @@ PIPS_timestamp_format1 = '%Y-%m-%d %H:%M:%S'
 PIPS_timestamp_format2 = '%Y-%m-%d %H:%M:%S.000'
 
 
-def parse_PIPS_record(record, tripips=False):
+def get_field_indices(header, tripips=False):
+
+    header_fields = header.strip().split(',')
+    if 'TIMESTAMP' not in header_fields:
+        if not tripips:
+            header_fields = parsivel_params.parsivel_parameters['PIPS_file_field_names']
+        else:
+            header_fields = parsivel_params.parsivel_parameters['TriPIPS_file_field_names']
+    return {field: header_fields.index(field) for field in header_fields}
+
+
+def parse_PIPS_record(record, field_indices, tripips=False):
     """[summary]
 
     Parameters
@@ -32,58 +43,52 @@ def parse_PIPS_record(record, tripips=False):
     # TODO: refactor this function to do more efficient parsing?
     token_dict = {}
 
-    # Figure out which version we are reading in
-    if not tripips:
-        curfieldnames = parsivel_params.parsivel_parameters['PIPS_file_field_names']
-    else:
-        curfieldnames = parsivel_params.parsivel_parameters['TriPIPS_file_field_names']
-
     tokens = record.strip().split(',')
-    timestamp = tokens[curfieldnames.index('TIMESTAMP')]
+    timestamp = tokens[field_indices['TIMESTAMP']]
     if timestamp[-4:] == '.000':
         token_dict['logger_datetime'] = datetime.strptime(timestamp, PIPS_timestamp_format2)
     else:
         token_dict['logger_datetime'] = datetime.strptime(timestamp, PIPS_timestamp_format1)
-    token_dict['voltage'] = np.float(tokens[curfieldnames.index('BattV')])
-    token_dict['winddirrel'] = np.float(tokens[curfieldnames.index('WindDir')])
-    token_dict['windspd'] = np.float(tokens[curfieldnames.index('WS_ms')])
-    token_dict['winddiag'] = np.float(tokens[curfieldnames.index('WSDiag')])
+    token_dict['voltage'] = np.float(tokens[field_indices['BattV']])
+    token_dict['winddirrel'] = np.float(tokens[field_indices['WindDir']])
+    token_dict['windspd'] = np.float(tokens[field_indices['WS_ms']])
+    token_dict['winddiag'] = np.float(tokens[field_indices['WSDiag']])
     if not tripips:
-        token_dict['fasttemp'] = np.float(tokens[curfieldnames.index('FastTemp')])
-    token_dict['slowtemp'] = np.float(tokens[curfieldnames.index('SlowTemp')])
+        token_dict['fasttemp'] = np.float(tokens[field_indices['FastTemp']])
+    token_dict['slowtemp'] = np.float(tokens[field_indices['SlowTemp']])
     if tripips:
         token_dict['fasttemp'] = token_dict['slowtemp']
-    token_dict['RH'] = np.float(tokens[curfieldnames.index('RH')])
-    token_dict['pressure'] = np.float(tokens[curfieldnames.index('Pressure')])
-    token_dict['compass_dir'] = np.float(tokens[curfieldnames.index('FluxDirection')])
-    token_dict['GPS_time'] = tokens[curfieldnames.index('GPSTime')]
-    token_dict['GPS_status'] = tokens[curfieldnames.index('GPSStatus')]
-    GPS_lat = np.float(tokens[curfieldnames.index('GPSLat')])
-    GPS_lat_hem = tokens[curfieldnames.index('GPSLatHem')]
+    token_dict['RH'] = np.float(tokens[field_indices['RH']])
+    token_dict['pressure'] = np.float(tokens[field_indices['Pressure']])
+    token_dict['compass_dir'] = np.float(tokens[field_indices['FluxDirection']])
+    token_dict['GPS_time'] = tokens[field_indices['GPSTime']]
+    token_dict['GPS_status'] = tokens[field_indices['GPSStatus']]
+    GPS_lat = np.float(tokens[field_indices['GPSLat']])
+    GPS_lat_hem = tokens[field_indices['GPSLatHem']]
     token_dict['GPS_lat'] = utils.DDMtoDD(GPS_lat, GPS_lat_hem)
-    GPS_lon = np.float(tokens[curfieldnames.index('GPSLon')])
-    GPS_lon_hem = tokens[curfieldnames.index('GPSLonHem')]
+    GPS_lon = np.float(tokens[field_indices['GPSLon']])
+    GPS_lon_hem = tokens[field_indices['GPSLonHem']]
     token_dict['GPS_lon'] = utils.DDMtoDD(GPS_lon, GPS_lon_hem)
-    token_dict['GPS_spd'] = np.float(tokens[curfieldnames.index('GPSSpd')])
-    token_dict['GPS_dir'] = np.float(tokens[curfieldnames.index('GPSDir')])
-    token_dict['GPS_date'] = tokens[curfieldnames.index('GPSDate')]
+    token_dict['GPS_spd'] = np.float(tokens[field_indices['GPSSpd']])
+    token_dict['GPS_dir'] = np.float(tokens[field_indices['GPSDir']])
+    token_dict['GPS_date'] = tokens[field_indices['GPSDate']]
     try:
-        token_dict['GPS_magvar'] = np.float(tokens[curfieldnames.index('GPSMagVar')])
+        token_dict['GPS_magvar'] = np.float(tokens[field_indices['GPSMagVar']])
     except ValueError:
         token_dict['GPS_magvar'] = np.nan
     try:
-        token_dict['GPS_alt'] = np.float(tokens[curfieldnames.index('GPSAlt')])
+        token_dict['GPS_alt'] = np.float(tokens[field_indices['GPSAlt']])
     except ValueError:
         token_dict['GPS_alt'] = np.nan
     try:
-        winddirabs = np.float(tokens[curfieldnames.index('WindDirAbs')])
+        winddirabs = np.float(tokens[field_indices['WindDirAbs']])
         if np.isnan(winddirabs):
             winddirabs = token_dict['winddirrel']
     except ValueError:
         winddirabs = np.nan
     token_dict['winddirabs'] = winddirabs
     try:
-        dewpoint = np.float(tokens[curfieldnames.index('Dewpoint')])
+        dewpoint = np.float(tokens[field_indices['Dewpoint']])
         if np.isnan(dewpoint):
             dewpoint = (thermo.calTdfromRH(token_dict['pressure'] * 100.,
                                            token_dict['fasttemp'] + 273.15,
@@ -94,18 +99,18 @@ def parse_PIPS_record(record, tripips=False):
                                       token_dict['RH'] / 100.) - 273.15
     token_dict['dewpoint'] = dewpoint
     try:
-        RH_derived = np.float(tokens[curfieldnames.index('RHDer')])
+        RH_derived = np.float(tokens[field_indices['RHDer']])
         if np.isnan(RH_derived):
             RH_derived = token_dict['RH']
     except ValueError:
         RH_derived = token_dict['RH']
     token_dict['RH_derived'] = RH_derived
-    token_dict['parsivel_telegram'] = tokens[curfieldnames.index('ParsivelStr')]
+    token_dict['parsivel_telegram'] = tokens[field_indices['ParsivelStr']]
 
     return token_dict
 
 
-def get_PIPS_GPS_offset(filename, tripips=False):
+def get_PIPS_GPS_offset(filename, field_indices, tripips=False):
     """[summary]
 
     Parameters
@@ -120,11 +125,6 @@ def get_PIPS_GPS_offset(filename, tripips=False):
     [type]
         [description]
     """
-    # Figure out which version we are reading in
-    if not tripips:
-        curfieldnames = parsivel_params.parsivel_parameters['PIPS_file_field_names']
-    else:
-        curfieldnames = parsivel_params.parsivel_parameters['TriPIPS_file_field_names']
 
     firstgoodGPS = False
     with open(filename, 'r') as disfile:
@@ -132,16 +132,19 @@ def get_PIPS_GPS_offset(filename, tripips=False):
             if firstgoodGPS:
                 break
             tokens = line.strip().split(',')
-            timestamp = tokens[curfieldnames.index('TIMESTAMP')]
+            timestamp = tokens[field_indices['TIMESTAMP']]
             try:
-                logger_datetime = datetime.strptime(timestamp, PIPS_timestamp_format)
+                if '.000' in timestamp:
+                    logger_datetime = datetime.strptime(timestamp, PIPS_timestamp_format2)
+                else:
+                    logger_datetime = datetime.strptime(timestamp, PIPS_timestamp_format1)
             except:
                 continue
-            GPS_time = tokens[curfieldnames.index('GPSTime')]
-            GPS_status = tokens[curfieldnames.index('GPSStatus')]
-            GPS_date = tokens[curfieldnames.index('GPSDate')]
+            GPS_time = tokens[field_indices['GPSTime']]
+            GPS_status = tokens[field_indices['GPSStatus']]
+            GPS_date = tokens[field_indices['GPSDate']]
             try:
-                GPS_alt = np.float(tokens[curfieldnames.index('GPSAlt')])
+                GPS_alt = np.float(tokens[field_indices['GPSAlt']])
             except ValueError:
                 GPS_alt = np.nan
 
@@ -230,7 +233,7 @@ def parse_parsivel_telegram(parsivel_telegram, logger_datetime):
 
 
 def read_PIPS(filename, start_timestamp=None, end_timestamp=None, tripips=False,
-              correct_logger_time=True):
+              correct_logger_time=True, sort=False, check_order=False):
     """[summary]
 
     Parameters
@@ -263,11 +266,16 @@ def read_PIPS(filename, start_timestamp=None, end_timestamp=None, tripips=False,
     conv_dict_list = []
     parsivel_dict_list = []
     vd_matrix_list = []
-    # Open the file and start parsing the records
+    # Open the file and attempt to read the header
+    with open(filename, 'r') as disfile:
+        header = disfile.readline()
+        field_indices = get_field_indices(header, tripips=tripips)
+
+    # Open the file again and start parsing the records
     with open(filename, 'r') as disfile:
         for record in disfile:
             try:
-                record_dict = parse_PIPS_record(record, tripips=tripips)
+                record_dict = parse_PIPS_record(record, field_indices, tripips=tripips)
             except:
                 continue
             # Skip this record if it lies before or after the desired period
@@ -290,7 +298,7 @@ def read_PIPS(filename, start_timestamp=None, end_timestamp=None, tripips=False,
     parsivel_df = pd.DataFrame(parsivel_dict_list)
 
     if correct_logger_time:
-        GPS_offset = get_PIPS_GPS_offset(filename, tripips=tripips)
+        GPS_offset = get_PIPS_GPS_offset(filename, field_indices, tripips=tripips)
         conv_df['logger_datetime'] += GPS_offset
         parsivel_df['parsivel_datetime'] += GPS_offset
 
@@ -333,6 +341,20 @@ def read_PIPS(filename, start_timestamp=None, end_timestamp=None, tripips=False,
                              'max_fallspeeds': ('fallspeed_bin', max_fallspeeds)
                              },
                      dims=['time', 'fallspeed_bin', 'diameter_bin'])
+
+    if check_order:
+        time_diff = conv_df.to_xarray()['time'].diff('time').astype(np.float)*1.e-9
+        print(time_diff)
+        out_of_order_times = time_diff.where(time_diff < 0, drop=True)['time']
+        print(out_of_order_times)
+        if out_of_order_times.sizes['time'] > 0:
+            print("Data contains times that are out of order! You might want to sort them...")
+            print(out_of_order_times)
+
+    if sort:
+        conv_df = conv_df.sort_index()
+        parsivel_df = parsivel_df.sort_index()
+        vd_matrix_da = vd_matrix_da.sortby('time')
 
     return conv_df, parsivel_df, vd_matrix_da
 
@@ -458,12 +480,16 @@ def conv_df_to_ds(conv_df):
 
     # These are not present when conv_df is resampled to longer intervals
     # TODO: update pips.resample_conv to properly handle these variables
+    # NOTE: compass_dir should be working now
+    try:
+        conv_ds['compass_dir'].attrs['units'] = 'degrees'
+    except KeyError:
+        pass
     try:
         conv_ds['GPS_date'].attrs['units'] = 'DDMMYY'
         conv_ds['GPS_dir'].attrs['units'] = 'degrees'
         conv_ds['GPS_spd'].attrs['units'] = 'meters per second'
         conv_ds['GPS_time'].attrs['units'] = 'HHMMSS'
-        conv_ds['compass_dir'].attrs['units'] = 'degrees'
         conv_ds['winddirrel'].attrs['units'] = 'degrees'
     except KeyError:
         pass

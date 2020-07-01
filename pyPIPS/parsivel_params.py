@@ -1,6 +1,7 @@
 """pyPIPS.parsivel_params: contains several fixed parameters related to the Parsivel disdrometers
 """
 import numpy as np
+import xarray as xr
 # Dictionaries containing some metadata for the various probes
 
 # length units: mm
@@ -51,18 +52,54 @@ parsivel_parameters['eff_sensor_area_mm2'] = \
 
 probe_info = {
     'PIPS1A': {
-        'serialnum': '304545'
+        'serialnum': '304545',
+        'parsivel_angle': -45.,
     },
     'PIPS1B': {
-        'serialnum': '295153'
+        'serialnum': '295153',
+        'parsivel_angle': 45.,
     },
     'PIPS2A': {
-        'serialnum': '295166'
+        'serialnum': '295166',
+        'parsivel_angle': -45.,
     },
     'PIPS2B': {
-        'serialnum': '304543'
+        'serialnum': '304543',
+        'parsivel_angle': 45.,
     },
     'TriPIPS': {
-        'serialnum': '390654'
+        'serialnum': '390654',
+        'parsivel_angle': 90.,
     }
 }
+
+RB15_RR_min = np.array([0., 0.1, 0.25, 0.5, 1., 2., 200.])
+RB15_RR_max = np.array([0.1, 0.25, 0.5, 1., 2., 200., np.inf])
+
+RB15_correction_array = np.array([[1.00, 1.00, 0.02, 0.03, 0.11, 0.20, 0.36, 0.55, 0.86, 0.74, 1.04,
+                                   1.10, 1.14, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00,
+                                   1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00],
+                                  [1.00, 1.00, 0.04, 0.05, 0.16, 0.26, 0.47, 0.55, 0.85, 0.84, 1.13,
+                                   1.20, 0.97, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00,
+                                   1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00],
+                                  [1.00, 1.00, 0.04, 0.05, 0.19, 0.29, 0.52, 0.67, 0.94, 1.08, 1.22,
+                                   1.35, 1.34, 1.25, 1.29, 1.43, 0.51, 1.00, 1.00, 1.00, 1.00, 1.00,
+                                   1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00],
+                                  [1.00, 1.00, 0.05, 0.07, 0.22, 0.36, 0.53, 0.67, 0.89, 0.90, 1.12,
+                                   1.19, 1.17, 1.17, 1.17, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00,
+                                   1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00],
+                                  [1.00, 1.00, 0.06, 0.11, 0.30, 0.45, 0.71, 0.80, 1.01, 1.17, 1.36,
+                                   1.37, 1.41, 1.22, 1.43, 1.37, 1.31, 1.00, 1.00, 1.00, 1.00, 1.00,
+                                   1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00],
+                                  [1.00, 1.00, 0.07, 0.16, 0.36, 0.54, 0.78, 0.86, 1.03, 1.03, 1.12,
+                                   1.10, 1.04, 0.97, 1.06, 1.07, 1.02, 0.97, 0.73, 0.58, 0.45, 0.32,
+                                   1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00],
+                                  [1.00] * 32])
+avg_diameter = parsivel_parameters['avg_diameter_bins_mm']
+RB15_correction_factors = xr.DataArray(RB15_correction_array, name='RB15_correction_factors',
+                                       coords={'rainrate': ('rainrate', RB15_RR_min),
+                                               'RR_min': ('rainrate', RB15_RR_min),
+                                               'RR_max': ('rainrate', RB15_RR_max),
+                                               'diameter_bin': ('diameter_bin', avg_diameter),
+                                               },
+                                       dims=['rainrate', 'diameter_bin'])

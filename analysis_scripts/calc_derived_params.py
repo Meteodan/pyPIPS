@@ -23,13 +23,21 @@ description = "Calculates various derived parameters from PIPS DSDs (netCDF vers
 parser = argparse.ArgumentParser(description=description)
 parser.add_argument('case_config_path', metavar='<path/to/case/config/file.py>',
                     help='The path to the case configuration file')
-parser.add_argument('--ND-tag', dest='ND_tag', default='qc',
-                    help='tag for ND variable in file (either qc or RB15)')
+parser.add_argument('--ND-tag', dest='ND_tag', default=None,
+                    help='Tag for ND variable in file (i.e., qc, RB15_vshift_qc, RB15_qc).')
 parser.add_argument('--output-tag', dest='output_tag', default='',
                     help='tag for output nc files to distinguish from original if desired')
 
 args = parser.parse_args()
-ND_tag = args.ND_tag
+if args.ND_tag:
+    ND_tag = '_{}'.format(args.ND_tag)
+    if args.ND_tag in 'RB15_qc':
+        VD_tag = '_RB15_vshift_qc'
+    else:
+        VD_tag = '_{}'.format(args.ND_tag)
+else:
+    ND_tag = ''
+    VD_tag = ''
 
 # Dynamically import the case configuration file
 utils.log("Case config file is {}".format(args.case_config_path))
@@ -66,8 +74,8 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
     DSD_interval = parsivel_combined_ds.DSD_interval
     PIPS_name = parsivel_combined_ds.probe_name
     deployment_name = parsivel_combined_ds.deployment_name
-    ND = parsivel_combined_ds['ND_{}'.format(ND_tag)]
-    vd_matrix = parsivel_combined_ds['VD_matrix_{}'.format(ND_tag)]
+    ND = parsivel_combined_ds['ND{}'.format(ND_tag)]
+    vd_matrix = parsivel_combined_ds['VD_matrix{}'.format(VD_tag)]
     coord_to_combine = 'time'
 
     vd_matrix = vd_matrix.where(vd_matrix > 0.)
@@ -79,15 +87,15 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
                                                    rho=parsivel_combined_ds['rho'])
     rainrate_bin = (6. * 10.**-4.) * np.pi * fallspeeds_emp * avg_diameter**3. * ND * bin_width
     rainrate = rainrate_bin.sum(dim='diameter_bin')
-    parsivel_combined_ds['rainrate_derived_{}'.format(ND_tag)] = rainrate
+    parsivel_combined_ds['rainrate_derived{}'.format(ND_tag)] = rainrate
 
     # Compute particle counts from raw or QC'ed VD matrix
     pcount = vd_matrix.sum(dim=['fallspeed_bin', 'diameter_bin'])
-    parsivel_combined_ds['pcount_derived_{}'.format(ND_tag)] = pcount
+    parsivel_combined_ds['pcount_derived{}'.format(ND_tag)] = pcount
 
     # Compute (Rayleigh) radar reflectivity from raw or QC'ed ND
     reflectivity = dsd.calc_dBZ_from_bins(ND)
-    parsivel_combined_ds['reflectivity_derived_{}'.format(ND_tag)] = reflectivity
+    parsivel_combined_ds['reflectivity_derived{}'.format(ND_tag)] = reflectivity
 
     parsivel_combined_output_file = parsivel_combined_file + args.output_tag
     print("Dumping {}".format(parsivel_combined_output_file))

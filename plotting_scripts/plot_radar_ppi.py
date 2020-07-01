@@ -7,6 +7,8 @@ from glob import glob
 import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
+from scipy.signal import medfilt2d
+import pyart
 import pyPIPS.parsivel_params as pp
 import pyPIPS.radarmodule as radar
 import pyPIPS.utils as utils
@@ -28,9 +30,18 @@ parser.add_argument('--plot-config-path', dest='plot_config_path',
                     default='plot_config.py', help='Location of the plot configuration file')
 parser.add_argument('--plot-filtered-fields', dest='plot_filtered', default=False,
                     action='store_true',
-                    help='Whether to also plot previously filtered dBZ and ZDR fields for the retrieval')
+                    help=('Whether to also plot previously filtered dBZ and ZDR fields for the '
+                          'retrieval'))
 parser.add_argument('--input-tag', dest='input_tag', default=None,
                     help='Input nametag to determine which radar files to read in')
+parser.add_argument('--filter-fix', dest='filter_fix', action='store_true',
+                    help='Fix to properly filter the filtered fields that were affected by the bug')
+parser.add_argument('--med-filter-width', type=float, dest='med_filter_width', default=3,
+                    help='Width of median filter in gates')
+parser.add_argument('--dBZ-thresh', type=float, dest='dBZ_thresh', default=5.,
+                    help='Threshold of reflectivity below which to exclude (dBZ)')
+parser.add_argument('--RHV-thresh', type=float, dest='RHV_thresh', default=0.95,
+                    help='Threshold of RHV below which to exclude')
 
 args = parser.parse_args()
 
@@ -134,6 +145,45 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
 for radar_path, sweeptime in zip(radar_path_dict['radarpathlist'],
                                  radar_path_dict['sweeptimelist']):
     radar_obj = radar.readCFRadial_pyART(el_req, radar_path, sweeptime, compute_kdp=False)
+    # TODO: temporary fix below. Code borrowed from filter_radar_sweep.py
+    if args.filter_fix:
+        # Get polarimetric fields from the radar object
+        ZH_rad_tuple = radar.get_field_to_plot(radar_obj, radar.REF_aliases)
+        ZDR_rad_tuple = radar.get_field_to_plot(radar_obj, radar.ZDR_aliases)
+        RHV_rad_tuple = radar.get_field_to_plot(radar_obj, radar.RHV_aliases)
+        ZH_name = ZH_rad_tuple[0]
+        ZDR_name = ZDR_rad_tuple[0]
+        RHV_name = RHV_rad_tuple[0]
+
+        # Make copies of polarimetric fields
+        for field_name in [ZH_name, ZDR_name, RHV_name]:
+            radar_obj.add_field_like(field_name, field_name+'_filtered',
+                                     radar_obj.fields[field_name]['data'].copy(),
+                                     replace_existing=True)
+
+        print("Applying median filter")
+        for field_name in [ZH_name, ZDR_name, RHV_name]:
+            radar_obj.fields[field_name+'_filtered']['data'] = \
+                medfilt2d(radar_obj.fields[field_name+'_filtered']['data'],
+                          kernel_size=args.med_filter_width)
+
+        print("Creating dBZ and RHV gate filter")
+        # Create a gate filter to mask out areas with dBZ and RHV below thresholds
+        rhoHV_ref_filter = pyart.correct.moment_based_gate_filter(radar_obj,
+                                                                  rhv_field=RHV_name+'_filtered',
+                                                                  refl_field=ZH_name+'_filtered',
+                                                                  min_ncp=None,
+                                                                  min_rhv=args.RHV_thresh,
+                                                                  min_refl=args.dBZ_thresh,
+                                                                  max_refl=None)
+
+        print("Applying gate filter")
+        # Mask fields using the dBZ/RHV mask
+        for field_name in [ZH_name, ZDR_name, RHV_name]:
+            radar_obj.fields[field_name+'_filtered']['data'] = \
+                np.ma.masked_where(rhoHV_ref_filter.gate_excluded,
+                                   radar_obj.fields[field_name+'_filtered']['data'])
+
     sweeptime_string = sweeptime.strftime(tm.timefmt3)
     figlist, axlist, fields_plotted = radar.plotsweep_pyART(radar_obj, sweeptime, PIPS_names,
                                                             geo_locs, rad_locs, field_names,

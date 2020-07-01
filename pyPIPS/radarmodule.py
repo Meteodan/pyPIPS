@@ -1301,6 +1301,8 @@ def plotsweep_pyART(radar_obj, sweeptime, PIPS_names, PIPS_geo_locs, PIPS_rad_lo
                 field_to_plot = get_field_to_plot(radar_obj, REF_aliases, tag='_filtered')
             elif field in ZDR_aliases:
                 field_to_plot = get_field_to_plot(radar_obj, ZDR_aliases, tag='_filtered')
+            elif field in RHV_aliases:
+                field_to_plot = get_field_to_plot(radar_obj, RHV_aliases, tag='_filtered')
             if field_to_plot:
                 fields_to_plot.append(field_to_plot[0])
 

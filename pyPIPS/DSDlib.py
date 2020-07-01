@@ -993,7 +993,8 @@ def fit_DSD_TMM_xr(M2, M4, M6, D_min, D_max):
     return N0_da, lamda_da, alpha_da
 
 
-@jit(parallel=True)
+# @jit(parallel=True)
+@jit
 def fit_DSD_TMM(M2, M4, M6, D_min, D_max):
     """Fits gamma distributions using the Truncated Method of Moments (TMM) using M2, M4, and M6
     and D_min, and D_max. Operates on numpy arrays and uses numba jit to speed things up
@@ -1039,7 +1040,7 @@ def fit_DSD_TMM(M2, M4, M6, D_min, D_max):
         # print("Working on time {:d}".format(t))
         if M2[t] > 0. and M4[t] > 0. and M6[t] > 0.:
             # print("D_max = ", D_max[t])
-            print("Working on time {:d}".format(t))
+            print("Working on time {:d}/{:d}".format(t, numtimes))
             LDmx = lamda_init[t] * D_max[t]
             LDmn = lamda_init[t] * D_min[t]
             for _ in range(10):

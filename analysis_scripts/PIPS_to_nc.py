@@ -40,6 +40,10 @@ parser.add_argument('case_config_path', metavar='<path/to/case/config/file.py>',
                     help='The path to the case configuration file')
 parser.add_argument('--output-dir', dest='output_dir', default=None,
                     help='Directory to put netCDF files. Defaults to input dir in config file')
+parser.add_argument('--check-order', dest='check_order', action='store_true',
+                    help='Check if there are any times out of order')
+parser.add_argument('--sort-times', dest='sort_times', action='store_true',
+                    help='Sort dataset by time')
 args = parser.parse_args()
 
 # Dynamically import the case configuration file
@@ -55,6 +59,7 @@ except Exception:
 # Extract needed lists and variables from PIPS_IO_dict configuration dictionary
 deployment_names = config.PIPS_IO_dict.get('deployment_names', None)
 PIPS_dir = config.PIPS_IO_dict.get('PIPS_dir', None)
+input_txt_dir = config.PIPS_IO_dict.get('input_txt_dir', PIPS_dir)
 plot_dir = config.PIPS_IO_dict.get('plot_dir', None)
 PIPS_types = config.PIPS_IO_dict.get('PIPS_types', None)
 PIPS_names = config.PIPS_IO_dict.get('PIPS_names', None)
@@ -66,6 +71,8 @@ requested_interval = config.PIPS_IO_dict.get('requested_interval', 10.)
 
 if args.output_dir:
     output_dir = args.output_dir
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
 else:
     output_dir = PIPS_dir
 
@@ -80,10 +87,12 @@ for index, PIPS_filename, PIPS_name, start_time, end_time, geo_loc, ptype, deplo
             geo_locs, PIPS_types, deployment_names):
 
     tripips = (ptype == 'TriPIPS')
-    PIPS_data_file_path = os.path.join(PIPS_dir, PIPS_filename)
+    PIPS_data_file_path = os.path.join(input_txt_dir, PIPS_filename)
     conv_df, parsivel_df, vd_matrix_da = pipsio.read_PIPS(PIPS_data_file_path,
                                                           start_timestamp=start_time,
-                                                          end_timestamp=end_time, tripips=tripips)
+                                                          end_timestamp=end_time, tripips=tripips,
+                                                          sort=args.sort_times,
+                                                          check_order=args.check_order)
 
     # We need the disdrometer locations. If they aren't supplied in the input control file, find
     # them from the GPS data
@@ -147,7 +156,7 @@ for index, PIPS_filename, PIPS_name, start_time, end_time, geo_loc, ptype, deplo
         end_time = PSD_datetimes[-1].strftime('%Y%m%d%H%M%S')
     # Resample conventional data to the parsivel times
     sec_offset = PSD_datetimes[0].second
-    conv_resampled_df = pips.resample_conv(ptype, DSD_interval, sec_offset, conv_df)
+    conv_resampled_df = pips.resample_conv(ptype, DSD_interval, sec_offset, conv_df, gusts=True)
     conv_resampled_df_index = conv_resampled_df.index.intersection(parsivel_df.index)
     conv_resampled_df = conv_resampled_df.loc[conv_resampled_df_index]
 
@@ -175,6 +184,7 @@ for index, PIPS_filename, PIPS_name, start_time, end_time, geo_loc, ptype, deplo
 
     # Add some metadata
     parsivel_combined_ds.attrs['probe_name'] = PIPS_name
+    parsivel_combined_ds.attrs['parsivel_angle'] = pp.probe_info[PIPS_name]['parsivel_angle']
     parsivel_combined_ds.attrs['deployment_name'] = deployment_name
     parsivel_combined_ds.attrs['location'] = str(geo_locs[index])
     parsivel_combined_ds.attrs['starting_time'] = start_time
@@ -192,6 +202,7 @@ for index, PIPS_filename, PIPS_name, start_time, end_time, geo_loc, ptype, deplo
     # Now do the same for the 1-s conventional data (put in a separate Dataset and netCDF file
     # due to different time resolution)
     conv_ds.attrs['probe_name'] = PIPS_name
+    conv_ds.attrs['parsivel_angle'] = pp.probe_info[PIPS_name]['parsivel_angle']
     conv_ds.attrs['deployment_name'] = deployment_name
     conv_ds.attrs['location'] = str(geo_locs[index])
     conv_ds.attrs['starting_time'] = start_time

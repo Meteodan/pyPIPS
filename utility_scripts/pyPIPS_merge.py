@@ -356,6 +356,12 @@ def mergeData(PIPS_data_dir, output_filename, verbose=False):
 
         for i in range(numrecords):
             datetime_onesec = datetime_onesec_list[i]
+            if i > 0:
+                delta_t = (datetime_onesec_list[i] - datetime_onesec_list[i-1]).total_seconds()
+                if delta_t > 1.:
+                    print("Time gap detected between {} and {}".format(
+                        datetime_onesec_list[i-1].strftime('%Y-%m-%d %H:%M:%S'),
+                        datetime_onesec_list[i].strftime('%Y-%m-%d %H:%M:%S')))
             # Fill in known 1-s values into output row dictionary
             outputrow = {key: value[i] for key, value in dict_onesec.items()}
             # Derive absolute wind direction, dewpoint, and RH

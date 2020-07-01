@@ -127,7 +127,7 @@ def strongwindQC(countsMatrix):
     numtimes = np.size(countsMatrix, axis=0)
     flaggedtimes = []
 
-    countsMatrix['flagged times'] = ('time', range(numtimes))
+    countsMatrix['flagged_times'] = ('time', range(numtimes))
     # Flag times that contain wind contamination
     for t in range(numtimes):
         baddrops = \
@@ -151,10 +151,10 @@ def strongwindQC(countsMatrix):
         if baddrops > 0:
             print("Severe Wind contamination, masking entire PSD!")
             countsMatrix[dict(time=t)] = np.nan  # [t, :] = np.nan
-            countsMatrix['flagged times'][dict(time=t)] = 2
+            countsMatrix['flagged_times'][dict(time=t)] = 2
             # flaggedtimes.append(2)
         else:
-            countsMatrix['flagged times'][dict(time=t)] = 0
+            countsMatrix['flagged_times'][dict(time=t)] = 0
             # flaggedtimes.append(0)
 
     # countsMatrix = ma.masked_array(countsMatrix, mask=np.where(countsMatrix == -999., True,

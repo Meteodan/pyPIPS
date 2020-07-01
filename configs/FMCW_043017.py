@@ -3,13 +3,14 @@
 PIPS_IO_dict = {
     'dataset_name': 'FMCW_2017_043017',
     'deployment_names': ['FMCW_2017_043017'],
-    'PIPS_dir': '/Volumes/scr_fast/Projects/VORTEXSE/obsdata/full_PIPS_dataset_new/',
-    'plot_dir': '/Volumes/scr_fast/Projects/VORTEXSE/obsdata/full_PIPS_dataset_new/plots',
+    'input_txt_dir': '/Volumes/scr_fast/Projects/VORTEXSE/obsdata/full_PIPS_dataset_links',
+    'PIPS_dir': '/Volumes/scr_fast/Projects/VORTEXSE/obsdata/full_PIPS_dataset',
+    'plot_dir': '/Volumes/scr_fast/Projects/VORTEXSE/obsdata/full_PIPS_dataset/plots',
     'PIPS_types': ['PIPS'],
     'PIPS_names': ['PIPS2A'],
     'PIPS_filenames': ['PIPS2A_FMCW_043017.txt'],
     'PIPS_filenames_nc': ['parsivel_combined_FMCW_2017_043017_PIPS2A_60s.nc'],
-    'start_times': ['20170430190000'],
+    'start_times': ['20170430000000'],
     'end_times': ['20170430235959'],
     'requested_interval': 60.
 }

@@ -102,13 +102,17 @@ radar_path_dict = radar.get_radar_paths(radar_paths, radar_start_timestamp, rada
                                         el_req=el_req, radar_type=radar_type)
 radar_dict = radar.read_sweeps_new(radar_path_dict, el_req=el_req, radar_type=radar_type)
 
+rlat = radar_dict['radarsweeplist'][0].latitude['data'][0]
+rlon = radar_dict['radarsweeplist'][0].longitude['data'][0]
+ralt = radar_dict['radarsweeplist'][0].altitude['data'][0]
+
 # Outer file loop
 for parsivel_combined_file in parsivel_combined_filelist:
     parsivel_combined_ds = xr.load_dataset(parsivel_combined_file)
     PIPS_name = parsivel_combined_ds.probe_name
     geo_loc_str = parsivel_combined_ds.location
     geo_loc = list(map(np.float, geo_loc_str.strip('()').split(',')))
-    rad_loc = radar.get_PIPS_loc_relative_to_radar(geo_loc, radar_dict['radarsweeplist'][0])
+    rad_loc = radar.get_PIPS_loc_relative_to_radar(geo_loc, rlat, rlon, ralt)
     radar_fields_at_PIPS_da, beam_height_da = \
         radar.interp_sweeps_to_one_PIPS(radar_name, radar_dict['radarsweeplist'], PIPS_name,
                                         rad_loc, sweeptime_list=radar_dict['sweeptimelist'],

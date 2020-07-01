@@ -421,15 +421,15 @@ def plotsingle2(fig, axes, ptype, xs, ys, x, y, xlim, ylim, field, clevels, cmap
     return fig, axes, grid
 
 
-def plot_wind_meteogram(plottimes, conv_plot_df, global_plot_config_dict, windavgintv=60,
-                        windgustintv=3, xlimits=None, ptype='PIPS'):
+def plot_wind_meteogram(plottimes, conv_plot_ds, global_plot_config_dict, avgwind=True,
+                        windavgintv=60, windgustintv=3, xlimits=None, ptype='PIPS'):
     """[summary]
 
     Parameters
     ----------
     plottimes : [type]
         [description]
-    conv_plot_df : [type]
+    conv_plot_ds : [type]
         [description]
     global_plot_config_dict : [type]
         [description]
@@ -451,6 +451,7 @@ def plot_wind_meteogram(plottimes, conv_plot_df, global_plot_config_dict, windav
     if ptype == 'PIPS':
         winddirstr = 'winddirabs'
         windspdstr = 'windspd'
+        windguststr = 'windgust'
     elif ptype == 'CU':
         winddirstr = 'bwinddirabs'
         windspdstr = 'bwindspd'
@@ -458,8 +459,8 @@ def plot_wind_meteogram(plottimes, conv_plot_df, global_plot_config_dict, windav
         winddirstr = 'swinddirabs'
         windspdstr = 'swindspd'
 
-    winddirabs = conv_plot_df[winddirstr].values
-    windspd = conv_plot_df[windspdstr].values
+    winddirabs = conv_plot_ds[winddirstr].values
+    windspd = conv_plot_ds[windspdstr].values
 
     # Compute wind speed and direction, and wind gusts
     # For the NV2 probes, the data are already at 60-s intervals and gust information is
@@ -468,15 +469,19 @@ def plot_wind_meteogram(plottimes, conv_plot_df, global_plot_config_dict, windav
     if ptype == 'NV2':
         windspdavg = windspd
         windspdavgvec = windspd
-        windgustavg = conv_plot_df['swindgust'].values
+        windgustavg = conv_plot_ds['swindgust'].values
         # TODO: Check that wind directions from NV2 probes are vector averages
         winddiravgvec = winddirabs
-    else:
+    elif avgwind:
         windspdavg, windspdavgvec, winddiravgvec, windgust, windgustavg = \
             pips.avgwind(winddirabs, windspd, windavgintv, gusts=True, gustintv=windgustintv,
                          center=False)
+    else:   # No additional averaging/fields already present in file
+        windspdavg = windspd
+        windgustavg = conv_plot_ds[windguststr]
+        winddiravgvec = conv_plot_ds[winddirstr]
 
-    fig = plt.figure(figsize=(5, 3))
+    fig = plt.figure(figsize=(8, 3))
     ax1 = fig.add_subplot(111)
     ax2 = ax1.twinx()
     # plt.title('Wind speed (5-min mean) and gust (5-min max of 3-s mean)')
@@ -486,7 +491,7 @@ def plot_wind_meteogram(plottimes, conv_plot_df, global_plot_config_dict, windav
 
     # Add vertical lines to indicate bad wind values if desired
     if global_plot_config_dict['plot_diagnostics'] and ptype == 'PIPS':
-        winddiag = conv_plot_df['winddiag']
+        winddiag = conv_plot_ds['winddiag']
         # Extract indices for "bad" wind data
         winddiag_index = N.where(N.any([winddiag > 0, N.isnan(winddiag)], axis=0))[0]
         # These are the times with bad wind data
@@ -515,7 +520,7 @@ def plot_wind_meteogram(plottimes, conv_plot_df, global_plot_config_dict, windav
     return fig, ax1, ax2
 
 
-def plot_temperature_dewpoint_meteogram(plottimes, conv_plot_df, global_plot_config_dict,
+def plot_temperature_dewpoint_meteogram(plottimes, conv_plot_ds, global_plot_config_dict,
                                         xlimits=None, ptype='PIPS'):
     # Plot temperature and dewpoint
     # tavgintv = 10  # Currently not used
@@ -527,10 +532,10 @@ def plot_temperature_dewpoint_meteogram(plottimes, conv_plot_df, global_plot_con
     elif ptype == 'NV2':
         tempstr = 'slowtemp'
 
-    fig = plt.figure(figsize=(5, 3))
+    fig = plt.figure(figsize=(8, 3))
     ax1 = fig.add_subplot(111)
 
-    fields = [conv_plot_df[tempstr].values, conv_plot_df['dewpoint'].values]
+    fields = [conv_plot_ds[tempstr].values, conv_plot_ds['dewpoint'].values]
     temp_params['plotmin'] = global_plot_config_dict['T_Td_range'][0]
     dewpoint_params['plotmin'] = global_plot_config_dict['T_Td_range'][0]
     fieldparamdicts = [temp_params, dewpoint_params]
@@ -551,7 +556,7 @@ def plot_temperature_dewpoint_meteogram(plottimes, conv_plot_df, global_plot_con
     return fig, ax1
 
 
-def plot_RH_meteogram(plottimes, conv_plot_df, global_plot_config_dict, xlimits=None,
+def plot_RH_meteogram(plottimes, conv_plot_ds, global_plot_config_dict, xlimits=None,
                       ptype='PIPS'):
     # Plot relative humidity
     # avgintv = 10  # Currently not used
@@ -563,10 +568,10 @@ def plot_RH_meteogram(plottimes, conv_plot_df, global_plot_config_dict, xlimits=
     elif ptype == 'NV2':
         RHstr = 'RH'
 
-    fig = plt.figure(figsize=(5, 3))
+    fig = plt.figure(figsize=(8, 3))
     ax1 = fig.add_subplot(111)
 
-    fields = [conv_plot_df[RHstr].values]
+    fields = [conv_plot_ds[RHstr].values]
     fieldparamdicts = [RH_params]
     ax1 = plotmeteogram(ax1, [plottimes], fields, fieldparamdicts)
 
@@ -584,19 +589,19 @@ def plot_RH_meteogram(plottimes, conv_plot_df, global_plot_config_dict, xlimits=
     return fig, ax1
 
 
-def plot_pressure_meteogram(plottimes, conv_plot_df, global_plot_config_dict,
+def plot_pressure_meteogram(plottimes, conv_plot_ds, global_plot_config_dict,
                             xlimits=None, ptype='PIPS'):
 
-    pmin = N.nanmin(conv_plot_df['pressure'].values)
-    pmax = N.nanmax(conv_plot_df['pressure'].values)
+    pmin = N.nanmin(conv_plot_ds['pressure'].values)
+    pmax = N.nanmax(conv_plot_ds['pressure'].values)
 
-    # pmean = conv_plot_df['pressure'].values.mean()
+    # pmean = conv_plot_ds['pressure'].values.mean()
     # avgintv = 1  # Currently not used
 
-    fig = plt.figure(figsize=(5, 3))
+    fig = plt.figure(figsize=(8, 3))
     ax1 = fig.add_subplot(111)
 
-    fields = [conv_plot_df['pressure'].values]
+    fields = [conv_plot_ds['pressure'].values]
     fieldparamdicts = [pressure_params]
     ax1 = plotmeteogram(ax1, [plottimes], fields, fieldparamdicts)
 
@@ -613,13 +618,13 @@ def plot_pressure_meteogram(plottimes, conv_plot_df, global_plot_config_dict,
     return fig, ax1
 
 
-def plot_voltage_meteogram(plottimes, conv_plot_df, global_plot_config_dict,
+def plot_voltage_meteogram(plottimes, conv_plot_ds, global_plot_config_dict,
                            xlimits=None, ptype='PIPS'):
 
-    fig = plt.figure(figsize=(5, 3))
+    fig = plt.figure(figsize=(8, 3))
     ax1 = fig.add_subplot(111)
 
-    fields = [conv_plot_df['voltage'].values]
+    fields = [conv_plot_ds['voltage'].values]
     fieldparamdicts = [battery_params]
     ax1 = plotmeteogram(ax1, [plottimes], fields, fieldparamdicts)
 
@@ -636,14 +641,14 @@ def plot_voltage_meteogram(plottimes, conv_plot_df, global_plot_config_dict,
     return fig, ax1
 
 
-def plot_GPS_speed_meteogram(plottimes, conv_plot_df, global_plot_config_dict,
+def plot_GPS_speed_meteogram(plottimes, conv_plot_ds, global_plot_config_dict,
                              xlimits=None, ptype='PIPS'):
     try:
         # GPS-derived speed
-        fig = plt.figure(figsize=(5, 3))
+        fig = plt.figure(figsize=(8, 3))
         ax1 = fig.add_subplot(111)
 
-        fields = [conv_plot_df['GPS_speed'].values]
+        fields = [conv_plot_ds['GPS_speed'].values]
         N.set_printoptions(threshold=N.inf)
         fieldparamdicts = [GPS_speed_params]
         ax1 = plotmeteogram(ax1, [plottimes], fields, fieldparamdicts)
@@ -672,7 +677,7 @@ def plotDSDderivedmeteograms(PIPS_index, pc, ib, **PSDderiveddict):
     dis_name = ib.dis_name_list[PIPS_index]
 
     # Rain rates (intensities)
-    fig = plt.figure(figsize=(5, 3))
+    fig = plt.figure(figsize=(8, 3))
     ax1 = fig.add_subplot(111)
 
     fields = [PSD_plot_df['intensity'].values]
@@ -690,7 +695,7 @@ def plotDSDderivedmeteograms(PIPS_index, pc, ib, **PSDderiveddict):
 
     # Reflectivity
     if ib.type[PIPS_index] != 'NV2':
-        fig = plt.figure(figsize=(5, 3))
+        fig = plt.figure(figsize=(8, 3))
         ax1 = fig.add_subplot(111)
 
         fields = [PSD_plot_df['reflectivity'].values]
@@ -707,7 +712,7 @@ def plotDSDderivedmeteograms(PIPS_index, pc, ib, **PSDderiveddict):
         plt.close(fig)
 
     # Particle counts
-    fig = plt.figure(figsize=(5, 3))
+    fig = plt.figure(figsize=(8, 3))
     ax1 = fig.add_subplot(111)
 
     fields = [PSD_plot_df['pcount'].values]
@@ -730,7 +735,7 @@ def plotDSDderivedmeteograms(PIPS_index, pc, ib, **PSDderiveddict):
 
     # Signal amplitude
     if ib.type[PIPS_index] == 'PIPS':
-        fig = plt.figure(figsize=(5, 3))
+        fig = plt.figure(figsize=(8, 3))
         ax1 = fig.add_subplot(111)
 
         fields = [PSD_plot_df['amplitude'].values]
@@ -1366,7 +1371,7 @@ def plot_mu_lamda(lamda, mu, poly_coeff, poly, title=None):
     yy = poly(xx)
     y_Cao = -0.0201 * xx**2. + 0.902 * xx - 1.718
     y_Zhang = -0.016 * xx**2. + 1.213 * xx - 1.957
-    fig, ax = plt.subplots(figsize=(10, 10))
+    fig, ax = plt.subplots(figsize=(6, 6))
     if title:
         plt.title(title)
     ax.scatter(lamda, mu, color='k', marker='.')
@@ -1374,16 +1379,16 @@ def plot_mu_lamda(lamda, mu, poly_coeff, poly, title=None):
     ax.plot(xx, y_Cao, label='C08')
     ax.plot(xx, y_Zhang, label='Z01')
     ax.set_xlim(0.0, 20.0)
-    ax.set_ylim(-5.0, 20.0)
+    ax.set_ylim(-5.0, 32.0)
     ax.set_xlabel(r'$\lambda$ (mm$^{-1}$)')
     ax.set_ylabel(r'$\mu$')
-    ax.text(0.05, 0.90, '# of Points: {:d}'.format(len(lamda)),
+    ax.text(0.05, 0.85, '# of Points: {:d}'.format(len(lamda)),
             transform=ax.transAxes, fontsize=12.)
     polytext = r'$\mu = {0:2.4f}\lambda^{{2}} {1} {2:2.4f}\lambda {3} {4:2.4f}$'
 
     polytext = polytext.format(poly_coeff[2], op1, np.abs(poly_coeff[1]), op2,
                                np.abs(poly_coeff[0]))
-    ax.text(0.05, 0.85, polytext, transform=ax.transAxes, fontsize=12.)
+    ax.text(0.05, 0.80, polytext, transform=ax.transAxes, fontsize=12.)
     plt.legend(loc='upper left', numpoints=1, ncol=3, fontsize=12.)
 
     return fig, ax
