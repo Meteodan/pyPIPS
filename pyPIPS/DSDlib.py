@@ -359,8 +359,13 @@ def calc_D0_bin(ND):
     # medindices_m1[medindices_m1 < 0] = 0
     b1 = Dl[medindices]  # Lower boundaries of mass-midpoint bin
     b2 = Dr[medindices]  # Upper boundaries of mass-midpoint bin
-    pro_med = pro.loc[dict(diameter_bin=medindices)]
-    pro_cumsum_med_m1 = pro_cumsum.loc[dict(diameter_bin=medindices_m1)]
+    # print(pro)
+    # print(medindices)
+    # pro_med = pro.loc[dict(diameter_bin=medindices)]
+    # pro_cumsum_med_m1 = pro_cumsum.loc[dict(diameter_bin=medindices_m1)]
+    pro_med = pro[medindices, :]
+    pro_cumsum_med_m1 = pro_cumsum[medindices_m1, :]
+
     # Now we can calculate D0 by linearly interpolating diameters within
     # a given bin bounded by Dl and Dr which contains the half-mass point
     D0 = b1 + ((0.5 - pro_cumsum_med_m1) / pro_med) * (b2 - b1)

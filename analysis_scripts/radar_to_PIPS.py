@@ -100,11 +100,6 @@ else:
 
 radar_path_dict = radar.get_radar_paths(radar_paths, radar_start_timestamp, radar_end_timestamp,
                                         el_req=el_req, radar_type=radar_type)
-radar_dict = radar.read_sweeps_new(radar_path_dict, el_req=el_req, radar_type=radar_type)
-
-rlat = radar_dict['radarsweeplist'][0].latitude['data'][0]
-rlon = radar_dict['radarsweeplist'][0].longitude['data'][0]
-ralt = radar_dict['radarsweeplist'][0].altitude['data'][0]
 
 # Outer file loop
 for parsivel_combined_file in parsivel_combined_filelist:
@@ -112,11 +107,9 @@ for parsivel_combined_file in parsivel_combined_filelist:
     PIPS_name = parsivel_combined_ds.probe_name
     geo_loc_str = parsivel_combined_ds.location
     geo_loc = list(map(np.float, geo_loc_str.strip('()').split(',')))
-    rad_loc = radar.get_PIPS_loc_relative_to_radar(geo_loc, rlat, rlon, ralt)
     radar_fields_at_PIPS_da, beam_height_da = \
-        radar.interp_sweeps_to_one_PIPS(radar_name, radar_dict['radarsweeplist'], PIPS_name,
-                                        rad_loc, sweeptime_list=radar_dict['sweeptimelist'],
-                                        average_gates=args.average_gates)
+        radar.interp_sweeps_to_one_PIPS_new(radar_name, radar_path_dict, PIPS_name, geo_loc,
+                                            el_req=el_req, average_gates=args.average_gates)
     # Get rid of existing interpolated fields. NOTE: for some reason this doesn't always seem
     # to work. I've had to run this script *twice* in order for the removal of the previous
     # version to "stick". This seems like a bug and doesn't make a lot of sense.

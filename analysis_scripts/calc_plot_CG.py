@@ -35,8 +35,8 @@ description = "Computes and plots CG relations from PIPS data (netCDF version)"
 parser = argparse.ArgumentParser(description=description)
 parser.add_argument('case_config_path', metavar='<path/to/case/config/file.py>',
                     help='The path to the case configuration file')
-parser.add_argument('--ND-tag', dest='ND_tag', default='qc',
-                    help='tag for ND variable in file (either qc or RB15)')
+parser.add_argument('--ND-tag', dest='ND_tag', default=None,
+                    help='Tag for ND variable in file (i.e., qc, RB15_vshift_qc, RB15_qc).')
 parser.add_argument('--plot-SATP', action='store_true', dest='plot_SATP',
                     help='plot for the SATP-filtered dataset')
 # parser.add_argument('--CG-name', dest='CG_name', default='',
@@ -53,7 +53,11 @@ parser.add_argument('--update-CG-coeff-attrs', dest='update_CG_coeff_attrs', act
                     help='Write CG coefficients as attributes back to PIPS nc files?')
 
 args = parser.parse_args()
-ND_tag = args.ND_tag
+if not args.ND_tag:
+    ND_tag = ''
+else:
+    ND_tag = '_{}'.format(args.ND_tag)
+
 if args.plot_SATP:
     filter_RR = None
     filter_counts = None
@@ -100,7 +104,8 @@ if not args.plot_SATP:
     plot_tag = 'no_SATP'
     dim = 'time'
 else:
-    parsivel_combined_filename = 'ND_avg_{}_{:d}s.nc'.format(dataset_name, int(requested_interval))
+    parsivel_combined_filename = 'ND_avg_{}{}_{:d}s.nc'.format(dataset_name, ND_tag,
+                                                               int(requested_interval))
     parsivel_combined_filepath = os.path.join(PIPS_dir, parsivel_combined_filename)
     parsivel_combined_ds = xr.load_dataset(parsivel_combined_filepath)
     plot_tag = 'SATP'
@@ -115,7 +120,7 @@ if filter_RR:
     if args.use_parsivel_params:
         rainrate_key = 'precipintensity'
     else:
-        rainrate_key = 'rainrate_derived_{}'.format(ND_tag)
+        rainrate_key = 'rainrate_derived{}'.format(ND_tag)
     parsivel_combined_ds = parsivel_combined_ds.where(
         parsivel_combined_ds[rainrate_key] >= filter_RR, drop=True)
     filter_RR_tag = 'RR_filter_{:d}mm'.format(int(filter_RR))
@@ -123,7 +128,7 @@ if filter_counts:
     if args.use_parsivel_params:
         counts_key = 'pcount'
     else:
-        counts_key = 'pcount_derived_{}'.format(ND_tag)
+        counts_key = 'pcount_derived{}'.format(ND_tag)
     parsivel_combined_ds = parsivel_combined_ds.where(
         parsivel_combined_ds[counts_key] >= filter_counts, drop=True)
     filter_counts_tag = 'counts_filter_{:d}'.format(filter_counts)
@@ -131,8 +136,8 @@ if filter_counts:
 
 # Get the untruncated and truncated moment fits MM246.
 # TODO: update this for greater flexibility later
-DSD_MM246 = parsivel_combined_ds['DSD_MM246']
-DSD_TMM246 = parsivel_combined_ds['DSD_TMM246']
+DSD_MM246 = parsivel_combined_ds['DSD_MM246{}'.format(ND_tag)]
+DSD_TMM246 = parsivel_combined_ds['DSD_TMM246{}'.format(ND_tag)]
 
 # Drop points where mu > 30 or lambda > 20000
 DSD_MM246 = DSD_MM246.where(DSD_MM246.sel(parameter='lamda') < 20000.)
@@ -145,7 +150,7 @@ DSD_TMM246 = DSD_TMM246.where(DSD_TMM246.sel(parameter='alpha') < 30.)
 DSD_TMM246 = DSD_TMM246.dropna(dim=dim, how='any')
 
 # Fit polynomials
-lamda_MM246 = DSD_MM246.sel(parameter='lamda') / 1000. # Get to mm^-1
+lamda_MM246 = DSD_MM246.sel(parameter='lamda') / 1000.  # Get to mm^-1
 mu_MM246 = DSD_MM246.sel(parameter='alpha')
 
 MM246_poly_coeff, MM246_poly = dsd.calc_CG_polynomial(lamda_MM246, mu_MM246)
@@ -154,12 +159,12 @@ print("The MM246 polynomial coefficients are: ", MM246_poly_coeff)
 # Plot the relationship on a scatterplot along with the Cao and Zhang relations
 fig, ax = pm.plot_mu_lamda(lamda_MM246, mu_MM246, MM246_poly_coeff, MM246_poly, title='Untruncated')
 plt.savefig(plot_dir +
-            '/Untruncated_MM246_mu_lamda_{}_{}_{}.{}'.format(plot_tag, filter_RR_tag,
-                                                             filter_counts_tag, args.figfmt),
+            '/Untruncated_MM246_mu_lamda{}_{}_{}_{}.{}'.format(ND_tag, plot_tag, filter_RR_tag,
+                                                               filter_counts_tag, args.figfmt),
             dpi=200, bbox_inches='tight')
 
 # Fit polynomials
-lamda_TMM246 = DSD_TMM246.sel(parameter='lamda') / 1000. # Get to mm^-1
+lamda_TMM246 = DSD_TMM246.sel(parameter='lamda') / 1000.  # Get to mm^-1
 mu_TMM246 = DSD_TMM246.sel(parameter='alpha')
 
 TMM246_poly_coeff, TMM246_poly = dsd.calc_CG_polynomial(lamda_TMM246, mu_TMM246)
@@ -168,8 +173,8 @@ print("The TMM246 polynomial coefficients are: ", TMM246_poly_coeff)
 # Plot the relationship on a scatterplot along with the Cao and Zhang relations
 pm.plot_mu_lamda(lamda_TMM246, mu_TMM246, TMM246_poly_coeff, TMM246_poly, title='Truncated')
 plt.savefig(plot_dir +
-            '/Truncated_MM246_mu_lamda_{}_{}_{}.{}'.format(plot_tag, filter_RR_tag,
-                                                           filter_counts_tag, args.figfmt),
+            '/Truncated_MM246_mu_lamda{}_{}_{}_{}.{}'.format(ND_tag, plot_tag, filter_RR_tag,
+                                                             filter_counts_tag, args.figfmt),
             dpi=200, bbox_inches='tight')
 
 if args.update_CG_coeff_attrs:
@@ -189,19 +194,20 @@ if args.update_CG_coeff_attrs:
             parsivel_combined_ds.attrs['CG_coeff_C08'] = [-1.718, 0.902, -0.0201]
         # TODO: This is some ugly logic. Think about refactoring...
         if args.plot_SATP:
-            parsivel_combined_ds.attrs['CG_coeff_SATP_TMM'] = TMM246_poly_coeff
-            parsivel_combined_ds.attrs['CG_coeff_SATP_MM'] = MM246_poly_coeff
+            parsivel_combined_ds.attrs['CG_coeff{}_SATP_TMM'.format(ND_tag)] = TMM246_poly_coeff
+            parsivel_combined_ds.attrs['CG_coeff{}_SATP_MM'.format(ND_tag)] = MM246_poly_coeff
             # The following is for backwards compatibility
-            parsivel_combined_ds.attrs['CG_coeff_SATP'] = TMM246_poly_coeff
+            # TODO: Still needed?
+            parsivel_combined_ds.attrs['CG_coeff{}_SATP'.format(ND_tag)] = TMM246_poly_coeff
         else:
             if filtering:
-                parsivel_combined_ds.attrs['CG_coeff_TMM_F'] = TMM246_poly_coeff
-                parsivel_combined_ds.attrs['CG_coeff_MM_F'] = MM246_poly_coeff
+                parsivel_combined_ds.attrs['CG_coeff{}_TMM_F'.format(ND_tag)] = TMM246_poly_coeff
+                parsivel_combined_ds.attrs['CG_coeff{}_MM_F'.format(ND_tag)] = MM246_poly_coeff
                 parsivel_combined_ds.attrs['Filter_for_MM_F_and_TMM_F_fits'] = \
                     [filter_RR_tag, filter_counts_tag]
             else:
-                parsivel_combined_ds.attrs['CG_coeff_TMM'] = TMM246_poly_coeff
-                parsivel_combined_ds.attrs['CG_coeff_MM'] = MM246_poly_coeff
+                parsivel_combined_ds.attrs['CG_coeff{}_TMM'.format(ND_tag)] = TMM246_poly_coeff
+                parsivel_combined_ds.attrs['CG_coeff{}_MM'.format(ND_tag)] = MM246_poly_coeff
         parsivel_combined_ds.close()
         # Save updated dataset back to file
         parsivel_combined_ds.to_netcdf(parsivel_combined_file)

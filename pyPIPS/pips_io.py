@@ -625,6 +625,8 @@ def reconstruct_MultiIndex(da, index_level_names, MultiIndex_name):
 def remove_unneeded(ds):
     dim_names = [dim for dim in ds.dims if 'fields' in dim]
     ds = ds.drop_dims(dim_names, errors='ignore')
+    # TODO: fix this!
+    ds = ds.drop_vars(['flagged times'], errors='ignore')
     return ds
 
 

@@ -35,10 +35,8 @@ parser.add_argument('case_config_path', metavar='<path/to/case/config/file.py>',
                     help='The path to the case configuration file')
 parser.add_argument('--plot-config-path', dest='plot_config_path',
                     default='plot_config.py', help='Location of the plot configuration file')
-parser.add_argument('--plot-raw', action='store_true', dest='plot_raw',
-                    help='plot raw DSD')
-parser.add_argument('--plot-qc', action='store_true', dest='plot_qc',
-                    help='plot QC DSD')
+parser.add_argument('--ND-tags', dest='ND_tags', nargs='*', default=None,
+                    help='Tags for ND variable sin file (i.e., qc, RB15_vshift_qc, RB15_qc).')
 parser.add_argument('--plot-full', action='store_true', dest='plot_full',
                     help='Plot full-deployment DSD')
 parser.add_argument('--plot-series', action='store_true', dest='plot_series',
@@ -47,6 +45,10 @@ parser.add_argument('--retr-tag', dest='retr_tag', default='SATP',
                     help='string to identify retrieval to plot')
 
 args = parser.parse_args()
+if not args.ND_tags:
+    ND_tags = ['']
+else:
+    ND_tags = ['_{}'.format(tag) for tag in args.ND_tags]
 
 # Dynamically import the case configuration file
 utils.log("Case config file is {}".format(args.case_config_path))
@@ -97,36 +99,30 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
     DSD_interval = parsivel_combined_ds.DSD_interval
     PIPS_name = parsivel_combined_ds.probe_name
     deployment_name = parsivel_combined_ds.deployment_name
-    ND_list = []
-    tag_list = []
+    ND_list = [parsivel_combined_ds['ND{}'.format(ND_tag)] for ND_tag in ND_tags]
 
-    if args.plot_raw:
-        ND_raw = parsivel_combined_ds['ND']
-        ND_list.append(ND_raw)
-        tag_list.append('raw')
-    if args.plot_qc:
-        ND_qc = parsivel_combined_ds['ND_qc']
-        ND_list.append(ND_qc)
-        tag_list.append('qc')
-
-    for tag, ND in zip(tag_list, ND_list):
-        DSD_MM24 = parsivel_combined_ds['DSD_MM24']
-        DSD_MM246 = parsivel_combined_ds['DSD_MM246']
-        DSD_TMM246 = parsivel_combined_ds['DSD_TMM246']
-        DSD_retr_mu = parsivel_combined_ds['mu_retr_{}'.format(args.retr_tag)]
-        DSD_retr_N0 = (parsivel_combined_ds['N0_retr_{}'.format(args.retr_tag)] *
+    for ND_tag, ND in zip(ND_tags, ND_list):
+        DSD_MM24 = parsivel_combined_ds['DSD_MM24{}'.format(ND_tag)]
+        DSD_MM246 = parsivel_combined_ds['DSD_MM246{}'.format(ND_tag)]
+        DSD_TMM246 = parsivel_combined_ds['DSD_TMM246{}'.format(ND_tag)]
+        DSD_retr_mu = parsivel_combined_ds['mu_retr_{}{}'.format(args.retr_tag, ND_tag)]
+        DSD_retr_N0 = (parsivel_combined_ds['N0_retr_{}{}'.format(args.retr_tag, ND_tag)] *
                        1000**(1 + DSD_retr_mu))  # Get to m^-4
-        DSD_retr_lamda = parsivel_combined_ds['lamda_retr_{}'.format(args.retr_tag)] * 1000.
+        DSD_retr_lamda = (parsivel_combined_ds['lamda_retr_{}{}'.format(args.retr_tag, ND_tag)] *
+                          1000.)
         rad_dim_name = 'fields_{}'.format(radar_name)
         rad_fields_key = '{}_at_PIPS'.format(radar_name)
         DSD_rad_mu = parsivel_combined_ds[rad_fields_key].loc[{rad_dim_name:
-                                                               'mu_{}'.format(args.retr_tag)}]
+                                                               'mu_{}{}'.format(args.retr_tag,
+                                                                                ND_tag)}]
         DSD_rad_N0 = (parsivel_combined_ds[rad_fields_key].loc[{rad_dim_name:
-                                                                'N0_{}'.format(args.retr_tag)}] *
+                                                                'N0_{}{}'.format(args.retr_tag,
+                                                                                 ND_tag)}] *
                       1000.**(1. + DSD_rad_mu))
         DSD_rad_lamda = \
-            parsivel_combined_ds[rad_fields_key].loc[{rad_dim_name:
-                                                      'lamda_{}'.format(args.retr_tag)}] * 1000.
+            (parsivel_combined_ds[rad_fields_key].loc[{rad_dim_name:
+                                                       'lamda_{}{}'.format(args.retr_tag, ND_tag)}]
+             * 1000.)
 
         ND_MM24 = dsd.calc_binned_DSD_from_params(DSD_MM24.loc['N0'], DSD_MM24.loc['lamda'], 0.,
                                                   ND['diameter'])
@@ -146,10 +142,11 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
         # D0_retr = parsivel_combined_ds['D0_retr_{}'.format(args.retr_tag)]
         # D0_rad = parsivel_combined_ds[rad_fields_key].loc[{rad_dim_name: 'D0'}]
 
-        Dm = parsivel_combined_ds['Dm43'] * 1000.  # Get to mm
-        Dm_retr = parsivel_combined_ds['Dm_retr_{}'.format(args.retr_tag)]
+        Dm = parsivel_combined_ds['Dm43{}'.format(ND_tag)] * 1000.  # Get to mm
+        Dm_retr = parsivel_combined_ds['Dm_retr_{}{}'.format(args.retr_tag, ND_tag)]
         Dm_rad = parsivel_combined_ds[rad_fields_key].loc[{rad_dim_name:
-                                                           'Dm_{}'.format(args.retr_tag)}]
+                                                           'Dm_{}{}'.format(args.retr_tag,
+                                                                            ND_tag)}]
 
         dualpol_dict = dp.calpolrain(10.7, os.path.join(scatt_dir, 'SCTT_RAIN_fw100.dat'), ND,
                                      bin_width)
@@ -224,7 +221,7 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
                     fig, ax = pm.plot_DSD(axdict, PSDdict, PSDfitdict, PSDparamdict)
                     image_name = \
                         '{}_{}_DSD_{}_{:d}_{}_{}_t{:04d}.png'.format(PIPS_name, deployment_name,
-                                                                     tag, int(DSD_interval),
+                                                                     ND_tag, int(DSD_interval),
                                                                      radar_name,
                                                                      time.strftime(tm.timefmt3), t)
                     image_path = os.path.join(DSD_image_dir, image_name)

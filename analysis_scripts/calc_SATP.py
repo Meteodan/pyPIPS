@@ -36,10 +36,14 @@ parser.add_argument('case_config_path', metavar='<path/to/case/config/file.py>',
                     help='The path to the case configuration file')
 parser.add_argument('--compute-rr', action='store_true', dest='compute_rr',
                     help='Compute rain-rate from ND bins instead of using internal parsivel values')
-parser.add_argument('--ND-tag', dest='ND_tag', default='qc',
-                    help='tag for ND variable in file (either qc or RB15)')
+parser.add_argument('--ND-tag', dest='ND_tag', default=None,
+                    help='Tag for ND variable in file (i.e., qc, RB15_vshift_qc, RB15_qc).')
 
 args = parser.parse_args()
+if not args.ND_tag:
+    ND_tag = ''
+else:
+    ND_tag = '_{}'.format(args.ND_tag)
 
 # Dynamically import the case configuration file
 utils.log("Case config file is {}".format(args.case_config_path))
@@ -88,7 +92,7 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
     DSD_interval = parsivel_combined_ds.DSD_interval
     PIPS_name = parsivel_combined_ds.probe_name
     deployment_name = parsivel_combined_ds.deployment_name
-    ND = parsivel_combined_ds['ND_{}'.format(args.ND_tag)]
+    ND = parsivel_combined_ds['ND{}'.format(ND_tag)]
     ND = ND.where(ND > 0.)
     # Drop all entries without DSDs
     ND = ND.dropna(dim='time', how='all')
@@ -108,7 +112,7 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
         # TODO: allow for the use of the measured fallspeeds in the rainrate calculation.
         # First, see if this has already been computed
         try:
-            rainrate = parsivel_combined_ds['rainrate_derived_{}'.format(args.ND_tag)]
+            rainrate = parsivel_combined_ds['rainrate_derived{}'.format(ND_tag)]
         except KeyError:
             fallspeeds_emp = pips.calc_empirical_fallspeed(avg_diameter, correct_rho=True,
                                                            rho=parsivel_combined_ds['rho'])
@@ -152,18 +156,7 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
 print("Combining ND data")
 ND_combined = xr.concat(ND_list, dim='D0_RR')
 # print(ND_combined)
-ND_combined.name = 'ND_combined_{}'.format(dataset_name)
-# Add some metadata
-# ND_combined.attrs = parsivel_combined_ds.attrs
-# ND_combined.attrs['DSD_interval'] = DSD_interval
-# ND_combined.attrs['strongwindQC'] = int(strongwindQC)
-# ND_combined.attrs['splashingQC'] = int(splashingQC)
-# ND_combined.attrs['marginQC'] = int(marginQC)
-# ND_combined.attrs['rainfallQC'] = int(rainfallQC)
-# ND_combined.attrs['rainonlyQC'] = int(rainonlyQC)
-# ND_combined.attrs['hailonlyQC'] = int(hailonlyQC)
-# ND_combined.attrs['graupelonlyQC'] = int(graupelonlyQC)
-# ND_combined.attrs['basicQC'] = int(basicQC)
+ND_combined.name = 'ND_combined_{}{}'.format(dataset_name, ND_tag)
 
 print("Grouping by D0-RR and averaging")
 # Group by D0-RR pairs:
@@ -175,11 +168,12 @@ ND_avg = ND_groups.mean(dim='D0_RR')
 # Along with coordinates. Can't add new dimensions to a DataArray so need to make this a Dataset
 # For now, uncomment this out so that we are just keeping the combined D0_RR index.
 
-#print(ND_avg)
+# print(ND_avg)
 # Unstack the array so that D0 and RR are recovered as individual dimensions
 # ND_avg = ND_avg.unstack(dim='D0_RR')
-#print(ND_avg)
-# Rename the new dimensions back to what they were before because for some reason doing averages on a groupby object
+# print(ND_avg)
+# Rename the new dimensions back to what they were before because for some reason doing averages on
+# a groupby object
 # resets the names of the multiindex levels. Also do some reindexing and naming of coords.
 # TODO change coordinates to midpoints of bins instead of edges
 # ND_avg = ND_avg.rename({'D0_RR_level_0': 'D0_idx', 'D0_RR_level_1': 'RR_idx'})
@@ -188,19 +182,7 @@ ND_avg = ND_groups.mean(dim='D0_RR')
 # ND_avg.coords['D0_idx'] = ('D0_idx', range(D0_bins.size))
 # ND_avg.coords['RR_idx'] = ('RR_idx', range(RR_bins.size))
 
-ND_avg.name = 'SATP_ND_{}'.format(dataset_name)
-# Add some metadata
-# ND_avg.attrs = parsivel_combined_ds.attrs
-# ND_avg.attrs['DSD_interval'] = DSD_interval
-# ND_avg.attrs['strongwindQC'] = int(strongwindQC)
-# ND_avg.attrs['splashingQC'] = int(splashingQC)
-# ND_avg.attrs['marginQC'] = int(marginQC)
-# ND_avg.attrs['rainfallQC'] = int(rainfallQC)
-# ND_avg.attrs['rainonlyQC'] = int(rainonlyQC)
-# ND_avg.attrs['hailonlyQC'] = int(hailonlyQC)
-# ND_avg.attrs['graupelonlyQC'] = int(graupelonlyQC)
-# ND_avg.attrs['basicQC'] = int(basicQC)
-
+ND_avg.name = 'SATP_ND_{}{}'.format(dataset_name, ND_tag)
 # Dump SATP dataset to netCDF files with appropriate metadata
 # Before dumping have to reset the MultiIndex because xarray doesn't yet allow for
 # serialization of MultiIndex to netCDF files. This means we have to reconstruct the
@@ -214,7 +196,8 @@ for attr_key, attr_val in parsivel_combined_ds.attrs.items():
         ND_combined.attrs[attr_key] = attr_val
 ND_combined.coords['D0_bins'] = D0_bins
 ND_combined.coords['RR_bins'] = RR_bins
-ND_combined_ncfile_name = 'ND_combined_{}_{:d}s.nc'.format(dataset_name, int(DSD_interval))
+ND_combined_ncfile_name = 'ND_combined_{}{}_{:d}s.nc'.format(dataset_name, ND_tag,
+                                                             int(DSD_interval))
 ND_combined_ncfile_path = os.path.join(PIPS_dir, ND_combined_ncfile_name)
 print("Dumping {}".format(ND_combined_ncfile_path))
 ND_combined.to_netcdf(ND_combined_ncfile_path)
@@ -227,8 +210,7 @@ for attr_key, attr_val in parsivel_combined_ds.attrs.items():
         ND_avg.attrs[attr_key] = attr_val
 ND_avg.coords['D0_bins'] = D0_bins
 ND_avg.coords['RR_bins'] = RR_bins
-ND_avg_ncfile_name = 'ND_avg_{}_{:d}s.nc'.format(dataset_name, int(DSD_interval))
+ND_avg_ncfile_name = 'ND_avg_{}{}_{:d}s.nc'.format(dataset_name, ND_tag, int(DSD_interval))
 ND_avg_ncfile_path = os.path.join(PIPS_dir, ND_avg_ncfile_name)
 print("Dumping {}".format(ND_avg_ncfile_path))
 ND_avg.to_netcdf(ND_avg_ncfile_path)
-

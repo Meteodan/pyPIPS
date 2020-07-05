@@ -3,8 +3,8 @@
 PIPS_IO_dict = {
     'dataset_name': 'IOP4C_2016',
     'deployment_names': ['IOP4C_D1_2016'] * 3,
-    'PIPS_dir': '/Volumes/scr_fast/Projects/VORTEXSE/obsdata/full_PIPS_dataset_new',
-    'plot_dir': '/Volumes/scr_fast/Projects/VORTEXSE/obsdata/full_PIPS_dataset_new/plots',
+    'PIPS_dir': '/Volumes/scr_fast/Projects/VORTEXSE/obsdata/full_PIPS_dataset_RB15',
+    'plot_dir': '/Volumes/scr_fast/Projects/VORTEXSE/obsdata/full_PIPS_dataset_RB15/plots',
     'PIPS_types': ['PIPS'] * 3,
     'PIPS_names': ['PIPS1B', 'PIPS2A', 'PIPS2B'],
     'PIPS_filenames': ['PIPS1B_2016_IOP4C_D1.txt',

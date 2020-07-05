@@ -54,6 +54,9 @@ parser.add_argument('--wavelength', type=float, dest='wavelength', default=10.7,
 parser.add_argument('--output-dir', dest='output_dir', help='output directory')
 args = parser.parse_args()
 
+if not os.path.exists(args.output_dir):
+    os.makedirs(args.output_dir)
+
 D_scatt, far_b, fbr_b, far_f, fbr_f = dp.readtmatrix(args.scatt_file_path)
 fa2, fb2, fab, fba, far = dp.calbackscatterrain(far_b, fbr_b, far_f, fbr_f)
 

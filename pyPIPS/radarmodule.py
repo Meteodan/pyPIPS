@@ -20,7 +20,6 @@ import glob
 import os
 import pyart
 from pyart.config import get_metadata
-from pyart.core import Radar
 from . import utils
 from . import timemodule as tm
 from . import PIPS as pips
@@ -250,10 +249,12 @@ retrieval_metadata = {
 epr = 80.205 + 1j * 17.167  # Relative permittivity of liquid water
 K2 = np.abs((epr - 1) / (epr + 2))**2.  # Dielectric constant of liquid water squared
 
+
 def mtokm(val, pos):
     """Convert m to km for formatting axes tick labels"""
     val = val / 1000.0
     return '%i' % val
+
 
 # The following code is taken from the following URL:
 # http://stackoverflow.com/questions/2417794/
@@ -323,7 +324,7 @@ deg2rad = np.pi / 180.
 
 def _getsweeptime(path, CFRadial=True):
     """Attempts to read sweep time from the radar file or construct it from the file name."""
-    if(CFRadial):
+    if CFRadial:
         # print "Opening file: ",path
         sweepfile_netcdf = Nio.open_file(path)
         sweeptime = sweepfile_netcdf.variables['time_coverage_start'].get_value().tostring()
@@ -361,30 +362,30 @@ def getradarfilelist(radar_dir, radar_save_dir, starttime=None, stoptime=None, p
     and (proprietary) netCDF files for UMASS X-Pol are supported.
     """
 
-    if(platform not in ['NEXRAD', 'UMXP', 'SMARTR']):
+    if platform not in ['NEXRAD', 'UMXP', 'SMARTR']:
         print("Sorry, platform: ", platform, " not supported.  Please try again!")
         return
 
-    if(platform == 'NEXRAD' or platform == 'SMARTR'):
+    if platform == 'NEXRAD' or platform == 'SMARTR':
         CFRadial = True
         radar_filelist = glob.glob(radar_dir + '*{}*.nc'.format(radar_name))
     else:
         CFRadial = False
         radar_filelist = glob.glob(radar_dir + '*.nc')
 
-    if(platform == 'UMXP' or platform == 'SMARTR'):
+    if platform == 'UMXP' or platform == 'SMARTR':
         radar_name = platform
 
     # Filter only those files containing sweeps closest to the desired elevation angle
     # Only need to do this for UMXP or SMARTR, which has separate files for each elevation
-    if(platform == 'UMXP' or platform == 'SMARTR'):
+    if platform == 'UMXP' or platform == 'SMARTR':
         # First check to see if text file containing file list of requested
         # elevation already exists (saves loads of time)
         radar_filelist_filename = (radar_name + '_' + starttime.strftime(tm.timefmt3).strip() +
                                    '_' + stoptime.strftime(tm.timefmt3).strip() + '_el' +
                                    str(el_req) + '_filelist.txt')
         radar_filelist_path = os.path.join(radar_save_dir, radar_filelist_filename)
-        if(os.path.exists(radar_filelist_path)):
+        if os.path.exists(radar_filelist_path):
             print(len(radar_filelist))
             with open(radar_filelist_path) as f:
                 radar_filelist = [line.rstrip('\n') for line in f]
@@ -410,9 +411,9 @@ def getradarfilelist(radar_dir, radar_save_dir, starttime=None, stoptime=None, p
                                                                 key=lambda pair: pair[0])]
     radtimes.sort()
 
-    if(not starttime):
+    if not starttime:
         starttime = radtimes[0]
-    if(not stoptime):
+    if not stoptime:
         stoptime = radtimes[-1]
 
     # Find times within desired range
@@ -551,7 +552,7 @@ def get_field_to_plot(radar_obj, field_name_list, tag=None):
         (field_name, field)
     """
     if tag:
-        new_field_name_list = [field_name+tag for field_name in field_name_list]
+        new_field_name_list = [field_name + tag for field_name in field_name_list]
     else:
         new_field_name_list = field_name_list
     return next((f for f in list(radar_obj.fields.items()) if f[0] in new_field_name_list), None)
@@ -593,16 +594,16 @@ def readCFRadial(nexrad, el, radlat, radlon, radalt, file, sweeptime, fieldnames
         print("No ray_n_gates in file, assuming 2D arrays (azimuth,range)")
         twoDarray = True
 
-    if(radlat is None):
+    if radlat is None:
         rlat = sweepfile_netcdf.variables['latitude'].get_value()
         rlon = sweepfile_netcdf.variables['longitude'].get_value()
         ralt = sweepfile_netcdf.variables['altitude'].get_value()
 
-        if(np.size(rlat) > 1):
+        if np.size(rlat) > 1:
             rlat = rlat[0]
-        if(np.size(rlon) > 1):
+        if np.size(rlon) > 1:
             rlon = rlon[0]
-        if(np.size(ralt) > 1):
+        if np.size(ralt) > 1:
             ralt = ralt[0]
     else:
         rlat = radlat
@@ -693,7 +694,7 @@ def readCFRadial(nexrad, el, radlat, radlon, radalt, file, sweeptime, fieldnames
     outfieldnames = []
     for field in fieldnames:
         tempfield = None
-        if(field == 'dBZ' or field == 'Z'):
+        if field == 'dBZ' or field == 'Z':
             try:
                 tempfield = sweepfile_netcdf.variables['REF']
             except Exception:
@@ -702,7 +703,7 @@ def readCFRadial(nexrad, el, radlat, radlon, radalt, file, sweeptime, fieldnames
                 except Exception:
                     print("Cannot find reflectivity field in file, setting to to empty")
                     tempfield = np.empty((0))
-        if(field == 'Zdr' or field == 'ZDR'):
+        if field == 'Zdr' or field == 'ZDR':
             try:
                 tempfield = sweepfile_netcdf.variables['ZDR']
             except Exception:
@@ -712,19 +713,19 @@ def readCFRadial(nexrad, el, radlat, radlon, radalt, file, sweeptime, fieldnames
                     print("Cannot find differential reflectivity field in file, ",
                           "setting to to empty")
                     tempfield = np.empty((0))
-        if(field == 'Kdp' or field == 'KDP'):
+        if field == 'Kdp' or field == 'KDP':
             try:
                 tempfield = sweepfile_netcdf.variables['KD']
             except Exception:
                 print("Cannot find Kdp field in file, setting to to empty")
                 tempfield = np.empty((0))
-        if(field == 'rhv' or field == 'RHV'):
+        if field == 'rhv' or field == 'RHV':
             try:
                 tempfield = sweepfile_netcdf.variables['RHO']
             except Exception:
                 print("Cannot find rHV field in file, setting to to empty")
                 tempfield = np.empty((0))
-        if(field == 'Vr' or field == 'VR'):
+        if field == 'Vr' or field == 'VR':
             try:
                 tempfield = sweepfile_netcdf.variables['VEL']
             except Exception:
@@ -734,15 +735,15 @@ def readCFRadial(nexrad, el, radlat, radlon, radalt, file, sweeptime, fieldnames
                     print("Cannot find radial velocity field in file, setting to to empty")
                     tempfield = np.empty((0))
 
-        if(tempfield):
+        if tempfield:
             outfieldnames.append(field)
 
         # Grab requested sweep out of dBZ array
         # Need to check if the array is dimensioned by total number of gates or just
         # number of gates for each sweep
 
-        if(tempfield):
-            if(not twoDarray):  # Note, this needs to be tested!
+        if tempfield:
+            if not twoDarray:  # Note, this needs to be tested!
                 # numpointsinsweep = ray_n_gates[swp_start_index]*num_azim
                 # print numpointsinsweep
                 field_start_index = ray_start_index[swp_start_index]
@@ -776,7 +777,7 @@ def getncfilelist(platform, filelist, el_req, tolerance=0.5):
        find those that contain the elevation angle closest
        to that requested and return a list of them"""
 
-    if(platform == 'UMXP'):
+    if platform == 'UMXP':
         elvarname = 'Elevation'
     else:
         elvarname = 'elevation'
@@ -893,10 +894,10 @@ def readUMXPnc(file, sweeptime, fieldnames, heading=None, correct_attenuation=Tr
     outfieldnames = []
     for fieldname in fieldnames:
         tempfield = None
-        if(fieldname == 'dBZ' or fieldname == 'Z'):
+        if fieldname == 'dBZ' or fieldname == 'Z':
             try:
                 tempfield = sweepfile_netcdf.variables['Zh'][:]
-                if(correct_attenuation):
+                if correct_attenuation:
                     try:
                         tempfield = tempfield + sweepfile_netcdf.variables['Ah'][:]
                     except Exception:
@@ -904,10 +905,10 @@ def readUMXPnc(file, sweeptime, fieldnames, heading=None, correct_attenuation=Tr
             except Exception:
                 print("Cannot find reflectivity field in file, setting to to empty")
                 tempfield = np.empty((0))
-        if(fieldname == 'Zdr' or fieldname == 'ZDR'):
+        if fieldname == 'Zdr' or fieldname == 'ZDR':
             try:
                 tempfield = sweepfile_netcdf.variables['ZDR'][:]
-                if(correct_attenuation):
+                if correct_attenuation:
                     try:
                         tempfield = tempfield + sweepfile_netcdf.variables['Ad'][:]
                     except Exception:
@@ -915,40 +916,40 @@ def readUMXPnc(file, sweeptime, fieldnames, heading=None, correct_attenuation=Tr
             except Exception:
                 print("Cannot find differential reflectivity field in file, setting to to empty")
                 tempfield = np.empty((0))
-        if(fieldname == 'Kdp' or fieldname == 'KDP'):
+        if fieldname == 'Kdp' or fieldname == 'KDP':
             try:
                 tempfield = sweepfile_netcdf.variables['KD'][:]
             except Exception:
                 print("Cannot find Kdp field in file, setting to to empty")
                 tempfield = np.empty((0))
-        if(fieldname == 'rhv' or fieldname == 'RHV'):
+        if fieldname == 'rhv' or fieldname == 'RHV':
             try:
                 tempfield = sweepfile_netcdf.variables['RhoHV'][:]
             except Exception:
                 print("Cannot find rHV field in file, setting to to empty")
                 tempfield = np.empty((0))
-        if(fieldname == 'Vr' or fieldname == 'VR'):
+        if fieldname == 'Vr' or fieldname == 'VR':
             try:
                 tempfield = sweepfile_netcdf.variables['VE'][:]
             except Exception:
                 print("Cannot find radial velocity field in file, setting to to empty")
                 tempfield = np.empty((0))
 
-        if(tempfield.size):
+        if tempfield.size:
             outfieldnames.append(fieldname)
 
         # Grab requested sweep out of dBZ array
         # Need to check if the array is dimensioned by total number of gates or just number of
         # gates for each sweep
 
-        if(tempfield.size):
+        if tempfield.size:
             field = tempfield
             # Set missing values to np.nan
             field = np.where(field == -99, np.nan, field)
             # Add field to list for return
             fieldlist.append(field)
 
-        if(debug):
+        if debug:
             # Quick plot for testing
 
             fig1 = plt.figure()
@@ -1060,11 +1061,11 @@ def plotsweep(radlims, plotlims, fieldnames, fieldlist, masklist, range_start, r
 
     # Loop through the provided fields and prepare them for plotting
     for fieldname, field, fields_D, mask in zip(fieldnames, fieldlist, fields_D_list, masklist):
-        if(field is None):
+        if field is None:
             continue
 
         # mask array by provided mask, if desired (usually some reflectivity threshold)
-        if(mask is not None):
+        if mask is not None:
             field = np.ma.masked_array(field, mask=mask)
 
         fieldplt = field.swapaxes(0, 1)[minrangeindex:maxrangeindex, minazimindex:maxazimindex + 1]
@@ -1093,62 +1094,62 @@ def plotsweep(radlims, plotlims, fieldnames, fieldlist, masklist, range_start, r
         xplttmp = xplt
         yplttmp = yplt
 
-        if(fieldname == 'dBZ'):
+        if fieldname == 'dBZ':
             clevels = clevels_ref
             cmap = cmapdBZ
             clvls = 5.0
             disfmtstr = "{:3.1f} dBZ"
-        elif(fieldname == 'ZDR'):
+        elif fieldname == 'ZDR':
             clevels = clevels_zdr
             cmap = cmapzdr
             clvls = 0.5
             disfmtstr = "{:3.1f} dB"
-        elif(fieldname == 'KDP'):
+        elif fieldname == 'KDP':
             clevels = clevels_kdp
             cmap = cmapkdp
             clvls = 0.5
             disfmtstr = "{:3.1f} deg/km"
-        elif(fieldname == 'RHV'):
+        elif fieldname == 'RHV':
             clevels = clevels_rhv
             cmap = cmaprhv
             clvls = 0.1
             disfmtstr = "{:3.1f}"
-        elif(fieldname == 'Vr'):
+        elif fieldname == 'Vr':
             clevels = clevels_vr
             cmap = cmapvr
             clvls = 5.0
             disfmtstr = "{:3.1f} m/s"
-        elif(fieldname == 'Rain'):
+        elif fieldname == 'Rain':
             clevels = clevels_rain
             cmap = cmapretrievals
             clvls = [0.1, 1.0, 3.0, 5.0, 10.0, 15.0, 20.0, 30.0, 50.0, 75.0, 100.0, 150.0, 200.0]
             disfmtstr = "{:3.1f} mm/hr"
-        elif(fieldname == 'D0'):
+        elif fieldname == 'D0':
             clevels = clevels_d0
             cmap = cmapretrievals
             clvls = 0.5
             disfmtstr = "{:3.1f} mm"
-        elif(fieldname == 'W'):
+        elif fieldname == 'W':
             clevels = clevels_lwc
             cmap = cmapretrievals
             clvls = [0.01, 0.1, 0.3, 0.5, 1.0, 1.5, 2., 3., 5., 7.5, 10.]
             disfmtstr = "{:3.1f} g m^-3"
-        elif(fieldname == 'Nt'):
+        elif fieldname == 'Nt':
             clevels = clevels_nt
             cmap = cmapretrievals
             clvls = 0.5
             disfmtstr = "{:3.1f} # m^3"
-        elif(fieldname == 'sigm'):
+        elif fieldname == 'sigm':
             clevels = clevels_sigm
             cmap = cmapretrievals
             clvls = 0.2
             disfmtstr = "{:3.1f} mm"
-        elif(fieldname == 'mu'):
+        elif fieldname == 'mu':
             clevels = clevels_mu
             cmap = cmapretrievals
             clvls = 2.0
             disfmtstr = "{:3.1f}"
-        elif(fieldname == 'lam'):
+        elif fieldname == 'lam':
             clevels = clevels_lam
             cmap = cmapretrievals
             clvls = 2.0
@@ -1167,11 +1168,11 @@ def plotsweep(radlims, plotlims, fieldnames, fieldlist, masklist, range_start, r
             aspect=True,
             label_mode="1")
         ax = grid[0]
-        if(fieldname == 'Rain'):
+        if fieldname == 'Rain':
             norm = matplotlib.colors.LogNorm(vmin=0.1, vmax=200.0)
-        elif(fieldname == 'W'):
+        elif fieldname == 'W':
             norm = matplotlib.colors.LogNorm(vmin=0.01, vmax=10.)
-        elif(fieldname == 'dBZ'):
+        elif fieldname == 'dBZ':
             norm = normdBZ
         else:
             norm = matplotlib.colors.BoundaryNorm(clevels, cmap.N)
@@ -1188,29 +1189,29 @@ def plotsweep(radlims, plotlims, fieldnames, fieldlist, masklist, range_start, r
 
         # DTD: originally did this outside the function, but have to do it here
         # because of some weird problem
-        if(ovrdis):
+        if ovrdis:
             for dname, dloc, field_D in zip(dis_name_list, dxy_list, fields_D):
                 Dx = dloc[0]
                 Dy = dloc[1]
                 ax.plot(Dx, Dy, 'k*', ms=8)
                 ax.annotate(dname, (Dx + 550., Dy - 100.), clip_on=True)
-                if(field_D is not None):
+                if field_D is not None:
                     ax.annotate(disfmtstr.format(field_D), (Dx + 550., Dy - 2100.), clip_on=True)
 
         # Determine plot bounds
-        if(plotxmin == -1):
+        if plotxmin == -1:
             plotxmin = np.min(xplt)
-        if(plotxmax == -1):
+        if plotxmax == -1:
             plotxmax = np.max(xplt)
-        if(plotymin == -1):
+        if plotymin == -1:
             plotymin = np.min(yplt)
-        if(plotymax == -1):
+        if plotymax == -1:
             plotymax = np.max(yplt)
 
         # FIXME: something is screwed up with ImageGrid colorbar ticks, but it looks like the
         # correct behavior can be recovered by reverting to the matplotlib version. (Already
         # corrected in plotsweep_pyART)
-        if(fieldname == 'Rain'):
+        if fieldname == 'Rain':
             clvllocator = ticker.LogLocator(base=10.0, subs=(0.1, 1.0, 3.0, 5.0, 10.0, 15.0, 20.0,
                                                              30.0, 50.0, 75.0, 100.0, 150.0, 200.0))
             grid.cbar_axes[0].colorbar(plot1)
@@ -1220,7 +1221,7 @@ def plotsweep(radlims, plotlims, fieldnames, fieldlist, masklist, range_start, r
             grid.cbar_axes[0].yaxis.set_ticklabels(['0.1', '1.0', '3.0', '5.0', '10.0', '15.0',
                                                     '20.0', '30.0', '50.0', '75.0', '100.0',
                                                     '150.0', '200.0'])
-        elif(fieldname == 'W'):
+        elif fieldname == 'W':
             clvllocator = ticker.LogLocator(base=10.0, subs=(0.01, 0.1, 0.3, 0.5, 1.0, 1.5, 2., 3.,
                                                              5., 7.5, 10.))
             grid.cbar_axes[0].colorbar(plot1)
@@ -1553,7 +1554,7 @@ def readsweeps2PIPS(fieldnames, pc, ib):
                        + str(ib.el_req) + '.npz')
     radnpz_path = os.path.join(pc.radar_save_dir, radnpz_filename)
 
-    if(not pc.loadradopt):
+    if not pc.loadradopt:
 
         radar_filelist, radtimes = getradarfilelist(ib.radar_dir, pc.radar_save_dir,
                                                     starttime=ib.starttimerad,
@@ -1584,19 +1585,19 @@ def readsweeps2PIPS(fieldnames, pc, ib):
                 range(len(radar_filelist)), radar_filelist, radtimes):
             print("Processing file: " + path)
 
-            if(ib.platform == 'NEXRAD'):
+            if ib.platform == 'NEXRAD':
                 (outfieldnames, fields, range_start, radar_range, azimuth_start_rad,
-                    azimuth_rad, rlat_rad, rlon_rad, ralt, el_rad) = \
+                 azimuth_rad, rlat_rad, rlon_rad, ralt, el_rad) = \
                     readCFRadial(True, ib.el_req, ib.rlat,
                                  ib.rlon, ib.ralt, path, sweeptime, fieldnames)
-            elif(ib.platform == 'SMARTR'):
+            elif ib.platform == 'SMARTR':
                 (outfieldnames, fields, range_start, radar_range, azimuth_start_rad,
-                    azimuth_rad, rlat_rad, rlon_rad, ralt, el_rad) = \
+                 azimuth_rad, rlat_rad, rlon_rad, ralt, el_rad) = \
                     readCFRadial(False, ib.el_req, ib.rlat,
                                  ib.rlon, ib.ralt, path, sweeptime, fieldnames)
-            elif(ib.platform == 'UMXP'):
+            elif ib.platform == 'UMXP':
                 (outfieldnames, fields, range_start, radar_range, azimuth_start_rad,
-                    azimuth_rad, rlat_rad, rlon_rad, ralt, el_rad) = \
+                 azimuth_rad, rlat_rad, rlon_rad, ralt, el_rad) = \
                     readUMXPnc(path, sweeptime, fieldnames, heading=ib.heading)
 
             # Some NEXRAD files appear to only have a couple fields in them. This creates problems
@@ -1604,7 +1605,7 @@ def readsweeps2PIPS(fieldnames, pc, ib):
             # throw out any sweeps that don't have at least 4 ('dBZ', 'ZDR', 'RHV', 'VR') but
             # will need to come up with a better solution in the future.
 
-            if(len(outfieldnames) >= len(fieldnames)):
+            if len(outfieldnames) >= len(fieldnames):
                 fields_tlist.append(fields)
                 range_start_tlist.append(range_start)
                 range_tlist.append(radar_range)
@@ -1644,8 +1645,8 @@ def readsweeps2PIPS(fieldnames, pc, ib):
         sweepdict['outfieldnames'] = outfieldnames
         sweepdict['radar_filelist'] = newradarfilelist
 
-        if(pc.saveradopt):
-            if (not os.path.exists(pc.radar_save_dir)):
+        if pc.saveradopt:
+            if not os.path.exists(pc.radar_save_dir):
                 os.makedirs(pc.radar_save_dir)
 
             raddate_file = open(raddate_path, 'wb')
@@ -1656,7 +1657,7 @@ def readsweeps2PIPS(fieldnames, pc, ib):
 
             np.savez_compressed(radnpz_path, **sweepdict)
 
-    if(pc.loadradopt):
+    if pc.loadradopt:
         raddate_file = open(raddate_path, 'rb')
         radtimes = pickle.load(raddate_file)
         radar_filelist = pickle.load(raddate_file)
@@ -1690,18 +1691,18 @@ def plotsweeps(pc, ib, sb, sweepstart=-1, sweepstop=-1):
     """Plots radar sweeps with overlaid disdrometer locations"""
 
     radar_image_dir = os.path.join(ib.image_dir, 'radar_PPI/')
-    if (not os.path.exists(radar_image_dir)):
+    if not os.path.exists(radar_image_dir):
         os.makedirs(radar_image_dir)
 
-    if(sweepstart == -1):
+    if sweepstart == -1:
         sweepstart = sb.radtimes[0]
-    if(sweepstop == -1):
+    if sweepstop == -1:
         sweepstop = sb.radtimes[-1]
 
     print("Plotting radar sweeps with overlaid disdrometer locations and data.")
     for index, path, sweeptime in zip(range(len(sb.radar_filelist)), sb.radar_filelist,
                                       sb.radtimes):
-        if(sweepstart - timedelta(hours=1) <= sweeptime <= sweepstop + timedelta(hours=1)):
+        if sweepstart - timedelta(hours=1) <= sweeptime <= sweepstop + timedelta(hours=1):
 
             fields_arr = sb.fields_tarr[index]
             fields_D_arr = sb.fields_D_tarr[index]
@@ -1732,7 +1733,7 @@ def plotsweeps(pc, ib, sb, sweepstart=-1, sweepstop=-1):
 
             # Probably should do this using a dictionary
             for field, fieldname in zip(fields_list, sb.outfieldnames):
-                if(fieldname == 'dBZ'):
+                if fieldname == 'dBZ':
                     mask = np.where(field > 5.0, False, True)
 
             masklist = [mask, mask, mask]
@@ -1751,7 +1752,7 @@ def plotsweeps(pc, ib, sb, sweepstart=-1, sweepstop=-1):
                 print("Disdrometer name,x,y,radar elevation angle,slant range, "
                       "approximate beam height:")
                 print(dname, Dx, Dy, el_rad / deg2rad, r, h)
-                if(dloc == ib.dlocs[0] and ib.plotlims[0] == -1):
+                if dloc == ib.dlocs[0] and ib.plotlims[0] == -1:
                     ib.plotlims = [Dx - 25000., Dx + 25000., Dy - 30000., Dy + 20000.]
 
             figlist, gridlist = plotsweep(ib.radlims, ib.plotlims, sb.outfieldnames,
@@ -2094,8 +2095,8 @@ def interp_sweeps_to_one_PIPS(radar_name, radarsweep_list, PIPS_name, rad_loc, a
                         field_at_PIPS = field_data[theta_index, range_index]
                     else:
                         field_neighborhood = field_data[
-                            theta_index-ngates2avg:theta_index+ngates2avg+1,
-                            range_index-ngates2avg:range_index+ngates2avg+1
+                            theta_index - ngates2avg:theta_index + ngates2avg + 1,
+                            range_index - ngates2avg:range_index + ngates2avg + 1
                         ]
                         field_at_PIPS = field_neighborhood.mean()
             else:
@@ -2112,7 +2113,7 @@ def interp_sweeps_to_one_PIPS(radar_name, radarsweep_list, PIPS_name, rad_loc, a
         radar_datetimes = sweeptime_list
     else:
         radar_datetimes = pd.to_datetime([radarsweep.metadata['time_coverage_start']
-                                         for radarsweep in radarsweep_list])
+                                          for radarsweep in radarsweep_list])
         radar_datetimes = [radar_datetime.to_pydatetime() for radar_datetime in radar_datetimes]
 
     # Create a DataArray with the radar fields interpolated to the PIPS location
@@ -2131,17 +2132,169 @@ def interp_sweeps_to_one_PIPS(radar_name, radarsweep_list, PIPS_name, rad_loc, a
                      })
     zrad_at_PIPS_da = xr.DataArray(np.array(zrad_at_PIPS_list),
                                    coords={
-                                       'time': radar_datetimes
+                                       'time': radar_datetimes,
                                    },
                                    dims=['time'],
                                    attrs={
                                        'radar_name': radar_name,
                                        'PIPS_name': PIPS_name,
                                        'PIPS_x': rad_loc[0],
-                                       'PIPS_y': rad_loc[1]
+                                       'PIPS_y': rad_loc[1],
                                    })
 
     return radar_fields_at_PIPS_da, zrad_at_PIPS_da
+
+
+def interp_sweeps_to_one_PIPS_new(radar_name, radar_path_dict, PIPS_name, geo_loc, el_req=0.5,
+                                  average_gates=True, ngates2avg=1):
+    """Interpolates a series of radar sweeps to the locations of a single PIPS. Likely will
+       replace the original interp_sweeps_to_PIPS. This new version avoids loading all of the radar
+       sweeps into memory at once.
+
+    Parameters
+    ----------
+    radar_name: str
+        Name of the radar
+    radar_path_dict : dict
+        Dictionary containing list of radar files and timestamps to read in
+    PIPS_name : str
+        The name of the PIPS
+    rad_loc : tuple
+        Tuple containing the (x, y) cartesian coordinates of the PIPS relative to the radar
+    average_gates : bool, optional
+        Whether to average the closest 9 gates, by default True
+
+    Returns
+    -------
+    xr.DataArray
+        DataArray containing the values of the different radar fields for each time interpolated to
+        the PIPS location.
+    """
+    # Hardcoded subset of field names
+    # FIXME: need to set this up to use aliases
+    # NOTE: just read and interpolate all fields in the radar object for now
+    # field_names = ['REF', 'VEL', 'ZDR', 'PHI', 'RHO', 'SW']
+
+
+    # Outer loop through radar sweeps
+    radar_input_paths = radar_path_dict['radarpathlist']
+    radar_sweeptimes = radar_path_dict['sweeptimelist']
+    radar_fields_at_PIPS_tlist = []
+    zrad_at_PIPS_list = []
+    for radar_input_path, sweeptime in zip(radar_input_paths, radar_sweeptimes):
+        radar_obj = readCFRadial_pyART(el_req, radar_input_path, sweeptime, compute_kdp=False)
+        if radar_input_path == radar_input_paths[0]:
+            rlat = radar_obj.latitude['data'][0]
+            rlon = radar_obj.longitude['data'][0]
+            ralt = radar_obj.altitude['data'][0]
+        rad_loc = get_PIPS_loc_relative_to_radar(geo_loc, rlat, rlon, ralt)
+        field_names, radar_fields_at_PIPS_arr, zrad_at_PIPS = \
+            interp_one_sweep_to_one_PIPS(radar_name, radar_obj, PIPS_name, rad_loc,
+                                         average_gates=average_gates, ngates2avg=ngates2avg)
+        radar_fields_at_PIPS_one_sweep_da = \
+            xr.DataArray(radar_fields_at_PIPS_arr,
+                         coords={
+                             'fields_{}'.format(radar_name): field_names,
+                         },
+                         dims=['fields_{}'.format(radar_name)],
+                         attrs={
+                             'radar_name': radar_name,
+                             'PIPS_name': PIPS_name,
+                             'PIPS_x': rad_loc[0],
+                             'PIPS_y': rad_loc[1],
+                         })
+
+        radar_fields_at_PIPS_tlist.append(radar_fields_at_PIPS_one_sweep_da)
+        zrad_at_PIPS_list.append(zrad_at_PIPS)
+
+    # Create time dimension DataArray
+    radar_datetimes_da = xr.DataArray(radar_sweeptimes,
+                                      coords={'time': radar_sweeptimes},
+                                      dims=['time'],
+                                      attrs={
+                                          'radar_name': radar_name,
+                                          'PIPS_name': PIPS_name,
+                                          'PIPS_x': rad_loc[0],
+                                          'PIPS_y': rad_loc[1],
+                                      })
+    # Concatenate list of DataArrays containing radar fields interpolated to PIPS along the new
+    # time dimension
+    radar_fields_at_PIPS_da = xr.concat(radar_fields_at_PIPS_tlist, dim=radar_datetimes_da,
+                                        join='inner')
+    # Create a DataArray with the heights of the radar beam for each time
+    zrad_at_PIPS_da = xr.DataArray(np.array(zrad_at_PIPS_list),
+                                   coords={
+                                       'time': radar_sweeptimes,
+                                   },
+                                   dims=['time'],
+                                   attrs={
+                                       'radar_name': radar_name,
+                                       'PIPS_name': PIPS_name,
+                                       'PIPS_x': rad_loc[0],
+                                       'PIPS_y': rad_loc[1],
+                                   })
+    return radar_fields_at_PIPS_da, zrad_at_PIPS_da
+
+
+def interp_one_sweep_to_one_PIPS(radar_name, radarsweep, PIPS_name, rad_loc, average_gates=True,
+                                 ngates2avg=1):
+    """Interpolates a single radar sweep to the locations of a single PIPS.
+
+    Parameters
+    ----------
+    radar_name: str
+        Name of the radar
+    radarsweep : pyART radar object
+        A single radar sweep to interpolate
+    PIPS_name : str
+        The name of the PIPS
+    rad_loc : tuple
+        Tuple containing the (x, y) cartesian coordinates of the PIPS relative to the radar
+    average_gates : bool, optional
+        Whether to average the closest 9 gates, by default True
+
+    Returns
+    -------
+    np.ndarray, float
+        Numpy arrays containing the values of the different radar fields interpolated to
+        the PIPS location, and the height of the radar beam at that location
+    """
+    # Hardcoded subset of field names
+    # FIXME: need to set this up to use aliases
+    # NOTE: just read and interpolate all fields in the radar object for now
+    # field_names = ['REF', 'VEL', 'ZDR', 'PHI', 'RHO', 'SW']
+    all_field_names = list(radarsweep.fields.keys())
+
+    # Get Cartesian locations of radar gates
+    xrad, yrad, zrad = radarsweep.get_gate_x_y_z(0)
+    distance = np.sqrt((rad_loc[0] - xrad)**2. + (rad_loc[1] - yrad)**2.)
+    # Now, find the index of the closest radar gate
+    theta_index, range_index = np.unravel_index(distance.argmin(), distance.shape)
+    zrad_at_PIPS = zrad[theta_index, range_index] - rad_loc[2]
+    print("Location of radar gate (x, y, z)", xrad[theta_index, range_index],
+          yrad[theta_index, range_index], zrad[theta_index, range_index])
+    print("Height of radar beam at PIPS: ", zrad_at_PIPS)
+    radar_field_list = []
+    # for field_name, field in list(radarsweep.fields.items()):
+    for field_name in all_field_names:
+        field = radarsweep.fields[field_name]
+        field_data = field['data']
+        if distance[theta_index, range_index] > 3000.:
+            field_at_PIPS = np.nan
+        else:
+            if not average_gates:
+                field_at_PIPS = field_data[theta_index, range_index]
+            else:
+                field_neighborhood = field_data[
+                    theta_index - ngates2avg:theta_index + ngates2avg + 1,
+                    range_index - ngates2avg:range_index + ngates2avg + 1
+                ]
+                field_at_PIPS = field_neighborhood.mean()
+
+        radar_field_list.append(field_at_PIPS)
+
+    radar_fields_at_PIPS_arr = np.array(radar_field_list)
+    return all_field_names, radar_fields_at_PIPS_arr, zrad_at_PIPS
 
 
 def dump_radar_fields_at_PIPS_nc(ncfile_path, radar_fields_at_PIPS_da):
@@ -2159,8 +2312,8 @@ def dump_radar_fields_at_PIPS_nc(ncfile_path, radar_fields_at_PIPS_da):
 
 # From pyXTTRA: https://github.rcac.purdue.edu/WRRLOrganization/pyXTRRA
 def CreateRadarFromRXM25netCDF(netcdf_file, instrument_name, cfradial_outfile=None, heading=None):
-    data  = netCDF4.Dataset(netcdf_file, 'r')
-    #fileTime = datetime.datetime.strptime(netcdf_file[-22:-7],'%Y%m%d-%H%M%S')
+    data = netCDF4.Dataset(netcdf_file, 'r')
+    # fileTime = datetime.datetime.strptime(netcdf_file[-22:-7],'%Y%m%d-%H%M%S')
 
 
     ngates = data.dimensions['Gate'].size
@@ -2168,8 +2321,8 @@ def CreateRadarFromRXM25netCDF(netcdf_file, instrument_name, cfradial_outfile=No
     radar = pyart.testing.make_empty_ppi_radar(ngates, rays_per_sweep, 1)
 
     # Time needs to be converted from nss1970 to nss1980 and added to radar object
-    nineteen89 = datetime(1989, 1, 1, 0, 0, 1, tzinfo = pytz.utc)
-    baseTime = np.array([datetime.fromtimestamp(t,tz=pytz.UTC) for t in data.variables['Time'][:]])
+    nineteen89 = datetime(1989, 1, 1, 0, 0, 1, tzinfo=pytz.utc)
+    baseTime = np.array([datetime.fromtimestamp(t, tz=pytz.UTC) for t in data.variables['Time'][:]])
     radar.time['data'] = np.array([t.total_seconds() for t in baseTime - nineteen89])
 
     if heading is not None:
@@ -2190,9 +2343,9 @@ def CreateRadarFromRXM25netCDF(netcdf_file, instrument_name, cfradial_outfile=No
     radar.fixed_angle['data'] = fixed_agl_data
 
     radar.range['data'] = np.linspace(
-        data['StartRange'][0]/1000,
-       (ngates - 1)*data['GateWidth'][0]/1000 + data['StartRange'][0]/1000,
-       ngates)
+        data['StartRange'][0] / 1000,
+        (ngates - 1) * data['GateWidth'][0] / 1000 + data['StartRange'][0] / 1000,
+        ngates)
 
     ref = data['Reflectivity'][:]
     norm_pow = data['NormalizedCoherentPower'][:]
@@ -2231,15 +2384,17 @@ def CreateRadarFromRXM25netCDF(netcdf_file, instrument_name, cfradial_outfile=No
 #    radar.fields['differential_phase']['data'] = diff_phase
 #    radar.fields['specific_differential_phase']['data'] = spec_phase
 #    radar.fields['corrected_differential_reflectivity']['data'] = corr_diff_ref
-    radar.fields['reflectivity']['data'] = np.ma.masked_where(sig_noise < 3.,ref)
+    radar.fields['reflectivity']['data'] = np.ma.masked_where(sig_noise < 3., ref)
     radar.fields['normalized_coherent_power']['data'] = norm_pow
-    radar.fields['spectral_width']['data'] = np.ma.masked_where(sig_noise < 3.,spec_w)
-    radar.fields['velocity']['data'] = np.ma.masked_where(sig_noise < 3.,vel)
-    radar.fields['corrected_reflectivity']['data'] = np.ma.masked_where(sig_noise < 3.,corr_ref)
-    radar.fields['differential_reflectivity']['data'] = np.ma.masked_where(sig_noise < 3.,diff_ref)
-    radar.fields['differential_phase']['data'] = np.ma.masked_where(sig_noise < 3.,diff_phase)
-    radar.fields['specific_differential_phase']['data'] = np.ma.masked_where(sig_noise < 3.,spec_phase)
-    radar.fields['corrected_differential_reflectivity']['data'] = np.ma.masked_where(sig_noise < 3.,corr_diff_ref)
+    radar.fields['spectral_width']['data'] = np.ma.masked_where(sig_noise < 3., spec_w)
+    radar.fields['velocity']['data'] = np.ma.masked_where(sig_noise < 3., vel)
+    radar.fields['corrected_reflectivity']['data'] = np.ma.masked_where(sig_noise < 3., corr_ref)
+    radar.fields['differential_reflectivity']['data'] = np.ma.masked_where(sig_noise < 3., diff_ref)
+    radar.fields['differential_phase']['data'] = np.ma.masked_where(sig_noise < 3., diff_phase)
+    radar.fields['specific_differential_phase']['data'] = np.ma.masked_where(sig_noise < 3.,
+                                                                             spec_phase)
+    radar.fields['corrected_differential_reflectivity']['data'] = np.ma.masked_where(sig_noise < 3.,
+                                                                                     corr_diff_ref)
     radar.fields['signal_to_noise_ratio']['data'] = sig_noise
     radar.fields['rain_rate']['data'] = rain_rate
     radar.fields['cross_correlation_ratio']['data'] = cross_ra
