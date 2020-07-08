@@ -194,20 +194,20 @@ if args.update_CG_coeff_attrs:
             parsivel_combined_ds.attrs['CG_coeff_C08'] = [-1.718, 0.902, -0.0201]
         # TODO: This is some ugly logic. Think about refactoring...
         if args.plot_SATP:
-            parsivel_combined_ds.attrs['CG_coeff{}_SATP_TMM'.format(ND_tag)] = TMM246_poly_coeff
-            parsivel_combined_ds.attrs['CG_coeff{}_SATP_MM'.format(ND_tag)] = MM246_poly_coeff
+            parsivel_combined_ds.attrs['CG_coeff_SATP_TMM{}'.format(ND_tag)] = TMM246_poly_coeff
+            parsivel_combined_ds.attrs['CG_coeff_SATP_MM{}'.format(ND_tag)] = MM246_poly_coeff
             # The following is for backwards compatibility
             # TODO: Still needed?
-            parsivel_combined_ds.attrs['CG_coeff{}_SATP'.format(ND_tag)] = TMM246_poly_coeff
+            parsivel_combined_ds.attrs['CG_coeff_SATP{}'.format(ND_tag)] = TMM246_poly_coeff
         else:
             if filtering:
-                parsivel_combined_ds.attrs['CG_coeff{}_TMM_F'.format(ND_tag)] = TMM246_poly_coeff
-                parsivel_combined_ds.attrs['CG_coeff{}_MM_F'.format(ND_tag)] = MM246_poly_coeff
+                parsivel_combined_ds.attrs['CG_coeff_TMM_F{}'.format(ND_tag)] = TMM246_poly_coeff
+                parsivel_combined_ds.attrs['CG_coeff_MM_F{}'.format(ND_tag)] = MM246_poly_coeff
                 parsivel_combined_ds.attrs['Filter_for_MM_F_and_TMM_F_fits'] = \
                     [filter_RR_tag, filter_counts_tag]
             else:
-                parsivel_combined_ds.attrs['CG_coeff{}_TMM'.format(ND_tag)] = TMM246_poly_coeff
-                parsivel_combined_ds.attrs['CG_coeff{}_MM'.format(ND_tag)] = MM246_poly_coeff
+                parsivel_combined_ds.attrs['CG_coeff_TMM{}'.format(ND_tag)] = TMM246_poly_coeff
+                parsivel_combined_ds.attrs['CG_coeff_MM{}'.format(ND_tag)] = MM246_poly_coeff
         parsivel_combined_ds.close()
         # Save updated dataset back to file
         parsivel_combined_ds.to_netcdf(parsivel_combined_file)

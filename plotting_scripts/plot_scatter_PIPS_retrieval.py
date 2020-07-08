@@ -40,10 +40,13 @@ parser.add_argument('--filter-RR', dest='filter_RR', type=float, default=None,
                     help='filter rainrate < # (mm)')
 parser.add_argument('--filter-counts', dest='filter_counts', type=int, default=None,
                     help='filter particle counts < #')
+parser.add_argument('--filter-ZDR', dest='filter_ZDR', type=float, default=None,
+                    help='filter ZDR < # (dB)')
 
 args = parser.parse_args()
 filter_RR = args.filter_RR
 filter_counts = args.filter_counts
+filter_ZDR = args.filter_ZDR
 
 # Dynamically import the case configuration file
 utils.log("Case config file is {}".format(args.case_config_path))

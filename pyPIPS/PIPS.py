@@ -742,3 +742,9 @@ def correct_ND_RB15(parsivel_ds, ND_name='ND_RB15_vshift_qc'):
 
     # Add the corrected ND to the parsivel_ds
     return combine_parsivel_data(parsivel_ds, ND_RB15, name='ND_RB15_qc')
+
+
+def calc_stats(ds, var_x, var_y):
+    bias = (100. * (ds[var_y] - ds[var_x]).mean() / ds[var_x].mean()).values
+    cc = pd.DataFrame({'x': ds[var_x], 'y': ds[var_y]}).corr()
+    return cc, bias

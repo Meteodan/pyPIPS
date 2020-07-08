@@ -1409,9 +1409,13 @@ def plot_scatter(ds, var_x, var_y, axparams, fig=None, ax=None, add_colorbar=Tru
     markerstyle = axparams.get('markerstyle', 'o')
 
     if plot_log[0]:
-        var_lims[0] = [10.**v for v in var_lims[0]]
+        x_lims = [10.**v for v in var_lims[0]]
+    else:
+        x_lims = var_lims[0]
     if plot_log[1]:
-        var_lims[1] = [10.**v for v in var_lims[1]]
+        y_lims = [10.**v for v in var_lims[1]]
+    else:
+        y_lims = var_lims[1]
 
     if not ax:
         fig, ax = plt.subplots(figsize=(10, 10))
@@ -1432,8 +1436,8 @@ def plot_scatter(ds, var_x, var_y, axparams, fig=None, ax=None, add_colorbar=Tru
         ax.set_xscale('log')
     if plot_log[1]:
         ax.set_yscale('log')
-    ax.set_xlim(var_lims[0])
-    ax.set_ylim(var_lims[1])
+    ax.set_xlim(x_lims)
+    ax.set_ylim(y_lims)
     ax.set_aspect('equal')
 
     return fig, ax
@@ -1443,17 +1447,25 @@ def plot_one2one(ds, var_x, var_y, axparams, fig=None, ax=None, compute_stats=Tr
                  add_colorbar=True):
 
     var_lims = axparams.get('var_lims', [[0., 1.], [0., 1.]])
+    plot_log = axparams.get('plot_log', [False, False])
     if compute_stats:
         stat_text_loc = axparams.get('stat_text_loc', [(0.1, 0.9), (0.1, 0.85)])
         stat_labels = axparams.get('stat_labels', [r'$\rho_{{rd}}$: {:.2f}',
                                                    r'Bias$_{{rd}}$: {:.2f}'])
 
     fig, ax = plot_scatter(ds, var_x, var_y, axparams, fig=fig, ax=ax, add_colorbar=add_colorbar)
-    ax.plot(var_lims[0], var_lims[1], color='k')
+    if plot_log[0]:
+        x_lims = [10.**v for v in var_lims[0]]
+    else:
+        x_lims = var_lims[0]
+    if plot_log[1]:
+        y_lims = [10.**v for v in var_lims[1]]
+    else:
+        y_lims = var_lims[1]
+    ax.plot(x_lims, y_lims, color='k')
 
     if compute_stats:
-        bias = (100. * (ds[var_y] - ds[var_x]).mean() / ds[var_x].mean()).values
-        cc = pd.DataFrame({'x': ds[var_x], 'y': ds[var_y]}).corr()
+        cc, bias = pips.calc_stats(ds, var_x, var_y)
         ax.text(*stat_text_loc[0], stat_labels[0].format(cc.iloc[0, 1]), transform=ax.transAxes)
         ax.text(*stat_text_loc[1], stat_labels[1].format(bias), transform=ax.transAxes)
 

@@ -1,6 +1,7 @@
 """Configuration file for the various plotting scripts"""
 import matplotlib.dates as dates
 import matplotlib.ticker as ticker
+import matplotlib.colors as colors
 
 PIPS_plotting_dict = {
     # For DSD meteograms
@@ -22,3 +23,16 @@ PIPS_plotting_dict = {
     'minorxlocator': dates.MinuteLocator(byminute=range(0, 60, 5)),
     'xlabel': 'Time (HH:MM)'
 }
+
+axparams_Dm = {
+    'var_lims': [[0.0, 4.5], [0.0, 4.5]],
+    'col_field': 'RR_obs',
+    'col_field_lims': [0.1, 200.],
+    'norm': colors.LogNorm(vmin=0.1, vmax=200.),
+    'alpha': 0.75,
+    'markersize': 5,
+    'label_x': r'$D_m$ (obs; mm)',
+    'label_y': r'$D_m$ (retrieved; mm)',
+    'label_cb': r'$RR$ (mm h$^{-1}$)'
+}
+

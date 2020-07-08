@@ -1323,7 +1323,7 @@ def retrieval_Cao_xr(ZH, ZDR, ND, D, dD, fa2, fb2, wavelength, mu_lamda_coeff, Z
     Nt_key = 'Nt_retr_' + retrieval_tag
     W_key = 'W_retr_' + retrieval_tag
     sigma_key = 'sigma_retr_' + retrieval_tag
-    Dm_key = 'Dm_retr_' + retrieval_tag
+    Dm_key = 'Dm43_retr_' + retrieval_tag
     ND_key = 'ND_retr_' + retrieval_tag
 
     ZH_arr = ZH.values

@@ -104,8 +104,13 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
     if index == 0:
         if args.coefficients:
             mu_lambda_coeff = args.coefficients
+            retrieval_tag = args.retrieval_tag
         else:
-            mu_lambda_coeff = parsivel_combined_ds.attrs['CG_coeff_{}'.format(args.retrieval_tag)]
+            if args.retrieval_tag in ['C08', 'Z01']:
+                retrieval_tag = args.retrieval_tag
+            else:
+                retrieval_tag = '{}{}'.format(args.retrieval_tag, ND_tag)
+            mu_lambda_coeff = parsivel_combined_ds.attrs['CG_coeff_{}'.format(retrieval_tag)]
 
     if not args.calc_for_SATP:
         DSD_interval = parsivel_combined_ds.DSD_interval
@@ -131,7 +136,7 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
     fb2 = dualpol_dict['fb2']
 
     retr_dict = dsd.retrieval_Cao_xr(ZH, ZDR, ND, D, dD, fa2, fb2, wavelength, mu_lambda_coeff,
-                                     retrieval_tag=args.retrieval_tag)
+                                     retrieval_tag='{}{}'.format(args.retrieval_tag, ND_tag))
 
     retr_ds = xr.Dataset(retr_dict)
     parsivel_combined_ds.update(retr_ds)
