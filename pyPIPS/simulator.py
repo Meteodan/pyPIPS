@@ -2057,10 +2057,11 @@ def read_ARPS_ensemble(f, member_list, f_args=None, f_kwargs=None, iterate_over=
     return runs
 
 
-def read_ARPS_member_data(basedir, expname, member, cycle, fileformat, time_range, varnames,
-                          filetype='history', ibgn=None, iend=None, jbgn=None, jend=None, klvls=[1],
-                          nproc_x=1, nproc_y=1, dump_nc_output=True, ncdir=None, fileprefix='',
-                          grid_dict=None, datetime_range=None, x=None, y=None, mid_diameters=None):
+def read_ARPS_member_data(basedir, expname, member, cycle, fileformat, time_range, tintv_mean,
+                          varnames, filetype='history', ibgn=None, iend=None, jbgn=None, jend=None,
+                          klvls=[1], nproc_x=1, nproc_y=1, dump_nc_output=True, ncdir=None,
+                          fileprefix='', grid_dict=None, datetime_range=None, x=None, y=None,
+                          mid_diameters=None):
     """[summary]
 
     Parameters
@@ -2076,6 +2077,8 @@ def read_ARPS_member_data(basedir, expname, member, cycle, fileformat, time_rang
     fileformat : [type]
         [description]
     time_range : [type]
+        [description]
+    tintv_mean : [type]
         [description]
     varnames : [type]
         [description]
@@ -2109,13 +2112,19 @@ def read_ARPS_member_data(basedir, expname, member, cycle, fileformat, time_rang
         [description], by default None
     """
     print("Loading member #{:d}".format(member))
-    # Get member run prefix
-    member_dir, member_prefix = get_ARPS_member_dir_and_prefix(member, cycle)
-    member_absdir = os.path.join(basedir, expname, member_dir)
     vardict_list = []
     # all_files_exist_list = []
     for time in time_range:
         print("Loading time ", time)
+        # Need to use "EN" prefix for times between analysis times even if we are choosing the
+        # "prior" fields
+        if time % tintv_mean != 0:
+            cycle_temp = 'posterior'
+        else:
+            cycle_temp = 'prior'
+        # Get member run prefix
+        member_dir, member_prefix = get_ARPS_member_dir_and_prefix(member, cycle_temp)
+        member_absdir = os.path.join(basedir, expname, member_dir)
         # Get member file path
         filepath = arps_read.get_file_path(member_absdir, member_prefix, fileformat, time=time,
                                            filetype='history')

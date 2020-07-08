@@ -173,12 +173,12 @@ jend = np.searchsorted(yc, gridlims[3]) + 1
 # Read in ensemble and dump slice patches to netCDF files
 # TODO: put varname list in config file
 varnames = ['p', 'pt', 'qv', 'u', 'v', 'qr', 'nr', 'zr']
-member_list = range(1, num_members+1)
+member_list = range(1, num_members + 1)
 klvls = [args.model_level]
-xc_patch = xc[ibgn:iend+1]
-yc_patch = yc[jbgn:jend+1]
-xe_patch = xe[ibgn:iend+2]
-ye_patch = ye[jbgn:jend+2]
+xc_patch = xc[ibgn:iend + 1]
+yc_patch = yc[jbgn:jend + 1]
+xe_patch = xe[ibgn:iend + 2]
+ye_patch = ye[jbgn:jend + 2]
 
 grid_dict_patch = {
     'nx_full': nx,
@@ -197,7 +197,7 @@ grid_dict_patch = {
 }
 
 # Pack the args and kwargs for the call to the parallel reader wrapper function
-f_args = (basedir, expname, member, cycle, fileformat, trange_sec, varnames)
+f_args = (basedir, expname, member, cycle, fileformat, trange_sec, tintv_mean, varnames)
 f_kwargs = {
     'filetype': filetype,
     'ibgn': ibgn,
@@ -211,7 +211,7 @@ f_kwargs = {
     'datetime_range': datetime_range,
     'mid_diameters': mid_diameters_da,
     'grid_dict': grid_dict_patch,
-    'fileprefix': expname+'_',
+    'fileprefix': expname + '_',
     }
 
 # Set up the parallel read of all the model members
