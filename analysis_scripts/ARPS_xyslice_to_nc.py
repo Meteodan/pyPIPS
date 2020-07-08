@@ -76,6 +76,7 @@ basedir = config.model_config_dict['basedirname']
 num_members = config.model_config_dict['nens']
 nproc_x = config.model_config_dict['nproc_x']
 nproc_y = config.model_config_dict['nproc_y']
+cycle = config.model_config_dict['cycle']
 
 # Extract needed lists and variables from PIPS_IO_dict configuration dictionary
 deployment_names = config.PIPS_IO_dict.get('deployment_names', None)
@@ -95,7 +96,6 @@ requested_interval = config.PIPS_IO_dict.get('requested_interval', 10.)
 # patches)
 # If the grdbas file doesn't exist, fall back to a history file
 member = 1  # 0 is for ensemble mean
-cycle = 'posterior'
 member_dir, member_prefix = sim.get_ARPS_member_dir_and_prefix(member, cycle)
 member_absdir = os.path.join(basedir, expname, member_dir)
 trailer = ''
