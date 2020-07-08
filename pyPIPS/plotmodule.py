@@ -773,11 +773,12 @@ def plotDSDmeteograms(dis_name, image_dir, axparams, disvars, radvars=None, clos
     flaggedtimes = disvars.get('flaggedtimes', N.empty((0)))
     hailflag = disvars.get('hailflag', N.empty((0)))
     if radvars is not None:
-        # D_0_rad = radvars.get('D_0_rad', N.empty((0)))
+        #D_0_rad = radvars.get('D_0_rad', N.empty((0)))
         D_m_keys = [k for k, v in radvars.items() if 'D_m' in k]
         radmidtimes = radvars.get('radmidtimes', N.empty((0)))
     else:
         D_0_rad = N.empty((0))
+        D_m_keys = []
         radmidtimes = N.empty((0))
 
     # Try to find the desired dualpol variables for plotting in the provided dictionary
