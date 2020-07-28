@@ -19,6 +19,7 @@ lib/
 lib64/
 parts/
 sdist/
+src/pycrmtools
 var/
 venv/
 *.egg-info/
@@ -92,3 +93,4 @@ target/
 *.orig
 .vscode
 *.bak
+default.profraw

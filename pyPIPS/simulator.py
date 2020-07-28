@@ -1,22 +1,31 @@
 # simulator.py: a collection of functions related to the Parsivel simulator
 
+import inspect
 import numpy as np
 from scipy.stats import gamma, uniform
-from . import disdrometer_module as dis
+# from . import disdrometer_module as dis
+from . import PIPS as pips
+from . import parsivel_params as pp
 from . import plotmodule as pm
 from . import DSDlib as dsd
+from .legacy import disdrometer_module as dis
 from shapely.geometry import MultiLineString, LineString
 from datetime import datetime
 import glob
 import os
 from . import radarmodule as radar
 from . import thermolib as thermo
-from .datahandler import getDataHandler
+from .legacy.datahandler import getDataHandler
 from . import dualpara as dualpol
 import pyart as pyart
 import matplotlib.pyplot as plt
 from metpy.plots import ctables
 import matplotlib.ticker as ticker
+import xarray as xr
+from pyCRMtools.modules import utils as CRMutils
+from pyCRMtools.pycaps import arps_read
+from pyCRMtools.pycaps import pycaps_fields
+from joblib import Parallel, delayed
 
 # Some global parameters to make my life easier
 rhoacst = 1.0  # kg m^-3
@@ -24,23 +33,24 @@ rhorcst = 1000.  # kg m^-3
 cr = rhorcst * np.pi / 6.
 mur = 1. / 3.  # FIXME: Assume rain is gamma-diameter for now!
 
-sampling_area = dis.sensor_area
-sampling_width = dis.sensor_width
-sampling_length = dis.sensor_length
+sampling_area = pp.parsivel_parameters['sensor_area_mm2']
+sampling_width = pp.parsivel_parameters['sensor_width_mm']
+sampling_length = pp.parsivel_parameters['sensor_length_mm']
 
-D = dis.avg_diameter / 1000.
-Dl = dis.min_diameter / 1000.
-Dr = dis.max_diameter / 1000.
+D = pips.parsivel_parameters['avg_diameter_bins_mm']
+Dl = pips.parsivel_parameters['min_diameter_bins_mm']
+Dr = pips.parsivel_parameters['max_diameter_bins_mm']
 Dedges = np.append(Dl, Dr[-1])
 bin_width = Dr - Dl
 
 
-def get_Dmax_index(Dmax):
+def get_Dmax_index(Dr, Dmax):
     if Dmax is not None:
         Dmax_index = np.searchsorted(Dr, Dmax / 1000., side='right')
     else:
-        Dmax_index = np.size(Dr)
-    return Dmax_index
+        Dmax_index = np.size(Dr) - 1
+        Dmax = Dr[Dmax_index] * 1000.
+    return Dmax, Dmax_index
 
 
 def samplegammaDSD(Nt, lamda, alpha, bins=None):
@@ -57,19 +67,16 @@ def samplegammaDSD(Nt, lamda, alpha, bins=None):
 
 
 def create_random_gamma_DSD(Nt, lamda, alpha, Vt, sampling_length, sampling_width, Dl, Dmid, Dr,
-                            Dmin=0, Dmax=20.0, sampling_interval=10., remove_margins=False,
+                            Dmin=0, Dmax=None, sampling_interval=10., remove_margins=False,
                             verbose=False, rhocorrect=False, rho=None, mask_lowest=True,
                             perturb_vel=True):
     """Given Nt, lamda, alpha, create a spatial distribution in a volume"""
     # First, determine the sampling volume. Use the sampling area A multiplied by the
     # depth that the fasted falling particle would cover in the time given by sampling_interval
-    if Dmax is None:
-        Dmax_index = np.size(Dr)
-    else:
-        Dmax_index = np.searchsorted(Dr, Dmax / 1000., side='right')
+    Dmax, Dmax_index = get_Dmax_index(Dr, Dmax)
     if verbose:
         print("Dmax_index = ", Dmax_index)
-    Vt = dis.assignfallspeed(Dmid * 1000., rhocorrect=rhocorrect, rho=rho)
+    # Vt = dis.assignfallspeed(Dmid * 1000., rhocorrect=rhocorrect, rho=rho)
     Vtmax = Vt[Dmax_index]
     sampling_height = Vtmax * sampling_interval
     sampling_area = sampling_length * sampling_width
@@ -95,16 +102,16 @@ def create_random_gamma_DSD(Nt, lamda, alpha, Vt, sampling_length, sampling_widt
     # distribution given by n, lamda, and alpha
 
     diameters = samplegammaDSD(n, lamda, alpha)
-    if verbose:
+    if verbose and diameters.size:
         print("minimum, maximum diameter in sample = ", diameters.min(), diameters.max())
-        print("maximumm allowed diameter = ", Dmax / 1000.)
+        print("maximum allowed diameter = ", Dmax / 1000.)
     # Restrict diameters to be less than Dmax
     diameter_mask = diameters <= Dmax / 1000.
     if verbose:
         print("number of particles less than Dmax = ", diameter_mask.sum())
     # Mask the lowest two diameter bins by default (the real Parsivel does this owing to low SNR)
     if mask_lowest:
-        low_mask = diameters > dis.max_diameter[1] / 1000.
+        low_mask = diameters > Dr[1] / 1000.
         if verbose:
             print("number of particles above the lowest two bins = ", low_mask.sum())
         diameter_mask = diameter_mask & low_mask
@@ -115,14 +122,15 @@ def create_random_gamma_DSD(Nt, lamda, alpha, Vt, sampling_length, sampling_widt
 
     if verbose:
         print("number of particles within allowable diameter range = ", diameter_mask.sum())
-        print(
-            "minimum, maximum particle diameter in truncated sample = ",
-            diameters.min(),
-            diameters.max())
+        if diameter_mask.sum() > 0.:
+            print(
+                "minimum, maximum particle diameter in truncated sample = ",
+                diameters.min(),
+                diameters.max())
 
     # Now, figure out which drops in the volume won't fall through the sensor
     # area in the given time, and remove them
-    velocities = dis.assignfallspeed(diameters * 1000., rhocorrect=rhocorrect, rho=rho)
+    velocities = pips.calc_empirical_fallspeed(diameters * 1000., correct_rho=rhocorrect, rho=rho)
     # TODO: add gaussian perturbations to velocities as an option
     depths = velocities * sampling_interval
     keepers = np.where(zpos.squeeze() - depths <= 0.)
@@ -162,8 +170,11 @@ def create_random_gamma_DSD(Nt, lamda, alpha, Vt, sampling_length, sampling_widt
     # Bin up particles into the Parsivel diameter bins (later will add velocity too; right now all
     # particles are assumed to fall strictly along theoretical/empirical fall speed curve)
     Dedges = np.append(Dl, Dr[-1])
-    Dedges = Dedges[:Dmax_index + 1]
+    print(Dedges.shape)
+    # Dedges = Dedges[:Dmax_index + 1]
     pcount_binned, _ = np.histogram(diameters, Dedges)
+    # print('diameters shape, dedges shape, pcount_binned shape', diameters.shape, Dedges.shape,
+    # pcount_binned.shape)
     # Compute ND of sample in original Parsivel diameter and velocity bins
     # Gets particle count/unit volume/diameter interval
     ND = calc_ND(pcount_binned, sampling_volumes_D, Dr, Dl, Dmax)
@@ -178,20 +189,14 @@ def create_random_gamma_DSD(Nt, lamda, alpha, Vt, sampling_length, sampling_widt
 def calc_ND(pcount_binned, sampling_volumes_D, Dr, Dl, Dmax):
     """Calculate the number density ND for diameter bins bounded by Dr, Dl
        given the particle counts in each bin (pcount_binned)"""
-    if Dmax is None:
-        Dmax_index = np.size(Dr)
-    else:
-        Dmax_index = np.searchsorted(Dr, Dmax / 1000., side='right')
-    return pcount_binned / (sampling_volumes_D * (Dr[:Dmax_index] - Dl[:Dmax_index]))
+    Dmax, Dmax_index = get_Dmax_index(Dr, Dmax)
+    return pcount_binned / (sampling_volumes_D * (Dr[:Dmax_index+1] - Dl[:Dmax_index+1]))
 
 
 def calc_sampling_volumes_D(Vt, Dr, Dmax, sampling_interval, sampling_area):
     """Calculate the sampling volumes as a function of terminal velocity."""
-    if Dmax is None:
-        Dmax_index = np.size(Dr)
-    else:
-        Dmax_index = np.searchsorted(Dr, Dmax / 1000., side='right')
-    return Vt[:Dmax_index] * sampling_interval * sampling_area
+    Dmax, Dmax_index = get_Dmax_index(Dr, Dmax)
+    return Vt[:Dmax_index+1] * sampling_interval * sampling_area
 
 
 def uniquetol(a, tol=1.e-3):
@@ -205,7 +210,12 @@ def uniquetol(a, tol=1.e-3):
     return b[d > tol]
 
 
-def find_transect_grid_intersections(casedate, grid_dict, dis_dict, model_dict, radar_dict,
+def combine_sample_and_model_times(model_datetimes, probe_datetimes):
+    """Given a range of model datetimes and a range of probe datetimes, combine them
+       into a single range"""
+
+
+def find_transect_grid_intersections(grid_dict, dis_dict, model_dict, radar_dict,
                                      vardict, plot_locations=True, debug=False):
     """Find intersections of probe transects with the model grid"""
 
@@ -229,27 +239,27 @@ def find_transect_grid_intersections(casedate, grid_dict, dis_dict, model_dict, 
 
     grid = MultiLineString(lines)
 
-    # dh = model_dict[casedate]['DataHandler']
-    model_times = model_dict[casedate]['model_times']
-    reference_time_sec = model_dict[casedate]['modeltimesec_ref']
-    reference_time = model_dict[casedate]['modeltime_ref']
+    # dh = model_dict['DataHandler']
+    model_times = model_dict['model_times']
+    reference_time_sec = model_dict['modeltimesec_ref']
+    reference_time = model_dict['modeltime_ref']
     # TODO: Make sure that there is a "model_dt" key in model_dict
     model_dt = model_dict['model_dt']
-    umove, vmove = radar_dict[casedate]['feature_motion']
+    umove, vmove = radar_dict['feature_motion']
     # Grab locations of disdrometers relative to radars and use the
     # last disdrometer in the list as the "reference"
-    dxlist = [i[0] for i in dis_dict[casedate]['dradloclist']]
-    dylist = [i[1] for i in dis_dict[casedate]['dradloclist']]
+    dxlist = [i[0] for i in dis_dict['dradloclist']]
+    dylist = [i[1] for i in dis_dict['dradloclist']]
     dis_x_rad = dxlist[-1]
     dis_y_rad = dylist[-1]
 
-    if model_dict[casedate]['composite']:
+    if model_dict['composite']:
 
-        dis_x, dis_y = model_dict[casedate]['ref_coords_comp']
+        dis_x, dis_y = model_dict['ref_coords_comp']
         model_times_rel = [0.]
         fixed_time = True
     else:
-        dis_x, dis_y = model_dict[casedate]['ref_coords']
+        dis_x, dis_y = model_dict['ref_coords']
         model_times_rel = np.array(model_times) - reference_time_sec
         if model_times_rel.size == 1:
             fixed_time = True
@@ -269,7 +279,7 @@ def find_transect_grid_intersections(casedate, grid_dict, dis_dict, model_dict, 
     dxmodlist = [d_x + xshift for d_x in dxlist]
     dymodlist = [d_y + yshift for d_y in dylist]
 
-    PSDtimes = dis_dict[casedate]['timeseries']['times']
+    PSDtimes = dis_dict['timeseries']['times']
 #     print PSDtimes
 #     print reference_time
     # Loop through each disdrometer
@@ -439,7 +449,7 @@ def find_transect_grid_intersections(casedate, grid_dict, dis_dict, model_dict, 
         # TODO: Fix convoluted logic below. Just doing it this way right now for
         # backwards-compatibility with original notebook cell
         for t, tloc in enumerate(tgblocs):
-            if model_dict[casedate]['composite']:
+            if model_dict['composite']:
                 vars_at_ts.append(vardict)
             elif fixed_time:
                 if t == 0:
@@ -593,7 +603,7 @@ def init_composite(compositedict, grid_dict):
     return compositedict
 
 
-def read_probe_time_series(casedate, dis_dict, radar_dict):
+def read_probe_time_series(dis_dict, radar_dict):
     """Reads in needed timeseries data for the probes for a given case date. May replace
        read_convdata_at_sweeptimes since it is more general."""
 
@@ -611,12 +621,12 @@ def read_probe_time_series(casedate, dis_dict, radar_dict):
     pcountlist = []
 
     # Extract stuff from dictionary
-    dis_types = dis_dict[casedate]['dis_types']
-    disfilenames = dis_dict[casedate]['disfilenames']
-    convfilenames = dis_dict[casedate]['convfilenames']
-    starttimes = dis_dict[casedate]['starttimes']
-    stoptimes = dis_dict[casedate]['stoptimes']
-    dis_dir = dis_dict[casedate]['dis_dir']
+    dis_types = dis_dict['dis_types']
+    disfilenames = dis_dict['disfilenames']
+    convfilenames = dis_dict['convfilenames']
+    starttimes = dis_dict['starttimes']
+    stoptimes = dis_dict['stoptimes']
+    dis_dir = dis_dict['dis_dir']
 
     for dis_type, disfilename, convfilename, starttime, stoptime in zip(dis_types, disfilenames,
                                                                         convfilenames, starttimes,
@@ -692,17 +702,17 @@ def read_probe_time_series(casedate, dis_dict, radar_dict):
         pcountlist.append(pcount)
 
     # Stuff all the data into the dis_dict dictionary
-    dis_dict[casedate]['timeseries'] = {'windspdavgvec': windspdavgveclist,
-                                        'winddiravgvec': winddiravgveclist,
-                                        'temp': templist, 'dewpoint': dewpointlist,
-                                        'pressure': pressurelist, 'rho': rholist, 'ND': NDlist,
-                                        'intensity': intensitylist, 'pcount': pcountlist,
-                                        'times': timeslist}
+    dis_dict['timeseries'] = {'windspdavgvec': windspdavgveclist,
+                              'winddiravgvec': winddiravgveclist,
+                              'temp': templist, 'dewpoint': dewpointlist,
+                              'pressure': pressurelist, 'rho': rholist, 'ND': NDlist,
+                              'intensity': intensitylist, 'pcount': pcountlist,
+                              'times': timeslist}
 
     return dis_dict
 
 
-def read_convdata_at_sweeptimes(casedate, dis_dict, radar_dict):
+def read_convdata_at_modeltimes(dis_dict, model_dict):
     """Reads in the conventional data valid at the radar times from the probes for the given case
        and stuffs it into the dis_dict dictionary"""
     deployedlist = []
@@ -716,15 +726,16 @@ def read_convdata_at_sweeptimes(casedate, dis_dict, radar_dict):
     # NDlist = []
 
     # Extract stuff from dictionary
-    dis_types = dis_dict[casedate]['dis_types']
-    disfilenames = dis_dict[casedate]['disfilenames']
+    dis_types = dis_dict['dis_types']
+    disfilenames = dis_dict['disfilenames']
     try:
-        convfilenames = dis_dict[casedate]['convfilenames']
-    except BaseException:
+        convfilenames = dis_dict['convfilenames']
+    except KeyError:
         convfilenames = [None] * len(dis_types)
-    starttimes = dis_dict[casedate]['starttimes']
-    stoptimes = dis_dict[casedate]['stoptimes']
-    dis_dir = dis_dict[casedate]['dis_dir']
+    starttimes = dis_dict['starttimes']
+    stoptimes = dis_dict['stoptimes']
+    dis_dir = dis_dict['dis_dir']
+    interval = dis_dict['interval']
 
     for dis_type, disfilename, convfilename, starttime, stoptime in zip(dis_types, disfilenames,
                                                                         convfilenames, starttimes,
@@ -736,19 +747,19 @@ def read_convdata_at_sweeptimes(casedate, dis_dict, radar_dict):
 
         if dis_type in 'CU':
 
-            DSD_dict = dis.readCU(conv_filepath, dis_filepath, requested_interval=60.0,
+            DSD_dict = dis.readCU(conv_filepath, dis_filepath, requested_interval=interval,
                                   starttime=starttime, stoptime=stoptime)
             windspdstr = 'bwindspd'
             winddirstr = 'bwinddirabs'
             tempstr = 'slowtemp'
         elif dis_type in 'NV2':
-            DSD_dict = dis.readNV2netCDF(conv_filepath, dis_filepath, requested_interval=60.0,
+            DSD_dict = dis.readNV2netCDF(conv_filepath, dis_filepath, requested_interval=interval,
                                          starttime=starttime, stoptime=stoptime)
             windspdstr = 'swindspd'
             winddirstr = 'swinddirabs'
             tempstr = 'slowtemp'
         elif dis_type in 'PIPS':
-            DSD_dict = dis.readPIPS(dis_filepath, requested_interval=60.0,
+            DSD_dict = dis.readPIPS(dis_filepath, requested_interval=interval,
                                     starttime=starttime, stoptime=stoptime)
             windspdstr = 'windspd'
             winddirstr = 'winddirabs'
@@ -797,13 +808,13 @@ def read_convdata_at_sweeptimes(casedate, dis_dict, radar_dict):
         pressuretlist = []
 
         # Find the times closest to the sweeptimes
-        for sweeptime in radar_dict[casedate]['sweeptimelist']:
+        for modeltime in model_dict['datetime_range']:
             try:
                 index = next(
                     i for i, t in enumerate(datetimesUTC) if np.abs(
-                        (t - sweeptime).total_seconds()) <= 10.)
+                        (t - modeltime).total_seconds()) <= 10.)
                 deployedtlist.append(True)
-            except BaseException:
+            except Exception:
                 index = None
                 deployedtlist.append(False)
 
@@ -843,7 +854,7 @@ def read_convdata_at_sweeptimes(casedate, dis_dict, radar_dict):
         pressurelist.append(pressurearr)
 
     # Stuff all the data into the dis_dict dictionary
-    dis_dict[casedate]['convdata_at_sweeptimes'] = {
+    dis_dict['convdata_at_modeltimes'] = {
         'windspd': windspdlist, 'windspdavgvec': windspdavgveclist, 'winddirabs': winddirabslist,
         'winddiravgvec': winddiravgveclist, 'temp': templist, 'dewpoint': dewpointlist,
         'pressure': pressurelist, 'deployed': deployedlist
@@ -852,46 +863,203 @@ def read_convdata_at_sweeptimes(casedate, dis_dict, radar_dict):
     return dis_dict
 
 
-def read_sweeps(casedate, radar_dict):
+def read_convdata_at_sweeptimes(dis_dict, radar_dict, resample_interval=60.):
+    """Reads in the conventional data valid at the radar times from the probes for the given case
+       and stuffs it into the dis_dict dictionary"""
+    deployedlist = []
+    windspdlist = []
+    windspdavgveclist = []
+    winddirabslist = []
+    winddiravgveclist = []
+    templist = []
+    dewpointlist = []
+    pressurelist = []
+    # NDlist = []
+
+    # Extract stuff from dictionary
+    dis_types = dis_dict['dis_types']
+    disfilenames = dis_dict['disfilenames']
+    try:
+        convfilenames = dis_dict['convfilenames']
+    except KeyError:
+        convfilenames = [None] * len(dis_types)
+    starttimes = dis_dict['starttimes']
+    stoptimes = dis_dict['stoptimes']
+    dis_dir = dis_dict['dis_dir']
+    interval = dis_dict['interval']
+
+    for dis_type, disfilename, convfilename, starttime, stoptime in zip(dis_types, disfilenames,
+                                                                        convfilenames, starttimes,
+                                                                        stoptimes):
+
+        dis_filepath = os.path.join(dis_dir, disfilename)
+        if convfilename is not None:
+            conv_filepath = os.path.join(dis_dir, convfilename)
+
+        if dis_type in 'CU':
+
+            DSD_dict = dis.readCU(conv_filepath, dis_filepath, requested_interval=interval,
+                                  starttime=starttime, stoptime=stoptime)
+            windspdstr = 'bwindspd'
+            winddirstr = 'bwinddirabs'
+            tempstr = 'slowtemp'
+        elif dis_type in 'NV2':
+            DSD_dict = dis.readNV2netCDF(conv_filepath, dis_filepath, requested_interval=interval,
+                                         starttime=starttime, stoptime=stoptime)
+            windspdstr = 'swindspd'
+            winddirstr = 'swinddirabs'
+            tempstr = 'slowtemp'
+        elif dis_type in 'PIPS':
+            DSD_dict = dis.readPIPS(dis_filepath, requested_interval=interval,
+                                    starttime=starttime, stoptime=stoptime)
+            windspdstr = 'windspd'
+            winddirstr = 'winddirabs'
+            tempstr = 'fasttemp'
+
+        # Extract conventional data timeseries
+        conv_df = DSD_dict['conv_df']
+        windspds = conv_df[windspdstr].values
+        winddirabss = conv_df[winddirstr].values
+        temps = conv_df[tempstr].values
+        dewpoints = conv_df['dewpoint'].values
+        pressures = conv_df['pressure'].values
+
+        sec_offset = conv_df.index.to_pydatetime()[0].second
+        conv_df = pips.resample_conv(dis_type, resample_interval, sec_offset, conv_df, gusts=True,
+                                     gustintvstr='3S', center=False)
+
+        windspdsavgvec = conv_df['windspdavgvec'].values
+        winddirsavgvec = conv_df['winddiravgvec'].values
+
+        # Plot wind meteogram
+        # windavgintv = 60
+        # windgustintv = 3
+
+    #     # Compute wind speed and direction, and wind gusts
+    #     if dis_type in 'NV2':
+    #         windspdsavg = windspds
+    #         windspdsavgvec = windspds
+    #         windgustsavg = conv_df['swindgust'].values
+    #         winddirsavgvec = winddirabss
+    #     elif dis_type in 'CU':
+    #         windspdsavg, windspdsavgvec, winddirsavgvec, windgusts, windgustsavg = \
+    #             dis.avgwind(winddirabss, windspds, windavgintv, gusts=True, gustintv=windgustintv,
+    #                         center=False)
+    #     elif dis_type in 'PIPS':
+    #         windspdsavg, windspdsavgvec, winddirsavgvec, windgusts, windgustsavg = dis.avgwind(
+    #             winddirabss, windspds, windavgintv, gusts=True, gustintv=windgustintv,
+    # center=False)
+    # #     offset = 0
+    # #     windspdsavg,windspdsavgvec,winddirsavgvec,winddirsunitavgvec,windgusts,windgustsavg, \
+    # #       usavg,vsavg,unit_usavg,unit_vsavg = \
+    # #     dis.resamplewind(datetimesUTC,offset,winddirabss,windspds,'60S',gusts=True,
+    # #                      gustintvstr='3S',center=False)
+
+        datetimesUTC = conv_df.index.to_pydatetime()  # DSD_dict['convtimestamps']
+
+        deployedtlist = []
+        windspdtlist = []
+        windspdavgvectlist = []
+        winddirabstlist = []
+        winddiravgvectlist = []
+        temptlist = []
+        dewpointtlist = []
+        pressuretlist = []
+
+        # Find the times closest to the sweeptimes
+        # TODO: just resmpale to the sweeptimes for crying out loud.
+        for sweeptime in radar_dict['sweeptimelist']:
+            try:
+                index = next(
+                    i for i, t in enumerate(datetimesUTC) if np.abs(
+                        (t - sweeptime).total_seconds()) <= resample_interval)
+                deployedtlist.append(True)
+            except Exception:
+                index = None
+                deployedtlist.append(False)
+
+            if index is not None:
+                windspdtlist.append(windspds[index])
+                winddirabstlist.append(winddirabss[index])
+                temptlist.append(temps[index])
+                dewpointtlist.append(dewpoints[index])
+                pressuretlist.append(pressures[index])
+                windspdavgvectlist.append(windspdsavgvec[index])
+                winddiravgvectlist.append(winddirsavgvec[index])
+            else:
+                windspdtlist.append(np.nan)
+                winddirabstlist.append(np.nan)
+                temptlist.append(np.nan)
+                dewpointtlist.append(np.nan)
+                pressuretlist.append(np.nan)
+                windspdavgvectlist.append(np.nan)
+                winddiravgvectlist.append(np.nan)
+
+        deployedarr = np.array(deployedtlist)
+        windspdarr = np.array(windspdtlist)
+        winddirabsarr = np.array(winddirabstlist)
+        temparr = np.array(temptlist)
+        dewpointarr = np.array(dewpointtlist)
+        pressurearr = np.array(pressuretlist)
+        windspdavgvecarr = np.array(windspdavgvectlist)
+        winddiravgvecarr = np.array(winddiravgvectlist)
+
+        deployedlist.append(deployedarr)
+        windspdlist.append(windspdarr)
+        windspdavgveclist.append(windspdavgvecarr)
+        winddirabslist.append(winddirabsarr)
+        winddiravgveclist.append(winddiravgvecarr)
+        templist.append(temparr)
+        dewpointlist.append(dewpointarr)
+        pressurelist.append(pressurearr)
+
+    # Stuff all the data into the dis_dict dictionary
+    dis_dict['convdata_at_sweeptimes'] = {
+        'windspd': windspdlist, 'windspdavgvec': windspdavgveclist, 'winddirabs': winddirabslist,
+        'winddiravgvec': winddiravgveclist, 'temp': templist, 'dewpoint': dewpointlist,
+        'pressure': pressurelist, 'deployed': deployedlist
+    }
+
+    return dis_dict
+
+
+def read_sweeps(radar_dict):
     """Reads sweeps from CFRadial files for a case as defined in the radar_dict dictionary.
        Stuffs these sweeps into the dictionary"""
     # Initial latitude, longitude, altitude set to None (will be read from files)
-    radlat = None
-    radlon = None
-    radalt = None
-    radardir = radar_dict[casedate]['radardir']
-    radpathlist = glob.glob(radardir + '/*nc')
-    radstarttime = radar_dict[casedate]['radstarttime']
-    radstoptime = radar_dict[casedate]['radstoptime']
-    fieldnames = radar_dict[casedate]['fieldnames']
-    el_req = radar_dict[casedate]['el_req']
+    radardir = radar_dict['radardir']
+    radpathlist = glob.glob(radardir + '/*{}*nc'.format(radar_dict['radname']))
+    radstarttime = radar_dict['radstarttimestamp']
+    radstoptime = radar_dict['radstoptimestamp']
+    fieldnames = radar_dict['fieldnames']
+    el_req = radar_dict['el_req']
 
     # Now read in all the sweeps between radstarttime and radstoptime closest to the requested
     # elevation angle
-    radstarttimedt = datetime(np.int(radstarttime[:4]), np.int(radstarttime[4:6]), np.int(
-        radstarttime[6:8]), np.int(radstarttime[8:10]), np.int(radstarttime[10:12]))
-    radstoptimedt = datetime(np.int(radstoptime[:4]), np.int(radstoptime[4:6]), np.int(
-        radstoptime[6:8]), np.int(radstoptime[8:10]), np.int(radstoptime[10:12]))
+    radstarttimedt = datetime.strptime(radstarttime, '%Y%m%d%H%M%S')
+    radstoptimedt = datetime.strptime(radstoptime, '%Y%m%d%H%M%S')
 
-    outfieldnameslist = []
+    # outfieldnameslist = []
     radarsweeplist = []
     sweeptimelist = []
 
     for radpath in radpathlist:
         sweeptime = radar._getsweeptime(radpath)
 
-        if(radstarttimedt <= sweeptime and sweeptime <= radstoptimedt):
-            outfieldnames, radarsweep = radar.readCFRadial_pyART(False, el_req, radlat, radlon,
-                                                                 radalt, radpath, None, fieldnames,
-                                                                 compute_kdp=False)
-            outfieldnameslist.append(outfieldnames)
+        if radstarttimedt <= sweeptime and sweeptime <= radstoptimedt:
+            radarsweep = radar.readCFRadial_pyART(el_req, radpath, sweeptime,
+                                                  fieldnames, compute_kdp=False)
             radarsweeplist.append(radarsweep)
             sweeptimelist.append(sweeptime)
 
+    # Sort the lists by increasing time since glob doesn't sort in any particular order
+    sorted_sweeptimelist = sorted(sweeptimelist)
+    sorted_radarsweeplist = [x for _, x in sorted(zip(sweeptimelist, radarsweeplist),
+                                                  key=lambda pair: pair[0])]
+
     # Stuff the lists into the dictionary
-    radar_dict[casedate]['outfieldnameslist'] = outfieldnameslist
-    radar_dict[casedate]['radarsweeplist'] = radarsweeplist
-    radar_dict[casedate]['sweeptimelist'] = sweeptimelist
+    radar_dict['radarsweeplist'] = sorted_radarsweeplist
+    radar_dict['sweeptimelist'] = sorted_sweeptimelist
 
     return radar_dict
 
@@ -900,35 +1068,56 @@ def compute_storm_motion(radar_dict):
     """Computes storm motion from start and end points of a given feature.
        Adds a new key to the given dictionary with the storm motion vector
        in a tuple."""
-    for casedate, case in radar_dict.items():
-        deltat = (case['feature_end_time'] - case['feature_start_time']).total_seconds()
-        ustorm = (case['feature_end_loc'][0] - case['feature_start_loc'][0]) * 1000. / deltat
-        vstorm = (case['feature_end_loc'][1] - case['feature_start_loc'][1]) * 1000. / deltat
-        case['feature_motion'] = (ustorm, vstorm)
+
+    deltat = (radar_dict['feature_end_time'] - radar_dict['feature_start_time']).total_seconds()
+    ustorm = (radar_dict['feature_end_loc'][0] - radar_dict['feature_start_loc'][0]) * 1000. / deltat
+    vstorm = (radar_dict['feature_end_loc'][1] - radar_dict['feature_start_loc'][1]) * 1000. / deltat
+    radar_dict['feature_motion'] = (ustorm, vstorm)
 
     return radar_dict
 
 
-def get_dis_locs_relative_to_radar(casedate, dis_dict, radar_dict):
+def get_dis_locs_relative_to_radar(dis_dict, radar_dict):
     """Gets the disdrometer locations relative to the radar."""
-    dgeoloclist = []
     dradloclist = []
-    # Extract parameters from dictionary
-    dis_names = dis_dict[casedate]['dis_names']
-    dis_types = dis_dict[casedate]['dis_types']
-    disfilenames = dis_dict[casedate]['disfilenames']
     try:
-        convfilenames = dis_dict[casedate]['convfilenames']
-    except BaseException:
-        convfilenames = [None] * len(dis_names)
-    starttimes = dis_dict[casedate]['starttimes']
-    stoptimes = dis_dict[casedate]['stoptimes']
-    dis_dir = dis_dict[casedate]['dis_dir']
+        dgeoloclist = dis_dict['dgeoloclist']
+    except KeyError:
+        dis_dict = get_dis_geoloc(dis_dict)
+        dgeoloclist = dis_dict['dgeoloclist']
 
     # Grab radar location information from the first sweep in radar_dict
-    radarsweep = radar_dict[casedate]['radarsweeplist'][0]
+    radarsweep = radar_dict['radarsweeplist'][0]
     rlat = radarsweep.latitude['data'][0]
     rlon = radarsweep.longitude['data'][0]
+
+    for dgeoloc in dgeoloclist:
+        dradx, drady = pyart.core.geographic_to_cartesian_aeqd(dgeoloc[1], dgeoloc[0], rlon, rlat)
+        dx = dradx[0]
+        dy = drady[0]
+        print(dx, dy)
+        dradloclist.append((dx, dy))
+
+    # Stuff the locations into the dis_dict dictionary
+    dis_dict['dradloclist'] = dradloclist
+
+    return dis_dict
+
+
+def get_dis_geoloc(dis_dict):
+    """Get geographic coordinates of probes"""
+    dgeoloclist = []
+    # Extract parameters from dictionary
+    dis_names = dis_dict['dis_names']
+    dis_types = dis_dict['dis_types']
+    disfilenames = dis_dict['disfilenames']
+    try:
+        convfilenames = dis_dict['convfilenames']
+    except KeyError:
+        convfilenames = [None] * len(dis_names)
+    starttimes = dis_dict['starttimes']
+    stoptimes = dis_dict['stoptimes']
+    dis_dir = dis_dict['dis_dir']
 
     for dis_name, dis_filename, conv_filename, starttime, stoptime, dis_type in \
             zip(dis_names, disfilenames, convfilenames, starttimes, stoptimes, dis_types):
@@ -942,44 +1131,58 @@ def get_dis_locs_relative_to_radar(casedate, dis_dict, radar_dict):
                                                                              stoptime=stoptime)
         elif(dis_type == 'NV2'):
             dgeoloc = dis.readNV2loc(filepath)
-
-        dradx, drady = pyart.core.geographic_to_cartesian_aeqd(dgeoloc[1], dgeoloc[0], rlon, rlat)
-        dx = dradx[0]
-        dy = drady[0]
-        print(dx, dy)
-
         dgeoloclist.append(dgeoloc)
-        dradloclist.append((dx, dy))
 
-    # Stuff the locations into the dis_dict dictionary
-    dis_dict[casedate]['dgeoloclist'] = dgeoloclist
-    dis_dict[casedate]['dradloclist'] = dradloclist
-
+    dis_dict['dgeoloclist'] = dgeoloclist
     return dis_dict
 
 
-def set_dh(casedate, model_dict, radar_dict, fixed_time=True):
-    """Reads a DataHandler instance for COMMAS simulation output given information in model_dict, using
-       casedate as the key. Puts the DataHandler instance into model_dict. Also associates
+def get_dis_locs_arps_real_grid(grid_dict, PIPS_geo_locs):
+    """Returns the locations of the disdrometers within the ARPS grid. Only works for real cases
+       with a map projection."""
+    # Get model coordinates
+    xc = grid_dict['xs']
+    yc = grid_dict['ys']
+    # Get basemap instance
+    bgmap = grid_dict['bgmap']
+
+    # Find coordinates of PIPS stations in the model
+    dx = grid_dict['dx']
+    dy = grid_dict['dy']
+    modloc_list = []
+    coord_list = []
+    for i, PIPS_loc in enumerate(PIPS_geo_locs):
+        xloc, yloc = bgmap(PIPS_loc[1], PIPS_loc[0])
+        modloc_list.append(np.array([xloc, yloc]))
+        iloc = (xloc - xc[1]) / dx
+        jloc = (yloc - yc[1]) / dy
+        coord_list.append(np.array([iloc, jloc]))
+
+    return modloc_list, coord_list
+
+
+def set_dh(model_dict, radar_dict, fixed_time=True):
+    """Reads a DataHandler instance for COMMAS simulation output given information in model_dict.
+       Puts the DataHandler instance into model_dict. Also associates
        the reference time of the model simulation with that of the reference sweep in radar_dict"""
     modelname = 'COMMAS'
-    runname = model_dict[casedate]['runname']
-    dirname = model_dict[casedate]['dirname']
-    # model_dt = model_dict[casedate]['model_dt']
-    modeltimesec_ref = model_dict[casedate]['modeltimesec_ref']
-    if model_dict[casedate]['composite']:
-        model_times = model_dict[casedate]['model_times']
+    runname = model_dict['runname']
+    dirname = model_dict['dirname']
+    # model_dt = model_dict['model_dt']
+    modeltimesec_ref = model_dict['modeltimesec_ref']
+    if model_dict['composite']:
+        model_times = model_dict['model_times']
     else:
         model_times = [modeltimesec_ref]
-    multitime = model_dict[casedate].get('multitime', True)
-    microphys = model_dict[casedate]['microphys']
+    multitime = model_dict.get('multitime', True)
+    microphys = model_dict['microphys']
     dh = getDataHandler(modelname, dirname, model_times, microphys, multitime=multitime)
     dh.setRun(runname, 0)
     dh.loadTimes()
     dh.setTime(modeltimesec_ref)
-    modeltime_ref = radar_dict[casedate]['sweeptime_ref']
-    model_dict[casedate]['DataHandler'] = dh
-    model_dict[casedate]['modeltime_ref'] = modeltime_ref
+    modeltime_ref = radar_dict['sweeptime_ref']
+    model_dict['DataHandler'] = dh
+    model_dict['modeltime_ref'] = modeltime_ref
 
     return model_dict
 
@@ -1104,11 +1307,11 @@ def get_composite_grid(grid_dict, compositedict):
     return composite_grid_dict
 
 
-def read_vardict(casedate, model_dict, varlists, varlistv, varlist_derived):
+def read_vardict(model_dict, varlists, varlistv, varlist_derived):
     """Reads in variables from the model files listed in model_dict and returns a list of
        dictionaries containing the variables for each time."""
-    model_times = model_dict[casedate]['model_times']
-    dh = model_dict[casedate]['DataHandler']
+    model_times = model_dict['model_times']
+    dh = model_dict['DataHandler']
     vardictlist = []
     for t, time in enumerate(model_times):
         vardict = dh.loadVars(varlists)
@@ -1136,7 +1339,7 @@ def read_vardict(casedate, model_dict, varlists, varlistv, varlist_derived):
     return vardictlist
 
 
-def build_composite(casedate, model_dict, compositedict, dh, plotlocs=True):
+def build_composite(model_dict, compositedict, dh, plotlocs=True):
     # Extract stuff from dictionaries
     ichw, jchw = compositedict['compositehw']
     ishw, jshw = compositedict['searchhw']
@@ -1152,8 +1355,8 @@ def build_composite(casedate, model_dict, compositedict, dh, plotlocs=True):
     jgbgn = gridlimindices[2]
     jgend = gridlimindices[3] - 1
 
-    model_times = model_dict[casedate]['model_times']
-    multitime = model_dict[casedate].get('multitime', True)
+    model_times = model_dict['model_times']
+    multitime = model_dict.get('multitime', True)
     ntimes = model_times.size
 
     ireflist = []
@@ -1194,7 +1397,7 @@ def build_composite(casedate, model_dict, compositedict, dh, plotlocs=True):
         print("The model time is {:d} s".format(int(time)))
         dh.setTime(time)
         if not multitime:
-            dh.setRun(model_dict[casedate]['runname'], 0, time=time)
+            dh.setRun(model_dict['runname'], 0, time=time)
         # Right now, only vortz or w for tracking variable
         if tracking_varname == 'w':
             print("Reading variable " + tracking_varname)
@@ -1285,21 +1488,18 @@ def build_composite(casedate, model_dict, compositedict, dh, plotlocs=True):
 
     if plotlocs:
         axcl.set_aspect('equal')
-        figcl.savefig(model_dict[casedate]['runname'] + '_sfcvortloc_{:06d}_{:06d}.png'.format(
+        figcl.savefig(model_dict['runname'] + '_sfcvortloc_{:06d}_{:06d}.png'.format(
             int(model_times[0]), int(model_times[-1])), dpi=200)
 
     return varcompdict
 
 
-def calc_obs_transect(casedate, dis_dict, dis_ts_model_dict, Dmax=None, calc_fits=True,
+def calc_obs_transect(dis_dict, dis_ts_model_dict, Dr, Dmax=None, calc_fits=True,
                       plot_transects=False):
     """Gathers and computes DSD quantities based on disdrometer observations along transects.
        Optionally computes exponential and gamma fits based on MofM and MofTM and plots them."""
 
-    if Dmax is not None:
-        Dmax_index = np.searchsorted(Dr, Dmax / 1000., side='right')
-    else:
-        Dmax_index = np.size(Dr)
+    Dmax, Dmax_index = get_Dmax_index(Dr, Dmax)
 
     D0r_obs = []
     ND_obs = []
@@ -1310,11 +1510,11 @@ def calc_obs_transect(casedate, dis_dict, dis_ts_model_dict, Dmax=None, calc_fit
         ND_obs_gam = []
         ND_obs_tmf = []
 
-    for d, dis_name in enumerate(dis_dict[casedate]['dis_names']):
+    for d, dis_name in enumerate(dis_dict['dis_names']):
         sample_xlocs = np.array([xylocs[0] for xylocs in dis_ts_model_dict['dis_ts_xyslocs'][d]])
-        ND = dis_dict[casedate]['timeseries']['ND'][d]
+        ND = dis_dict['timeseries']['ND'][d]
         if calc_fits:
-            rho = dis_dict[casedate]['timeseries']['rho'][d]
+            rho = dis_dict['timeseries']['rho'][d]
             synthbins, exp_DSD, gam_DSD, tmf_DSD, dis_DSD = dis.calc_DSD(ND.T, rho)
             (ND_expDSD, N0_exp, lamda_exp, mu_exp, qr_exp, Ntr_exp, refl_DSD_exp, D_med_exp,
              D_m_exp) = exp_DSD
@@ -1359,7 +1559,7 @@ def calc_obs_transect(casedate, dis_dict, dis_ts_model_dict, Dmax=None, calc_fit
         D0r_obs.append(D0r)
 
         if plot_transects:
-                    # Set up the figure for whether or not we are calculating fits
+            # Set up the figure for whether or not we are calculating fits
             if calc_fits:
                 plotcbar = False
                 fig = plt.figure(figsize=(8, 9))
@@ -1447,7 +1647,7 @@ def calc_obs_transect(casedate, dis_dict, dis_ts_model_dict, Dmax=None, calc_fit
     return transect_DSD_obs_dict
 
 
-def interp_model_to_transect(casedate, dis_dict, model_dict, dis_ts_model_dict,
+def interp_model_to_transect(dis_dict, model_dict, dis_ts_model_dict, Dr,
                              sampling_interval=60., add_hail=False, use_bins_for_interp=False,
                              use_Parsivel_simulator=False, Dmax=None, plot_transects=False):
     """Interpolates model variables, including bulk DSDs, to a simulated disdrometer transect.
@@ -1459,10 +1659,7 @@ def interp_model_to_transect(casedate, dis_dict, model_dict, dis_ts_model_dict,
        use_Parsivel_simulator: if True, sample the model DSDs using the Parsivel simulator. If
        False, keep the raw DSDs."""
 
-    if Dmax is not None:
-        Dmax_index = np.searchsorted(Dr, Dmax / 1000., side='right')
-    else:
-        Dmax_index = np.size(Dr)
+    Dmax, Dmax_index = get_Dmax_index(Dr, Dmax)
 
     # TODO: allow for adding hail but still
     if not use_bins_for_interp and add_hail:
@@ -1479,7 +1676,7 @@ def interp_model_to_transect(casedate, dis_dict, model_dict, dis_ts_model_dict,
         D0r_mod_ps = []
         ND_ps_list = []
 
-    for d, dis_name in enumerate(dis_dict[casedate]['dis_names']):
+    for d, dis_name in enumerate(dis_dict['dis_names']):
         sampling_times = dis_ts_model_dict['dis_ts_stimes'][d]
         all_times = dis_ts_model_dict['dis_ts_times'][d]
         dt = all_times[1:] - all_times[:-1]
@@ -1772,3 +1969,298 @@ def interp_model_to_transect(casedate, dis_dict, model_dict, dis_ts_model_dict,
         transect_DSD_dict.update({'ND_ps': ND_ps_list, 'D0r_ps': D0r_mod_ps})
 
     return transect_DSD_dict
+
+
+def get_ARPS_member_dir_and_prefix(member, cycle):
+    """
+    Gets the proper form for the subdirectory and file prefix name given a member number
+    and cycle type (either 'posterior' or 'prior'). member number 0 is interpreted as the mean.
+    """
+    if member == 0:
+        if cycle in 'posterior':
+            member_dir = 'ENamean'
+            member_prefix = 'enmean'
+        elif cycle in 'prior':
+            member_dir = 'ENfmean'
+            member_prefix = 'efmean'
+    else:
+        if cycle in 'posterior':
+            member_dir = 'EN{:03d}'.format(int(member))
+            member_prefix = 'ena{:03d}'.format(int(member))
+        elif cycle in 'prior':
+            member_dir = 'ENF{:03d}'.format(int(member))
+            member_prefix = 'enf{:03d}'.format(int(member))
+
+    return member_dir, member_prefix
+
+
+def read_ARPS_ensemble(f, member_list, f_args=None, f_kwargs=None, iterate_over='member_list',
+                       process_parallel=True, n_jobs=5, verbose=0):
+    """
+    Reads multiple runs either in serial or parallel (using joblib). TODO. This is duplicating some
+    functionality written by T. Supinie for pycaps (util.run_concurrently). Maybe just use that
+    instead?
+
+    Parameters
+    ----------
+    f : callable
+        A function used to read in data from a particular run. It must have a positional argument
+        that will be iterated over, the name of which is given by "iterate_over"
+    member_list : list
+        List of member numbers to read
+    args : tuple
+        List of positional arguments to pass to f
+    iterate_over : str
+        The name of the positional argument in args to iterate over
+    process_parallel : bool
+        Whether to process the runs in parallel or not (using joblib)
+    n_jobs : int
+        Number of jobs to run in parallel
+    verbose : int
+        verbosity level passed on to joblib.Parallel
+    kwargs : dict
+        List of keyword arguments to pass to f
+    Returns
+    -------
+    list
+        A list of updated run dictionaries
+
+    """
+    # The following avoids this gotcha:
+    # https://pythonconquerstheuniverse.wordpress.com/2012/02/15/mutable-default-arguments/
+    if f_args is None:
+        f_args = ()
+    if f_kwargs is None:
+        f_kwargs = {}
+    # Get a list of the function argument names, and find the one that we want to iterate over
+    f_argnames = inspect.getargspec(f).args
+    try:
+        arg_to_iterate = f_argnames.index(iterate_over)
+    except ValueError:
+        print("{} not found in the function argument list! Stopping!".format(iterate_over))
+        return
+
+    # Define a wrapper function to replace the value of the iterated argument in f with a new one
+    # Not sure if this is the most elegant way to do this, but it works and lets us use the
+    # joblib.Parallel function with list comprehension for the "val" argument
+    def g(f, val):
+        new_args = tuple(val if i == arg_to_iterate else f_args[i] for i in range(len(f_args)))
+        return f(*new_args, **f_kwargs)
+
+    if process_parallel:
+        runs = Parallel(n_jobs=n_jobs, verbose=verbose)(delayed(g)(f, val) for val in member_list)
+    else:
+        runs = []
+        for val in member_list:
+            print("Reading files for member {:d}".format(val))
+            runs.append(g(f, val))
+    return runs
+
+
+def read_ARPS_member_data(basedir, expname, member, cycle, fileformat, time_range, tintv_mean,
+                          varnames, filetype='history', ibgn=None, iend=None, jbgn=None, jend=None,
+                          klvls=[1], nproc_x=1, nproc_y=1, dump_nc_output=True, ncdir=None,
+                          fileprefix='', grid_dict=None, datetime_range=None, x=None, y=None,
+                          mid_diameters=None):
+    """[summary]
+
+    Parameters
+    ----------
+    basedir : [type]
+        [description]
+    expname : [type]
+        [description]
+    member : [type]
+        [description]
+    cycle : [type]
+        [description]
+    fileformat : [type]
+        [description]
+    time_range : [type]
+        [description]
+    tintv_mean : [type]
+        [description]
+    varnames : [type]
+        [description]
+    filetype : str, optional
+        [description], by default 'history'
+    ibgn : [type], optional
+        [description], by default None
+    iend : [type], optional
+        [description], by default None
+    jbgn : [type], optional
+        [description], by default None
+    jend : [type], optional
+        [description], by default None
+    klvls : list, optional
+        [description], by default [1]
+    nproc_x : int, optional
+        [description], by default 1
+    nproc_y : int, optional
+        [description], by default 1
+    dump_nc_output : bool, optional
+        [description], by default True
+    ncdir : [type], optional
+        [description], by default None
+    datetime_range : [type], optional
+        [description], by default None
+    x : [type], optional
+        [description], by default None
+    y : [type], optional
+        [description], by default None
+    mid_diameters : [type], optional
+        [description], by default None
+    """
+    print("Loading member #{:d}".format(member))
+    vardict_list = []
+    # all_files_exist_list = []
+    for time in time_range:
+        print("Loading time ", time)
+        # Need to use "EN" prefix for times between analysis times even if we are choosing the
+        # "prior" fields
+        if time % tintv_mean != 0:
+            cycle_temp = 'posterior'
+        else:
+            cycle_temp = 'prior'
+        # Get member run prefix
+        member_dir, member_prefix = get_ARPS_member_dir_and_prefix(member, cycle_temp)
+        member_absdir = os.path.join(basedir, expname, member_dir)
+        # Get member file path
+        filepath = arps_read.get_file_path(member_absdir, member_prefix, fileformat, time=time,
+                                           filetype='history')
+#         all_files_exist = True
+#         for ip in range(1, nproc_x + 1):
+#             for jp in range(1, nproc_y + 1):
+#                 filenamepatch = filepath + "_%03d" % ip + "%03d" % jp
+#                 if not os.path.exists(filenamepatch):
+#                     print("File {} does not exist!".format(filenamepatch))
+#                     all_files_exist = False
+#         all_files_exist_list.append(all_files_exist)
+        # Get variables from file
+        print(filepath)
+        vardict = arps_read.read_hdfvars(filepath, varnames, ibgn=ibgn, jbgn=jbgn, iend=iend,
+                                         jend=jend, klvls=klvls, nproc_x=nproc_x, nproc_y=nproc_y)
+        vardict_list.append(vardict)
+
+    if dump_nc_output:
+        output_prefix = fileprefix + member_prefix
+        dump_ARPS_xyslice_nc(ncdir=ncdir, vardict_list=vardict_list, member_prefix=output_prefix,
+                             time=datetime_range, x=x, y=y, mid_diameters=mid_diameters, ibgn=ibgn,
+                             iend=iend, jbgn=jbgn, jend=jend, grid_dict=grid_dict)
+
+    return vardict_list  # all_files_exist_list
+
+
+def dump_ARPS_xyslice_nc(ncdir=None, vardict_list=None, member_prefix=None, time=None, x=None,
+                         y=None, mid_diameters=None, ibgn=None, iend=None, jbgn=None, jend=None,
+                         grid_dict=None):
+    """[summary]
+
+    Parameters
+    ----------
+    ncdir : [type], optional
+        [description], by default None
+    vardict_list : [type], optional
+        [description], by default None
+    member_prefix : [type], optional
+        [description], by default None
+    time : [type], optional
+        [description], by default None
+    x : [type], optional
+        [description], by default None
+    y : [type], optional
+        [description], by default None
+    mid_diameters : [type], optional
+        [description], by default None
+    ibgn : [type], optional
+        [description], by default None
+    iend : [type], optional
+        [description], by default None
+    jbgn : [type], optional
+        [description], by default None
+    jend : [type], optional
+        [description], by default None
+    """
+
+    xc = grid_dict['xc']
+    yc = grid_dict['yc']
+    xe = grid_dict['xe']
+    ye = grid_dict['ye']
+    coord_dict = {
+        'time': time,
+        'yc': ('yc', yc),
+        'xc': ('xc', xc),
+        'ye': ('ye', ye),
+        'xe': ('xe', xe)
+        }
+    # First, create a dict of lists out of the above list of dicts
+    vardict_combined = CRMutils.make_dict_of_lists(vardict_list)
+    # Set things up for creating the xr Dataset
+    for varname, var in vardict_combined.items():
+        var_arr = np.array(var).T.squeeze()
+        var_arr = np.rollaxis(var_arr, 2, 0)
+        # Trim variables down to just the patch we want to work with
+        if varname == 'u':
+            var_arr_patch = var_arr[:, jbgn:jend+1, ibgn:iend+2]
+            vardict_combined[varname] = (['time', 'yc', 'xe'], var_arr_patch)
+        elif varname == 'v':
+            var_arr_patch = var_arr[:, jbgn:jend+2, ibgn:iend+1]
+            vardict_combined[varname] = (['time', 'ye', 'xc'], var_arr_patch)
+        else:
+            var_arr_patch = var_arr[:, jbgn:jend+1, ibgn:iend+1]
+            vardict_combined[varname] = (['time', 'yc', 'xc'], var_arr_patch)
+
+    # Create an xarray Dataset out of the variable dictionary
+    var_ds = xr.Dataset(vardict_combined, coords=coord_dict)
+
+    # Compute raw model DSD paramters and add them to the model Dataset
+    rhor = 1000.
+    cr = np.pi / 6. * rhor
+    var_ds['rho'] = thermo.calrho(var_ds['p'], var_ds['pt'], var_ds['qv'])
+
+    # Shape parameter
+    var_ds['alphar'] = dsd.solve_alpha(var_ds['rho'], cr, var_ds['qr'], var_ds['nr'], var_ds['zr'])
+    # var_ds['alphar'] = var_ds['alphar'].interpolate_na()
+    # Intercept parameter
+    var_ds['N0r'] = dsd.calc_N0_gamma(var_ds['rho'], var_ds['qr'], var_ds['nr'], cr, var_ds['alphar'])
+    # Slope parameter
+    var_ds['lamdar'] = dsd.calc_lamda_gamma(var_ds['rho'], var_ds['qr'], var_ds['nr'], cr, var_ds['alphar'])
+
+    # Try computing ND and logND here
+
+    # Broadcast DSD parameter DataArrays to get everyone on the same dimensional page
+    mid_diameters, N0r_model_da, lamdar_model_da, alphar_model_da = \
+        xr.broadcast(mid_diameters, var_ds['N0r'], var_ds['lamdar'], var_ds['alphar'])
+
+    # Transpose these DataArrays to get time as the first dimension
+    mid_diameters = mid_diameters.transpose('time', 'diameter_bin', 'yc', 'xc')
+    N0r_model_da = N0r_model_da.transpose('time', 'diameter_bin', 'yc', 'xc')
+    lamdar_model_da = lamdar_model_da.transpose('time', 'diameter_bin', 'yc', 'xc')
+    alphar_model_da = alphar_model_da.transpose('time', 'diameter_bin', 'yc', 'xc')
+
+    ND_model = dsd.calc_binned_DSD_from_params(N0r_model_da, lamdar_model_da, alphar_model_da,
+                                               mid_diameters)
+    ND_model = ND_model.fillna(0.0)
+    logND_model = np.log10(ND_model)
+    logND_model = logND_model.where(logND_model > -np.inf)
+    #logND_model = logND_model.fillna(0.0)
+    #logND_model = logND_model.where(logND_model > -1.0)
+
+    var_ds['ND'] = ND_model
+    var_ds['logND'] = logND_model
+
+    var_ds.attrs['nx_full'] = grid_dict['nx_full']
+    var_ds.attrs['ny_full'] = grid_dict['ny_full']
+    var_ds.attrs['dx'] = grid_dict['dx']
+    var_ds.attrs['dy'] = grid_dict['dy']
+    var_ds.attrs['ctrlat'] = grid_dict['ctrlat']
+    var_ds.attrs['ctrlon'] = grid_dict['ctrlon']
+    var_ds.attrs['trulat1'] = grid_dict['trulat1']
+    var_ds.attrs['trulat2'] = grid_dict['trulat2']
+    var_ds.attrs['trulon'] = grid_dict['trulon']
+
+    # print(var_ds)
+    # Save Dataset to nc file
+    filename = "{}_fields.nc".format(member_prefix)
+    filepath = os.path.join(ncdir, filename)
+    var_ds.to_netcdf(filepath)
