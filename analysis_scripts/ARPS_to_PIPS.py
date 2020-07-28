@@ -80,6 +80,7 @@ basedir = config.model_config_dict['basedirname']
 num_members = config.model_config_dict['nens']
 nproc_x = config.model_config_dict['nproc_x']
 nproc_y = config.model_config_dict['nproc_y']
+cycle = config.model_config_dict['cycle']
 
 member_start = args.member_range[0]
 if args.member_range[1] == -1:
@@ -100,8 +101,7 @@ end_times = config.PIPS_IO_dict.get('end_times', [None]*len(PIPS_names))
 geo_locs = config.PIPS_IO_dict.get('geo_locs', [None]*len(PIPS_names))
 requested_interval = config.PIPS_IO_dict.get('requested_interval', 10.)
 
-
-cycle = 'posterior'
+cycle = 'prior'
 varnames = ['p', 'pt', 'qv', 'u', 'v', 'qr', 'nr', 'zr']
 member_list = range(member_start, member_end)
 # Read in the ensemble members
