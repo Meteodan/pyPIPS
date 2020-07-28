@@ -1362,34 +1362,44 @@ def circles(x, y, s, c='b', vmin=None, vmax=None, **kwargs):
 # #             plt.xticks(visible=False)
 
 
-def plot_mu_lamda(lamda, mu, poly_coeff, poly, title=None):
+def plot_mu_lamda(poly_coeff, poly, lamda=None, mu=None, ax=None, title=None, plot_Z01_C08=True,
+                  plot_legend=True, plot_poly_coeff=True):
 
     op1 = '+' if np.sign(poly_coeff[1]) == 1 else '-'
     op2 = '+' if np.sign(poly_coeff[0]) == 1 else '-'
 
     xx = np.linspace(0.0, 30.0)
     yy = poly(xx)
-    y_Cao = -0.0201 * xx**2. + 0.902 * xx - 1.718
-    y_Zhang = -0.016 * xx**2. + 1.213 * xx - 1.957
-    fig, ax = plt.subplots(figsize=(6, 6))
+    if plot_Z01_C08:
+        y_Cao = -0.0201 * xx**2. + 0.902 * xx - 1.718
+        y_Zhang = -0.016 * xx**2. + 1.213 * xx - 1.957
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(6, 6))
+    else:
+        fig = plt.gcf()
     if title:
         plt.title(title)
-    ax.scatter(lamda, mu, color='k', marker='.')
-    ax.plot(xx, yy, label='Present study')
-    ax.plot(xx, y_Cao, label='C08')
-    ax.plot(xx, y_Zhang, label='Z01')
+    if lamda is not None:
+        ax.scatter(lamda, mu, color='k', marker='.')
+        ax.plot(xx, yy, label='Present study')
+    if plot_Z01_C08:
+        ax.plot(xx, y_Cao, label='C08')
+        ax.plot(xx, y_Zhang, label='Z01')
     ax.set_xlim(0.0, 20.0)
     ax.set_ylim(-5.0, 32.0)
     ax.set_xlabel(r'$\lambda$ (mm$^{-1}$)')
     ax.set_ylabel(r'$\mu$')
-    ax.text(0.05, 0.85, '# of Points: {:d}'.format(len(lamda)),
-            transform=ax.transAxes, fontsize=12.)
-    polytext = r'$\mu = {0:2.4f}\lambda^{{2}} {1} {2:2.4f}\lambda {3} {4:2.4f}$'
+    if lamda is not None:
+        ax.text(0.05, 0.85, '# of Points: {:d}'.format(len(lamda)),
+                transform=ax.transAxes, fontsize=12.)
+    if plot_poly_coeff:
+        polytext = r'$\mu = {0:2.4f}\lambda^{{2}} {1} {2:2.4f}\lambda {3} {4:2.4f}$'
 
-    polytext = polytext.format(poly_coeff[2], op1, np.abs(poly_coeff[1]), op2,
-                               np.abs(poly_coeff[0]))
-    ax.text(0.05, 0.80, polytext, transform=ax.transAxes, fontsize=12.)
-    plt.legend(loc='upper left', numpoints=1, ncol=3, fontsize=12.)
+        polytext = polytext.format(poly_coeff[2], op1, np.abs(poly_coeff[1]), op2,
+                                np.abs(poly_coeff[0]))
+        ax.text(0.05, 0.80, polytext, transform=ax.transAxes, fontsize=12.)
+    if plot_legend:
+        plt.legend(loc='upper left', numpoints=1, ncol=3, fontsize=12.)
 
     return fig, ax
 

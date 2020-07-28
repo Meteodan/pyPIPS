@@ -157,7 +157,8 @@ MM246_poly_coeff, MM246_poly = dsd.calc_CG_polynomial(lamda_MM246, mu_MM246)
 print("The MM246 polynomial coefficients are: ", MM246_poly_coeff)
 
 # Plot the relationship on a scatterplot along with the Cao and Zhang relations
-fig, ax = pm.plot_mu_lamda(lamda_MM246, mu_MM246, MM246_poly_coeff, MM246_poly, title='Untruncated')
+fig, ax = pm.plot_mu_lamda(MM246_poly_coeff, MM246_poly, lamda=lamda_MM246, mu=mu_MM246,
+                           title='Untruncated')
 plt.savefig(plot_dir +
             '/Untruncated_MM246_mu_lamda{}_{}_{}_{}.{}'.format(ND_tag, plot_tag, filter_RR_tag,
                                                                filter_counts_tag, args.figfmt),
@@ -171,7 +172,8 @@ TMM246_poly_coeff, TMM246_poly = dsd.calc_CG_polynomial(lamda_TMM246, mu_TMM246)
 print("The TMM246 polynomial coefficients are: ", TMM246_poly_coeff)
 
 # Plot the relationship on a scatterplot along with the Cao and Zhang relations
-pm.plot_mu_lamda(lamda_TMM246, mu_TMM246, TMM246_poly_coeff, TMM246_poly, title='Truncated')
+pm.plot_mu_lamda(TMM246_poly_coeff, TMM246_poly, lamda=lamda_TMM246, mu=mu_TMM246,
+                 title='Truncated')
 plt.savefig(plot_dir +
             '/Truncated_MM246_mu_lamda{}_{}_{}_{}.{}'.format(ND_tag, plot_tag, filter_RR_tag,
                                                              filter_counts_tag, args.figfmt),
