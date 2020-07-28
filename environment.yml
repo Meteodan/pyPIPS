@@ -29,4 +29,3 @@ dependencies:
   - xarray
   - pip:
     - "--editable=git+https://github.rcac.purdue.edu/STorMLab/pyCRMtools.git@master#egg=pyCRMtools"
-
