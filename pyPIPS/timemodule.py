@@ -7,6 +7,7 @@ Central = pytz.timezone('US/Central')
 timefmt = '%Y-%m-%d %H:%M:%S %Z%z'
 timefmt2 = '%Y-%m-%d %H:%M:%S'
 timefmt3 = '%Y%m%d%H%M%S'
+timefmt3b = '%Y%m%d%H%M'
 timefmt4 = '%m%d'
 timefmt5 = '%Y,%m,%d'
 

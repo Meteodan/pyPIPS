@@ -1,4 +1,5 @@
 # plotmodule.py: A module containing some functions related to plotting model output
+import os
 import numpy as N
 import matplotlib
 import matplotlib.pyplot as plt
@@ -10,9 +11,12 @@ from matplotlib.artist import allow_rasterization
 from matplotlib.font_manager import FontProperties
 # import ctablesfrompyesviewer as ctables
 from metpy.plots import ctables
-from . import disdrometer_module as dis
 from . import timemodule as tm
+from . import PIPS as pips
 from itertools import cycle
+import numpy as np
+import pandas as pd
+import xarray.plot as xrplot
 
 # Set global font size for axes and colorbar labels, etc.
 
@@ -20,7 +24,7 @@ font = {'size': 10}
 matplotlib.rc('font', **font)
 
 fontP = FontProperties()
-fontP.set_size('small')
+fontP.set_size('x-small') # 'small'
 
 # Contour levels for reflectivity (dBZ)
 clevels_ref = N.arange(0.0, 85.0, 5.0)
@@ -417,51 +421,67 @@ def plotsingle2(fig, axes, ptype, xs, ys, x, y, xlim, ylim, field, clevels, cmap
     return fig, axes, grid
 
 
-def plotconvmeteograms(dis_index, pc, ib, convmeteodict):
-    """Plots meteograms of the one-second PIPS data"""
-    plottimes = convmeteodict.get('plottimes')
-    conv_plot_df = convmeteodict.get('conv_plot_df')
-    windavgintv = convmeteodict.get('windavgintv')
-    windgustintv = convmeteodict.get('windgustintv')
+def plot_wind_meteogram(plottimes, conv_plot_ds, global_plot_config_dict, avgwind=True,
+                        windavgintv=60, windgustintv=3, xlimits=None, ptype='PIPS'):
+    """[summary]
 
-    xaxislimits = [plottimes[0], plottimes[-1]]
-    dis_name = ib.dis_name_list[dis_index]
+    Parameters
+    ----------
+    plottimes : [type]
+        [description]
+    conv_plot_ds : [type]
+        [description]
+    global_plot_config_dict : [type]
+        [description]
+    windavgintv : int, optional
+        [description], by default 60
+    windgustintv : int, optional
+        [description], by default 3
+    xlimits : [type], optional
+        [description], by default None
+    ptype : str, optional
+        [description], by default 'PIPS'
 
+    Returns
+    -------
+    [type]
+        [description]
+    """
     # Plot wind meteogram
-    if ib.type[dis_index] == 'PIPS':
+    if ptype == 'PIPS':
         winddirstr = 'winddirabs'
         windspdstr = 'windspd'
-        tempstr = 'fasttemp'
-        RHstr = 'RH_derived'
-    elif ib.type[dis_index] == 'CU':
+        windguststr = 'windgust'
+    elif ptype == 'CU':
         winddirstr = 'bwinddirabs'
         windspdstr = 'bwindspd'
-        tempstr = 'slowtemp'
-        RHstr = 'RH'
-    elif ib.type[dis_index] == 'NV2':
+    elif ptype == 'NV2':
         winddirstr = 'swinddirabs'
         windspdstr = 'swindspd'
-        tempstr = 'slowtemp'
-        RHstr = 'RH'
 
-    winddirabs = conv_plot_df[winddirstr].values
-    windspd = conv_plot_df[windspdstr].values
+    winddirabs = conv_plot_ds[winddirstr].values
+    windspd = conv_plot_ds[windspdstr].values
 
     # Compute wind speed and direction, and wind gusts
     # For the NV2 probes, the data are already at 60-s intervals and gust information is
     # provided, so does not need to be computed. In the future, need to make a more general
     # interface to allow for averaging of NV2 data at longer intervals.
-    if ib.type[dis_index] == 'NV2':
+    if ptype == 'NV2':
         windspdavg = windspd
         windspdavgvec = windspd
-        windgustavg = conv_plot_df['swindgust'].values
+        windgustavg = conv_plot_ds['swindgust'].values
         # TODO: Check that wind directions from NV2 probes are vector averages
         winddiravgvec = winddirabs
-    else:
-        windspdavg, windspdavgvec, winddiravgvec, windgust, windgustavg = dis.avgwind(
-            winddirabs, windspd, windavgintv, gusts=True, gustintv=windgustintv, center=False)
+    elif avgwind:
+        windspdavg, windspdavgvec, winddiravgvec, windgust, windgustavg = \
+            pips.avgwind(winddirabs, windspd, windavgintv, gusts=True, gustintv=windgustintv,
+                         center=False)
+    else:   # No additional averaging/fields already present in file
+        windspdavg = windspd
+        windgustavg = conv_plot_ds[windguststr]
+        winddiravgvec = conv_plot_ds[winddirstr]
 
-    fig = plt.figure(figsize=(5, 3))
+    fig = plt.figure(figsize=(8, 3))
     ax1 = fig.add_subplot(111)
     ax2 = ax1.twinx()
     # plt.title('Wind speed (5-min mean) and gust (5-min max of 3-s mean)')
@@ -470,8 +490,8 @@ def plotconvmeteograms(dis_index, pc, ib, convmeteodict):
     fieldparamdicts = [windspeed_params, windgust_params]
 
     # Add vertical lines to indicate bad wind values if desired
-    if(pc.plot_diagnostics and ib.type[dis_index] == 'PIPS'):
-        winddiag = conv_plot_df['winddiag']
+    if global_plot_config_dict['plot_diagnostics'] and ptype == 'PIPS':
+        winddiag = conv_plot_ds['winddiag']
         # Extract indices for "bad" wind data
         winddiag_index = N.where(N.any([winddiag > 0, N.isnan(winddiag)], axis=0))[0]
         # These are the times with bad wind data
@@ -485,134 +505,179 @@ def plotconvmeteograms(dis_index, pc, ib, convmeteodict):
     fieldparamdicts = [winddir_params]
     ax2 = plotmeteogram(ax2, [plottimes], fields, fieldparamdicts)
 
-    axparamdict1 = {'majorxlocator': pc.locator, 'majorxformatter': pc.formatter,
-                    'minorxlocator': pc.minorlocator,
-                    'axeslimits': [xaxislimits, pc.meteo_ws_range],
-                    'axeslabels': [pc.timelabel, r'wind speed (m s$^{-1}$)']}
+    axparamdict1 = {'majorxlocator': global_plot_config_dict['majorxlocator'],
+                    'majorxformatter': global_plot_config_dict['majorxformatter'],
+                    'minorxlocator': global_plot_config_dict['minorxlocator'],
+                    'axeslimits': [xlimits, global_plot_config_dict['ws_range']],
+                    'axeslabels': [global_plot_config_dict['xlabel'],
+                                   r'wind speed (m s$^{-1}$)']}
     axparamdict2 = {'majorylocator': ticker.MultipleLocator(45.),
                     'axeslimits': [None, [0.0, 360.0]],
                     'axeslabels': [None, r'Wind direction ($^{\circ}$C)']}
     axparamdicts = [axparamdict1, axparamdict2]
     ax1, ax2 = set_meteogram_axes([ax1, ax2], axparamdicts)
 
-    plt.savefig(ib.image_dir + 'meteograms/' + dis_name + '_wind.png', dpi=300)
-    plt.close(fig)
+    return fig, ax1, ax2
 
+
+def plot_temperature_dewpoint_meteogram(plottimes, conv_plot_ds, global_plot_config_dict,
+                                        xlimits=None, ptype='PIPS'):
     # Plot temperature and dewpoint
     # tavgintv = 10  # Currently not used
 
-    fig = plt.figure(figsize=(5, 3))
+    if ptype == 'PIPS':
+        tempstr = 'fasttemp'
+    elif ptype == 'CU':
+        tempstr = 'slowtemp'
+    elif ptype == 'NV2':
+        tempstr = 'slowtemp'
+
+    fig = plt.figure(figsize=(8, 3))
     ax1 = fig.add_subplot(111)
 
-    fields = [conv_plot_df[tempstr].values, conv_plot_df['dewpoint'].values]
+    fields = [conv_plot_ds[tempstr].values, conv_plot_ds['dewpoint'].values]
+    temp_params['plotmin'] = global_plot_config_dict['T_Td_range'][0]
+    dewpoint_params['plotmin'] = global_plot_config_dict['T_Td_range'][0]
     fieldparamdicts = [temp_params, dewpoint_params]
     ax1 = plotmeteogram(ax1, [plottimes], fields, fieldparamdicts)
 
     ax1.axhline(0.0, ls=':', color='k')
 
-    axparamdict1 = {'majorxlocator': pc.locator, 'majorxformatter': pc.formatter,
-                    'minorxlocator': pc.minorlocator,
-                    'axeslimits': [xaxislimits, pc.meteo_T_Td_range],
-                    'axeslabels': [pc.timelabel, r'Temperature ($^{\circ}$C)']}
+    axparamdict1 = {
+        'majorxlocator': global_plot_config_dict['majorxlocator'],
+        'majorxformatter': global_plot_config_dict['majorxformatter'],
+        'minorxlocator': global_plot_config_dict['minorxlocator'],
+        'axeslimits': [xlimits, global_plot_config_dict['T_Td_range']],
+        'axeslabels': [global_plot_config_dict['xlabel'], r'Temperature ($^{\circ}$C)']
+    }
     axparamdicts = [axparamdict1]
     ax1, = set_meteogram_axes([ax1], axparamdicts)
 
-    plt.savefig(ib.image_dir + 'meteograms/' + dis_name + '_T_Td.png', dpi=300)
-    plt.close(fig)
+    return fig, ax1
 
+
+def plot_RH_meteogram(plottimes, conv_plot_ds, global_plot_config_dict, xlimits=None,
+                      ptype='PIPS'):
     # Plot relative humidity
     # avgintv = 10  # Currently not used
 
-    fig = plt.figure(figsize=(5, 3))
+    if ptype == 'PIPS':
+        RHstr = 'RH_derived'
+    elif ptype == 'CU':
+        RHstr = 'RH'
+    elif ptype == 'NV2':
+        RHstr = 'RH'
+
+    fig = plt.figure(figsize=(8, 3))
     ax1 = fig.add_subplot(111)
 
-    fields = [conv_plot_df[RHstr].values]
+    fields = [conv_plot_ds[RHstr].values]
     fieldparamdicts = [RH_params]
     ax1 = plotmeteogram(ax1, [plottimes], fields, fieldparamdicts)
 
-    axparamdict1 = {'majorxlocator': pc.locator, 'majorxformatter': pc.formatter,
-                    'minorxlocator': pc.minorlocator, 'axeslimits': [xaxislimits, [0., 100.]],
-                    'axeslabels': [pc.timelabel, 'Relative Humidity (%)']}
+    axparamdict1 = {
+        'majorxlocator': global_plot_config_dict['majorxlocator'],
+        'majorxformatter': global_plot_config_dict['majorxformatter'],
+        'minorxlocator': global_plot_config_dict['minorxlocator'],
+        'axeslimits': [xlimits, [0., 100.]],
+        'axeslabels': [global_plot_config_dict['xlabel'], 'Relative Humidity (%)']
+    }
 
     axparamdicts = [axparamdict1]
     ax1, = set_meteogram_axes([ax1], axparamdicts)
 
-    plt.savefig(ib.image_dir + 'meteograms/' + dis_name + '_RH.png', dpi=300)
-    plt.close(fig)
+    return fig, ax1
 
-    # Plot station pressure
 
-    pmin = N.nanmin(conv_plot_df['pressure'].values)
-    pmax = N.nanmax(conv_plot_df['pressure'].values)
+def plot_pressure_meteogram(plottimes, conv_plot_ds, global_plot_config_dict,
+                            xlimits=None, ptype='PIPS'):
 
-    # pmean = conv_plot_df['pressure'].values.mean()
+    pmin = N.nanmin(conv_plot_ds['pressure'].values)
+    pmax = N.nanmax(conv_plot_ds['pressure'].values)
+
+    # pmean = conv_plot_ds['pressure'].values.mean()
     # avgintv = 1  # Currently not used
 
-    fig = plt.figure(figsize=(5, 3))
+    fig = plt.figure(figsize=(8, 3))
     ax1 = fig.add_subplot(111)
 
-    fields = [conv_plot_df['pressure'].values]
+    fields = [conv_plot_ds['pressure'].values]
     fieldparamdicts = [pressure_params]
     ax1 = plotmeteogram(ax1, [plottimes], fields, fieldparamdicts)
 
-    axparamdict1 = {'majorxlocator': pc.locator, 'majorxformatter': pc.formatter,
-                    'minorxlocator': pc.minorlocator,
-                    'axeslimits': [xaxislimits, [pmin - 2.5, pmax + 2.5]],
-                    'axeslabels': [pc.timelabel, 'Station pressure (hPa)']}
+    axparamdict1 = {
+        'majorxlocator': global_plot_config_dict['majorxlocator'],
+        'majorxformatter': global_plot_config_dict['majorxformatter'],
+        'minorxlocator': global_plot_config_dict['minorxlocator'],
+        'axeslimits': [xlimits, [pmin - 2.5, pmax + 2.5]],
+        'axeslabels': [global_plot_config_dict['xlabel'], 'Station pressure (hPa)']
+    }
     axparamdicts = [axparamdict1]
     ax1, = set_meteogram_axes([ax1], axparamdicts)
-    plt.savefig(ib.image_dir + 'meteograms/' + dis_name + '_pres.png', dpi=300)
-    plt.close(fig)
 
-    # Plot some additional diagnostic time series
-    if(pc.plot_diagnostics and ib.type[dis_index] not in 'NV2'):
-        # Battery voltages
-        fig = plt.figure(figsize=(5, 3))
+    return fig, ax1
+
+
+def plot_voltage_meteogram(plottimes, conv_plot_ds, global_plot_config_dict,
+                           xlimits=None, ptype='PIPS'):
+
+    fig = plt.figure(figsize=(8, 3))
+    ax1 = fig.add_subplot(111)
+
+    fields = [conv_plot_ds['voltage'].values]
+    fieldparamdicts = [battery_params]
+    ax1 = plotmeteogram(ax1, [plottimes], fields, fieldparamdicts)
+
+    axparamdict1 = {
+        'majorxlocator': global_plot_config_dict['majorxlocator'],
+        'majorxformatter': global_plot_config_dict['majorxformatter'],
+        'minorxlocator': global_plot_config_dict['minorxlocator'],
+        'axeslimits': [xlimits, [8.0, 16.0]],
+        'axeslabels': [global_plot_config_dict['xlabel'], r'Battery Voltage (V)']
+    }
+    axparamdicts = [axparamdict1]
+    ax1, = set_meteogram_axes([ax1], axparamdicts)
+
+    return fig, ax1
+
+
+def plot_GPS_speed_meteogram(plottimes, conv_plot_ds, global_plot_config_dict,
+                             xlimits=None, ptype='PIPS'):
+    try:
+        # GPS-derived speed
+        fig = plt.figure(figsize=(8, 3))
         ax1 = fig.add_subplot(111)
 
-        fields = [conv_plot_df['voltage'].values]
-        fieldparamdicts = [battery_params]
+        fields = [conv_plot_ds['GPS_speed'].values]
+        N.set_printoptions(threshold=N.inf)
+        fieldparamdicts = [GPS_speed_params]
         ax1 = plotmeteogram(ax1, [plottimes], fields, fieldparamdicts)
 
-        axparamdict1 = {'majorxlocator': pc.locator, 'majorxformatter': pc.formatter,
-                        'minorxlocator': pc.minorlocator, 'axeslimits': [xaxislimits, [8.0, 16.0]],
-                        'axeslabels': [pc.timelabel, r'Battery Voltage (V)']}
+        axparamdict1 = {
+            'majorxlocator': global_plot_config_dict['majorxlocator'],
+            'majorxformatter': global_plot_config_dict['majorxformatter'],
+            'minorxlocator': global_plot_config_dict['minorxlocator'],
+            'axeslimits': [xlimits, [0.0, 20.0]],
+            'axeslabels': [global_plot_config_dict['xlabel'], r'GPS speed (m s$^{-1}$)']}
         axparamdicts = [axparamdict1]
         ax1, = set_meteogram_axes([ax1], axparamdicts)
 
-        plt.savefig(ib.image_dir + 'meteograms/' + dis_name + '_voltage.png', dpi=300)
+        return fig, ax1
+    except KeyError:
+        print("No GPS Speed information in file!")
+        return
 
-        try:
-            # GPS-derived speed
-            fig = plt.figure(figsize=(5, 3))
-            ax1 = fig.add_subplot(111)
 
-            fields = [conv_plot_df['GPS_speed'].values]
-            N.set_printoptions(threshold=N.inf)
-            fieldparamdicts = [GPS_speed_params]
-            ax1 = plotmeteogram(ax1, [plottimes], fields, fieldparamdicts)
-
-            axparamdict1 = {'majorxlocator': pc.locator, 'majorxformatter': pc.formatter,
-                            'minorxlocator': pc.minorlocator,
-                            'axeslimits': [xaxislimits, [0.0, 20.0]],
-                            'axeslabels': [pc.timelabel, r'GPS speed (m s$^{-1}$)']}
-            axparamdicts = [axparamdict1]
-            ax1, = set_meteogram_axes([ax1], axparamdicts)
-
-            plt.savefig(ib.image_dir + 'meteograms/' + dis_name + '_GPS_speed.png', dpi=300)
-        except KeyError:
-            print("No GPS Speed information in file!")
-
-def plotDSDderivedmeteograms(dis_index, pc, ib, **PSDderiveddict):
+def plotDSDderivedmeteograms(PIPS_index, pc, ib, **PSDderiveddict):
     """Plots meteograms of the various derived DSD quantities from the PIPS"""
     PSDmidtimes = PSDderiveddict.get('PSDmidtimes')
     PSD_plot_df = PSDderiveddict.get('PSD_plot_df')
 
     xaxislimits = [PSDmidtimes[0], PSDmidtimes[-1]]
-    dis_name = ib.dis_name_list[dis_index]
+    dis_name = ib.dis_name_list[PIPS_index]
 
     # Rain rates (intensities)
-    fig = plt.figure(figsize=(5, 3))
+    fig = plt.figure(figsize=(8, 3))
     ax1 = fig.add_subplot(111)
 
     fields = [PSD_plot_df['intensity'].values]
@@ -629,8 +694,8 @@ def plotDSDderivedmeteograms(dis_index, pc, ib, **PSDderiveddict):
     plt.close(fig)
 
     # Reflectivity
-    if ib.type[dis_index] != 'NV2':
-        fig = plt.figure(figsize=(5, 3))
+    if ib.type[PIPS_index] != 'NV2':
+        fig = plt.figure(figsize=(8, 3))
         ax1 = fig.add_subplot(111)
 
         fields = [PSD_plot_df['reflectivity'].values]
@@ -647,12 +712,12 @@ def plotDSDderivedmeteograms(dis_index, pc, ib, **PSDderiveddict):
         plt.close(fig)
 
     # Particle counts
-    fig = plt.figure(figsize=(5, 3))
+    fig = plt.figure(figsize=(8, 3))
     ax1 = fig.add_subplot(111)
 
     fields = [PSD_plot_df['pcount'].values]
     fieldparamdicts = [pcount_params]
-    if ib.type[dis_index] != 'NV2':
+    if ib.type[PIPS_index] != 'NV2':
         fields.append(PSD_plot_df['pcount2'].values)
         fieldparamdicts.append(pcount2_params)
 
@@ -669,8 +734,8 @@ def plotDSDderivedmeteograms(dis_index, pc, ib, **PSDderiveddict):
     plt.close(fig)
 
     # Signal amplitude
-    if ib.type[dis_index] == 'PIPS':
-        fig = plt.figure(figsize=(5, 3))
+    if ib.type[PIPS_index] == 'PIPS':
+        fig = plt.figure(figsize=(8, 3))
         ax1 = fig.add_subplot(111)
 
         fields = [PSD_plot_df['amplitude'].values]
@@ -691,7 +756,7 @@ def plotDSDderivedmeteograms(dis_index, pc, ib, **PSDderiveddict):
         plt.close(fig)
 
 
-def plotDSDmeteograms(dis_name, image_dir, axparams, disvars, radvars, close_fig=True):
+def plotDSDmeteograms(dis_name, image_dir, axparams, disvars, radvars=None, close_fig=True):
     """Plots one or more meteograms of disdrometer number concentrations vs. diameter bins,
        along with one or more derived variables and optionally radar variables for comparison.
        One meteogram is plotted per dualpol variable (i.e. Z,ZDR,KDP,RHV)"""
@@ -702,19 +767,26 @@ def plotDSDmeteograms(dis_name, image_dir, axparams, disvars, radvars, close_fig
     if(not logND.size or not PSDstarttimes.size or not PSDmidtimes.size):
         print("No DSD info to plot! Quitting!")
         return
-    D_0_dis = disvars.get('D_0', N.empty((0)))
-    # D_0_rad = radvars.get('D_0_rad', N.empty((0)))
-    radmidtimes = radvars.get('radmidtimes', N.empty((0)))
+    # D_0_dis = disvars.get('D_0', N.empty((0)))
+    D_m_dis = disvars.get('D_m', N.empty((0)))
     dBZ_ray_dis = disvars.get('dBZ_ray', N.empty((0)))
     flaggedtimes = disvars.get('flaggedtimes', N.empty((0)))
     hailflag = disvars.get('hailflag', N.empty((0)))
+    if radvars is not None:
+        #D_0_rad = radvars.get('D_0_rad', N.empty((0)))
+        D_m_keys = [k for k, v in radvars.items() if 'D_m' in k]
+        radmidtimes = radvars.get('radmidtimes', N.empty((0)))
+    else:
+        D_0_rad = N.empty((0))
+        D_m_keys = []
+        radmidtimes = N.empty((0))
 
     # Try to find the desired dualpol variables for plotting in the provided dictionary
 
     dualpol_dis_varnames = []
     dualpol_dis_vars = []
     for key, value in disvars.items():
-        if key in ['dBZ', 'ZDR', 'KDP', 'RHV']:
+        if key in ['REF', 'ZDR', 'KDP', 'RHO']:
             dualpol_dis_varnames.append(key)
             dualpol_dis_vars.append(value)
 
@@ -727,7 +799,10 @@ def plotDSDmeteograms(dis_name, image_dir, axparams, disvars, radvars, close_fig
     # Start the plotting loop
     for dualpol_dis_varname, dualpol_dis_var in zip(dualpol_dis_varnames, dualpol_dis_vars):
         # See if the variable is also provided in the radvars dictionary
-        dualpol_rad_var = radvars.get(dualpol_dis_varname, N.empty((0)))
+        if radvars is not None:
+            dualpol_rad_var = radvars.get(dualpol_dis_varname, N.empty((0)))
+        else:
+            dualpol_rad_var = None
 
         # Create the figure
         fig = plt.figure(figsize=(8, 3))
@@ -743,13 +818,44 @@ def plotDSDmeteograms(dis_name, image_dir, axparams, disvars, radvars, close_fig
                           'clabel': r'log[N ($m^{-3} mm^{-1}$)]'}
         plotparamdicts = [plotparamdict1]
 
-        # Median volume diameter
-        if(D_0_dis.size):
+        # # Median volume diameter
+        # if(D_0_dis.size):
+        #     xvals.append(PSDmidtimes)
+        #     plotvars.append(D_0_dis)
+        #     plotparamdict2 = {'type': 'line', 'linestyle': ':', 'color': 'r', 'linewidth': 1.0,
+        #                       'label': r'$D_{0,dis} (mm)$'}
+        #     plotparamdicts.append(plotparamdict2)
+
+        # # Retrieved median volume diameter
+        # if D_0_rad.size:
+        #     xvals.append(PSDmidtimes)
+        #     plotvars.append(D_0_rad)
+        #     plotparamdict2 = {'type': 'line', 'linestyle': ':', 'color': 'purple', 'linewidth': 1.0,
+        #                       'label': r'$D_{0,rad} (mm)$'}
+        #     plotparamdicts.append(plotparamdict2)
+
+        # Mass-weighted mean diameter
+        if(D_m_dis.size):
             xvals.append(PSDmidtimes)
-            plotvars.append(D_0_dis)
-            plotparamdict2 = {'type': 'line', 'linestyle': ':', 'color': 'b', 'linewidth': 0.5,
-                              'label': r'$D_{0,dis} (mm)$'}
+            plotvars.append(D_m_dis)
+            plotparamdict2 = {'type': 'line', 'linestyle': ':', 'color': 'r', 'linewidth': 1.0,
+                              'label': r'$D_{m,dis} (mm)$'}
             plotparamdicts.append(plotparamdict2)
+
+        # Retrieved Mass-weighted mean diameter
+
+        if len(D_m_keys) > 0:
+            colors = ['purple', 'navy', 'navy', 'green']
+            linestyles = [':', '--', '-.', '-']
+            for col, ls, D_m_rad_key in zip(colors, linestyles, D_m_keys):
+                plot_key = D_m_rad_key.replace('D_m_rad_', '')
+                xvals.append(PSDmidtimes)
+                plotvars.append(radvars[D_m_rad_key])
+
+                plotparamdict2 = {'type': 'line', 'linestyle': ls, 'color': col, 'linewidth': 1.0,
+                                  'label': r'$D_{{m}}$ {} (mm)'.format(plot_key)}
+                plotparamdicts.append(plotparamdict2)
+
 
         # Vertical lines for flagged times (such as from wind contamination).
         if(flaggedtimes.size):
@@ -773,18 +879,18 @@ def plotDSDmeteograms(dis_name, image_dir, axparams, disvars, radvars, close_fig
         axparamdict1 = axparams
         axes = [ax1]
         axparamdicts = [axparamdict1]
+        ax1.legend(bbox_to_anchor=(0., 1.), loc='upper left',
+                   ncol=1, fancybox=True, shadow=False, prop=fontP)
 
-        # Now plot the dualpol variable
-        if(dualpol_dis_var.size):
+        # Plot the disdrometer-derived dualpol variable
+        if dualpol_dis_varname is not None:
             xvals = [PSDmidtimes]
             plotvars = [dualpol_dis_var]
-            if(dualpol_dis_varname == 'dBZ'):
+            if dualpol_dis_varname == 'REF':
                 dualpol_dis_varlabel = r'$Z_{dis} (dBZ)$'
-                dualpol_rad_varlabel = r'$Z_{rad} (dBZ)$'
                 axis_label = 'Reflectivity (dBZ)'
                 axis_limits = [0.0, 80.0]
-                axis_intv = 5.0
-
+                axis_intv = 10.0
                 # Also plot Rayleigh version
                 if(dBZ_ray_dis.size):
                     xvals.append(PSDmidtimes)
@@ -792,30 +898,40 @@ def plotDSDmeteograms(dis_name, image_dir, axparams, disvars, radvars, close_fig
                     dBZ_ray_dis_varlabel = r'$Z_{dis,ray} (dBZ)$'
             elif(dualpol_dis_varname == 'ZDR'):
                 dualpol_dis_varlabel = r'$Z_{DR,dis} (dB)$'
-                dualpol_rad_varlabel = r'$Z_{DR,rad} (dB)$'
                 axis_label = 'Differential Reflectivity (dBZ)'
                 axis_limits = [0.0, 6.0]
                 axis_intv = 0.5
             elif(dualpol_dis_varname == 'KDP'):
                 dualpol_dis_varlabel = r'$K_{DP,dis} (deg km^{-1})$'
-                dualpol_rad_varlabel = r'$K_{DP,rad} (deg km^{-1})$'
                 axis_label = r'Specific Differential Phase (deg km$^{-1}$)'
                 axis_limits = [0.0, 12.0]
                 axis_intv = 1.0
-            elif(dualpol_dis_varname == 'RHV'):
+            elif(dualpol_dis_varname == 'RHO'):
                 dualpol_dis_varlabel = r'$\sigma_{HV,dis}$'
-                dualpol_rad_varlabel = r'$\sigma_{HV,rad}$'
                 axis_label = r'Cross-correlation Coefficient'
                 axis_limits = [0.0, 1.05]
                 axis_intv = 0.1
 
-            plotparamdict1 = {'type': 'line', 'linestyle': '-', 'color': 'b', 'linewidth': 1.5,
+            plotparamdict1 = {'type': 'line', 'linestyle': '-', 'color': 'r', 'linewidth': 1.5,
                               'label': dualpol_dis_varlabel}
             plotparamdicts = [plotparamdict1]
-            if(dualpol_dis_varname == 'dBZ' and dBZ_ray_dis.size):
-                plotparamdict = {'type': 'line', 'linestyle': '--', 'color': 'b', 'linewidth': 1.5,
+            if(dualpol_dis_varname == 'REF' and dBZ_ray_dis.size):
+                plotparamdict = {'type': 'line', 'linestyle': '--', 'color': 'r', 'linewidth': 1.5,
                                  'label': dBZ_ray_dis_varlabel}
                 plotparamdicts.append(plotparamdict)
+
+
+        # Now add the radar dualpol variables if desired
+        if(dualpol_rad_var is not None):
+
+            if(dualpol_dis_varname == 'REF'):
+                dualpol_rad_varlabel = r'$Z_{rad} (dBZ)$'
+            elif(dualpol_dis_varname == 'ZDR'):
+                dualpol_rad_varlabel = r'$Z_{DR,rad} (dB)$'
+            elif(dualpol_dis_varname == 'KDP'):
+                dualpol_rad_varlabel = r'$K_{DP,rad} (deg km^{-1})$'
+            elif(dualpol_dis_varname == 'RHO'):
+                dualpol_rad_varlabel = r'$\sigma_{HV,rad}$'
 
             if(dualpol_rad_var.size):
                 xvals.append(radmidtimes)
@@ -824,7 +940,8 @@ def plotDSDmeteograms(dis_name, image_dir, axparams, disvars, radvars, close_fig
                                   'linewidth': 1.5, 'label': dualpol_rad_varlabel}
                 plotparamdicts.append(plotparamdict2)
 
-            # print xvals,plotvars,plotparamdicts
+        # print xvals,plotvars,plotparamdicts
+        if dualpol_dis_varname is not None:
             ax2 = plotmeteogram(ax2, xvals, plotvars, plotparamdicts)
             axparamdict2 = {'majorylocator': ticker.MultipleLocator(base=axis_intv),
                             'axeslimits': [axparams['axeslimits'][0], axis_limits],
@@ -832,13 +949,15 @@ def plotDSDmeteograms(dis_name, image_dir, axparams, disvars, radvars, close_fig
             axes.append(ax2)
             axparamdicts.append(axparamdict2)
             ax2.legend(bbox_to_anchor=(1., 1.), loc='upper right',
-                       ncol=1, fancybox=True, shadow=False, prop=fontP)
+                    ncol=1, fancybox=True, shadow=False, prop=fontP)
 
         axes = set_meteogram_axes(axes, axparamdicts)
-        if(dualpol_dis_varname):
-            plt.savefig(image_dir + dis_name + '_' + dualpol_dis_varname + '_logNc.png', dpi=300)
+        if(dualpol_dis_varname is not None):
+            figpath = os.path.join(image_dir, dis_name + '_' + dualpol_dis_varname + '_logNc.png')
+            plt.savefig(figpath, dpi=300)
         else:
-            plt.savefig(image_dir + dis_name + '_logNc.png', dpi=300)
+            figpath = os.path.join(image_dir, dis_name + '_logNc.png')
+            plt.savefig(figpath, dpi=300)
         if close_fig:
             plt.close(fig)
 
@@ -925,30 +1044,31 @@ def set_meteogram_axes(axes, axparamdicts):
     return axes
 
 
-def plot_DSD(ib, axdict, PSDdict, PSDfitdict, PSDparamdict):
+def plot_DSD(axdict, PSDdict, PSDfitdict, PSDparamdict):
     """Plots an individual measured PSD on a semilog plot, along with optional exponential and gamma
        fits and associated parameters."""
 
-    times = axdict.get('times', N.empty((0)))
+    time_to_plot = axdict.get('time', None)
+    time_to_plot_datetime = pd.to_datetime(time_to_plot).to_pydatetime()
     xbin_left = axdict.get('xbin_left', N.empty((0)))
     xbin_right = axdict.get('xbin_right', N.empty((0)))
     xbin_mid = axdict.get('xbin_mid', N.empty((0)))
     ND = PSDdict.get('ND', N.empty((0)))
-    # ND_onedrop = PSDdict.get('ND_onedrop', N.empty((0)))
+    # FIXME
+    ND_onedrop = PSDdict.get('ND_onedrop', N.empty((0)))
     interval = axdict.get('interval', 10)
-    dis_name = axdict.get('dis_name', None)
-    t = axdict.get('time', None)
-
-#     print ND*1000.
-#     print xbin_left
-#     print xbin_right
 
     fig1 = plt.figure(figsize=(8, 6))
     ax1 = fig1.add_subplot(111)
-    plt.title('{0:d}-s DSD fits for time {1} EST'.format(interval, times[t].strftime(tm.timefmt2)))
+    titlestring = '{0:d}-s DSD fits for time {1} EST'
+    plt.title(titlestring.format(interval, time_to_plot_datetime.strftime(tm.timefmt2)))
 
-    ax1.bar(xbin_left, ND * 1000.0,
-            xbin_right - xbin_left, 10.**2., align='edge', log=True, color='tan', edgecolor='k')
+    print('ND', ND)
+    ax1.bar(xbin_left, ND * 1000.0, xbin_right - xbin_left, 10.**2., align='edge', log=True,
+            color='tan', edgecolor='k')
+    print('ND_onedrop', ND_onedrop)
+    ax1.bar(xbin_left, ND_onedrop * 1000.0, xbin_right - xbin_left, 10.**2., align='edge',
+            log=True, fill=False, edgecolor='k')
 
     # ax1.plot(xbin_mid, ND * 1000.0, lw=2, label='obs')
 
@@ -959,7 +1079,7 @@ def plot_DSD(ib, axdict, PSDdict, PSDfitdict, PSDparamdict):
             ND_fit = ND_tuple[0]
 #         print ND_fit
         label = ND_tuple[1]
-        if(ND_fit.size):
+        if ND_fit.size:
             ax1.plot(xbin_mid, ND_fit, lw=2, label=label)
 
     ax1.set_yscale('log')
@@ -967,46 +1087,59 @@ def plot_DSD(ib, axdict, PSDdict, PSDfitdict, PSDparamdict):
     ax1.set_xlim(0.0, 9.0)
     ax1.set_xlabel('D (mm)')
     ax1.set_ylabel(r'N(D) $(m^{-4})$')
+
+    # FIXME
     ypos = 0.95
     for paramname, paramtuple in PSDparamdict.items():
-        ax1.text(0.50, ypos, paramtuple[1] + ' = %2.2f' % paramtuple[0],
+        ax1.text(0.50, ypos, paramtuple[1] + ' = {:2.2f}'.format(np.float(paramtuple[0])),
                  transform=ax1.transAxes)
         ypos = ypos - 0.05
 
     plt.legend(loc='upper left', numpoints=1, ncol=1, fontsize=8)
-    plt.savefig(ib.image_dir + 'DSDs/' + dis_name + '/' + dis_name + '_DSD_t{:04d}.png'.format(t),
-                dpi=200, bbox_inches='tight')
-    plt.close(fig1)
+
+    return fig1, ax1
+
+    # plt.savefig(ib.image_dir + 'DSDs/' + dis_name + '/' + dis_name + '_DSD_t{:04d}.png'.format(t),
+    #             dpi=200, bbox_inches='tight')
+    # plt.close(fig1)
 
 
-def plot_vel_D(ib, axdict, PSDdict, rho):
+def plot_vel_D(axdict, PSDdict, rho):
     """Plots the terminal velocity vs. diameter matrix for a given DSD"""
 
-    times = axdict.get('times', N.empty((0)))
-    dis_name = axdict.get('dis_name', None)
-    t = axdict.get('time', None)
+    time = axdict.get('time', None)
     xlim = axdict.get('xlim', (0.0, 9.0))
     ylim = axdict.get('ylim', (0.0, 15.0))
     min_diameter = axdict.get('min_diameter', None)
     min_fall_bins = axdict.get('min_fall_bins', None)
     avg_diameter = axdict.get('avg_diameter', None)
+    cblim = axdict.get('cblim', (1, 50))
 
-    countsMatrix = PSDdict.get('countsMatrix', None)
+    vd_matrix_da = PSDdict.get('vd_matrix_da', None)
     flaggedtime = PSDdict.get('flaggedtime', 0)
+    DSD_interval = PSDdict.get('DSD_interval', 10.)
 
     fig1 = plt.figure(figsize=(8, 6))
     ax1 = fig1.add_subplot(111)
-    plt.title('Fall speed vs. diameter for time {0}'.format(times[t].strftime(tm.timefmt2)))
+    if time:
+        titlestring = 'Fall speed vs. diameter for time {} and interval {:d} s'
+        plt.title(titlestring.format(time.strftime(tm.timefmt2), int(DSD_interval)))
+    else:
+        titlestring = 'Fall speed vs. diameter for full deployment ({:d} s)'
+        plt.title(titlestring.format(int(DSD_interval)))
 
-    countsplot = N.ma.masked_where(countsMatrix[:] <= 0, countsMatrix[:])
-    C = ax1.pcolor(min_diameter, min_fall_bins, countsplot, vmin=1, vmax=50, edgecolors='w')
-    rainvd = dis.assignfallspeed(avg_diameter, rhocorrect=True, rho=rho)
+    countsplot = vd_matrix_da
+    # countsplot = N.ma.masked_where(vd_matrix_da <= 0, vd_matrix_da)
+    C = ax1.pcolor(min_diameter, min_fall_bins, countsplot, vmin=cblim[0], vmax=cblim[1],
+                   edgecolors='w', cmap=cm.plasma)
+    rainvd = pips.calc_empirical_fallspeed(avg_diameter, correct_rho=True, rho=rho)
 
     ax1.plot(avg_diameter, rainvd, c='r')
     # ax1.scatter(X[0:10,20:31],Y[0:10,20:31],c='r',marker='x')
     fig1.colorbar(C)
 
-    if(flaggedtime > 1):
+    # FIXME
+    if flaggedtime > 1:
         ax1.text(0.5, 0.5, 'Flagged for strong wind contamination!',
                  horizontalalignment='center',
                  verticalalignment='center', color='y',
@@ -1036,9 +1169,7 @@ def plot_vel_D(ib, axdict, PSDdict, rho):
     ax1.yaxis.set_major_locator(ticker.MultipleLocator(1.0))
     ax1.set_ylabel('fall speed (m/s)')
 
-    plt.savefig(ib.image_dir + 'vel_D/' + dis_name + '/' + dis_name +
-                '_vel_D_t{:04d}.png'.format(t), dpi=200, bbox_inches='tight')
-    plt.close(fig1)
+    return fig1, ax1
 
 
 def computecorners(xe, ye, UM=False):
@@ -1230,3 +1361,197 @@ def circles(x, y, s, c='b', vmin=None, vmax=None, **kwargs):
 # #             pcountax.set_ylabel('# of particles')
 # #             pcountax.set_title('Disdrometer Log(N) and Reflectivity')
 # #             plt.xticks(visible=False)
+
+
+def plot_mu_lamda(poly_coeff, poly, lamda=None, mu=None, ax=None, title=None, plot_Z01_C08=True,
+                  plot_legend=True, plot_poly_coeff=True):
+
+    op1 = '+' if np.sign(poly_coeff[1]) == 1 else '-'
+    op2 = '+' if np.sign(poly_coeff[0]) == 1 else '-'
+
+    xx = np.linspace(0.0, 30.0)
+    yy = poly(xx)
+    if plot_Z01_C08:
+        y_Cao = -0.0201 * xx**2. + 0.902 * xx - 1.718
+        y_Zhang = -0.016 * xx**2. + 1.213 * xx - 1.957
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(6, 6))
+    else:
+        fig = plt.gcf()
+    if title:
+        plt.title(title)
+    if lamda is not None:
+        ax.scatter(lamda, mu, color='k', marker='.')
+        ax.plot(xx, yy, label='Present study')
+    if plot_Z01_C08:
+        ax.plot(xx, y_Cao, label='C08')
+        ax.plot(xx, y_Zhang, label='Z01')
+    ax.set_xlim(0.0, 20.0)
+    ax.set_ylim(-5.0, 32.0)
+    ax.set_xlabel(r'$\lambda$ (mm$^{-1}$)')
+    ax.set_ylabel(r'$\mu$')
+    if lamda is not None:
+        ax.text(0.05, 0.85, '# of Points: {:d}'.format(len(lamda)),
+                transform=ax.transAxes, fontsize=12.)
+    if plot_poly_coeff:
+        polytext = r'$\mu = {0:2.4f}\lambda^{{2}} {1} {2:2.4f}\lambda {3} {4:2.4f}$'
+
+        polytext = polytext.format(poly_coeff[2], op1, np.abs(poly_coeff[1]), op2,
+                                np.abs(poly_coeff[0]))
+        ax.text(0.05, 0.80, polytext, transform=ax.transAxes, fontsize=12.)
+    if plot_legend:
+        plt.legend(loc='upper left', numpoints=1, ncol=3, fontsize=12.)
+
+    return fig, ax
+
+
+def plot_scatter(ds, var_x, var_y, axparams, fig=None, ax=None, add_colorbar=True):
+    label_x = axparams.get('label_x', var_x)
+    label_y = axparams.get('label_y', var_y)
+    var_lims = axparams.get('var_lims', [[0., 1.], [0., 1.]])
+    plot_log = axparams.get('plot_log', [False, False])
+    col_field = axparams.get('col_field', None)
+    label_cb = axparams.get('label_cb', col_field)
+    norm = axparams.get('norm', None)
+    col_field_lims = axparams.get('col_field_lims', [0., 1.])
+    color = axparams.get('color', 'k')
+    alpha = axparams.get('alpha', 1.)
+    markersize = axparams.get('markersize', 10)
+    markerstyle = axparams.get('markerstyle', 'o')
+
+    if plot_log[0]:
+        x_lims = [10.**v for v in var_lims[0]]
+    else:
+        x_lims = var_lims[0]
+    if plot_log[1]:
+        y_lims = [10.**v for v in var_lims[1]]
+    else:
+        y_lims = var_lims[1]
+
+    if not ax:
+        fig, ax = plt.subplots(figsize=(10, 10))
+    elif not fig:
+        fig = plt.gcf()
+
+    if col_field:
+        xrplot.scatter(ds, var_x, var_y, ax=ax, hue=col_field, hue_style='continuous', norm=norm,
+                       vmin=col_field_lims[0], vmax=col_field_lims[1], alpha=alpha, s=markersize,
+                       marker=markerstyle, cbar_kwargs={'label': label_cb},
+                       add_guide=add_colorbar)
+    else:
+        xrplot.scatter(ds, var_x, var_y, ax=ax, colors=color)
+
+    ax.set_xlabel(label_x)
+    ax.set_ylabel(label_y)
+    if plot_log[0]:
+        ax.set_xscale('log')
+    if plot_log[1]:
+        ax.set_yscale('log')
+    ax.set_xlim(x_lims)
+    ax.set_ylim(y_lims)
+    ax.set_aspect('equal')
+
+    return fig, ax
+
+
+def plot_one2one(ds, var_x, var_y, axparams, fig=None, ax=None, compute_stats=True,
+                 add_colorbar=True):
+
+    var_lims = axparams.get('var_lims', [[0., 1.], [0., 1.]])
+    plot_log = axparams.get('plot_log', [False, False])
+    if compute_stats:
+        stat_text_loc = axparams.get('stat_text_loc', [(0.1, 0.9), (0.1, 0.85)])
+        stat_labels = axparams.get('stat_labels', [r'$\rho_{{rd}}$: {:.2f}',
+                                                   r'Bias$_{{rd}}$: {:.2f}'])
+
+    fig, ax = plot_scatter(ds, var_x, var_y, axparams, fig=fig, ax=ax, add_colorbar=add_colorbar)
+    if plot_log[0]:
+        x_lims = [10.**v for v in var_lims[0]]
+    else:
+        x_lims = var_lims[0]
+    if plot_log[1]:
+        y_lims = [10.**v for v in var_lims[1]]
+    else:
+        y_lims = var_lims[1]
+    ax.plot(x_lims, y_lims, color='k')
+
+    if compute_stats:
+        cc, bias = pips.calc_stats(ds, var_x, var_y)
+        ax.text(*stat_text_loc[0], stat_labels[0].format(cc.iloc[0, 1]), transform=ax.transAxes)
+        ax.text(*stat_text_loc[1], stat_labels[1].format(bias), transform=ax.transAxes)
+
+    return fig, ax
+
+
+def plot_retr_timeseries(obs_dict, retr_dis_dict, retr_rad_dict, DSDmidtimes, axparams, fig=None,
+                         ax=None, compute_stats=True, name=None):
+
+    obs = obs_dict.get('field', None)
+    retr_dis = retr_dis_dict.get('field', None)
+    retr_rad = retr_rad_dict.get('field', None)
+
+    obs_param_dict = obs_dict.get('plotparams', {
+        'linestyle': '-',
+        'color': 'k',
+        'alpha': 0.25,
+        'plotmin': 0,
+        'label': r'observed'
+    })
+
+    retr_dis_param_dict = retr_dis_dict.get('plotparams', {
+        'linestyle': '-',
+        'color': 'c',
+        'alpha': 0.25,
+        'plotmin': 0,
+        'label': r'dis retrieved'
+    })
+
+    retr_rad_param_dict = retr_rad_dict.get('plotparams', {
+        'linestyle': '-',
+        'color': 'g',
+        'alpha': 0.25,
+        'plotmin': 0,
+        'label': r'rad retrieved'
+    })
+
+    if compute_stats:
+        bias_dis = (100. * (retr_dis - obs).mean() / obs.mean()).values
+        bias_rad = (100. * (retr_rad - obs).mean() / obs.mean()).values
+        cc_dis = pd.DataFrame({'x': obs, 'y': retr_dis}).corr()
+        cc_rad = pd.DataFrame({'x': obs, 'y': retr_rad}).corr()
+
+    if not ax:
+        fig, ax = plt.subplots(figsize=(10, 10))
+    elif not fig:
+        fig = plt.gcf()
+
+    fields = [obs, retr_dis, retr_rad]
+    fieldparamdicts = [obs_param_dict, retr_dis_param_dict, retr_rad_param_dict]
+    xvals = [DSDmidtimes] * len(fields)
+    ax = plotmeteogram(ax, xvals, fields, fieldparamdicts)
+    axparamdicts = [axparams]
+    ax, = set_meteogram_axes([ax], axparamdicts)
+    if (name == 'Nt' or name == 'R'):
+        ax.set_yscale('log')
+    ax.text(0.05, 0.93, 'Dis Retr. Bias =%2.2f' % bias_dis + '%', transform=ax.transAxes)
+    ax.text(0.05, 0.86, 'Rad Retr. Bias =%2.2f' % bias_rad + '%', transform=ax.transAxes)
+    ax.text(0.05, 0.79, 'Dis Retr. Corr Coeff =%2.3f' %
+            cc_dis.iloc[0, 1], transform=ax.transAxes)
+    ax.text(0.05, 0.72, 'Rad Retr. Corr Coeff =%2.3f' %
+            cc_rad.iloc[0, 1], transform=ax.transAxes)
+    ax.legend(
+        bbox_to_anchor=(
+            1.,
+            1.),
+        loc='upper right',
+        ncol=1,
+        fancybox=True,
+        shadow=False,
+        prop=fontP)
+    # plt.savefig(image_dir + 'meteograms/' + dis_name + '_' + name + '.png', dpi=300)
+    # plt.close(fig)
+    return fig, ax
+
+
+
+

@@ -1,0 +1,19 @@
+#!/bin/bash
+
+rm dualpara.pyf
+rm dualpara.so
+
+# Note: add --debug-capi for more verbose debugging messages
+
+f2py -m dualpara -h dualpara.pyf global_module.f90 dualpara.f90
+f2py -c --fcompiler=intelem dualpara.pyf global_module.f90 dualpara.f90
+
+# The following is needed in case you want to import the dualpara module when running on JupyterHub on RCAC.
+# The problem is that the needed shared libraries are located in a directory specified by $LD_LIBRARY_PATH,
+# but annoyingly this environment variable isn't populated when running a server through the Rice JupyterHub interface
+# (notebook.rice.rcac.purdue.edu). After much wailing and gnashing of teeth, I finally discovered a solution here:
+# https://stackoverflow.com/questions/13769141/can-i-change-rpath-in-an-already-compiled-binary
+# This edits the generated dualpara.so file to explicitly include the path to the needed shared libraries, and everybody
+# is happy! Note, this will not work if you move to another machine or if the location of these shared libraries changes...
+
+patchelf --set-rpath --force-rpath /apps/cent7/intel/compilers_and_libraries_2017.1.132/linux/compiler/lib/intel64 dualpara.so 
