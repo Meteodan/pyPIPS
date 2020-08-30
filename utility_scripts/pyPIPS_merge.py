@@ -19,17 +19,18 @@
 # Contact: sean.waugh@noaa.gov or 405-312-7585
 #
 # Python version written by Dan Dawson: 09/13/2017
+# Latest update 08/30/2020
 # Contact: dandawson@purdue.edu
 
 # Import required modules
 
-import numpy as N
 import os
 import glob
 import sys
 import re
 import csv
 from datetime import datetime
+import numpy as np
 
 # Location of input files. You should only need to change these for your particular
 # dataset.
@@ -75,32 +76,32 @@ def process_onesec_record(row):
         # First, strip out all quotes from each field
         value = value.replace('"', '')
         # Convert strings to numeric values where appropriate
-        if(field != 'GPSDate' and field != 'GPSTime'):
+        if field not in ('GPSDate', 'GPSTime'):
             try:
-                value = N.float(value)
+                value = np.float(value)
                 # This part isn't really needed, but is added for consistency with output
                 # from the original Matlab script
-                if(N.isnan(value)):
+                if np.isnan(value):
                     value = 'NaN'
-                if(N.int(value) == value):
-                    value = N.int(value)
-            except BaseException:
+                if np.int(value) == value:
+                    value = np.int(value)
+            except Exception:
                 pass
         row[field] = value
     # Parse GPS latitude and longitude
     try:
         tokens = row['GPSLat'].strip().split()
         try:
-            row['GPSLat'] = '{:7.4f}'.format(N.float(tokens[0]) / 100.)
+            row['GPSLat'] = '{:7.4f}'.format(np.float(tokens[0]) / 100.)
             row['GPSLatHem'] = tokens[1]
-        except BaseException:
+        except Exception:
             row['GPSLat'] = 'NaN'
             row['GPSLatHem'] = ''
         tokens = row['GPSLon'].strip().split()
         try:
-            row['GPSLon'] = '{:7.4f}'.format(N.float(tokens[0]) / 100.)
+            row['GPSLon'] = '{:7.4f}'.format(np.float(tokens[0]) / 100.)
             row['GPSLonHem'] = tokens[1]
-        except BaseException:
+        except Exception:
             row['GPSLon'] = 'NaN'
             row['GPSLonHem'] = ''
     except Exception:
@@ -119,14 +120,14 @@ def process_tensec_record(row):
         value = value.replace('\n', '')
         # Convert strings to numeric values where appropriate
         try:
-            value = N.float(value)
+            value = np.float(value)
             # This part isn't really needed, but is added for consistency with output
             # from the original Matlab script
-            if(N.isnan(value)):
+            if np.isnan(value):
                 value = 'NAN'
-            if(N.int(value) == value):
-                value = N.int(value)
-        except BaseException:
+            if np.int(value) == value:
+                value = np.int(value)
+        except Exception:
             pass
         row[field] = value
 
@@ -137,17 +138,18 @@ def parseTimeStamp(timestring):
     """Parses a logger timestamp string and returns a datetime object"""
     date = timestring[0]  # .strip('-')
     time = timestring[1]  # .strip(':')
-    year = N.int(date[:4])
-    month = N.int(date[5:7])
-    day = N.int(date[8:])
-    hour = N.int(time[:2])
-    min = N.int(time[3:5])
-    sec = N.int(time[6:8])
-    return datetime(year, month, day, hour, min, sec)
+    year = np.int(date[:4])
+    month = np.int(date[5:7])
+    day = np.int(date[8:])
+    hour = np.int(time[:2])
+    minute = np.int(time[3:5])
+    sec = np.int(time[6:8])
+    return datetime(year, month, day, hour, minute, sec)
 
 
 # The following are taken from https://stackoverflow.com/questions/
 # 5967500/how-to-correctly-sort-a-string-with-a-number-inside?noredirect=1&lq=1
+
 
 def atoi(text):
     return int(text) if text.isdigit() else text
@@ -160,6 +162,7 @@ def natural_keys(text):
     (See Toothy's implementation in the comments)
     '''
     return [atoi(c) for c in re.split(r'(\d+)', text)]
+
 
 # From https://stackoverflow.com/questions/6618515/sorting-list-based-on-values-from-another-list
 def sortby(X, Y):
@@ -182,11 +185,11 @@ def merge_dicts(*dict_args):
     return result
 
 
-def readData(PIPS_data_dir):
+def readData(data_dir):
     """Reads the data from a list of 1-s and 10-s files and stores them in two dictionaries"""
     # Get lists of the 1-s and 10-s data files
-    filelist_onesec = glob.glob(os.path.join(PIPS_data_dir, '*_OneHz*'))
-    filelist_tensec = glob.glob(os.path.join(PIPS_data_dir, '*_TenHz*'))
+    filelist_onesec = glob.glob(os.path.join(data_dir, '*_OneHz*'))
+    filelist_tensec = glob.glob(os.path.join(data_dir, '*_TenHz*'))
 
     # Sort the lists in natural order
     filelist_onesec.sort(key=natural_keys)
@@ -206,9 +209,9 @@ def readData(PIPS_data_dir):
     # Start reading in data. Start with the 1-s files
     TriPIPS = False
     dict_onesec = {}
-    for i, file in enumerate(filelist_onesec):
-        print("Reading 1-s data file: ", os.path.basename(file))
-        with open(file) as f:
+    for filename in filelist_onesec:
+        print("Reading 1-s data file: ", os.path.basename(filename))
+        with open(filename) as f:
             try:
                 next(f)  # Read and discard first header line
             except Exception:
@@ -255,9 +258,9 @@ def readData(PIPS_data_dir):
     # Now read the 10-s files
 
     dict_tensec = {}
-    for i, file in enumerate(filelist_tensec):
-        print("Reading 10-s data file: ", os.path.basename(file))
-        with open(file) as f:
+    for filename in filelist_tensec:
+        print("Reading 10-s data file: ", os.path.basename(filename))
+        with open(filename) as f:
             try:
                 next(f)  # Read and discard first header line
             except Exception:
@@ -269,7 +272,7 @@ def readData(PIPS_data_dir):
             # here and discard the extra line
             if 'TIMESTAMP' not in fieldnames[0]:
                 fieldnames = next(f).strip().replace('"', '').split(',')
-            if (fieldnames != fieldnames_tensec and fieldnames != fieldnames_tensecv2):
+            if fieldnames not in (fieldnames_tensec, fieldnames_tensecv2):
                 # print(fieldnames, fieldnames_tensec, fieldnames_tensecv2)
                 # sys.exit("Something's wrong with this file, aborting!")
                 print("Something's wrong with this file, skipping!")
@@ -292,10 +295,10 @@ def readData(PIPS_data_dir):
     return dict_onesec, dict_tensec, TriPIPS
 
 
-def mergeData(PIPS_data_dir, output_filename, verbose=False):
+def mergeData(data_dir, out_filename, verbose=False):
 
     # First, read the data from the files
-    dict_onesec, dict_tensec, TriPIPS = readData(PIPS_data_dir)
+    dict_onesec, dict_tensec, TriPIPS = readData(data_dir)
 
     if TriPIPS:
         output_fields = fieldnames_output_TriPIPS
@@ -314,7 +317,7 @@ def mergeData(PIPS_data_dir, output_filename, verbose=False):
     except:
         numparsivelrecords = 0
 
-    PIPS_outputfile = os.path.join(PIPS_data_dir, output_filename)
+    PIPS_outputfile = os.path.join(data_dir, out_filename)
 
     with open(PIPS_outputfile, 'w') as f:
         writer = csv.DictWriter(f, fieldnames=output_fields)
@@ -333,7 +336,7 @@ def mergeData(PIPS_data_dir, output_filename, verbose=False):
         # of their records out of order)
         indices = list(range(numrecords))
         indices_sorted = sortby(indices, datetime_onesec_list)
-        if not (indices == indices_sorted):
+        if not indices == indices_sorted:
             print("Times out of order! Need to sort!")
             datetime_onesec_list.sort()
             for field, records in dict_onesec.copy().items():
@@ -348,7 +351,7 @@ def mergeData(PIPS_data_dir, output_filename, verbose=False):
 
         indices = list(range(numparsivelrecords))
         indices_sorted = sortby(indices, datetime_tensec_list)
-        if not (indices == indices_sorted):
+        if not indices == indices_sorted:
             print("Times out of order! Need to sort!")
             datetime_tensec_list.sort()
             for field, records in dict_tensec.copy().items():
@@ -357,10 +360,10 @@ def mergeData(PIPS_data_dir, output_filename, verbose=False):
         for i in range(numrecords):
             datetime_onesec = datetime_onesec_list[i]
             if i > 0:
-                delta_t = (datetime_onesec_list[i] - datetime_onesec_list[i-1]).total_seconds()
+                delta_t = (datetime_onesec_list[i] - datetime_onesec_list[i - 1]).total_seconds()
                 if delta_t > 1.:
                     print("Time gap detected between {} and {}".format(
-                        datetime_onesec_list[i-1].strftime('%Y-%m-%d %H:%M:%S'),
+                        datetime_onesec_list[i - 1].strftime('%Y-%m-%d %H:%M:%S'),
                         datetime_onesec_list[i].strftime('%Y-%m-%d %H:%M:%S')))
             # Fill in known 1-s values into output row dictionary
             outputrow = {key: value[i] for key, value in dict_onesec.items()}
@@ -369,14 +372,14 @@ def mergeData(PIPS_data_dir, output_filename, verbose=False):
             # the float version is not really needed, but is done just for consistency with
             # the original Matlab script (the float version outputs as "nan").
             try:
-                winddirabs = N.mod(dict_onesec['FluxDirection'][i] +
-                                   dict_onesec['WindDir'][i], 360.)
-                if(N.isnan(winddirabs)):
+                winddirabs = np.mod(dict_onesec['FluxDirection'][i] +
+                                    dict_onesec['WindDir'][i], 360.)
+                if np.isnan(winddirabs):
                     outputrow['WindDirAbs'] = 'NaN'
                 else:
                     outputrow['WindDirAbs'] = '{:4.1f}'.format(
                         winddirabs).strip().rstrip('0').rstrip('.')
-            except BaseException:
+            except Exception:
                 outputrow['WindDirAbs'] = 'NaN'
 
             RH = dict_onesec['RH'][i]
@@ -385,30 +388,31 @@ def mergeData(PIPS_data_dir, output_filename, verbose=False):
                 FastT = dict_onesec['FastTemp'][i]
 
             try:
-                dewpoint = 243.04 * (N.log(RH / 100.) + ((17.625 * SlowT) / (243.04 + SlowT))) / \
-                    (17.625 - N.log(RH / 100.) - ((17.625 * SlowT) / (243.04 + SlowT)))
-                if(N.isnan(dewpoint)):
+                dewpoint = 243.04 * (np.log(RH / 100.) + ((17.625 * SlowT) / (243.04 + SlowT))) / \
+                    (17.625 - np.log(RH / 100.) - ((17.625 * SlowT) / (243.04 + SlowT)))
+                if np.isnan(dewpoint):
                     outputrow['Dewpoint'] = 'NaN'
                 else:
                     outputrow['Dewpoint'] = '{:7.4f}'.format(
                         dewpoint).strip().rstrip('0').rstrip('.')
-            except BaseException:
+            except Exception:
                 outputrow['Dewpoint'] = 'NaN'
 
             try:
-                RHDer = 100. * (N.exp((17.625 * dewpoint) / (243.04 + dewpoint)) /
-                                N.exp((17.625 * FastT) / (243.04 + FastT)))
-                if(N.isnan(RHDer)):
+                RHDer = 100. * (np.exp((17.625 * dewpoint) / (243.04 + dewpoint)) /
+                                np.exp((17.625 * FastT) / (243.04 + FastT)))
+                if np.isnan(RHDer):
                     outputrow['RHDer'] = 'NaN'
                 else:
                     outputrow['RHDer'] = '{:7.4f}'.format(RHDer).strip().rstrip('0').rstrip('.')
-            except BaseException:
+            except Exception:
                 outputrow['RHDer'] = 'NaN'
 
             if verbose:
-                print("Processing one-sec timestamp {}".format(datetime_onesec.strftime('%Y-%m-%d %H:%M:%S')))
+                print("Processing one-sec timestamp {}".format(
+                    datetime_onesec.strftime('%Y-%m-%d %H:%M:%S')))
 
-            if(j < numparsivelrecords):  # Only do the following if we still have Parsivel data
+            if j < numparsivelrecords:  # Only do the following if we still have Parsivel data
                 datetime_tensec = datetime_tensec_list[j]
 
                 # Next, we need to fill in the Parsivel data for the records that need it.
@@ -432,11 +436,12 @@ def mergeData(PIPS_data_dir, output_filename, verbose=False):
                 # This shouldn't really happen if the logger is working correctly, but in case the
                 # First n Parsivel times are *earlier* than the first 1-s time, we have to increment
                 # the j index until we get our first match.
-                while(datetime_onesec > datetime_tensec):
+                while datetime_onesec > datetime_tensec:
                     if verbose:
                         print("Initial syncing of one-sec and ten-sec times:")
-                        print(print("onesec = {}, tensec = {}".format(datetime_onesec.strftime('%Y-%m-%d %H:%M:%S'),
-                                                                datetime_tensec.strftime('%Y-%m-%d %H:%M:%S'))))
+                        print("onesec = {}, tensec = {}".format(
+                            datetime_onesec.strftime('%Y-%m-%d %H:%M:%S'),
+                            datetime_tensec.strftime('%Y-%m-%d %H:%M:%S')))
                         print(j)
                     j += 1
                     try:
@@ -447,13 +452,15 @@ def mergeData(PIPS_data_dir, output_filename, verbose=False):
 #                     timestring_tensec = nextParsivelTimeStamp.strip().split()
 #                     datetime_tensec = parseTimeStamp(timestring_tensec)
 
-                if(datetime_onesec == datetime_tensec):  # Found a match! Add Parsivel string to end
-                                                        # of 1-s record, and then increment the j
-                                                        # counter.
+                # Found a match! Add Parsivel string to end
+                # of 1-s record, and then increment the j
+                # counter.
+                if datetime_onesec == datetime_tensec:
                     if verbose:
                         print("Found match for one-sec and ten-sec data!")
-                        print("onesec = {}, tensec = {}".format(datetime_onesec.strftime('%Y-%m-%d %H:%M:%S'),
-                                                                datetime_tensec.strftime('%Y-%m-%d %H:%M:%S')))
+                        print("onesec = {}, tensec = {}".format(
+                            datetime_onesec.strftime('%Y-%m-%d %H:%M:%S'),
+                            datetime_tensec.strftime('%Y-%m-%d %H:%M:%S')))
                     outputrow['ParsivelStr'] = dict_tensec['ParsivelStr'][j]
                     j += 1
                 else:   # No match, put a NaN at the end of the 1-s record.
@@ -468,7 +475,7 @@ def mergeData(PIPS_data_dir, output_filename, verbose=False):
 
 if __name__ == "__main__":
 
-    if(len(sys.argv) > 1):
+    if len(sys.argv) > 1:
         PIPS_data_dir = sys.argv[1]
         output_filename = sys.argv[2]
     else:
