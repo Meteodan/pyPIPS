@@ -1882,8 +1882,7 @@ def read_sweeps(radar_paths, starttime, stoptime, field_names=['dBZ'], el_req=0.
 
     for radpath, sweeptime in zip(radar_paths_keepers, sweeptimelist):
 
-        radarsweep = readCFRadial_pyART(el_req, radpath, sweeptime,
-                                        field_names, compute_kdp=compute_kdp)
+        radarsweep = readCFRadial_pyART(el_req, radpath, sweeptime, compute_kdp=compute_kdp)
         radarsweeplist.append(radarsweep)
 
     # Sort the lists by increasing time since glob doesn't sort in any particular order
