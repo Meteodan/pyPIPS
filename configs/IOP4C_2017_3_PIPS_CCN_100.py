@@ -3,7 +3,7 @@
 PIPS_IO_dict = {
     'dataset_name': 'IOP4C_2017',
     'deployment_names': ['IOP4C_D1_2017'] * 3,
-    'PIPS_dir': '/depot/dawson29/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset',
+    'PIPS_dir': '/depot/dawson29/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset_RB15/',
     'plot_dir': '/depot/dawson29/data/Projects/VORTEXSE/simulations/ARPS/2017_IOP4C/EnKF/PIPS/plots/CCN100',
     'PIPS_types': ['PIPS'] * 3,
     'PIPS_names': ['PIPS1A', 'PIPS1B', 'PIPS2B'],
@@ -37,7 +37,7 @@ radar_config_dict = {
     'plot_retrieval': True,
     'radar_name': 'KGWX',
     'radar_type': 'NEXRAD',
-    'radar_dir': '/depot/dawson29/data/Projects/VORTEXSE/obsdata/2017/NEXRAD/IOP_4C/CFRadial/modified/',
+    'radar_dir': '/depot/dawson29/data/Projects/VORTEXSE/obsdata/2017/NEXRAD/IOP_4C/level2/',
     'field_names': ['REF', 'ZDR', 'RHO'],
     'el_req': 0.5,
     'radar_start_timestamp': '20170430170000',
@@ -56,8 +56,8 @@ model_config_dict = {
     'cycle': 'prior',
     'basedirname': '/scratch/rice/c/cbelak/Projects/VORTEXSE/simulations/ARPS/2017_IOP4C/EnKF/1km243x243_3km153x153_043017_CCN100',
     'timestamp_model_init': '20170430060000',
-    'timestamp_model_start': '20170430183000',
-    'timestamp_model_stop': '20170430193000',
+    'timestamp_model_start': '20170430181500',
+    'timestamp_model_stop': '20170430201500',
     'nproc_x': 6,
     'nproc_y': 6,
 }

@@ -44,14 +44,14 @@ radar_config_dict = {
 }
 
 model_config_dict = {
-    'runname': '1km243x243_3km153x153_043017_NAM_5_min',
+    'runname': '5_min_CCN_100_1km243x243_3km153x153_043017_NAM',
     'nens': 40,
     'fileformat': 'hdf',
     'microphys': 'ZVD',
     'model_dt': 60.,
     'model_dt_mean': 300.,
     'cycle': 'prior',
-    'basedirname': '/scratch/rice/c/cbelak/Projects/VORTEXSE/simulations/ARPS/2017_IOP4C/EnKF/1km243x243_3km153x153_043017',
+    'basedirname': '/scratch/rice/c/cbelak/Projects/VORTEXSE/simulations/ARPS/2017_IOP4C/EnKF/1km243x243_3km153x153_043017_CCN100/',
     'timestamp_model_init': '20170430060000',
     'timestamp_model_start': '20170430200000',
     'timestamp_model_stop': '20170430220000',

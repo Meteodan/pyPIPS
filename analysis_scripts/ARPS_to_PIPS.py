@@ -102,7 +102,7 @@ geo_locs = config.PIPS_IO_dict.get('geo_locs', [None]*len(PIPS_names))
 requested_interval = config.PIPS_IO_dict.get('requested_interval', 10.)
 
 cycle = 'prior'
-varnames = ['p', 'pt', 'qv', 'u', 'v', 'qr', 'nr', 'zr']
+varnames = ['Td', 'p', 'pt', 'qv', 'u', 'v', 'qr', 'nr', 'zr']
 member_list = range(member_start, member_end)
 # Read in the ensemble members
 var_ds_list = []
