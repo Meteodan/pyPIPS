@@ -4,6 +4,8 @@ channels:
 dependencies:
   - arm_pyart
   - autopep8
+  - basemap
+  - basemap-data-hires
   - beautifulsoup4
   - bottleneck
   - cartopy

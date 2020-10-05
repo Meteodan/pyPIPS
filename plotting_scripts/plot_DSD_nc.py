@@ -43,6 +43,8 @@ parser.add_argument('--plot-series', action='store_true', dest='plot_series',
                     help='Plot time series of DSDs')
 parser.add_argument('--retr-tag', dest='retr_tag', default='SATP',
                     help='string to identify retrieval to plot')
+parser.add_argument('--image-fmt', dest='image_fmt', default='png',
+                    help='Image file format (i.e. png, eps, pdf)')
 
 args = parser.parse_args()
 if not args.ND_tags:
@@ -112,16 +114,27 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
                           1000.)
         rad_dim_name = 'fields_{}'.format(radar_name)
         rad_fields_key = '{}_at_PIPS'.format(radar_name)
+        # Annoying.. if the ND tag is 'qc', the radar fields don't have it as a suffix,
+        # so remove it here. Also SATP_TMM is called just "SATP" here. Grumble.
+        if ND_tag == '_qc':
+            ND_rad_tag = ''
+        else:
+            ND_rad_tag = ND_tag
+        if args.retr_tag == 'SATP_TMM':
+            rad_retr_tag = 'SATP'
+        else:
+            rad_retr_tag = args.retr_tag
         DSD_rad_mu = parsivel_combined_ds[rad_fields_key].loc[{rad_dim_name:
-                                                               'mu_{}{}'.format(args.retr_tag,
-                                                                                ND_tag)}]
+                                                               'mu_{}{}'.format(rad_retr_tag,
+                                                                                ND_rad_tag)}]
         DSD_rad_N0 = (parsivel_combined_ds[rad_fields_key].loc[{rad_dim_name:
-                                                                'N0_{}{}'.format(args.retr_tag,
-                                                                                 ND_tag)}] *
+                                                                'N0_{}{}'.format(rad_retr_tag,
+                                                                                 ND_rad_tag)}] *
                       1000.**(1. + DSD_rad_mu))
         DSD_rad_lamda = \
             (parsivel_combined_ds[rad_fields_key].loc[{rad_dim_name:
-                                                       'lamda_{}{}'.format(args.retr_tag, ND_tag)}]
+                                                       'lamda_{}{}'.format(rad_retr_tag,
+                                                                           ND_rad_tag)}]
              * 1000.)
 
         ND_MM24 = dsd.calc_binned_DSD_from_params(DSD_MM24.loc['N0'], DSD_MM24.loc['lamda'], 0.,
@@ -143,10 +156,10 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
         # D0_rad = parsivel_combined_ds[rad_fields_key].loc[{rad_dim_name: 'D0'}]
 
         Dm = parsivel_combined_ds['Dm43{}'.format(ND_tag)] * 1000.  # Get to mm
-        Dm_retr = parsivel_combined_ds['Dm_retr_{}{}'.format(args.retr_tag, ND_tag)]
+        Dm_retr = parsivel_combined_ds['Dm43_retr_{}{}'.format(args.retr_tag, ND_tag)]
         Dm_rad = parsivel_combined_ds[rad_fields_key].loc[{rad_dim_name:
-                                                           'Dm_{}{}'.format(args.retr_tag,
-                                                                            ND_tag)}]
+                                                           'Dm_{}{}'.format(rad_retr_tag,
+                                                                            ND_rad_tag)}]
 
         dualpol_dict = dp.calpolrain(10.7, os.path.join(scatt_dir, 'SCTT_RAIN_fw100.dat'), ND,
                                      bin_width)
@@ -220,10 +233,11 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
                     }
                     fig, ax = pm.plot_DSD(axdict, PSDdict, PSDfitdict, PSDparamdict)
                     image_name = \
-                        '{}_{}_DSD_{}_{:d}_{}_{}_t{:04d}.png'.format(PIPS_name, deployment_name,
-                                                                     ND_tag, int(DSD_interval),
-                                                                     radar_name,
-                                                                     time.strftime(tm.timefmt3), t)
+                        '{}_{}_DSD_{}_{:d}_{}_{}_t{:04d}.{}'.format(PIPS_name, deployment_name,
+                                                                    ND_tag, int(DSD_interval),
+                                                                    radar_name,
+                                                                    time.strftime(tm.timefmt3), t,
+                                                                    args.image_fmt)
                     image_path = os.path.join(DSD_image_dir, image_name)
                     fig.savefig(image_path, dpi=200, bbox_inches='tight')
                     plt.close(fig)

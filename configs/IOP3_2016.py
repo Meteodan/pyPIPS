@@ -55,7 +55,7 @@ model_config_dict = {
     'microphys': 'ZVD',
     'model_dt': 60.,
     'model_dt_mean': 900.,
-    'basedirname': '/Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/simulations/ARPS/2016_IOP3/EnKF/1km453x453_newse',
+    'basedirname': '/Users/dawson29/sshfs_mounts/rice_scratch/Projects/VORTEXSE/simulations/ARPS/2016_IOP3/EnKF/1km243x243_033116_newse/',
     'timestamp_model_init': '20160331180000',
     'timestamp_model_start': '20160331220000',
     'timestamp_model_stop': '20160331234000',

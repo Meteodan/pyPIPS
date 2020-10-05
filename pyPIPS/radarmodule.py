@@ -1314,16 +1314,24 @@ def plotsweep_pyART(radar_obj, sweeptime, PIPS_names, PIPS_geo_locs, PIPS_rad_lo
                                             sweeptime.strftime(tm.timefmt3),
                                             radar_obj.elevation['data'][0])
 
-        field_to_match = field.replace('_filtered', '')
+        field_to_match = field
+        # DTD: find a better way to do this
+        retr_aliases = [retr_alias for aliases in retr_alias_list for retr_alias in aliases]
+        for field_trial in retr_aliases:
+            if field_trial in field:
+                field_to_match = field_trial
+                break
+        field_to_match = field_to_match.replace('_filtered', '')
         field_plot_params = radar_plot_param_matching[field_to_match]
 
         # TODO: add colorbar label levels, other arguments
-        display.plot_ppi_map(field, 0, title=titlestring, cmap=field_plot_params['cmap'],
+        display.plot_ppi_map(field, 0, title_flag=False, cmap=field_plot_params['cmap'],
                              vmin=field_plot_params['clevels'][0],
                              vmax=field_plot_params['clevels'][-1], colorbar_label='', ax=ax,
                              resolution='10m', projection=projection, fig=fig,
-                             lat_lines=np.arange(30, 46, 0.1), lon_lines=np.arange(-110, -75, 0.1))
-
+                             lat_lines=np.arange(30, 46, 0.1), lon_lines=np.arange(-110, -75, 0.1),
+                             raster=True)
+        display.ax.set_title(titlestring, fontsize=10)
         # Overlay locations of the PIPS
         for PIPS_geo_loc, PIPS_name in zip(PIPS_geo_locs, PIPS_names):
             display.plot_point(PIPS_geo_loc[1], PIPS_geo_loc[0], 'r*', ms=10, alpha=0.5,
