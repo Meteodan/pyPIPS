@@ -116,17 +116,22 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
         rad_fields_key = '{}_at_PIPS'.format(radar_name)
         # Annoying.. if the ND tag is 'qc', the radar fields don't have it as a suffix,
         # so remove it here. Also SATP_TMM is called just "SATP" here. Grumble.
-        if ND_tag == '_qc':
-            ND_rad_tag = ''
-        else:
-            ND_rad_tag = ND_tag
+
         if args.retr_tag == 'SATP_TMM':
             rad_retr_tag = 'SATP'
         else:
             rad_retr_tag = args.retr_tag
-        DSD_rad_mu = parsivel_combined_ds[rad_fields_key].loc[{rad_dim_name:
-                                                               'mu_{}{}'.format(rad_retr_tag,
-                                                                                ND_rad_tag)}]
+        try:
+            ND_rad_tag = ND_tag
+            DSD_rad_mu = parsivel_combined_ds[rad_fields_key].loc[{rad_dim_name:
+                                                                   'mu_{}{}'.format(rad_retr_tag,
+                                                                                    ND_rad_tag)}]
+        except KeyError:
+            ND_rad_tag = ''
+            DSD_rad_mu = parsivel_combined_ds[rad_fields_key].loc[{rad_dim_name:
+                                                                   'mu_{}{}'.format(rad_retr_tag,
+                                                                                    ND_rad_tag)}]
+
         DSD_rad_N0 = (parsivel_combined_ds[rad_fields_key].loc[{rad_dim_name:
                                                                 'N0_{}{}'.format(rad_retr_tag,
                                                                                  ND_rad_tag)}] *

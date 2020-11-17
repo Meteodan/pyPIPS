@@ -53,11 +53,22 @@ def calpolrain(wavelength, filename, Nd, intv):
     sar_hv = fab * Nd * intv
     fsar = far * Nd * intv
 
-    Zh = 4. * lamda**4. / (np.pi**4. * Kw2) * np.sum(sar_h, axis=1)
-    Zv = 4. * lamda**4. / (np.pi**4. * Kw2) * np.sum(sar_v, axis=1)
-    Zhv = 4. * lamda**4. / (np.pi**4. * Kw2) * np.abs(np.sum(sar_hv, axis=1))
-    Kdp = 180. * lamda / np.pi * np.sum(fsar, axis=1) * 1.e-3
-    dBZ = 10. * np.log10(Zh)
+    # TODO: return binned values (by diameter) in addition to total
+    Zh_bin = 4. * lamda**4. / (np.pi**4. * Kw2) * sar_h
+    Zv_bin = 4. * lamda**4. / (np.pi**4. * Kw2) * sar_v
+    Zhv_bin = 4. * lamda**4. / (np.pi**4. * Kw2) * sar_hv
+    Kdp_bin = 180. * lamda / np.pi * fsar * 1.e-3
+    dBZ_bin = 10. * np.log10(Zh_bin)
+    ZDR_lin_bin = Zh_bin / Zv_bin
+    ZDR_bin = 10. * np.log10(np.maximum(1.0, ZDR_lin_bin))
+    temp = Zh_bin * Zv_bin
+    # Added by Jess (was temp > 0).  Find out why...
+    rhv_bin = np.where(Zh_bin != Zv_bin, Zhv_bin / (np.sqrt(temp)), np.nan)
+    Zh = np.sum(Zh_bin, axis=1)
+    Zv = np.sum(Zv_bin, axis=1)
+    Zhv = np.abs(np.sum(Zhv_bin, axis=1))
+    Kdp = np.sum(Kdp_bin, axis=1)
+    dBZ = 10. * np.log10(np.sum(Zh_bin, axis=1))
     temp = Zh / Zv
     ZDR = 10. * np.log10(np.maximum(1.0, temp))
     temp = Zh * Zv
@@ -65,7 +76,9 @@ def calpolrain(wavelength, filename, Nd, intv):
     rhv = np.where(Zh != Zv, Zhv / (np.sqrt(temp)), np.nan)
     # np.savetxt('temp.txt', temp)
 
-    dualpol_dict = {'ZH': Zh, 'ZV': Zv, 'ZHV': Zhv, 'REF': dBZ, 'ZDR': ZDR, 'KDP': Kdp, 'RHO': rhv,
-                    'intv': intv, 'd': d, 'fa2': fa2, 'fb2': fb2}
+    dualpol_dict = {'ZH_bin': Zh_bin, 'ZV_bin': Zv_bin, 'ZHV_bin': Zhv_bin, 'REF_bin': dBZ_bin,
+                    'ZDR_lin_bin': ZDR_lin_bin, 'ZDR_bin': ZDR_bin, 'KDP_bin': Kdp_bin,
+                    'RHO_bin': rhv_bin, 'ZH': Zh, 'ZV': Zv, 'ZHV': Zhv, 'REF': dBZ, 'ZDR': ZDR,
+                    'KDP': Kdp, 'RHO': rhv, 'intv': intv, 'd': d, 'fa2': fa2, 'fb2': fb2}
 
     return dualpol_dict

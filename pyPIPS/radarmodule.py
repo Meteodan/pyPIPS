@@ -136,8 +136,8 @@ sigma_plot_dict = {
 }
 
 # Contains some common aliases for the different fields to match up with the above parameter dicts
-REF_aliases = ['dBZ', 'DBZ', 'Z', 'REF', 'DZ', 'corrected_reflectivity']
-ZDR_aliases = ['Zdr', 'ZDR', 'DB_ZDR', 'corrected_differential_reflectivity']
+REF_aliases = ['dBZ', 'DBZ', 'Z', 'REF', 'DZ', 'corrected_reflectivity', 'reflectivity']
+ZDR_aliases = ['Zdr', 'ZDR', 'DB_ZDR', 'corrected_differential_reflectivity', 'differential_reflectivity']
 KDP_aliases = ['Kdp', 'KDP', 'KD', 'specific_differential_phase']
 PHI_aliases = ['PHI', 'differential_phase']
 RHV_aliases = ['rhv', 'RHV', 'RHO', 'cross_correlation_ratio']
@@ -556,6 +556,29 @@ def get_field_to_plot(radar_obj, field_name_list, tag=None):
     else:
         new_field_name_list = field_name_list
     return next((f for f in list(radar_obj.fields.items()) if f[0] in new_field_name_list), None)
+
+
+def get_gridded_field_to_plot(grid_obj, field_name_list, tag=None):
+    """Attempts to retrieve a field from a pyART radar object using a list of common aliases for
+       that field.
+
+    Parameters
+    ----------
+    grid_obj : pyart.core.Grid
+        The pyART Grid object
+    field_name_list : list
+        list of field names
+
+    Returns
+    -------
+    tuple
+        (field_name, field)
+    """
+    if tag:
+        new_field_name_list = [field_name + tag for field_name in field_name_list]
+    else:
+        new_field_name_list = field_name_list
+    return next((f for f in list(grid_obj.fields.items()) if f[0] in new_field_name_list), None)
 
 
 def readCFRadial(nexrad, el, radlat, radlon, radalt, file, sweeptime, fieldnames):

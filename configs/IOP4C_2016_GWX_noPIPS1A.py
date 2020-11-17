@@ -13,8 +13,8 @@ PIPS_IO_dict = {
     'PIPS_filenames_nc': ['parsivel_combined_IOP4C_D1_2016_PIPS1B_60s.nc',
                           'parsivel_combined_IOP4C_D1_2016_PIPS2A_60s.nc',
                           'parsivel_combined_IOP4C_D1_2016_PIPS2B_60s.nc'],
-    'start_times': ['20160430193000'] * 3,
-    'end_times': ['20160430224500'] * 3,
+    'start_times': ['20160430204500', '20160430193000', '20160430204500'] * 3,
+    'end_times': ['20160430214500', '20160430200000', '20160430214500'] * 3,
     'requested_interval': 60.
 }
 
@@ -39,10 +39,10 @@ radar_config_dict = {
     'radar_name': 'KGWX',
     'radar_type': 'NEXRAD',
     'radar_dir': '/Volumes/scr_fast/Projects/VORTEXSE/obsdata/2016/NEXRAD/IOP_4C/GWX/CFRadial',
-    'field_names': ['REF', 'ZDR', 'RHO', 'Dm', 'sigma', 'RR', 'mu', 'lamda'],
+    'field_names': ['REF', 'ZDR', 'RHO', 'Dm_Z01', 'sigma_Z01', 'RR_Z01', 'mu_Z01', 'lamda_Z01'],
     'el_req': 0.5,
-    'radar_start_timestamp': '20160430190000',
-    'radar_end_timestamp': '20160501000000',
+    'radar_start_timestamp': '20160430210000',
+    'radar_end_timestamp': '20160430213000',
     'scatt_dir': '/Users/dawson29/Projects/pyPIPS/tmatrix/S-Band/',
     'wavelength': 10.7
 }
