@@ -42,6 +42,8 @@ parser.add_argument('--dBZ-thresh', type=float, dest='dBZ_thresh', default=5.,
                     help='Threshold of reflectivity below which to exclude (dBZ)')
 parser.add_argument('--RHV-thresh', type=float, dest='RHV_thresh', default=0.95,
                     help='Threshold of RHV below which to exclude')
+parser.add_argument('--image-fmt', dest='image_fmt', default='png',
+                    help='Image file format (i.e. png, eps, pdf)')
 
 args = parser.parse_args()
 
@@ -190,8 +192,9 @@ for radar_path, sweeptime in zip(radar_path_dict['radarpathlist'],
                                                             plot_filtered=args.plot_filtered)
 
     for fig, ax, field_name in zip(figlist, axlist, fields_plotted):
-        PIPS_plot_name = '{}_{}_{}_{}_{}deg.png'.format(field_name, deployment_name,
-                                                        sweeptime_string, radar_name, str(el_req))
+        PIPS_plot_name = '{}_{}_{}_{}_{}deg.{}'.format(field_name, deployment_name,
+                                                       sweeptime_string, radar_name, str(el_req),
+                                                       args.image_fmt)
         PIPS_plot_path = os.path.join(image_dir, PIPS_plot_name)
         fig.savefig(PIPS_plot_path, dpi=200, bbox_inches='tight')
         plt.close(fig)

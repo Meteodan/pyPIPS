@@ -1461,8 +1461,8 @@ def plot_one2one(ds, var_x, var_y, axparams, fig=None, ax=None, compute_stats=Tr
     plot_log = axparams.get('plot_log', [False, False])
     if compute_stats:
         stat_text_loc = axparams.get('stat_text_loc', [(0.1, 0.9), (0.1, 0.85)])
-        stat_labels = axparams.get('stat_labels', [r'$\rho_{{rd}}$: {:.2f}',
-                                                   r'Bias$_{{rd}}$: {:.2f}'])
+        stat_labels = axparams.get('stat_labels', [r'$\rho_{{rd}}$: {:.3f}',
+                                                   r'Bias$_{{rd}}$: {:.3f}'])
 
     fig, ax = plot_scatter(ds, var_x, var_y, axparams, fig=fig, ax=ax, add_colorbar=add_colorbar)
     if plot_log[0]:

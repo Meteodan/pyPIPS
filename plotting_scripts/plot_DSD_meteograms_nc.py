@@ -274,12 +274,19 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
             # radvars['D_0_rad'] = radar_fields_at_PIPS_da.loc[{dim_name: 'D0'}]
             # Change to D_m and plot for multiple retrievals
             # TODO: allow for selection of retrievals to plot on command line
-            radvars['D_m_rad_SATP'] = radar_fields_at_PIPS_da.loc[{
-                dim_name: 'Dm_SATP{}'.format(ND_tag)
-                }]
-            # radvars['D_m_rad_Z01'] = radar_fields_at_PIPS_da.loc[{dim_name: 'Dm_Z01'}]
-            # radvars['D_m_rad_C08'] = radar_fields_at_PIPS_da.loc[{dim_name: 'Dm_C08'}]
-            # radvars['D_m_rad_TMM_F'] = radar_fields_at_PIPS_da.loc[{dim_name: 'Dm_TMM_F'}]
+            try:
+                radvars['D_m_rad_SATP'] = radar_fields_at_PIPS_da.loc[{
+                    dim_name: 'Dm_SATP{}'.format(ND_tag)}]
+                radvars['D_m_rad_TMM_F'] = radar_fields_at_PIPS_da.loc[{
+                    dim_name: 'Dm_TMM_F{}'.format(ND_tag)}]
+            except KeyError:
+                radvars['D_m_rad_SATP'] = radar_fields_at_PIPS_da.loc[{
+                    dim_name: 'Dm_SATP'}]
+                radvars['D_m_rad_TMM_F'] = radar_fields_at_PIPS_da.loc[{
+                    dim_name: 'Dm_TMM_F'}]
+            radvars['D_m_rad_Z01'] = radar_fields_at_PIPS_da.loc[{dim_name: 'Dm_Z01'}]
+            radvars['D_m_rad_C08'] = radar_fields_at_PIPS_da.loc[{dim_name: 'Dm_C08'}]
+
 
         # TODO: this code below is obsolescent, as filtering is done elsewhere now.
         # NOTE: reinstated this, with slight modifications, because the previous filtering

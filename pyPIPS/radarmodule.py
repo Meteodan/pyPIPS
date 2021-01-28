@@ -136,8 +136,8 @@ sigma_plot_dict = {
 }
 
 # Contains some common aliases for the different fields to match up with the above parameter dicts
-REF_aliases = ['dBZ', 'DBZ', 'Z', 'REF', 'DZ', 'corrected_reflectivity']
-ZDR_aliases = ['Zdr', 'ZDR', 'DB_ZDR', 'corrected_differential_reflectivity']
+REF_aliases = ['dBZ', 'DBZ', 'Z', 'REF', 'DZ', 'corrected_reflectivity', 'reflectivity']
+ZDR_aliases = ['Zdr', 'ZDR', 'DB_ZDR', 'corrected_differential_reflectivity', 'differential_reflectivity']
 KDP_aliases = ['Kdp', 'KDP', 'KD', 'specific_differential_phase']
 PHI_aliases = ['PHI', 'differential_phase']
 RHV_aliases = ['rhv', 'RHV', 'RHO', 'cross_correlation_ratio']
@@ -556,6 +556,29 @@ def get_field_to_plot(radar_obj, field_name_list, tag=None):
     else:
         new_field_name_list = field_name_list
     return next((f for f in list(radar_obj.fields.items()) if f[0] in new_field_name_list), None)
+
+
+def get_gridded_field_to_plot(grid_obj, field_name_list, tag=None):
+    """Attempts to retrieve a field from a pyART radar object using a list of common aliases for
+       that field.
+
+    Parameters
+    ----------
+    grid_obj : pyart.core.Grid
+        The pyART Grid object
+    field_name_list : list
+        list of field names
+
+    Returns
+    -------
+    tuple
+        (field_name, field)
+    """
+    if tag:
+        new_field_name_list = [field_name + tag for field_name in field_name_list]
+    else:
+        new_field_name_list = field_name_list
+    return next((f for f in list(grid_obj.fields.items()) if f[0] in new_field_name_list), None)
 
 
 def readCFRadial(nexrad, el, radlat, radlon, radalt, file, sweeptime, fieldnames):
@@ -1314,16 +1337,24 @@ def plotsweep_pyART(radar_obj, sweeptime, PIPS_names, PIPS_geo_locs, PIPS_rad_lo
                                             sweeptime.strftime(tm.timefmt3),
                                             radar_obj.elevation['data'][0])
 
-        field_to_match = field.replace('_filtered', '')
+        field_to_match = field
+        # DTD: find a better way to do this
+        retr_aliases = [retr_alias for aliases in retr_alias_list for retr_alias in aliases]
+        for field_trial in retr_aliases:
+            if field_trial in field:
+                field_to_match = field_trial
+                break
+        field_to_match = field_to_match.replace('_filtered', '')
         field_plot_params = radar_plot_param_matching[field_to_match]
 
         # TODO: add colorbar label levels, other arguments
-        display.plot_ppi_map(field, 0, title=titlestring, cmap=field_plot_params['cmap'],
+        display.plot_ppi_map(field, 0, title_flag=False, cmap=field_plot_params['cmap'],
                              vmin=field_plot_params['clevels'][0],
                              vmax=field_plot_params['clevels'][-1], colorbar_label='', ax=ax,
                              resolution='10m', projection=projection, fig=fig,
-                             lat_lines=np.arange(30, 46, 0.1), lon_lines=np.arange(-110, -75, 0.1))
-
+                             lat_lines=np.arange(30, 46, 0.1), lon_lines=np.arange(-110, -75, 0.1),
+                             raster=True)
+        display.ax.set_title(titlestring, fontsize=10)
         # Overlay locations of the PIPS
         for PIPS_geo_loc, PIPS_name in zip(PIPS_geo_locs, PIPS_names):
             display.plot_point(PIPS_geo_loc[1], PIPS_geo_loc[0], 'r*', ms=10, alpha=0.5,

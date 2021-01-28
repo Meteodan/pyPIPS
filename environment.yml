@@ -4,8 +4,6 @@ channels:
 dependencies:
   - arm_pyart
   - autopep8
-  - basemap
-  - basemap-data-hires
   - beautifulsoup4
   - bottleneck
   - cartopy
@@ -25,6 +23,8 @@ dependencies:
   - pynio
   - pytz
   - scipy
+  - scikit-learn
+  - seaborn
   - urllib3
   - xarray
   - pip:
