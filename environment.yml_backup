@@ -27,3 +27,5 @@ dependencies:
   - seaborn
   - urllib3
   - xarray
+  - pip:
+    - "--editable=git+https://github.itap.purdue.edu/STorMLab/pyCRMtools.git@master#egg=pyCRMtools"
