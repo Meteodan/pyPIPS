@@ -276,7 +276,7 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
             # TODO: allow for selection of retrievals to plot on command line
             try:
                 radvars['D_m_rad_SATP'] = radar_fields_at_PIPS_da.loc[{
-                    dim_name: 'Dm_SATP{}'.format(ND_tag)}]
+                    dim_name: 'Dm_SATP_TMM{}'.format(ND_tag)}]
                 radvars['D_m_rad_TMM_F'] = radar_fields_at_PIPS_da.loc[{
                     dim_name: 'Dm_TMM_F{}'.format(ND_tag)}]
             except KeyError:
