@@ -28,4 +28,4 @@ dependencies:
   - urllib3
   - xarray
   - pip:
-    - "--editable=git+https://github.rcac.purdue.edu/STorMLab/pyCRMtools.git@master#egg=pyCRMtools"
+    - "--editable=git+https://github.itap.purdue.edu/STorMLab/pyCRMtools.git@master#egg=pyCRMtools"
