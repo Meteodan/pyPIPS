@@ -3,9 +3,9 @@
 PIPS_IO_dict = {
     'dataset_name': 'FMCW_2017_043017',
     'deployment_names': ['FMCW_2017_043017'],
-    'input_txt_dir': '/Volumes/scr_fast/Projects/VORTEXSE/obsdata/full_PIPS_dataset_links',
-    'PIPS_dir': '/Volumes/scr_fast/Projects/VORTEXSE/obsdata/full_PIPS_dataset_RB15',
-    'plot_dir': '/Volumes/scr_fast/Projects/VORTEXSE/obsdata/full_PIPS_dataset_RB15/plots',
+    'input_txt_dir': '/Users/terrell8/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset_links',
+    'PIPS_dir': '/Users/terrell8/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset_RB15',
+    'plot_dir': '/Users/terrell8/pyPIPS_work/VORTEXSE/2017/043017/new_plots',
     'PIPS_types': ['PIPS'],
     'PIPS_names': ['PIPS2A'],
     'PIPS_filenames': ['PIPS2A_FMCW_043017.txt'],
@@ -35,11 +35,11 @@ radar_config_dict = {
     'plot_retrieval': False,
     'radar_name': 'KHTX',
     'radar_type': 'NEXRAD',
-    'radar_dir': '/Volumes/scr_fast/Projects/VORTEXSE/obsdata/2017/NEXRAD/PIPS2A_FMCW/0430/HTX/CFRadial/',
+    'radar_dir': '/Users/terrell8/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/2017/NEXRAD/PIPS2A_FMCW/0430/HTX/CFRadial/',
     'field_names': ['REF', 'ZDR', 'RHO'],
     'el_req': 0.5,
     'radar_start_timestamp': '20170430200000',
     'radar_end_timestamp': '20170430235959',
-    'scatt_dir': '/Users/dawson29/Projects/pyPIPS/tmatrix/S-Band/',
+    'scatt_dir': '/Users/terrell8/Projects/pyPIPS/tmatrix/S-Band/',
     'wavelength': 10.7
 }
