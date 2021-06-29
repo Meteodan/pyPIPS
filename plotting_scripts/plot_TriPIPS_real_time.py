@@ -1,5 +1,6 @@
 # This notebook is for testing the download of PIPS data using the web API.
 # It uses urllib3 and BeautifulSoup4
+import netCDF4
 import os
 from datetime import datetime, timedelta
 import bs4
@@ -11,11 +12,14 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as dates
 import matplotlib.ticker as ticker
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-from pyPIPS.disdrometer_module import avg_diameter, fall_bins, eff_sensor_area, max_diameter, \
-    min_diameter, min_fall_bins
+from pyPIPS.PIPS import avg_diameter, avg_fall_bins, max_diameter, \
+    min_diameter, min_fall_bins, diameter_edges, fall_bins_edges
+from pyPIPS.parsivel_params import parsivel_parameters
 from pyPIPS import thermolib as thermo
 from pyPIPS import timemodule as tm
 import pyPIPS.plotmodule as pm
+
+eff_sensor_area = parsivel_parameters['eff_sensor_area_mm2'] * 1.e-6
 
 
 # Function definitions. These will eventually go into their own module
@@ -35,7 +39,7 @@ def scrape_tripips_onesec_data(url, numrecords=3600):
         tokens = row.find_all('td')
         tokens = [token.string.strip(' "') for token in tokens]
         timestamp = tokens.pop(0)
-        tokens = [np.float(token) if token not in ('' or 'NAN') else np.nan for token in tokens]
+        tokens = [np.float64(token) if token not in ('' or 'NAN') else np.nan for token in tokens]
         data.append(tokens)
         timestamps.append(timestamp)
     index = pd.to_datetime(timestamps, format='%Y-%m-%d %H:%M:%S')
@@ -71,7 +75,7 @@ def scrape_tripips_tensec_data(url, numrecords=360):
     index = pd.to_datetime(timestamps, format='%Y-%m-%d %H:%M:%S')
     df_telegram = pd.DataFrame(telegrams, index=index)
     # print(np.array(spectrum_list).shape)
-    da_spectrum = xr.DataArray(spectrum_list, coords=[index, fall_bins,
+    da_spectrum = xr.DataArray(spectrum_list, coords=[index, avg_fall_bins,
                                                       avg_diameter],
                                dims=['time', 'velocity', 'diameter'])
     return df_telegram, da_spectrum
@@ -158,7 +162,7 @@ def calc_ND_list(spectrum_list, interval=10, use_measured_fs=True):
 
 
 def calc_ND(spectrum, interval=10, use_measured_fs=True):
-    _, vspectrum = np.meshgrid(avg_diameter, fall_bins)
+    _, vspectrum = np.meshgrid(avg_diameter, avg_fall_bins)
     dspectrum = spectrum
     if np.all(dspectrum == -999):
         # print('Here!')
@@ -176,7 +180,10 @@ def calc_ND(spectrum, interval=10, use_measured_fs=True):
 # base_output_dir = '/Users/dawson29/sshfs_mounts/depot/data/Projects/TriPIPS/webdata/'
 base_output_dir = '/Users/dawson29/sshfs_mounts/stormlab_web/'
 image_output_dir = os.path.join(base_output_dir, 'images')
-netcdf_output_dir = '/Users/dawson29/sshfs_mounts/depot/data/Projects/TriPIPS/netcdf_web/'
+# netcdf_output_dir = '/Users/dawson29/sshfs_mounts/depot/data/Projects/TriPIPS/netcdf_web/'
+netcdf_output_dir = '/Volumes/scr_fast/Projects/TriPIPS/netcdf_web/'
+if not os.path.exists(netcdf_output_dir):
+    os.makedirs(netcdf_output_dir)
 base_url = "http://10.163.29.26/?command=TableDisplay&table="
 onesec_table = "One_Hz"
 tensec_table = "Ten_Hz"
@@ -185,7 +192,8 @@ url_tensec = base_url + tensec_table
 
 # Set up dictionaries to control plotting parameters
 
-dateformat = '%H:%M'
+dateformat = '%D-%H:%M'
+datelabel = 'Time (date-H:M) UTC'
 
 # Temperature and dewpoint
 temp_dewp_ax_params = {
@@ -194,7 +202,7 @@ temp_dewp_ax_params = {
     'minorxlocator': dates.MinuteLocator(byminute=[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55],
                                          interval=1),
     'axeslimits': [None, (-5., 35.)],
-    'axeslabels': ['Time (H:M) UTC', r'Temperature ($^{\circ}$C)']
+    'axeslabels': [datelabel, r'Temperature ($^{\circ}$C)']
 }
 
 # Wind speed and direction
@@ -204,7 +212,7 @@ windspd_ax_params = {
     'minorxlocator': dates.MinuteLocator(byminute=[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55],
                                          interval=1),
     'axeslimits': [None, [0.0, 25.0]],
-    'axeslabels': ['Time (H:M) UTC', r'wind speed (m s$^{-1}$)']
+    'axeslabels': [datelabel, r'wind speed (m s$^{-1}$)']
 }
 
 winddir_ax_params = {
@@ -220,7 +228,7 @@ pressure_ax_params = {
                                          interval=1),
     'majorylocator': ticker.MultipleLocator(0.5),
     'axeslimits': [None, [940., 980.]],
-    'axeslabels': ['Time (H:M) UTC', r'Pressure (hPa)']
+    'axeslabels': [datelabel, r'Pressure (hPa)']
 }
 
 # Number concentration
@@ -237,7 +245,8 @@ log_ND_ax_params = {
                                          interval=1),
     'axeslimits': [None, [0.0, 9.0]],
     'majorylocator': ticker.MultipleLocator(base=1.0),
-    'axeslabels': [None, 'D (mm)']
+    'axeslabels': [None, 'D (mm)'],
+    'axesautofmt': False,
 }
 
 interval_onesec = 1.
@@ -262,28 +271,40 @@ onesec_df['Dewpoint'] = thermo.calTdfromRH(onesec_df['Pressure'] * 100.,
 telegram_df, spectrum_da = scrape_tripips_tensec_data(url_tensec, numrecords=numrecords_tensec)
 ND_da = calc_ND_da(spectrum_da)
 
+# DTD 06/19/2021: getting some permission denied errors here for some reason. Need to find out
+# why but for now disable all dumping of netCDF files
+# EDIT: found the problem. The issue was that cron was not given full disk access. I followed
+# the instructions here to fix the problem: https://blog.bejarano.io/fixing-cron-jobs-in-mojave/
+
 # Dump onesec dataframe to netCDF file (via xarray)
 netcdf_filename = 'onesec_current_hour.nc'
 netcdf_path = os.path.join(netcdf_output_dir, netcdf_filename)
-onesec_df.to_xarray().to_netcdf(netcdf_path)
+onesec_ds = onesec_df.to_xarray()
+onesec_ds.to_netcdf(netcdf_path)
+onesec_ds.close()
 # Dump raw spectrum to netcdf file
 netcdf_filename = 'spectrum_current_hour.nc'
 netcdf_path = os.path.join(netcdf_output_dir, netcdf_filename)
-spectrum_da.to_dataset(name='spectrum').to_netcdf(netcdf_path)
+spectrum_ds = spectrum_da.to_dataset(name='spectrum')
+spectrum_ds.to_netcdf(netcdf_path)
+spectrum_ds.close()
 # Dump ND_da to netcdf file
 netcdf_filename = 'ND_current_hour.nc'
 netcdf_path = os.path.join(netcdf_output_dir, netcdf_filename)
-ND_da.to_dataset(name='ND').to_netcdf(netcdf_path)
+ND_ds = ND_da.to_dataset(name='ND')
+ND_ds.to_netcdf(netcdf_path)
+ND_ds.close()
 # Dump telegram data to netcdf file
 netcdf_filename = 'tensec_telegram_current_hour.nc'
 netcdf_path = os.path.join(netcdf_output_dir, netcdf_filename)
-print(telegram_df.to_xarray())
-telegram_df.to_xarray().to_netcdf(netcdf_path)
+telegram_ds = telegram_df.to_xarray()
+telegram_ds.to_netcdf(netcdf_path)
+telegram_ds.close()
 
 # Check if we are near the top of the hour and save top-of-the-hour netcdf files if we are
 last_timestamp_onesec = onesec_df.index[-1]
 last_timestamp_tensec = telegram_df.index[-1]
-oldest_timestamp_onesec = last_timestamp_onesec-keep_data_for_ts
+oldest_timestamp_onesec = last_timestamp_onesec - keep_data_for_ts
 last_hour_timestamp = last_timestamp_onesec.replace(microsecond=0, second=0, minute=0)
 previous_hour_timestamp = last_hour_timestamp - timedelta(hours=1)
 diff = (last_timestamp_onesec - last_hour_timestamp).total_seconds()
@@ -308,10 +329,18 @@ if diff > 0 and diff < 300:
         ND_da_dump = ND_da.loc[previous_hour_timestamp:last_hour_timestamp]
         telegram_df_dump = telegram_df.loc[previous_hour_timestamp:last_hour_timestamp]
 
-        onesec_df_dump.to_xarray().to_netcdf(onesec_hourly_path)
-        telegram_df_dump.to_xarray().to_netcdf(telegram_hourly_path)
-        spectrum_da_dump.to_dataset(name='spectrum').to_netcdf(spectrum_hourly_path)
-        ND_da_dump.to_dataset(name='spectrum').to_netcdf(ND_hourly_path)
+        onesec_ds_dump = onesec_df_dump.to_xarray()
+        onesec_ds_dump.to_netcdf(onesec_hourly_path)
+        onesec_ds_dump.close()
+        telegram_ds_dump = telegram_df_dump.to_xarray()
+        telegram_ds_dump.to_netcdf(telegram_hourly_path)
+        telegram_ds_dump.close()
+        spectrum_ds_dump = spectrum_da_dump.to_dataset(name='spectrum')
+        spectrum_ds_dump.to_netcdf(spectrum_hourly_path)
+        spectrum_ds_dump.close()
+        ND_ds_dump = ND_da_dump.to_dataset(name='spectrum')
+        ND_ds_dump.to_netcdf(ND_hourly_path)
+        ND_ds_dump.close()
 
 # Create the figures
 fig, ax = plt.subplots()
@@ -367,13 +396,22 @@ ax_pressure = pm.plotmeteogram(
 ax_pressure, = pm.set_meteogram_axes([ax_pressure], [pressure_ax_params])
 
 # DSD plots
-plottimes = [ND_da['time'].to_index().to_pydatetime()]
+plottimes_tmp = ND_da['time'].to_index().to_pydatetime()
+# Prepend an additional at the beginning of the array so that pcolor sees this as the
+# edges of the DSD intervals.
+plottimes = np.insert(plottimes_tmp, 0, plottimes_tmp[0] - timedelta(seconds=10))
+plottimes = [plottimes]
+# Do the same at the end of the "min_diameter" and "min_fall_bins" arrays
+# TODO: apparently this is a problem in the main DSD meteogram plotting script as well, so
+# go back and fix that soon! NOTE: this is now done in PIPS.py and stored in "diameter_edges"
+# and "fall_bins_edges"
+
 ND_arr = ND_da.values.T
 logND_arr = np.ma.log10(ND_arr)
 fields_to_plot = [logND_arr]
 field_parameters = [log_ND_params]
 ax = pm.plotmeteogram(ax, plottimes, fields_to_plot, field_parameters,
-                      yvals=[min_diameter] * len(fields_to_plot))
+                      yvals=[diameter_edges] * len(fields_to_plot))
 ax, = pm.set_meteogram_axes([ax], [log_ND_ax_params])
 ax_vd.set_title(
     'Fall speed vs. diameter for time {0}'.format(
@@ -381,7 +419,7 @@ ax_vd.set_title(
             tm.timefmt2)))
 spectrum = spectrum_da.loc[last_timestamp_tensec]
 countsplot = np.ma.masked_where(spectrum.values <= 0, spectrum)
-C = ax_vd.pcolor(min_diameter, min_fall_bins, countsplot, vmin=1, vmax=50, edgecolors='w')
+C = ax_vd.pcolormesh(diameter_edges, fall_bins_edges, countsplot, vmin=1, vmax=50, edgecolors='w')
 divider = make_axes_locatable(ax_vd)
 cax = divider.append_axes("right", size="5%")
 cb = fig_vd.colorbar(C, cax=cax, orientation='vertical')

@@ -1,4 +1,6 @@
 #!/bin/bash
+export HDF5_USE_FILE_LOCKING=FALSE
 source /Users/dawson29/miniconda3/bin/activate
 conda activate pyPIPS
-python /Users/dawson29/Projects/pyPIPS/python_scripts/plot_TriPIPS_real_time.py
+cd /Users/dawson29/Projects/pyPIPS/plotting_scripts/
+python plot_TriPIPS_real_time.py

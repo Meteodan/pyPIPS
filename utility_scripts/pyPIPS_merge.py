@@ -26,6 +26,7 @@
 
 import os
 import glob
+from pyPIPS.pips_io import correct_PIPS
 import sys
 import re
 import csv
@@ -478,8 +479,18 @@ if __name__ == "__main__":
     if len(sys.argv) > 1:
         PIPS_data_dir = sys.argv[1]
         output_filename = sys.argv[2]
+        if len(sys.argv) > 3:
+            serialnum = sys.argv[3]
+            print(serialnum)
     else:
         PIPS_data_dir = _PIPS_data_dir
         output_filename = _output_filename
+        serialnum = None
 
     mergeData(PIPS_data_dir, output_filename)
+    if serialnum:
+        print("Correcting offset Parsivel strings!")
+        output_path = os.path.join(PIPS_data_dir, output_filename)
+        corrected_filename = 'corrected_' + output_filename
+        corrected_output_path = os.path.join(PIPS_data_dir, corrected_filename)
+        correct_PIPS(serialnum, output_path, corrected_output_path)
