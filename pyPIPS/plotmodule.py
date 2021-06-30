@@ -20,7 +20,7 @@ import xarray.plot as xrplot
 
 # Set global font size for axes and colorbar labels, etc.
 
-font = {'size': 10}
+font = {'size': 9}
 matplotlib.rc('font', **font)
 
 fontP = FontProperties()
@@ -987,8 +987,8 @@ def plotmeteogram(ax, xvals, zvals, plotparamdicts, yvals=None):
             ax.fill_between(xval, zval, plotmin, facecolor=color, alpha=alpha)
         elif(mtype == 'pcolor'):
             divider = make_axes_locatable(ax)
-            C = ax.pcolor(xval, yvals[idx], zval, vmin=vlimits[0], vmax=vlimits[1])
-            cax = divider.append_axes("bottom", size="5%", pad=0.40)
+            C = ax.pcolormesh(xval, yvals[idx], zval, vmin=vlimits[0], vmax=vlimits[1])
+            cax = divider.append_axes("bottom", size="5%", pad=0.4)
             # Go ahead and create the appended axes, but simply shut it off if we don't
             # want it. This is so that if we are plotting subplots and only want one colorbar
             # between them, they all end up the same size.
