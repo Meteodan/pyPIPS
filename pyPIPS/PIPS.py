@@ -16,6 +16,7 @@ min_diameter = pp.parsivel_parameters['min_diameter_bins_mm']
 max_diameter = pp.parsivel_parameters['max_diameter_bins_mm']
 bin_width = max_diameter - min_diameter
 avg_diameter = pp.parsivel_parameters['avg_diameter_bins_mm']
+diameter_edges = np.append(min_diameter, max_diameter[-1])
 min_fall_bins = pp.parsivel_parameters['min_fallspeed_bins_mps']
 max_fall_bins = pp.parsivel_parameters['max_fallspeed_bins_mps']
 avg_fall_bins = pp.parsivel_parameters['avg_fallspeed_bins_mps']

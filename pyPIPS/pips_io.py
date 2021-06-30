@@ -409,12 +409,13 @@ def correct_PIPS(serialnum, infile, outfile):
         parsivel_string_out = ''
         truncated = False
         first = True
-
+        # Get the header line
+        header_line = next(disfile)
         for line in disfile:
             line = line.rstrip('\r\n')
             tokens = line.strip().split(',')
-            header_info = ",".join(tokens[:26])
-            parsivel_string = tokens[26]
+            header_info = ",".join(tokens[:-1])
+            parsivel_string = tokens[-1]
             parsivel_tokens = parsivel_string.strip().split(';')
             if len(parsivel_tokens) > 1:
                 if truncated:  # Previous record was truncated
@@ -453,11 +454,32 @@ def correct_PIPS(serialnum, infile, outfile):
             else:
                 lines_out.append(line)
 
+        # # Sort the output by time again
+        # numrecords = len(lines_out)
+        # datetime_onesec_list = []
+        # for i in range(numrecords):  # Loop through records
+        #     # Parse the timestamp for the records and create a datetime object out of it
+        #     timestring = dict_onesec['TIMESTAMP'][i].strip().split()
+        #     # print('i', 'timestring_onesec', i, timestring_onesec)
+        #     datetime_onesec = parseTimeStamp(timestring_onesec)
+        #     datetime_onesec_list.append(datetime_onesec)
+
+        # Sort the records in increasing order of time. (Some files are corrupted and have some
+        # of their records out of order)
+        indices = list(range(numrecords))
+        indices_sorted = sortby(indices, datetime_onesec_list)
+        if not indices == indices_sorted:
+            print("Times out of order! Need to sort!")
+            datetime_onesec_list.sort()
+            for field, records in dict_onesec.copy().items():
+                dict_onesec[field] = [records[i] for i in indices_sorted]
+
         # Sort the output lines by record #
-        sorted_lines_out = sorted(lines_out, key=lambda record: int(record.strip().split(',')[1]))
-        # sorted_lines_out = lines_out
+        # sorted_lines_out = sorted(lines_out, key=lambda record: int(record.strip().split(',')[1]))
+        sorted_lines_out = lines_out
 
     with open(outfile, 'w') as outdisfile:
+        outdisfile.write(header_line)
         for line in sorted_lines_out:
             outdisfile.write(line + '\n')
 

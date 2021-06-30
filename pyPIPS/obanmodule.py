@@ -4,9 +4,31 @@
 
 import netCDF4 as netcdf
 import numpy as np
-from cftime import utime
+# NOTE: looks like utime was removed from cftime module, but see workaround below
+# from cftime import utime
 from datetime import datetime
 from scipy.interpolate import interp1d
+import cftime
+from cftime import date2num, num2date
+# TODO: Added snippet from https://github.com/Unidata/cftime/issues/241#issuecomment-847329285
+# to restore utime functionality. But need to find better way
+# legacy class replacement included here since tests use it.
+class utime:
+    def __init__(self, unit_string, calendar='standard',
+                 only_use_cftime_datetimes=True,
+                 only_use_python_datetimes=False):
+        calendar = calendar.lower()
+        units, isostring = cftime._datesplit(unit_string)
+        self.origin = cftime._dateparse(unit_string,calendar=calendar)
+        self.units = units
+        self.calendar = calendar
+        self.unit_string = unit_string
+        self.only_use_cftime_datetimes = only_use_cftime_datetimes
+        self.only_use_python_datetimes = only_use_python_datetimes
+    def date2num(self, date):
+        return date2num(date,self.unit_string,calendar=self.calendar)
+    def num2date(self, time_value):
+        return num2date(time_value,self.unit_string,calendar=self.calendar,only_use_cftime_datetimes=self.only_use_cftime_datetimes,only_use_python_datetimes=self.only_use_python_datetimes)
 
 
 re = 6367.0           # Radius of Earth in km

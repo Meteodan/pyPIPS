@@ -11,7 +11,8 @@ f90_paths = [path.join('pyPIPS', f90_file) for f90_file in f90_files]
 ext1 = numpy.distutils.core.Extension(
     name='pyPIPS.dualpara',
     sources=f90_paths,
-    extra_f90_compile_args=['-ffree-form', '-ffree-line-length-none']
+    extra_f90_compile_args=['-ffree-form', '-ffree-line-length-none', '-fcheck=all',
+                            '-fallow-argument-mismatch']
 )
 
 
