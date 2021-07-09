@@ -3,8 +3,8 @@
 PIPS_IO_dict = {
     'dataset_name': 'FMCW_2017_043017',
     'deployment_names': ['FMCW_2017_043017'],
-    'input_txt_dir': '/Users/terrell8/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset_links',
-    'PIPS_dir': '/Users/terrell8/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/full_PIPS_dataset_RB15',
+    'input_txt_dir': '/Volumes/scr_fast/Projects/VORTEXSE/obsdata/full_PIPS_dataset_links',
+    'PIPS_dir': '/Volumes/scr_fast/Projects/VORTEXSE/obsdata/full_PIPS_dataset_RB15',
     'plot_dir': '/Users/terrell8/pyPIPS_work/VORTEXSE/2017/043017/new_plots',
     'PIPS_types': ['PIPS'],
     'PIPS_names': ['PIPS2A'],
@@ -40,6 +40,6 @@ radar_config_dict = {
     'el_req': 0.5,
     'radar_start_timestamp': '20170430200000',
     'radar_end_timestamp': '20170430235959',
-    'scatt_dir': '/Users/terrell8/Projects/pyPIPS/tmatrix/S-Band/',
+    'scatt_dir': '/Users/dawson29/Projects/pyPIPS/tmatrix/S-Band/',
     'wavelength': 10.7
 }

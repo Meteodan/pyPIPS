@@ -35,7 +35,7 @@ radar_config_dict = {
     'comp_radar': True,
     'clean_radar': False,
     'calc_dualpol': True,
-    'plot_retrieval': True,
+    'plot_retrieval': False,
     'radar_name': 'KGWX',
     'radar_type': 'NEXRAD',
     'radar_dir': '/Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/2017/NEXRAD/IOP_1B/CFRadial',

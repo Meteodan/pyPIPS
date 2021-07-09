@@ -66,11 +66,15 @@ def scrape_tripips_tensec_data(url, numrecords=360):
         timestamp = tokens.pop(0)
         tokens.pop(0)
         parsivel_string = tokens.pop(0)
-        telegram_dict = read_parsivel_telegram(parsivel_string)
-        telegrams.append(telegram_dict)
-        spectrum = read_parsivel_spectrum(parsivel_string)
-        spectrum_list.append(spectrum)
-        timestamps.append(timestamp)
+        try:
+            telegram_dict = read_parsivel_telegram(parsivel_string)
+            telegrams.append(telegram_dict)
+            spectrum = read_parsivel_spectrum(parsivel_string)
+            spectrum_list.append(spectrum)
+            timestamps.append(timestamp)
+        except ValueError:
+            print("Bad Parsivel string detected. Ignoring this record!")
+
 
     index = pd.to_datetime(timestamps, format='%Y-%m-%d %H:%M:%S')
     df_telegram = pd.DataFrame(telegrams, index=index)
