@@ -435,6 +435,22 @@ ax_vd.yaxis.set_major_locator(ticker.MultipleLocator(1.0))
 ax_vd.set_ylabel('fall speed (m/s)')
 
 # fig.canvas.draw()
+# Try-except block to test if the mount is working and to reset if it isn't. This is a terrible
+# hack that I need to clean up later.
+try:
+    fig.savefig(os.path.join(image_output_dir, 'logND_current.png'), dpi=300)
+except:
+    print("that didn't work")
+    # Assume mount isn't working
+    try:
+        print("unmounting stormlab")
+        os.system("/Users/dawson29/scripts/stormlabunmount")
+    except:
+        print("mounting stormlab")
+        os.system("/Users/dawson29/scripts/stormlabmount")
+    finally:
+        print("mounting stormlab")
+        os.system("/Users/dawson29/scripts/stormlabmount")
 fig.savefig(os.path.join(image_output_dir, 'logND_current.png'), dpi=300)
 fig_vd.savefig(os.path.join(image_output_dir, 'VD_current.png'), dpi=300)
 fig_t_td.savefig(os.path.join(image_output_dir, 'T_Td_current.png'), dpi=300)
