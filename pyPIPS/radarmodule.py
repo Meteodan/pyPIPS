@@ -1,6 +1,4 @@
 # radarmodule.py: A collection of functions to read and plot radar data
-
-import Nio
 import netCDF4
 import numpy as np
 import matplotlib
@@ -325,9 +323,11 @@ deg2rad = np.pi / 180.
 def _getsweeptime(path, CFRadial=True):
     """Attempts to read sweep time from the radar file or construct it from the file name."""
     if CFRadial:
-        # print "Opening file: ",path
-        sweepfile_netcdf = Nio.open_file(path)
-        sweeptime = sweepfile_netcdf.variables['time_coverage_start'].get_value().tostring()
+        print("Opening file: ", path)
+        sweepfile_netcdf = netCDF4.Dataset(path, "r")
+        # Wow, what a mess to just convert to a regular string now. There's got be a less ugly way.
+        sweeptime_raw = sweepfile_netcdf.variables['time_coverage_start'][...].tolist(fill_value='')
+        sweeptime = b''.join(sweeptime_raw).decode()
         radyear = int(sweeptime[:4])
         radmonth = int(sweeptime[5:7])
         radday = int(sweeptime[8:10])
@@ -350,7 +350,7 @@ def _getsweeptime(path, CFRadial=True):
 
 
 def _getelev(path):
-    sweepfile_netcdf = Nio.open_file(path)
+    sweepfile_netcdf = netCDF4.Dataset(path, "r")
     return sweepfile_netcdf.variables['elevation'][-1]
 
 
@@ -591,7 +591,7 @@ def readCFRadial(nexrad, el, radlat, radlon, radalt, file, sweeptime, fieldnames
     fieldlist = []
 
     print("Opening file: ", file)
-    sweepfile_netcdf = Nio.open_file(file)
+    sweepfile_netcdf = netCDF4.Dataset(file, "r")
 
     # Grab the time information from the file
 
@@ -808,7 +808,7 @@ def getncfilelist(platform, filelist, el_req, tolerance=0.5):
     elevations = []
 
     for index, file in enumerate(filelist):
-        sweepfile_netcdf = Nio.open_file(file)
+        sweepfile_netcdf = netCDF4.Dataset(file, "r")
         elevations.append(sweepfile_netcdf.variables[elvarname][0])
 
     elevations = np.array(elevations)
@@ -828,7 +828,7 @@ def readUMXPnc(file, sweeptime, fieldnames, heading=None, correct_attenuation=Tr
     fieldlist = []
 
     print("Opening file: ", file)
-    sweepfile_netcdf = Nio.open_file(file)
+    sweepfile_netcdf = netCDF4.Dataset(file, "r")
 
     # print "Time of sweep = ",sweeptime.strftime(tm.fmt)
 

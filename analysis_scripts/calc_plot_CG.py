@@ -37,6 +37,16 @@ parser.add_argument('case_config_path', metavar='<path/to/case/config/file.py>',
                     help='The path to the case configuration file')
 parser.add_argument('--ND-tag', dest='ND_tag', default=None,
                     help='Tag for ND variable in file (i.e., qc, RB15_vshift_qc, RB15_qc).')
+# moment_combo_help_string = ('list of moment combos in the form XYZ\n'
+#                             'where X,Y, and Z are each one of 2, 3, 4, or 6,\n'
+#                             'unique and in increasing order.')
+# parser.add_argument('--moment-combos', dest='moment_combos', nargs='*', default=['246'],
+#                     help=moment_combo_help_string)
+moment_combo_help_string = ('Moment combo to use in the form XYZ\n'
+                            'where X,Y, and Z are each one of 2, 3, 4, or 6,\n'
+                            'unique and in increasing order.')
+parser.add_argument('--moment-combo', dest='moment_combo', default='246',
+                    help=moment_combo_help_string)
 parser.add_argument('--plot-SATP', action='store_true', dest='plot_SATP',
                     help='plot for the SATP-filtered dataset')
 # parser.add_argument('--CG-name', dest='CG_name', default='',
@@ -85,9 +95,9 @@ PIPS_types = config.PIPS_IO_dict.get('PIPS_types', None)
 PIPS_names = config.PIPS_IO_dict.get('PIPS_names', None)
 PIPS_filenames = config.PIPS_IO_dict.get('PIPS_filenames', None)
 parsivel_combined_filenames = config.PIPS_IO_dict['PIPS_filenames_nc']
-start_times = config.PIPS_IO_dict.get('start_times', [None]*len(PIPS_names))
-end_times = config.PIPS_IO_dict.get('end_times', [None]*len(PIPS_names))
-geo_locs = config.PIPS_IO_dict.get('geo_locs', [None]*len(PIPS_names))
+start_times = config.PIPS_IO_dict.get('start_times', [None] * len(PIPS_names))
+end_times = config.PIPS_IO_dict.get('end_times', [None] * len(PIPS_names))
+geo_locs = config.PIPS_IO_dict.get('geo_locs', [None] * len(PIPS_names))
 requested_interval = config.PIPS_IO_dict.get('requested_interval', 10.)
 
 # Get a list of the combined parsivel netCDF data files that are present in the PIPS directory
@@ -107,6 +117,7 @@ else:
     parsivel_combined_filename = 'ND_avg_{}{}_{:d}s.nc'.format(dataset_name, ND_tag,
                                                                int(requested_interval))
     parsivel_combined_filepath = os.path.join(PIPS_dir, parsivel_combined_filename)
+    parsivel_combined_filelist.append(parsivel_combined_filepath)
     parsivel_combined_ds = xr.load_dataset(parsivel_combined_filepath)
     plot_tag = 'SATP'
     dim = 'D0_RR'
@@ -136,47 +147,64 @@ if filter_counts:
 
 # Get the untruncated and truncated moment fits MM246.
 # TODO: update this for greater flexibility later
-DSD_MM246 = parsivel_combined_ds['DSD_MM246{}'.format(ND_tag)]
-DSD_TMM246 = parsivel_combined_ds['DSD_TMM246{}'.format(ND_tag)]
 
-# Drop points where mu > 30 or lambda > 20000
-DSD_MM246 = DSD_MM246.where(DSD_MM246.sel(parameter='lamda') < 20000.)
-DSD_MM246 = DSD_MM246.where(DSD_MM246.sel(parameter='alpha') < 30.)
+DSD_MM_fit = parsivel_combined_ds['DSD_MM{}{}'.format(args.moment_combo, ND_tag)]
+DSD_TMM_fit = parsivel_combined_ds['DSD_TMM{}{}'.format(args.moment_combo, ND_tag)]
 
-DSD_MM246 = DSD_MM246.dropna(dim=dim, how='any')
+# Drop points where mu > 30 or lambda > 20000 or lambda <= 0.
+DSD_MM_fit = DSD_MM_fit.where(DSD_MM_fit.sel(parameter='lamda') < 20000.)
+DSD_MM_fit = DSD_MM_fit.where(DSD_MM_fit.sel(parameter='lamda') > 0.)
+DSD_MM_fit = DSD_MM_fit.where(DSD_MM_fit.sel(parameter='alpha') < 30.)
+DSD_MM_fit = DSD_MM_fit.dropna(dim=dim, how='any')
 
-DSD_TMM246 = DSD_TMM246.where(DSD_TMM246.sel(parameter='lamda') < 20000.)
-DSD_TMM246 = DSD_TMM246.where(DSD_TMM246.sel(parameter='alpha') < 30.)
-DSD_TMM246 = DSD_TMM246.dropna(dim=dim, how='any')
+DSD_TMM_fit = DSD_TMM_fit.where(DSD_TMM_fit.sel(parameter='lamda') < 20000.)
+DSD_TMM_fit = DSD_TMM_fit.where(DSD_TMM_fit.sel(parameter='lamda') > 0.)
+DSD_TMM_fit = DSD_TMM_fit.where(DSD_TMM_fit.sel(parameter='alpha') < 30.)
+DSD_TMM_fit = DSD_TMM_fit.dropna(dim=dim, how='any')
 
 # Fit polynomials
-lamda_MM246 = DSD_MM246.sel(parameter='lamda') / 1000.  # Get to mm^-1
-mu_MM246 = DSD_MM246.sel(parameter='alpha')
+lamda_MM_fit = DSD_MM_fit.sel(parameter='lamda') / 1000.  # Get to mm^-1
+mu_MM_fit = DSD_MM_fit.sel(parameter='alpha')
 
-MM246_poly_coeff, MM246_poly = dsd.calc_CG_polynomial(lamda_MM246, mu_MM246)
-print("The MM246 polynomial coefficients are: ", MM246_poly_coeff)
+print(len(lamda_MM_fit))
+
+try:
+    MM_poly_coeff, MM_poly = dsd.calc_CG_polynomial(lamda_MM_fit, mu_MM_fit)
+    print("The MM{} polynomial coefficients are: ".format(args.moment_combo), MM_poly_coeff)
+except np.linalg.LinAlgError:
+    print("Couldn't compute MM polynomial! Might want to check your data...")
+    MM_poly_coeff = None
+    MM_poly = None
 
 # Plot the relationship on a scatterplot along with the Cao and Zhang relations
-fig, ax = pm.plot_mu_lamda(MM246_poly_coeff, MM246_poly, lamda=lamda_MM246, mu=mu_MM246,
+fig, ax = pm.plot_mu_lamda(MM_poly_coeff, MM_poly, lamda=lamda_MM_fit, mu=mu_MM_fit,
                            title='Untruncated')
 plt.savefig(plot_dir +
-            '/Untruncated_MM246_mu_lamda{}_{}_{}_{}.{}'.format(ND_tag, plot_tag, filter_RR_tag,
-                                                               filter_counts_tag, args.figfmt),
+            '/Untruncated_MM{}_mu_lamda{}_{}_{}_{}.{}'.format(args.moment_combo, ND_tag, plot_tag,
+                                                              filter_RR_tag, filter_counts_tag,
+                                                              args.figfmt),
             dpi=200, bbox_inches='tight')
 
 # Fit polynomials
-lamda_TMM246 = DSD_TMM246.sel(parameter='lamda') / 1000.  # Get to mm^-1
-mu_TMM246 = DSD_TMM246.sel(parameter='alpha')
+lamda_TMM_fit = DSD_TMM_fit.sel(parameter='lamda') / 1000.  # Get to mm^-1
+mu_TMM_fit = DSD_TMM_fit.sel(parameter='alpha')
 
-TMM246_poly_coeff, TMM246_poly = dsd.calc_CG_polynomial(lamda_TMM246, mu_TMM246)
-print("The TMM246 polynomial coefficients are: ", TMM246_poly_coeff)
+try:
+    TMM_poly_coeff, TMM_poly = dsd.calc_CG_polynomial(lamda_TMM_fit, mu_TMM_fit)
+    print("The TMM{} polynomial coefficients are: ".format(args.moment_combo), TMM_poly_coeff)
+except np.linalg.LinAlgError:
+    print("Couldn't compute TMM polynomial! Might want to check your data...")
+    TMM_poly_coeff = None
+    TMM_poly = None
+
 
 # Plot the relationship on a scatterplot along with the Cao and Zhang relations
-pm.plot_mu_lamda(TMM246_poly_coeff, TMM246_poly, lamda=lamda_TMM246, mu=mu_TMM246,
+pm.plot_mu_lamda(TMM_poly_coeff, TMM_poly, lamda=lamda_TMM_fit, mu=mu_TMM_fit,
                  title='Truncated')
 plt.savefig(plot_dir +
-            '/Truncated_MM246_mu_lamda{}_{}_{}_{}.{}'.format(ND_tag, plot_tag, filter_RR_tag,
-                                                             filter_counts_tag, args.figfmt),
+            '/Truncated_MM{}_mu_lamda{}_{}_{}_{}.{}'.format(args.moment_combo, ND_tag, plot_tag,
+                                                            filter_RR_tag, filter_counts_tag,
+                                                            args.figfmt),
             dpi=200, bbox_inches='tight')
 
 if args.update_CG_coeff_attrs:
@@ -196,21 +224,33 @@ if args.update_CG_coeff_attrs:
             parsivel_combined_ds.attrs['CG_coeff_C08'] = [-1.718, 0.902, -0.0201]
         # TODO: This is some ugly logic. Think about refactoring...
         if args.plot_SATP:
-            parsivel_combined_ds.attrs['CG_coeff_SATP_TMM{}'.format(ND_tag)] = TMM246_poly_coeff
-            parsivel_combined_ds.attrs['CG_coeff_SATP_MM{}'.format(ND_tag)] = MM246_poly_coeff
+            if TMM_poly_coeff is not None:
+                attr_name = 'CG_coeff_SATP_TMM{}{}'.format(args.moment_combo, ND_tag)
+                parsivel_combined_ds.attrs[attr_name] = TMM_poly_coeff
+            if MM_poly_coeff is not None:
+                attr_name = 'CG_coeff_SATP_MM{}{}'.format(args.moment_combo, ND_tag)
+                parsivel_combined_ds.attrs[attr_name] = MM_poly_coeff
             # The following is for backwards compatibility
             # TODO: Still needed?
-            parsivel_combined_ds.attrs['CG_coeff_SATP{}'.format(ND_tag)] = TMM246_poly_coeff
+            # parsivel_combined_ds.attrs['CG_coeff_SATP{}'.format(ND_tag)] = TMM246_poly_coeff
         else:
             if filtering:
-                parsivel_combined_ds.attrs['CG_coeff_TMM_F{}'.format(ND_tag)] = TMM246_poly_coeff
-                parsivel_combined_ds.attrs['CG_coeff_MM_F{}'.format(ND_tag)] = MM246_poly_coeff
-                parsivel_combined_ds.attrs['Filter_for_MM_F_and_TMM_F_fits'] = \
-                    [filter_RR_tag, filter_counts_tag]
+                if TMM_poly_coeff is not None:
+                    attr_name = 'CG_coeff_TMM{}_F{}'.format(args.moment_combo, ND_tag)
+                    parsivel_combined_ds.attrs[attr_name] = TMM_poly_coeff
+                if MM_poly_coeff is not None:
+                    attr_name = 'CG_coeff_MM{}_F{}'.format(args.moment_combo, ND_tag)
+                    parsivel_combined_ds.attrs[attr_name] = MM_poly_coeff
+                attr_name = 'Filter_for_MM{}_F_and_TMM{}_F_fits'.format(args.moment_combo,
+                                                                        args.moment_combo)
+                parsivel_combined_ds.attrs[attr_name] = [filter_RR_tag, filter_counts_tag]
             else:
-                parsivel_combined_ds.attrs['CG_coeff_TMM{}'.format(ND_tag)] = TMM246_poly_coeff
-                parsivel_combined_ds.attrs['CG_coeff_MM{}'.format(ND_tag)] = MM246_poly_coeff
+                if TMM_poly_coeff is not None:
+                    attr_name = 'CG_coeff_TMM{}{}'.format(args.moment_combo, ND_tag)
+                    parsivel_combined_ds.attrs[attr_name] = TMM_poly_coeff
+                if MM_poly_coeff is not None:
+                    attr_name = 'CG_coeff_MM{}{}'.format(args.moment_combo, ND_tag)
+                    parsivel_combined_ds.attrs[attr_name] = MM_poly_coeff
         parsivel_combined_ds.close()
         # Save updated dataset back to file
         parsivel_combined_ds.to_netcdf(parsivel_combined_file)
-

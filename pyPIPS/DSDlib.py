@@ -824,11 +824,11 @@ def fit_DSD_MM346(M3, M4, M6):
     """
     G = (M4**3.) / ((M3**2.) * M6)
     # G = np.ma.masked_invalid(G)
-    mu = (11. * G - 8. + (G * (G + 8.))**(1. / 2.))/(2. * (1. - G))
+    mu = (11. * G - 8. + (G * (G + 8.))**(1. / 2.)) / (2. * (1. - G))
     # mu = np.ma.masked_invalid(mu)
     lamda = (M3 * (mu + 4.)) / M4
     # lamda = np.ma.masked_invalid(lamda)
-    N0 = (M3 * lamda**(mu + 4.))/(gamma_(mu + 4.))
+    N0 = (M3 * lamda**(mu + 4.)) / (gamma_(mu + 4.))
 
     return N0, lamda, mu
 
@@ -924,9 +924,63 @@ def fit_DSD_MM234(M2, M3, M4):
     # mu = np.ma.masked_invalid(mu)
     lamda = (M3 * (mu + 4.)) / M4
     # lamda = np.ma.masked_invalid(lamda)
-    N0 = (M3 * lamda**(mu + 4.))/(gamma_(mu + 4.))
+    N0 = (M3 * lamda**(mu + 4.)) / (gamma_(mu + 4.))
 
     return N0, lamda, mu
+
+
+def fit_DSD_MMXYZ(moment_combo, moment_list):
+    """Given a string of the form 'XY(Z)' and a list [X, Y, (Z)], where Z is optional,
+       use the Method-of-Moments to fit an exponential or gamma distribution using the combination
+       of moments given by X, Y, and possibly Z.
+    Parameters
+    ----------
+    moment_combo: str
+        a string with the moment combination
+    moment_list: list
+        A list of the individual moments to fit
+    Returns
+    -------
+    3-tuple of array_like
+        The intercept, slope, and shape parameters of the fitted gamma distribution. If the third
+        moment (Z) is not provided, the shape parameter will be zero.
+    """
+
+    num_moments = len(moment_combo)
+
+    if num_moments < 2 or num_moments > 3:
+        print("Incorrect number of moments. Must be 2 or 3!")
+        return
+    try:
+        X = moment_list[0]
+        Y = moment_list[1]
+    except IndexError:
+        print("Not enough moments in list!")
+        return
+
+    if num_moments == 2:
+        if moment_combo == '24':
+            return fit_DSD_MM24(X, Y)
+        elif moment_combo == '36':
+            return fit_DSD_MM36(X, Y)
+        else:
+            print("Sorry, {} not implemented yet!".format(moment_combo))
+            return
+    else:
+        try:
+            Z = moment_list[2]
+        except IndexError:
+            print("Not enough moments in list!")
+            return
+        if moment_combo == '234':
+            return fit_DSD_MM234(X, Y, Z)
+        elif moment_combo == '246':
+            return fit_DSD_MM246(X, Y, Z)   # Todo allow for lambda limits in here through kwargs
+        elif moment_combo == '346':
+            return fit_DSD_MM346(X, Y, Z)
+        else:
+            print("Sorry, {} not implemented yet!".format(moment_combo))
+            return
 
 
 def get_max_min_diameters(ND, dim='time'):
@@ -960,7 +1014,7 @@ def get_max_min_diameters(ND, dim='time'):
     return D_min, D_max
 
 
-def fit_DSD_TMM_xr(M2, M4, M6, D_min, D_max):
+def fit_DSD_TMM246_xr(M2, M4, M6, D_min, D_max):
     """Fits gamma distributions using the Truncated Method of Moments (TMM) using M2, M4, and M6
     and D_min, and D_max. Wrapper function for fit_DSD_TMM which operates on numpy arrays and is
     sped up using numba.
@@ -989,7 +1043,7 @@ def fit_DSD_TMM_xr(M2, M4, M6, D_min, D_max):
     D_min_arr = D_min.values
     D_max_arr = D_max.values
 
-    N0, lamda, alpha = fit_DSD_TMM(M2_arr, M4_arr, M6_arr, D_min_arr, D_max_arr)
+    N0, lamda, alpha = fit_DSD_TMM246(M2_arr, M4_arr, M6_arr, D_min_arr, D_max_arr)
 
     N0_da = M2.copy(data=N0)
     lamda_da = M2.copy(data=lamda)
@@ -1000,7 +1054,7 @@ def fit_DSD_TMM_xr(M2, M4, M6, D_min, D_max):
 
 # @jit(parallel=True)
 @jit
-def fit_DSD_TMM(M2, M4, M6, D_min, D_max):
+def fit_DSD_TMM246(M2, M4, M6, D_min, D_max):
     """Fits gamma distributions using the Truncated Method of Moments (TMM) using M2, M4, and M6
     and D_min, and D_max. Operates on numpy arrays and uses numba jit to speed things up
     considerably
@@ -1055,7 +1109,7 @@ def fit_DSD_TMM(M2, M4, M6, D_min, D_max):
                 gm5 = (gammap(5. + mu, LDmx) - gammap(5. + mu, LDmn)) * np.exp(gammln(5. + mu))
                 gm7 = (gammap(7. + mu, LDmx) - gammap(7. + mu, LDmn)) * np.exp(gammln(7. + mu))
                 z0 = G[t] - gm5**2. / (gm3 * gm7)
-                z1 = G[t] - gm5**2. / (gm3 * gm7)
+                z1 = z0
 
                 while z1 / z0 > 0.0:
                     mu = mu - 0.01
@@ -1082,6 +1136,250 @@ def fit_DSD_TMM(M2, M4, M6, D_min, D_max):
                np.exp(gammln(5. + mu_tmf))))
 
     return N0_tmf, lamda_tmf, mu_tmf
+
+
+@jit
+def fit_DSD_TMM234(M2, M3, M4, D_min, D_max):
+    """Fits gamma distributions using the Truncated Method of Moments (TMM) using M2, M3, and M4
+    and D_min, and D_max. Operates on numpy arrays and uses numba jit to speed things up
+    considerably
+
+    Parameters
+    ----------
+    M2 : array_like
+        The second moment of the distribution
+    M3 : array_like
+        The third moment of the distribution
+    M4 : array_like
+        The fourth moment of the distribution
+    D_min : array_like
+        The minimum diameter of the distribution
+    D_max : array_like
+        The maximum diameter of the distribution
+
+    Returns
+    -------
+    3-tuple of array_like
+        The intercept, slope, and shape parameters of the fitted gamma distribution.
+    """
+    G = (M3**2.) / (M2 * M4)  # moment ratio based on untruncated moments
+    # G = np.ma.masked_invalid(G)
+
+    # Get initial estimate of lamda and mu from the untruncated fit:
+    _, lamda_init, mu_init = fit_DSD_MM234(M2, M3, M4)
+
+    # TODO: make sure everything works with xarray and see if there's an efficient way to
+    # vectorize this algorithm across time. Maybe wrap Guifu's original fortran code is the
+    # best approach.
+    numtimes = np.size(M2)
+    # print(numtimes)
+    # print(lamda_init.size)
+    # print(D_max.size)
+
+    mu_tmf = []
+    lamda_tmf = []
+    # N0_tmf = []
+
+    for t in range(numtimes):
+        # print("Working on time {:d}".format(t))
+        if M2[t] > 0. and M3[t] > 0. and M4[t] > 0.:
+            # print("D_max = ", D_max[t])
+            print("Working on time {:d}/{:d}".format(t, numtimes))
+            LDmx = lamda_init[t] * D_max[t]
+            LDmn = lamda_init[t] * D_min[t]
+            for _ in range(10):
+                mu = mu_init[t]
+                # truncated moment ratio below.
+                gm3 = (gammap(3. + mu, LDmx) - gammap(3. + mu, LDmn)) * np.exp(gammln(3. + mu))
+                gm4 = (gammap(4. + mu, LDmx) - gammap(4. + mu, LDmn)) * np.exp(gammln(4. + mu))
+                gm5 = (gammap(5. + mu, LDmx) - gammap(5. + mu, LDmn)) * np.exp(gammln(5. + mu))
+                z0 = G[t] - gm4**2. / (gm3 * gm5)
+                z1 = z0
+
+                while z1 / z0 > 0.0:
+                    mu = mu - 0.01
+                    gm3 = (gammap(3. + mu, LDmx) - gammap(3. + mu, LDmn)) * np.exp(gammln(3. + mu))
+                    gm4 = (gammap(4. + mu, LDmx) - gammap(4. + mu, LDmn)) * np.exp(gammln(4. + mu))
+                    gm5 = (gammap(5. + mu, LDmx) - gammap(5. + mu, LDmn)) * np.exp(gammln(5. + mu))
+                    z1 = G[t] - gm4**2. / (gm3 * gm5)
+
+                lam_tmf = (M2[t] * gm4) / (M3[t] * gm3)
+                LDmx = lam_tmf * D_max[t]
+                LDmn = lam_tmf * D_min[t]
+        else:
+            mu = np.nan
+            lam_tmf = np.nan
+        mu_tmf.append(mu)
+        lamda_tmf.append(lam_tmf)
+
+    mu_tmf = np.array(mu_tmf)
+    lamda_tmf = np.array(lamda_tmf)
+    LDmx = lamda_tmf * D_max
+    LDmn = lamda_tmf * D_min
+    # TODO: should we use M3 for N0?
+    N0_tmf = ((M4 * lamda_tmf**(5. + mu_tmf)) /
+              ((gammap(5. + mu_tmf, LDmx) - gammap(5. + mu_tmf, LDmn)) *
+               np.exp(gammln(5. + mu_tmf))))
+
+    return N0_tmf, lamda_tmf, mu_tmf
+
+
+def fit_DSD_TMM346(M3, M4, M6, D_min, D_max):
+    """Fits gamma distributions using the Truncated Method of Moments (TMM) using M3, M4, and M6
+    and D_min, and D_max. Operates on numpy arrays and uses numba jit to speed things up
+    considerably
+
+    Parameters
+    ----------
+    M3 : array_like
+        The third moment of the distribution
+    M4 : array_like
+        The fourth moment of the distribution
+    M6 : array_like
+        The sixth moment of the distribution
+    D_min : array_like
+        The minimum diameter of the distribution
+    D_max : array_like
+        The maximum diameter of the distribution
+
+    Returns
+    -------
+    3-tuple of array_like
+        The intercept, slope, and shape parameters of the fitted gamma distribution.
+    """
+    G = (M4**3.) / (M3**2. * M6)  # moment ratio based on untruncated moments
+    # G = np.ma.masked_invalid(G)
+
+    # Get initial estimate of lamda and mu from the untruncated fit:
+    _, lamda_init, mu_init = fit_DSD_MM346(M3, M4, M6)
+
+    # TODO: make sure everything works with xarray and see if there's an efficient way to
+    # vectorize this algorithm across time. Maybe wrap Guifu's original fortran code is the
+    # best approach.
+    numtimes = np.size(M3)
+    # print(numtimes)
+    # print(lamda_init.size)
+    # print(D_max.size)
+
+    mu_tmf = []
+    lamda_tmf = []
+    # N0_tmf = []
+
+    for t in range(numtimes):
+        # print("Working on time {:d}".format(t))
+        if M3[t] > 0. and M4[t] > 0. and M6[t] > 0.:
+            # print("D_max = ", D_max[t])
+            print("Working on time {:d}/{:d}".format(t, numtimes))
+            LDmx = lamda_init[t] * D_max[t]
+            LDmn = lamda_init[t] * D_min[t]
+            for _ in range(10):
+                mu = mu_init[t]
+                # truncated moment ratio below.
+                gm4 = (gammap(4. + mu, LDmx) - gammap(4. + mu, LDmn)) * np.exp(gammln(4. + mu))
+                gm5 = (gammap(5. + mu, LDmx) - gammap(5. + mu, LDmn)) * np.exp(gammln(5. + mu))
+                gm7 = (gammap(7. + mu, LDmx) - gammap(7. + mu, LDmn)) * np.exp(gammln(7. + mu))
+                z0 = G[t] - gm5**3. / (gm4**2. * gm7)
+                z1 = z0
+
+                while z1 / z0 > 0.0:
+                    mu = mu - 0.01
+                    gm4 = (gammap(4. + mu, LDmx) - gammap(4. + mu, LDmn)) * np.exp(gammln(4. + mu))
+                    gm5 = (gammap(5. + mu, LDmx) - gammap(5. + mu, LDmn)) * np.exp(gammln(5. + mu))
+                    gm7 = (gammap(7. + mu, LDmx) - gammap(7. + mu, LDmn)) * np.exp(gammln(7. + mu))
+                    z1 = G[t] - gm5**3. / (gm4**2. * gm7)
+
+                lam_tmf = (M3[t] * gm5) / (M4[t] * gm4)
+                LDmx = lam_tmf * D_max[t]
+                LDmn = lam_tmf * D_min[t]
+        else:
+            mu = np.nan
+            lam_tmf = np.nan
+        mu_tmf.append(mu)
+        lamda_tmf.append(lam_tmf)
+
+    mu_tmf = np.array(mu_tmf)
+    lamda_tmf = np.array(lamda_tmf)
+    LDmx = lamda_tmf * D_max
+    LDmn = lamda_tmf * D_min
+    # TODO: should we use a different moment for N0? Like M3?
+    N0_tmf = ((M4 * lamda_tmf**(5. + mu_tmf)) /
+              ((gammap(5. + mu_tmf, LDmx) - gammap(5. + mu_tmf, LDmn)) *
+               np.exp(gammln(5. + mu_tmf))))
+
+    return N0_tmf, lamda_tmf, mu_tmf
+
+
+def fit_DSD_TMMXYZ(moment_combo, moment_list, D_min, D_max):
+    """Given a string of the form 'XY(Z)' and a list [X, Y, (Z)], where Z is optional,
+       use the Truncated Method-of-Moments to fit an exponential or gamma distribution using the
+       combination of moments given by X, Y, and possibly Z.
+    Parameters
+    ----------
+    moment_combo: str
+        a string with the moment combination
+    moment_list: list
+        A list of the individual moments to fit
+    Returns
+    -------
+    3-tuple of array_like
+        The intercept, slope, and shape parameters of the fitted gamma distribution. If the third
+        moment (Z) is not provided, the shape parameter will be zero.
+    """
+
+    # TODO: make default D_min = 0?
+    D_min_arr = D_min.values
+    D_max_arr = D_max.values
+
+    num_moments = len(moment_combo)
+
+    if num_moments < 2 or num_moments > 3:
+        print("Incorrect number of moments. Must be 2 or 3!")
+        return
+    try:
+        X = moment_list[0]
+        Y = moment_list[1]
+        X_arr = X.values
+        Y_arr = Y.values
+    except IndexError:
+        print("Not enough moments in list!")
+        return
+
+    if num_moments == 2:
+        if moment_combo == '24':
+            print("Sorry, {} not implemented yet!".format(moment_combo))
+            return
+            # return fit_DSD_TMM24(X, Y)
+        elif moment_combo == '36':
+            print("Sorry, {} not implemented yet!".format(moment_combo))
+            return
+            # return fit_DSD_MM36(X, Y)
+        else:
+            print("Sorry, {} not implemented yet!".format(moment_combo))
+            return
+    else:
+        try:
+            Z = moment_list[2]
+            Z_arr = Z.values
+        except IndexError:
+            print("Not enough moments in list!")
+            return
+
+        if moment_combo == '234':
+            N0, lamda, alpha = fit_DSD_TMM234(X_arr, Y_arr, Z_arr, D_min_arr, D_max_arr)
+        elif moment_combo == '246':
+            # TODO allow for lambda limits in here through kwargs
+            N0, lamda, alpha = fit_DSD_TMM246(X_arr, Y_arr, Z_arr, D_min_arr, D_max_arr)
+        elif moment_combo == '346':
+            N0, lamda, alpha = fit_DSD_TMM346(X_arr, Y_arr, Z_arr, D_min_arr, D_max_arr)
+        else:
+            print("Sorry, {} not implemented yet!".format(moment_combo))
+            return
+
+        N0_da = X.copy(data=N0)
+        lamda_da = X.copy(data=lamda)
+        alpha_da = X.copy(data=alpha)
+
+        return N0_da, lamda_da, alpha_da
 
 
 def calc_binned_DSD_from_params(N0, lamda, alpha, D):

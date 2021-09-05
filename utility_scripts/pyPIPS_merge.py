@@ -482,6 +482,8 @@ if __name__ == "__main__":
         if len(sys.argv) > 3:
             serialnum = sys.argv[3]
             print(serialnum)
+        else:
+            serialnum = None
     else:
         PIPS_data_dir = _PIPS_data_dir
         output_filename = _output_filename

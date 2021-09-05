@@ -20,7 +20,7 @@ dependencies:
   - pandas
   - pip
   - pylint
-  - pynio
+  - pysteps
   - pytz
   - scipy
   - scikit-learn

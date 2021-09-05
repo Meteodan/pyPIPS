@@ -1363,14 +1363,10 @@ def circles(x, y, s, c='b', vmin=None, vmax=None, **kwargs):
 # #             plt.xticks(visible=False)
 
 
-def plot_mu_lamda(poly_coeff, poly, lamda=None, mu=None, ax=None, title=None, plot_Z01_C08=True,
-                  plot_legend=True, plot_poly_coeff=True):
-
-    op1 = '+' if np.sign(poly_coeff[1]) == 1 else '-'
-    op2 = '+' if np.sign(poly_coeff[0]) == 1 else '-'
+def plot_mu_lamda(poly_coeff=None, poly=None, lamda=None, mu=None, ax=None, title=None,
+                  plot_Z01_C08=True, plot_legend=True, plot_poly_coeff=True):
 
     xx = np.linspace(0.0, 30.0)
-    yy = poly(xx)
     if plot_Z01_C08:
         y_Cao = -0.0201 * xx**2. + 0.902 * xx - 1.718
         y_Zhang = -0.016 * xx**2. + 1.213 * xx - 1.957
@@ -1382,7 +1378,9 @@ def plot_mu_lamda(poly_coeff, poly, lamda=None, mu=None, ax=None, title=None, pl
         plt.title(title)
     if lamda is not None:
         ax.scatter(lamda, mu, color='k', marker='.')
-        ax.plot(xx, yy, label='Present study')
+        if poly is not None:
+            yy = poly(xx)
+            ax.plot(xx, yy, label='Present study')
     if plot_Z01_C08:
         ax.plot(xx, y_Cao, label='C08')
         ax.plot(xx, y_Zhang, label='Z01')
@@ -1393,11 +1391,13 @@ def plot_mu_lamda(poly_coeff, poly, lamda=None, mu=None, ax=None, title=None, pl
     if lamda is not None:
         ax.text(0.05, 0.85, '# of Points: {:d}'.format(len(lamda)),
                 transform=ax.transAxes, fontsize=12.)
-    if plot_poly_coeff:
+    if plot_poly_coeff and poly_coeff is not None:
+        op1 = '+' if np.sign(poly_coeff[1]) == 1 else '-'
+        op2 = '+' if np.sign(poly_coeff[0]) == 1 else '-'
         polytext = r'$\mu = {0:2.4f}\lambda^{{2}} {1} {2:2.4f}\lambda {3} {4:2.4f}$'
 
         polytext = polytext.format(poly_coeff[2], op1, np.abs(poly_coeff[1]), op2,
-                                np.abs(poly_coeff[0]))
+                                   np.abs(poly_coeff[0]))
         ax.text(0.05, 0.80, polytext, transform=ax.transAxes, fontsize=12.)
     if plot_legend:
         plt.legend(loc='upper left', numpoints=1, ncol=3, fontsize=12.)
