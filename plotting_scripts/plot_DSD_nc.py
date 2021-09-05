@@ -41,7 +41,7 @@ parser.add_argument('--plot-full', action='store_true', dest='plot_full',
                     help='Plot full-deployment DSD')
 parser.add_argument('--plot-series', action='store_true', dest='plot_series',
                     help='Plot time series of DSDs')
-parser.add_argument('--retr-tag', dest='retr_tag', default='SATP',
+parser.add_argument('--retr-tag', dest='retr_tag', default='SATP_TMM',
                     help='string to identify retrieval to plot')
 parser.add_argument('--image-fmt', dest='image_fmt', default='png',
                     help='Image file format (i.e. png, eps, pdf)')

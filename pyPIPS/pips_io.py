@@ -49,46 +49,46 @@ def parse_PIPS_record(record, field_indices, tripips=False):
         token_dict['logger_datetime'] = datetime.strptime(timestamp, PIPS_timestamp_format2)
     else:
         token_dict['logger_datetime'] = datetime.strptime(timestamp, PIPS_timestamp_format1)
-    token_dict['voltage'] = np.float(tokens[field_indices['BattV']])
-    token_dict['winddirrel'] = np.float(tokens[field_indices['WindDir']])
-    token_dict['windspd'] = np.float(tokens[field_indices['WS_ms']])
-    token_dict['winddiag'] = np.float(tokens[field_indices['WSDiag']])
+    token_dict['voltage'] = float(tokens[field_indices['BattV']])
+    token_dict['winddirrel'] = float(tokens[field_indices['WindDir']])
+    token_dict['windspd'] = float(tokens[field_indices['WS_ms']])
+    token_dict['winddiag'] = float(tokens[field_indices['WSDiag']])
     if not tripips:
-        token_dict['fasttemp'] = np.float(tokens[field_indices['FastTemp']])
-    token_dict['slowtemp'] = np.float(tokens[field_indices['SlowTemp']])
+        token_dict['fasttemp'] = float(tokens[field_indices['FastTemp']])
+    token_dict['slowtemp'] = float(tokens[field_indices['SlowTemp']])
     if tripips:
         token_dict['fasttemp'] = token_dict['slowtemp']
-    token_dict['RH'] = np.float(tokens[field_indices['RH']])
-    token_dict['pressure'] = np.float(tokens[field_indices['Pressure']])
-    token_dict['compass_dir'] = np.float(tokens[field_indices['FluxDirection']])
+    token_dict['RH'] = float(tokens[field_indices['RH']])
+    token_dict['pressure'] = float(tokens[field_indices['Pressure']])
+    token_dict['compass_dir'] = float(tokens[field_indices['FluxDirection']])
     token_dict['GPS_time'] = tokens[field_indices['GPSTime']]
     token_dict['GPS_status'] = tokens[field_indices['GPSStatus']]
-    GPS_lat = np.float(tokens[field_indices['GPSLat']])
+    GPS_lat = float(tokens[field_indices['GPSLat']])
     GPS_lat_hem = tokens[field_indices['GPSLatHem']]
     token_dict['GPS_lat'] = utils.DDMtoDD(GPS_lat, GPS_lat_hem)
-    GPS_lon = np.float(tokens[field_indices['GPSLon']])
+    GPS_lon = float(tokens[field_indices['GPSLon']])
     GPS_lon_hem = tokens[field_indices['GPSLonHem']]
     token_dict['GPS_lon'] = utils.DDMtoDD(GPS_lon, GPS_lon_hem)
-    token_dict['GPS_spd'] = np.float(tokens[field_indices['GPSSpd']])
-    token_dict['GPS_dir'] = np.float(tokens[field_indices['GPSDir']])
+    token_dict['GPS_spd'] = float(tokens[field_indices['GPSSpd']])
+    token_dict['GPS_dir'] = float(tokens[field_indices['GPSDir']])
     token_dict['GPS_date'] = tokens[field_indices['GPSDate']]
     try:
-        token_dict['GPS_magvar'] = np.float(tokens[field_indices['GPSMagVar']])
+        token_dict['GPS_magvar'] = float(tokens[field_indices['GPSMagVar']])
     except ValueError:
         token_dict['GPS_magvar'] = np.nan
     try:
-        token_dict['GPS_alt'] = np.float(tokens[field_indices['GPSAlt']])
+        token_dict['GPS_alt'] = float(tokens[field_indices['GPSAlt']])
     except ValueError:
         token_dict['GPS_alt'] = np.nan
     try:
-        winddirabs = np.float(tokens[field_indices['WindDirAbs']])
+        winddirabs = float(tokens[field_indices['WindDirAbs']])
         if np.isnan(winddirabs):
             winddirabs = token_dict['winddirrel']
     except ValueError:
         winddirabs = np.nan
     token_dict['winddirabs'] = winddirabs
     try:
-        dewpoint = np.float(tokens[field_indices['Dewpoint']])
+        dewpoint = float(tokens[field_indices['Dewpoint']])
         if np.isnan(dewpoint):
             dewpoint = (thermo.calTdfromRH(token_dict['pressure'] * 100.,
                                            token_dict['fasttemp'] + 273.15,
@@ -99,7 +99,7 @@ def parse_PIPS_record(record, field_indices, tripips=False):
                                       token_dict['RH'] / 100.) - 273.15
     token_dict['dewpoint'] = dewpoint
     try:
-        RH_derived = np.float(tokens[field_indices['RHDer']])
+        RH_derived = float(tokens[field_indices['RHDer']])
         if np.isnan(RH_derived):
             RH_derived = token_dict['RH']
     except ValueError:
@@ -144,7 +144,7 @@ def get_PIPS_GPS_offset(filename, field_indices, tripips=False):
             GPS_status = tokens[field_indices['GPSStatus']]
             GPS_date = tokens[field_indices['GPSDate']]
             try:
-                GPS_alt = np.float(tokens[field_indices['GPSAlt']])
+                GPS_alt = float(tokens[field_indices['GPSAlt']])
             except ValueError:
                 GPS_alt = np.nan
 
@@ -193,14 +193,14 @@ def parse_parsivel_telegram(parsivel_telegram, logger_datetime):
     serialnum = parsivel_tokens[0]
     valid_serial_nums = [v['serialnum'] for k, v in parsivel_params.probe_info.items()]
     if serialnum in valid_serial_nums and len(parsivel_tokens) >= 11:
-        precipintensity = np.float(parsivel_tokens[1])
-        precipaccum = np.float(parsivel_tokens[2])
-        parsivel_dBZ = np.float(parsivel_tokens[3])
-        sample_interval = np.float(parsivel_tokens[4])
-        signal_amplitude = np.float(parsivel_tokens[5])
+        precipintensity = float(parsivel_tokens[1])
+        precipaccum = float(parsivel_tokens[2])
+        parsivel_dBZ = float(parsivel_tokens[3])
+        sample_interval = float(parsivel_tokens[4])
+        signal_amplitude = float(parsivel_tokens[5])
         pcount = np.int(parsivel_tokens[6])
-        sensor_temp = np.float(parsivel_tokens[7])
-        pvoltage = np.float(parsivel_tokens[8])
+        sensor_temp = float(parsivel_tokens[7])
+        pvoltage = float(parsivel_tokens[8])
         try:
             vd_matrix = [float(x) if x != '' else 0 for x in parsivel_tokens[11:]]
         except Exception:  # TODO: find out what exception to catch here. ValueError?
@@ -343,7 +343,7 @@ def read_PIPS(filename, start_timestamp=None, end_timestamp=None, tripips=False,
                      dims=['time', 'fallspeed_bin', 'diameter_bin'])
 
     if check_order:
-        time_diff = conv_df.to_xarray()['time'].diff('time').astype(np.float)*1.e-9
+        time_diff = conv_df.to_xarray()['time'].diff('time').astype(float)*1.e-9
         print(time_diff)
         out_of_order_times = time_diff.where(time_diff < 0, drop=True)['time']
         print(out_of_order_times)

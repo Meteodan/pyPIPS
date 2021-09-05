@@ -323,9 +323,11 @@ deg2rad = np.pi / 180.
 def _getsweeptime(path, CFRadial=True):
     """Attempts to read sweep time from the radar file or construct it from the file name."""
     if CFRadial:
-        # print "Opening file: ",path
+        print("Opening file: ", path)
         sweepfile_netcdf = netCDF4.Dataset(path, "r")
-        sweeptime = sweepfile_netcdf.variables['time_coverage_start'].get_value().tostring()
+        # Wow, what a mess to just convert to a regular string now. There's got be a less ugly way.
+        sweeptime_raw = sweepfile_netcdf.variables['time_coverage_start'][...].tolist(fill_value='')
+        sweeptime = b''.join(sweeptime_raw).decode()
         radyear = int(sweeptime[:4])
         radmonth = int(sweeptime[5:7])
         radday = int(sweeptime[8:10])
