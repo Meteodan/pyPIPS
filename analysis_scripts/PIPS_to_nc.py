@@ -71,11 +71,10 @@ requested_interval = config.PIPS_IO_dict.get('requested_interval', 10.)
 
 if args.output_dir:
     output_dir = args.output_dir
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
 else:
     output_dir = PIPS_dir
-
+if not os.path.exists(output_dir):
+    os.makedirs(output_dir)
 # Read in the PIPS data for the deployment
 conv_df_list = []
 conv_resampled_df_list = []

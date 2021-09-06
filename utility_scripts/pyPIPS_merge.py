@@ -27,8 +27,8 @@
 import os
 import glob
 from pyPIPS.pips_io import correct_PIPS
+import pyPIPS.utils as utils
 import sys
-import re
 import csv
 from datetime import datetime
 import numpy as np
@@ -150,8 +150,6 @@ def parseTimeStamp(timestring):
 
 # The following are taken from https://stackoverflow.com/questions/
 # 5967500/how-to-correctly-sort-a-string-with-a-number-inside?noredirect=1&lq=1
-
-
 def atoi(text):
     return int(text) if text.isdigit() else text
 
@@ -170,11 +168,10 @@ def sortby(X, Y):
     """Sorts list X by values in list Y"""
     return [x for _, x in sorted(zip(Y, X), key=lambda pair: pair[0])]
 
+
 # From
 # https://stackoverflow.com/questions/38987/
 # how-to-merge-two-dictionaries-in-a-single-expression?noredirect=1&lq=1
-
-
 def merge_dicts(*dict_args):
     """
     Given any number of dicts, shallow copy and merge into a new dict,
