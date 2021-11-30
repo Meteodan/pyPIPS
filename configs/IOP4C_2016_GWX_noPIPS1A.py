@@ -41,8 +41,8 @@ radar_config_dict = {
     'radar_dir': '/Volumes/scr_fast/Projects/VORTEXSE/obsdata/2016/NEXRAD/IOP_4C/GWX/CFRadial',
     'field_names': ['REF', 'ZDR', 'RHO', 'Dm_Z01', 'sigma_Z01', 'RR_Z01', 'mu_Z01', 'lamda_Z01'],
     'el_req': 0.5,
-    'radar_start_timestamp': '20160430210000',
-    'radar_end_timestamp': '20160430213000',
+    'radar_start_timestamp': '20160430193000',
+    'radar_end_timestamp': '20160430214500',
     'scatt_dir': '/Users/dawson29/Projects/pyPIPS/tmatrix/S-Band/',
     'wavelength': 10.7
 }

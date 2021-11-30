@@ -1091,7 +1091,7 @@ def plot_DSD(axdict, PSDdict, PSDfitdict, PSDparamdict):
     # FIXME
     ypos = 0.95
     for paramname, paramtuple in PSDparamdict.items():
-        ax1.text(0.50, ypos, paramtuple[1] + ' = {:2.2f}'.format(np.float(paramtuple[0])),
+        ax1.text(0.50, ypos, paramtuple[1] + ' = {:2.2f}'.format(float(paramtuple[0])),
                  transform=ax1.transAxes)
         ypos = ypos - 0.05
 
