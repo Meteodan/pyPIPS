@@ -1,6 +1,6 @@
 # plotmodule.py: A module containing some functions related to plotting model output
 import os
-import numpy as N
+import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
@@ -14,7 +14,6 @@ from metpy.plots import ctables
 from . import timemodule as tm
 from . import PIPS as pips
 from itertools import cycle
-import numpy as np
 import pandas as pd
 import xarray.plot as xrplot
 
@@ -27,9 +26,9 @@ fontP = FontProperties()
 fontP.set_size('x-small') # 'small'
 
 # Contour levels for reflectivity (dBZ)
-clevels_ref = N.arange(0.0, 85.0, 5.0)
-clevels_zdr = N.arange(0.0, 6.25, 0.25)         # Contour levels for Zdr (dB)
-clevels_vr = N.arange(-40.0, 41.0, 1.0)        # Contour levels for Vr (m/s)
+clevels_ref = np.arange(0.0, 85.0, 5.0)
+clevels_zdr = np.arange(0.0, 6.25, 0.25)         # Contour levels for Zdr (dB)
+clevels_vr = np.arange(-40.0, 41.0, 1.0)        # Contour levels for Vr (m/s)
 # cmapdBZ = ctables.__getattribute__('REF_default')
 normdBZ, cmapdBZ = ctables.registry.get_with_steps('NWSReflectivity', 5., 5.)
 cmapzdr = cm.Reds
@@ -183,8 +182,8 @@ def make_segments(x, y):
     an array of the form   numlines x (points per line) x 2 (x and y) array
     '''
 
-    points = N.array([x, y]).T.reshape(-1, 1, 2)
-    segments = N.concatenate([points[:-1], points[1:]], axis=1)
+    points = np.array([x, y]).T.reshape(-1, 1, 2)
+    segments = np.concatenate([points[:-1], points[1:]], axis=1)
 
     return segments
 
@@ -201,13 +200,13 @@ def colorline(x, y, z=None, cmap=plt.get_cmap('copper'), norm=plt.Normalize(0.0,
 
     # Default colors equally spaced on [0,1]:
     if z is None:
-        z = N.linspace(0.0, 1.0, len(x))
+        z = np.linspace(0.0, 1.0, len(x))
 
     # Special case if a single number:
     if not hasattr(z, "__iter__"):  # to check for numerical input -- this is a hack
-        z = N.array([z])
+        z = np.array([z])
 
-    z = N.asarray(z)
+    z = np.asarray(z)
 
     segments = make_segments(x, y)
     lc = LineCollection(segments, array=z, cmap=cmap, norm=norm, linewidth=linewidth, alpha=alpha)
@@ -244,7 +243,7 @@ def plotsingle(fig, axes, ptype, xs, ys, x, y, xlim, ylim, field, clevels, cmap,
         plot = axes.contourf(xs, ys, field, levels=clevels, cmap=cmap, norm=norm, zorder=1)
     elif(ptype == 2):  # pcolor plot
         # Mask values below lower bounds
-        field = N.ma.masked_where(field < clevels[0], field)
+        field = np.ma.masked_where(field < clevels[0], field)
         # norm = matplotlib.colors.BoundaryNorm(clevels,cmap.N)
         # This is a hack to force masked areas to be white.  By default masked areas are
         # transparent, but the Agg backends apparently have problems when converting pcolor images
@@ -256,11 +255,11 @@ def plotsingle(fig, axes, ptype, xs, ys, x, y, xlim, ylim, field, clevels, cmap,
 
     if(cbarlevels is None):
         cintv = clevels[1] - clevels[0]
-        cintvs = N.arange(clevels[0], clevels[-1], cintv)
+        cintvs = np.arange(clevels[0], clevels[-1], cintv)
         while True:
             if(cintvs.size > 20):
                 cintv = (cintvs[1] - cintvs[0]) * 2.
-                cintvs = N.arange(cintvs[0], cintvs[-1], cintv)
+                cintvs = np.arange(cintvs[0], cintvs[-1], cintv)
             else:
                 break
         cbarlevels = ticker.MultipleLocator(base=cintv)
@@ -347,7 +346,7 @@ def plotsingle2(fig, axes, ptype, xs, ys, x, y, xlim, ylim, field, clevels, cmap
         plot = axes.contourf(xs, ys, field, levels=clevels, cmap=cmap, norm=norm, zorder=1)
     elif(ptype == 2):  # pcolor plot
         # Mask values below lower bounds
-        field = N.ma.masked_where(field < clevels[0], field)
+        field = np.ma.masked_where(field < clevels[0], field)
         # norm = matplotlib.colors.BoundaryNorm(clevels,cmap.N)
         # This is a hack to force masked areas to be white.  By default masked areas are
         # transparent, but the Agg backends apparently have problems when converting pcolor images
@@ -359,11 +358,11 @@ def plotsingle2(fig, axes, ptype, xs, ys, x, y, xlim, ylim, field, clevels, cmap
 
     if(cbarlevels is None):
         cintv = clevels[1] - clevels[0]
-        cintvs = N.arange(clevels[0], clevels[-1], cintv)
+        cintvs = np.arange(clevels[0], clevels[-1], cintv)
         while True:
             if(cintvs.size > 20):
                 cintv = (cintvs[1] - cintvs[0]) * 2.
-                cintvs = N.arange(cintvs[0], cintvs[-1], cintv)
+                cintvs = np.arange(cintvs[0], cintvs[-1], cintv)
             else:
                 break
         cbarlevels = ticker.MultipleLocator(base=cintv)
@@ -493,7 +492,7 @@ def plot_wind_meteogram(plottimes, conv_plot_ds, global_plot_config_dict, avgwin
     if global_plot_config_dict['plot_diagnostics'] and ptype == 'PIPS':
         winddiag = conv_plot_ds['winddiag']
         # Extract indices for "bad" wind data
-        winddiag_index = N.where(N.any([winddiag > 0, N.isnan(winddiag)], axis=0))[0]
+        winddiag_index = np.where(np.any([winddiag > 0, np.isnan(winddiag)], axis=0))[0]
         # These are the times with bad wind data
         winddiag_plot = plottimes[winddiag_index]
         fields.append(winddiag_plot)
@@ -592,8 +591,8 @@ def plot_RH_meteogram(plottimes, conv_plot_ds, global_plot_config_dict, xlimits=
 def plot_pressure_meteogram(plottimes, conv_plot_ds, global_plot_config_dict,
                             xlimits=None, ptype='PIPS'):
 
-    pmin = N.nanmin(conv_plot_ds['pressure'].values)
-    pmax = N.nanmax(conv_plot_ds['pressure'].values)
+    pmin = np.nanmin(conv_plot_ds['pressure'].values)
+    pmax = np.nanmax(conv_plot_ds['pressure'].values)
 
     # pmean = conv_plot_ds['pressure'].values.mean()
     # avgintv = 1  # Currently not used
@@ -649,7 +648,7 @@ def plot_GPS_speed_meteogram(plottimes, conv_plot_ds, global_plot_config_dict,
         ax1 = fig.add_subplot(111)
 
         fields = [conv_plot_ds['GPS_speed'].values]
-        N.set_printoptions(threshold=N.inf)
+        np.set_printoptions(threshold=np.inf)
         fieldparamdicts = [GPS_speed_params]
         ax1 = plotmeteogram(ax1, [plottimes], fields, fieldparamdicts)
 
@@ -760,26 +759,26 @@ def plotDSDmeteograms(dis_name, image_dir, axparams, disvars, radvars=None, clos
     """Plots one or more meteograms of disdrometer number concentrations vs. diameter bins,
        along with one or more derived variables and optionally radar variables for comparison.
        One meteogram is plotted per dualpol variable (i.e. Z,ZDR,KDP,RHV)"""
-    min_diameter = disvars.get('min_diameter', N.empty((0)))
-    PSDstarttimes = disvars.get('PSDstarttimes', N.empty((0)))
-    PSDmidtimes = disvars.get('PSDmidtimes', N.empty((0)))
-    logND = disvars.get('logND', N.empty((0)))
+    min_diameter = disvars.get('min_diameter', np.empty((0)))
+    PSDstarttimes = disvars.get('PSDstarttimes', np.empty((0)))
+    PSDmidtimes = disvars.get('PSDmidtimes', np.empty((0)))
+    logND = disvars.get('logND', np.empty((0)))
     if(not logND.size or not PSDstarttimes.size or not PSDmidtimes.size):
         print("No DSD info to plot! Quitting!")
         return
-    # D_0_dis = disvars.get('D_0', N.empty((0)))
-    D_m_dis = disvars.get('D_m', N.empty((0)))
-    dBZ_ray_dis = disvars.get('dBZ_ray', N.empty((0)))
-    flaggedtimes = disvars.get('flaggedtimes', N.empty((0)))
-    hailflag = disvars.get('hailflag', N.empty((0)))
+    # D_0_dis = disvars.get('D_0', np.empty((0)))
+    D_m_dis = disvars.get('D_m', np.empty((0)))
+    dBZ_ray_dis = disvars.get('dBZ_ray', np.empty((0)))
+    flaggedtimes = disvars.get('flaggedtimes', np.empty((0)))
+    hailflag = disvars.get('hailflag', np.empty((0)))
     if radvars is not None:
-        #D_0_rad = radvars.get('D_0_rad', N.empty((0)))
+        #D_0_rad = radvars.get('D_0_rad', np.empty((0)))
         D_m_keys = [k for k, v in radvars.items() if 'D_m' in k]
-        radmidtimes = radvars.get('radmidtimes', N.empty((0)))
+        radmidtimes = radvars.get('radmidtimes', np.empty((0)))
     else:
-        D_0_rad = N.empty((0))
+        D_0_rad = np.empty((0))
         D_m_keys = []
-        radmidtimes = N.empty((0))
+        radmidtimes = np.empty((0))
 
     # Try to find the desired dualpol variables for plotting in the provided dictionary
 
@@ -794,13 +793,13 @@ def plotDSDmeteograms(dis_name, image_dir, axparams, disvars, radvars=None, clos
     # meteogram, with just the number concentrations and possibly median volume diameters, etc.
     if(not dualpol_dis_varnames):
         dualpol_dis_varnames.append(None)
-        dualpol_dis_vars.append(N.empty((0)))
+        dualpol_dis_vars.append(np.empty((0)))
 
     # Start the plotting loop
     for dualpol_dis_varname, dualpol_dis_var in zip(dualpol_dis_varnames, dualpol_dis_vars):
         # See if the variable is also provided in the radvars dictionary
         if radvars is not None:
-            dualpol_rad_var = radvars.get(dualpol_dis_varname, N.empty((0)))
+            dualpol_rad_var = radvars.get(dualpol_dis_varname, np.empty((0)))
         else:
             dualpol_rad_var = None
 
@@ -1050,12 +1049,12 @@ def plot_DSD(axdict, PSDdict, PSDfitdict, PSDparamdict):
 
     time_to_plot = axdict.get('time', None)
     time_to_plot_datetime = pd.to_datetime(time_to_plot).to_pydatetime()
-    xbin_left = axdict.get('xbin_left', N.empty((0)))
-    xbin_right = axdict.get('xbin_right', N.empty((0)))
-    xbin_mid = axdict.get('xbin_mid', N.empty((0)))
-    ND = PSDdict.get('ND', N.empty((0)))
+    xbin_left = axdict.get('xbin_left', np.empty((0)))
+    xbin_right = axdict.get('xbin_right', np.empty((0)))
+    xbin_mid = axdict.get('xbin_mid', np.empty((0)))
+    ND = PSDdict.get('ND', np.empty((0)))
     # FIXME
-    ND_onedrop = PSDdict.get('ND_onedrop', N.empty((0)))
+    ND_onedrop = PSDdict.get('ND_onedrop', np.empty((0)))
     interval = axdict.get('interval', 10)
 
     fig1 = plt.figure(figsize=(8, 6))
@@ -1129,7 +1128,7 @@ def plot_vel_D(axdict, PSDdict, rho):
         plt.title(titlestring.format(int(DSD_interval)))
 
     countsplot = vd_matrix_da
-    # countsplot = N.ma.masked_where(vd_matrix_da <= 0, vd_matrix_da)
+    # countsplot = np.ma.masked_where(vd_matrix_da <= 0, vd_matrix_da)
     C = ax1.pcolor(min_diameter, min_fall_bins, countsplot, vmin=cblim[0], vmax=cblim[1],
                    edgecolors='w', cmap=cm.plasma)
     rainvd = pips.calc_empirical_fallspeed(avg_diameter, correct_rho=True, rho=rho)
@@ -1183,8 +1182,8 @@ def computecorners(xe, ye, UM=False):
 
     if(not UM):
         cor_shp = xe.shape[:-2] + (ye.shape[-2], xe.shape[-1])
-        xcor = N.zeros(cor_shp)
-        ycor = N.zeros(cor_shp)
+        xcor = np.zeros(cor_shp)
+        ycor = np.zeros(cor_shp)
 
 #       print xcor.shape, ycor.shape, xe.shape, ye.shape
 

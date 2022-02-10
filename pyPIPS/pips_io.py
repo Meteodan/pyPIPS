@@ -1,6 +1,7 @@
 """pips_io.py: a collection of functions to read and write disdrometer and other surface probe
 data.
 """
+from itertools import groupby, accumulate
 from datetime import datetime, timedelta
 import pandas as pd
 import xarray as xr
@@ -15,6 +16,14 @@ PIPS_timestamp_format2 = '%Y-%m-%d %H:%M:%S.000'
 
 # Some of the following functions have redundant/overlapping functionality. Long-term plan
 # is to continue to refactor and simplify
+
+# Helpful function to split a list into a list of lists given a particular value
+# From https://stackoverflow.com/questions/34271179/
+# split-list-by-certain-repeated-index-value?noredirect=1&lq=1
+def itergroup(seq, val):
+    it = iter(seq)
+    grouped = groupby(accumulate(x==val for x in seq))
+    return [[next(it) for c in g] for k,g in grouped]
 
 
 def parseTimeStamp(timestring):
@@ -304,6 +313,7 @@ def read_PIPS(filename, start_timestamp=None, end_timestamp=None, tripips=False,
             if stoptime is not None and record_dict['logger_datetime'] > stoptime:
                 continue
 
+            print(record_dict['logger_datetime'])
             parsivel_dict, vd_matrix = parse_parsivel_telegram(record_dict['parsivel_telegram'],
                                                                record_dict['logger_datetime'])
             conv_dict = record_dict
@@ -419,8 +429,15 @@ def get_PIPS_loc(GPS_stats, GPS_lats, GPS_lons, GPS_alts):
     return lat, lon, alt
 
 
-def correct_PIPS(serialnum, infile, outfile, tripips=False):
-    """Corrects offset Parsivel strings in a PIPS data file"""
+def correct_PIPS_old(serialnum, infile, outfile, tripips=False):
+    """
+    Corrects offset Parsivel strings in a PIPS data file.
+    TODO: this method may not handle all edge cases very well. It also may drop the last
+    parsivel record at least in some cases. Make a more robust version.
+    TODO: Made some fixes/changes on 02/04/22 that may affect order of corrected parsivel records.
+    Need to compare with corrected files using older version of this function.
+    """
+
 
     with open(infile, 'r') as disfile:
 
@@ -438,12 +455,13 @@ def correct_PIPS(serialnum, infile, outfile, tripips=False):
             header_info = ",".join(tokens[:-1])
             parsivel_string = tokens[-1]
             parsivel_tokens = parsivel_string.strip().split(';')
+            # print(parsivel_tokens)
             if len(parsivel_tokens) > 1:
                 if truncated:  # Previous record was truncated
                     # Look for the parsivel serial number somewhere in the next record
                     # and find the index if it exists
                     try:
-                        line_out = header_info
+                        # line_out = header_info
                         sindex = [i for i, x in enumerate(parsivel_tokens) if serialnum in x][0]
                         # Concatenate portion of string before serial number onto end of previous
                         # record
@@ -453,19 +471,28 @@ def correct_PIPS(serialnum, infile, outfile, tripips=False):
                         parsivel_string_out_list.append(parsivel_string_out)
                         parsivel_string_out = ";".join(parsivel_tokens[sindex:]).lstrip()
                         truncated = False
+                        line_out = header_info
                     except Exception:
                         print("Something went wrong!")
                 elif not first:
                     # Should be able to just rip through the rest of the records and piece
                     # them together
-                    sindex = [i for i, x in enumerate(parsivel_tokens) if serialnum in x][0]
+                    try:
+                        sindex = [i for i, x in enumerate(parsivel_tokens) if serialnum in x][0]
+                    except:
+                        sindex = -1
+                        line_out = header_info
                     parsivel_string_out = parsivel_string_out + ";".join(parsivel_tokens[:sindex])
                     parsivel_string_out_list.append(parsivel_string_out)
                     lines_out.append(line_out + ',' + parsivel_string_out)
                     line_out = header_info
-                    parsivel_string_out = ";".join(parsivel_tokens[sindex:]).lstrip()
+                    if sindex != -1:
+                        parsivel_string_out = ";".join(parsivel_tokens[sindex:]).lstrip()
+                    else:
+                        parsivel_string_out = ''
                 elif first:
                     if len(parsivel_tokens) < 1036:    # Likely a truncated record
+                        # print("Here!")
                         truncated = True
                         first = False
                         parsivel_string_out = parsivel_string
@@ -510,6 +537,119 @@ def correct_PIPS(serialnum, infile, outfile, tripips=False):
             outdisfile.write(line + '\n')
 
 
+def correct_PIPS(serialnum, infile, outfile, tripips=False):
+    """
+    Corrects offset Parsivel strings in a PIPS data file.
+    TODO: this method may not handle all edge cases very well. It also may drop the last
+    parsivel record at least in some cases. Make a more robust version.
+    TODO: Made some fixes/changes on 02/04/22 that may affect order of corrected parsivel records.
+    Need to compare with corrected files using older version of this function.
+    """
+
+    # First round, grab all the parsivel records, and split them into new records realigned
+    # with the serial number as the first
+    parsivel_token_list = []
+    parsivel_token_dict = {}
+    fixed_parsivel_tokens = []
+    first=True
+    with open(infile, 'r') as disfile:
+        # Get the header line
+        header_line = next(disfile)
+        field_indices = get_field_indices(header_line, tripips=tripips)
+        datetime_list = []
+        for line in disfile:
+            line = line.rstrip('\r\n')
+            tokens = line.strip().split(',')
+
+            header_info = ",".join(tokens[:-1])
+            parsivel_string = tokens[-1]
+            parsivel_tokens = parsivel_string.strip().split(';')
+            if len(parsivel_tokens) > 1:
+                # Parse the timestamp for the records and create a datetime object out of it
+                timestamp = tokens[field_indices['TIMESTAMP']].strip().split()
+                datetimestamp = parseTimeStamp(timestamp)
+                # Loop through the parsivel tokens and create a new token list every
+                # time the serial number is encountered. Add to parsivel token dictionary
+                # keyed by the current time stamp
+                if serialnum in parsivel_tokens[0]:
+                    fixed_parsivel_tokens = parsivel_tokens
+                    parsivel_token_dict[datetimestamp] = fixed_parsivel_tokens
+                    curtimestamp = datetimestamp
+                    first = False
+                else:
+                    for i, token in enumerate(parsivel_tokens):
+                        if serialnum in token:
+                            fixed_parsivel_tokens = [serialnum]
+                            parsivel_token_dict[datetimestamp] = fixed_parsivel_tokens
+                            curtimestamp = datetimestamp
+                            first = False
+                        elif not first:
+                            parsivel_token_dict[curtimestamp].append(token)
+    # Second pass through file. Read in each line and replace the old parsivel strings
+    # with the fixed ones as they come.
+    with open(infile, 'r') as disfile:
+        lines_out = []
+        # parsivel_string_out_list = []
+        # parsivel_string_out = ''
+        # truncated = False
+        # first = True
+        # Get the header line
+        header_line = next(disfile)
+        field_indices = get_field_indices(header_line, tripips=tripips)
+        for line in disfile:
+            line = line.rstrip('\r\n')
+            tokens = line.strip().split(',')
+            header_info = ",".join(tokens[:-1])
+            parsivel_string = tokens[-1]
+            parsivel_tokens = parsivel_string.strip().split(';')
+            if len(parsivel_tokens) > 1:
+                timestamp = tokens[field_indices['TIMESTAMP']].strip().split()
+                datetimestamp = parseTimeStamp(timestamp)
+                try:
+                    new_parsivel_tokens = parsivel_token_dict[datetimestamp]
+                    line_out = header_info + ',' + ";".join(new_parsivel_tokens).lstrip()
+                except KeyError:
+                    line_out = header_info + ',NaN'
+            else:
+                line_out = line
+            lines_out.append(line_out)
+
+        # TODO: FIX THIS! Need to first move some of the functions from pyPIPS_merge.py into
+        # pips_io.py here and clean them up.
+
+        # Sort the output by time again
+        numrecords = len(lines_out)
+        datetime_list = []
+        for line in lines_out:
+            # Parse the timestamp for the records and create a datetime object out of it
+            tokens = line.strip().split(',')
+            timestamp = tokens[field_indices['TIMESTAMP']].strip().split()
+            datetimestamp = parseTimeStamp(timestamp)
+            datetime_list.append(datetimestamp)
+
+        # Sort the records in increasing order of time. (Some files are corrupted and have some
+        # of their records out of order)
+        indices = list(range(numrecords))
+        indices_sorted = utils.sortby(indices, datetime_list)
+        # sorted_lines_out = []
+        if not indices == indices_sorted:
+            print("Times out of order! Need to sort!")
+            datetime_list.sort()
+            sorted_lines_out = [lines_out[i] for i in indices_sorted]
+            # for field, records in dict_onesec.copy().items():
+            #     dict_onesec[field] = [records[i] for i in indices_sorted]
+        else:
+            sorted_lines_out = lines_out
+        # Sort the output lines by record #
+        # sorted_lines_out = sorted(lines_out, key=lambda record: int(record.strip().split(',')[1]))
+        # sorted_lines_out = lines_out
+
+    with open(outfile, 'w') as outdisfile:
+        outdisfile.write(header_line)
+        for line in sorted_lines_out:
+            outdisfile.write(line + '\n')
+
+
 def conv_df_to_ds(conv_df):
     """Converts the conventional data from the PIPS from a pandas DataFrame to an xarray Dataset.
     Adds units as metadata
@@ -525,7 +665,15 @@ def conv_df_to_ds(conv_df):
         Dataset version with additional metadata
     """
     conv_ds = conv_df.to_xarray()
-
+    # duplicated = conv_df.duplicated(keep=False)
+    # print(duplicated)
+    # dup_indices = np.where(duplicated)[0]
+    # print(dup_indices)
+    #duplicated = xr.DataArray(parsivel_ds_read.indexes['time'].duplicated())
+    # duplicated_times = conv_df['time'].isel(time=dup_indices)
+    # print(duplicated_times)
+    # duplicated_times_only = conv_df[duplicated]
+    # print(duplicated_times_only)
     # These are not present when conv_df is resampled to longer intervals
     # TODO: update pips.resample_conv to properly handle these variables
     # NOTE: compass_dir should be working now
