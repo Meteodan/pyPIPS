@@ -668,6 +668,8 @@ def calc_mean_velocity(vd_matrix_rebinned):
 def shift_mean_velocity(vd_matrix_rebinned, vt_rain):
     # We have to iterate over both time and diameter dimensions, because the shift needed is a
     # function of both
+    # TODO: This is painfully slow and memory-intensive for large timeseries of DSDs.
+    # Need to optimize!
     vel_interval = (vd_matrix_rebinned['fallspeed_bin'][1] -
                     vd_matrix_rebinned['fallspeed_bin'][0].values)
     # print(vel_interval)
