@@ -26,6 +26,8 @@ avg_fall_bins = pp.parsivel_parameters['avg_fallspeed_bins_mps']
 parser = argparse.ArgumentParser(description="Plots radar PPIs")
 parser.add_argument('case_config_path', metavar='<path/to/case/config/file.py>',
                     help='The path to the case configuration file')
+parser.add_argument('--el-req', type=float, dest='el_req_cl', default=None,
+                    help='Requested elevation angle (overrides value in config file)')
 parser.add_argument('--plot-config-path', dest='plot_config_path',
                     default='plot_config.py', help='Location of the plot configuration file')
 parser.add_argument('--plot-filtered-fields', dest='plot_filtered', default=False,
@@ -90,7 +92,10 @@ radar_dir = config.radar_config_dict.get('radar_dir', None)
 field_names = config.radar_config_dict.get('field_names', ['REF'])
 if not calc_dualpol:
     field_names = ['REF']
-el_req = config.radar_config_dict.get('el_req', 0.5)
+if args.el_req_cl:
+    el_req = args.el_req_cl
+else:
+    el_req = config.radar_config_dict.get('el_req', 0.5)
 radar_start_timestamp = config.radar_config_dict.get('radar_start_timestamp', None)
 radar_end_timestamp = config.radar_config_dict.get('radar_end_timestamp', None)
 scatt_dir = config.radar_config_dict.get('scatt_dir', None)

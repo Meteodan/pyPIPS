@@ -42,6 +42,8 @@ description = "Filters radar data for radar sweeps"
 parser = argparse.ArgumentParser(description=description)
 parser.add_argument('case_config_path', metavar='<path/to/case/config/file.py>',
                     help='The path to the case configuration file')
+parser.add_argument('--el-req', type=float, dest='el_req_cl', default=None,
+                    help='Requested elevation angle (overrides value in config file)')
 parser.add_argument('--dBZ-thresh', type=float, dest='dBZ_thresh', default=5.,
                     help='Threshold of reflectivity below which to exclude (dBZ)')
 parser.add_argument('--RHV-thresh', type=float, dest='RHV_thresh', default=0.95,
@@ -88,7 +90,10 @@ radar_dir = config.radar_config_dict.get('radar_dir', None)
 field_names = config.radar_config_dict.get('field_names', ['REF'])
 if not calc_dualpol:
     field_names = ['REF']
-el_req = config.radar_config_dict.get('el_req', 0.5)
+if args.el_req_cl:
+    el_req = args.el_req_cl
+else:
+    el_req = config.radar_config_dict.get('el_req', 0.5)
 radar_start_timestamp = config.radar_config_dict.get('radar_start_timestamp', None)
 radar_end_timestamp = config.radar_config_dict.get('radar_end_timestamp', None)
 scatt_dir = config.radar_config_dict.get('scatt_dir', None)
@@ -96,7 +101,7 @@ wavelength = config.radar_config_dict.get('wavelength', 10.7)
 
 # Read radar sweeps
 if args.input_tag is None:
-    radar_paths = glob(radar_dir + '/*{}*.nc'.format(radar_name))
+    radar_paths = glob(radar_dir + '/*{}*SUR.nc'.format(radar_name))
 else:
     radar_paths = glob(radar_dir + '/*{}*_{}.nc'.format(radar_name, args.input_tag))
 radar_dict = radar.read_sweeps(radar_paths, radar_start_timestamp,

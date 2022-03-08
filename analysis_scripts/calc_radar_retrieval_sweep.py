@@ -42,6 +42,8 @@ description = "Calculates radar retreivals for radar sweeps"
 parser = argparse.ArgumentParser(description=description)
 parser.add_argument('case_config_path', metavar='<path/to/case/config/file.py>',
                     help='The path to the case configuration file')
+parser.add_argument('--el-req', type=float, dest='el_req_cl', default=None,
+                    help='Requested elevation angle (overrides value in config file)')
 parser.add_argument('--lookup-dirs', dest='lookup_dirs', nargs='*',
                     help='directory where lookup tables reside')
 parser.add_argument('--use-filtered-fields', dest='use_filtered_fields', default=False,
@@ -89,7 +91,10 @@ radar_dir = config.radar_config_dict.get('radar_dir', None)
 field_names = config.radar_config_dict.get('field_names', ['REF'])
 if not calc_dualpol:
     field_names = ['REF']
-el_req = config.radar_config_dict.get('el_req', 0.5)
+if args.el_req_cl:
+    el_req = args.el_req_cl
+else:
+    el_req = config.radar_config_dict.get('el_req', 0.5)
 radar_start_timestamp = config.radar_config_dict.get('radar_start_timestamp', None)
 radar_end_timestamp = config.radar_config_dict.get('radar_end_timestamp', None)
 scatt_dir = config.radar_config_dict.get('scatt_dir', None)
@@ -138,7 +143,7 @@ for radar_input_path, sweeptime, radar_output_path in zip(radar_input_paths, rad
     # Massage the index and column labels to get rid of extraneous zeros
     # Also convert column labels from strings to floats
     retr_table.index = retr_table.index.to_series().apply(np.around, decimals=4)
-    retr_table.columns = [np.around(np.float(col), decimals=4) for col in retr_table.columns]
+    retr_table.columns = [np.around(float(col), decimals=4) for col in retr_table.columns]
 
     dBZ_lookup_min = retr_table.index[0]
     dBZ_lookup_max = retr_table.index[-1]
@@ -174,7 +179,7 @@ for radar_input_path, sweeptime, radar_output_path in zip(radar_input_paths, rad
             # precision gets in the way sometimes here. For example 56.4 is dumped out as
             # 56.4<some bunch of zeros>1
             retr_table.index = retr_table.index.to_series().apply(np.around, decimals=4)
-            retr_table.columns = [np.around(np.float(col), decimals=4) for col in
+            retr_table.columns = [np.around(float(col), decimals=4) for col in
                                   retr_table.columns]
             # Gah, for some reason DataFrame.lookup sometimes barfs on perfectly good floating point
             # values in columns, so convert them back to strings here. :rolleyes:
