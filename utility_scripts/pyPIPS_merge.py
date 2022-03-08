@@ -26,6 +26,7 @@
 
 import os
 import glob
+import re
 from pyPIPS.pips_io import correct_PIPS
 import pyPIPS.utils as utils
 import sys
