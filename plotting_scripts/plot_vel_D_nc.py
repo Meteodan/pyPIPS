@@ -41,6 +41,8 @@ parser.add_argument('--plot-qc', action='store_true', dest='plot_qc',
                     help='plot QC velocity-diameter matrix')
 parser.add_argument('--plot-full', action='store_true', dest='plot_full',
                     help='Plot full-deployment v-d matrix')
+parser.add_argument('--normalize', action='store_true', dest='normalize',
+                    help='Normalize full-deployment v-d matrix by total drop count')
 parser.add_argument('--plot-series', action='store_true', dest='plot_series',
                     help='Plot time series of v-d matrix')
 
@@ -152,7 +154,14 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
             vd_matrix_da_full = vd_matrix_da_full.where(vd_matrix_da_full > 0.)
             print("Plotting full-deployment v-d matrix for {} and {}".format(deployment_name,
                                                                              PIPS_name))
-            axdict['cblim'] = (1, 1500)
+            if args.normalize:
+                print("Normalizing by total drop count")
+                axdict['cblim'] = (0., 1.)
+                vd_matrix_da_full = vd_matrix_da_full / vd_matrix_da_full.sum()
+                image_tag = 'full_norm'
+            else:
+                axdict['cblim'] = (1, 1500)
+                image_tag = 'full'
             PSDdict = {
                 'vd_matrix_da': vd_matrix_da_full,
                 'DSD_interval': len(vd_matrix_da['time']) * DSD_interval
@@ -161,7 +170,7 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
             }
             fig, ax = pm.plot_vel_D(axdict, PSDdict, parsivel_combined_ds['rho'].mean(dim='time'))
             image_name =  \
-                '{}_{}_vel_D_{}_full.png'.format(PIPS_name, deployment_name, tag)
+                '{}_{}_vel_D_{}_{}.png'.format(PIPS_name, deployment_name, tag, image_tag)
             image_path = os.path.join(vel_D_image_dir, image_name)
             fig.savefig(image_path, dpi=200, bbox_inches='tight')
             plt.close(fig)
