@@ -36,7 +36,9 @@ parser.add_argument('case_config_path', metavar='<path/to/case/config/file.py>',
 parser.add_argument('--plot-config-path', dest='plot_config_path',
                     default='plot_config.py', help='Location of the plot configuration file')
 parser.add_argument('--ND-tags', dest='ND_tags', nargs='*', default=None,
-                    help='Tags for ND variable sin file (i.e., qc, RB15_vshift_qc, RB15_qc).')
+                    help='Tags for ND variables in file (i.e., qc, RB15_vshift_qc, RB15_qc).')
+parser.add_argument('--plot-raw', action='store_true', dest='plot_raw', default=False,
+                    help='whether to plot the raw DSDs in addition to QC versions')
 parser.add_argument('--plot-full', action='store_true', dest='plot_full',
                     help='Plot full-deployment DSD')
 parser.add_argument('--plot-series', action='store_true', dest='plot_series',
@@ -47,10 +49,13 @@ parser.add_argument('--image-fmt', dest='image_fmt', default='png',
                     help='Image file format (i.e. png, eps, pdf)')
 
 args = parser.parse_args()
+plot_raw = args.plot_raw
 if not args.ND_tags:
     ND_tags = ['']
 else:
     ND_tags = ['_{}'.format(tag) for tag in args.ND_tags]
+    if plot_raw:
+        ND_tags.insert(0, '')
 
 # Dynamically import the case configuration file
 utils.log("Case config file is {}".format(args.case_config_path))
