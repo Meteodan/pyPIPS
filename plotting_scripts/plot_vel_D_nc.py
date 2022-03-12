@@ -45,6 +45,12 @@ parser.add_argument('--normalize', action='store_true', dest='normalize',
                     help='Normalize full-deployment v-d matrix by total drop count')
 parser.add_argument('--plot-series', action='store_true', dest='plot_series',
                     help='Plot time series of v-d matrix')
+parser.add_argument('--cb-limits-full', nargs=2, metavar=('lower', 'upper'), type=float,
+                    dest='cb_limits_full', default=[1, 2000],
+                    help='color bar limits for drop number for full deployment plot')
+parser.add_argument('--cb-limits-indv', nargs=2, metavar=('lower', 'upper'), type=float,
+                    dest='cb_limits_indv', default=[1, 50],
+                    help='color bar limits for drop number for individual DSDs')
 
 args = parser.parse_args()
 
@@ -133,7 +139,7 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
                     print("Plotting for {} and time {}".format(PIPS_name,
                                                                time.strftime(tm.timefmt3)))
                     axdict['time'] = time
-                    axdict['cblim'] = (1, 50)
+                    axdict['cblim'] = args.cb_limits_indv
                     PSDdict = {
                         'vd_matrix_da': vd_matrix_da[t, :],
                         'DSD_interval': DSD_interval
@@ -152,6 +158,7 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
         if args.plot_full:
             vd_matrix_da_full = vd_matrix_da.sum(dim='time')
             vd_matrix_da_full = vd_matrix_da_full.where(vd_matrix_da_full > 0.)
+            print('Maximum bin drop count: ', vd_matrix_da_full.max())
             print("Plotting full-deployment v-d matrix for {} and {}".format(deployment_name,
                                                                              PIPS_name))
             if args.normalize:
@@ -160,7 +167,7 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
                 vd_matrix_da_full = vd_matrix_da_full / vd_matrix_da_full.sum()
                 image_tag = 'full_norm'
             else:
-                axdict['cblim'] = (1, 1500)
+                axdict['cblim'] = args.cb_limits_full
                 image_tag = 'full'
             PSDdict = {
                 'vd_matrix_da': vd_matrix_da_full,

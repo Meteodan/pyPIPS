@@ -163,6 +163,7 @@ for index, PIPS_filename, PIPS_name, start_time, end_time, geo_loc, ptype, deplo
                                                       rho=conv_resampled_df['rho'])
     vd_matrix_da = vd_matrix_da.where(vd_matrix_da > 0.0)
     vd_matrix_qc_da = vd_matrix_qc_da.where(vd_matrix_qc_da > 0.0)
+    ND_raw = pips.calc_ND(vd_matrix_da, fallspeed_spectrum, DSD_interval)
     ND = pips.calc_ND(vd_matrix_qc_da, fallspeed_spectrum, DSD_interval)
 
     # Convert conventional data pd.DataFrame to xr.Dataset and add some metadata
@@ -173,10 +174,12 @@ for index, PIPS_filename, PIPS_name, start_time, end_time, geo_loc, ptype, deplo
     parsivel_ds = pipsio.parsivel_df_to_ds(parsivel_df)
 
     # Now merge the parsivel telegram Dataset and the resampled conventional Dataset together
-    # Then add the vd_matrix_da (raw and QC'ed) and ND (after QC) DataArrays.
+    # Then add the vd_matrix_da (raw and QC'ed) and ND (raw and QC'ed) DataArrays.
 
     parsivel_combined_ds = xr.merge([parsivel_ds, conv_resampled_ds])
-    parsivel_combined_ds = pipsio.combine_parsivel_data(parsivel_combined_ds, vd_matrix_da)
+    parsivel_combined_ds = pipsio.combine_parsivel_data(parsivel_combined_ds, vd_matrix_da,
+                                                        name='VD_matrix')
+    parsivel_combined_ds = pipsio.combine_parsivel_data(parsivel_combined_ds, ND_raw, name='ND')
     parsivel_combined_ds = pipsio.combine_parsivel_data(parsivel_combined_ds, vd_matrix_qc_da,
                                                         name='VD_matrix_qc')
     parsivel_combined_ds = pipsio.combine_parsivel_data(parsivel_combined_ds, ND, name='ND_qc')
