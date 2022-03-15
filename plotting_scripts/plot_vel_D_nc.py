@@ -34,7 +34,8 @@ parser = argparse.ArgumentParser(description="Plots velocity-diameter histograms
 parser.add_argument('case_config_path', metavar='<path/to/case/config/file.py>',
                     help='The path to the case configuration file')
 parser.add_argument('--plot-config-path', dest='plot_config_path',
-                    default='plot_config.py', help='Location of the plot configuration file')
+                    default='plot_config_default.py',
+                    help='Location of the plot configuration file')
 parser.add_argument('--plot-raw', action='store_true', dest='plot_raw',
                     help='plot raw velocity-diameter matrix')
 parser.add_argument('--plot-qc', action='store_true', dest='plot_qc',
@@ -102,6 +103,18 @@ print(parsivel_combined_filenames)
 for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
     print("Reading {}".format(parsivel_combined_file))
     parsivel_combined_ds = xr.load_dataset(parsivel_combined_file)
+    # Set up desired start and end times if they are not "None". Otherwise just use all times in
+    # each file
+    start_time = start_times[index]
+    end_time = end_times[index]
+    if start_time is not None and end_time is not None:
+        start_datetime = datetime.strptime(start_time, tm.timefmt3)
+        end_datetime = datetime.strptime(end_time, tm.timefmt3)
+        start_time = start_datetime.strftime(tm.timefmt2)
+        end_time = end_datetime.strftime(tm.timefmt2)
+        print("Extracting subset of times between {} and {}".format(start_time, end_time))
+        parsivel_combined_ds = parsivel_combined_ds.sel(time=slice(start_time, end_time))
+
     DSD_interval = parsivel_combined_ds.DSD_interval
     PIPS_name = parsivel_combined_ds.probe_name
     deployment_name = parsivel_combined_ds.deployment_name
@@ -163,7 +176,7 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
                                                                              PIPS_name))
             if args.normalize:
                 print("Normalizing by total drop count")
-                axdict['cblim'] = (0., 1.)
+                axdict['cblim'] = (0., 0.05)
                 vd_matrix_da_full = vd_matrix_da_full / vd_matrix_da_full.sum()
                 image_tag = 'full_norm'
             else:

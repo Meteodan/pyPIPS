@@ -438,7 +438,8 @@ ax_vd.yaxis.set_major_locator(ticker.MultipleLocator(1.0))
 ax_vd.set_ylabel('fall speed (m/s)')
 
 # Plot last 60-s DSD
-ND_60s_da = ND_da.sel(time=slice(last_timestamp_60sec, last_timestamp_tensec)).sum(dim='time')
+# Bugfix 03/12/22: changed from sum to mean in following line!
+ND_60s_da = ND_da.sel(time=slice(last_timestamp_60sec, last_timestamp_tensec)).mean(dim='time')
 ND_60s = ND_60s_da.values
 ax_dsd.set_title('DSDs for time {0} to {1}'.format(
         (last_timestamp_60sec - timedelta(seconds=10)).strftime(tm.timefmt2),

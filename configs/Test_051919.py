@@ -1,21 +1,21 @@
-"""Configuration script for 03/06/22 test deployment"""
+"""Configuration script for 05/19/19 test deployment"""
 
 PIPS_IO_dict = {
-    'dataset_name': 'Test_030622',
-    'deployment_names': ['Test_030622'] * 4,
-    'input_txt_dir': '/Users/dawson29/Dropbox/Projects/PERiLS/PIPS_data/030622_IN_test/',
-    'PIPS_dir': '/Users/dawson29/Dropbox/Projects/PERiLS/PIPS_data/030622_IN_test/netcdf',
-    'plot_dir': '/Users/dawson29/Dropbox/Projects/PERiLS/PIPS_data/030622_IN_test/plots',
+    'dataset_name': 'Test_051919',
+    'deployment_names': ['Test_051919'] * 4,
+    'input_txt_dir': '/Users/dawson29/Dropbox/PIPS_data/2019/SPOTTR2019/051919_test/',
+    'PIPS_dir': '/Users/dawson29/Dropbox/PIPS_data/2019/SPOTTR2019/051919_test/netcdf',
+    'plot_dir': '/Users/dawson29/Dropbox/PIPS_data/2019/SPOTTR2019/051919_test/plots',
     'PIPS_types': ['PIPS'] * 4,
     'PIPS_names': ['PIPS1A', 'PIPS1B', 'PIPS2A', 'PIPS2B'],
-    'PIPS_filenames': ['PIPS1A_030622_merged.txt', 'PIPS1B_030622_merged.txt',
-                       'PIPS2A_030622_merged.txt', 'PIPS2B_030622_merged.txt'],
-    'PIPS_filenames_nc': ['parsivel_combined_Test_030622_PIPS1A_10s.nc',
-                          'parsivel_combined_Test_030622_PIPS1B_10s.nc',
-                          'parsivel_combined_Test_030622_PIPS2A_10s.nc',
-                          'parsivel_combined_Test_030622_PIPS2B_10s.nc'],
-    'start_times': ['202203070300'] * 4,
-    'end_times': ['202203070800'] * 4,
+    'PIPS_filenames': ['PIPS1A_Test_051919_merged.txt', 'PIPS1B_Test_051919_merged.txt',
+                       'PIPS2A_Test_051919_merged.txt', 'PIPS2B_Test_051919_merged.txt'],
+    'PIPS_filenames_nc': ['parsivel_combined_Test_051919_PIPS1A_10s.nc',
+                          'parsivel_combined_Test_051919_PIPS1B_10s.nc',
+                          'parsivel_combined_Test_051919_PIPS2A_10s.nc',
+                          'parsivel_combined_Test_051919_PIPS2B_10s.nc'],
+    'start_times': ['201905192000'] * 4,
+    'end_times': ['201905192200'] * 4,
     'requested_interval': 10.
 }
 

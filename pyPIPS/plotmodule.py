@@ -1048,7 +1048,8 @@ def plot_DSD(axdict, PSDdict, PSDfitdict, PSDparamdict):
        fits and associated parameters."""
 
     time_to_plot = axdict.get('time', None)
-    time_to_plot_datetime = pd.to_datetime(time_to_plot).to_pydatetime()
+    if time_to_plot is not None:
+        time_to_plot_datetime = pd.to_datetime(time_to_plot).to_pydatetime()
     xbin_left = axdict.get('xbin_left', np.empty((0)))
     xbin_right = axdict.get('xbin_right', np.empty((0)))
     xbin_mid = axdict.get('xbin_mid', np.empty((0)))
@@ -1059,13 +1060,18 @@ def plot_DSD(axdict, PSDdict, PSDfitdict, PSDparamdict):
 
     fig1 = plt.figure(figsize=(8, 6))
     ax1 = fig1.add_subplot(111)
-    titlestring = '{0:d}-s DSD fits for time {1} EST'
-    plt.title(titlestring.format(interval, time_to_plot_datetime.strftime(tm.timefmt2)))
+    # TODO:
+    if time_to_plot is not None:
+        titlestring = '{0:d}-s DSD fits for time {1} EST'
+        plt.title(titlestring.format(interval, time_to_plot_datetime.strftime(tm.timefmt2)))
+    else:
+        titlestring = 'Full deployment DSD ({:d} s)'
+        plt.title(titlestring.format(interval))
 
-    print('ND', ND)
+    # print('ND', ND)
     ax1.bar(xbin_left, ND * 1000.0, xbin_right - xbin_left, 10.**2., align='edge', log=True,
             color='tan', edgecolor='k')
-    print('ND_onedrop', ND_onedrop)
+    # print('ND_onedrop', ND_onedrop)
     ax1.bar(xbin_left, ND_onedrop * 1000.0, xbin_right - xbin_left, 10.**2., align='edge',
             log=True, fill=False, edgecolor='k')
 

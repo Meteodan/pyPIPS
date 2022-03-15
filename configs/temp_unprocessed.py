@@ -1,21 +1,21 @@
-"""Configuration script for 03/06/22 test deployment"""
+"""Configuration script for merging a bunch of PIPS data from 2020 onward"""
 
 PIPS_IO_dict = {
-    'dataset_name': 'Test_030622',
-    'deployment_names': ['Test_030622'] * 4,
-    'input_txt_dir': '/Users/dawson29/Dropbox/Projects/PERiLS/PIPS_data/030622_IN_test/',
-    'PIPS_dir': '/Users/dawson29/Dropbox/Projects/PERiLS/PIPS_data/030622_IN_test/netcdf',
-    'plot_dir': '/Users/dawson29/Dropbox/Projects/PERiLS/PIPS_data/030622_IN_test/plots',
+    'dataset_name': 'temp',
+    'deployment_names': ['temp'] * 4,
+    'input_txt_dir': '/Users/dawson29/Dropbox/PIPS_data/unprocessed/',
+    'PIPS_dir': '/Users/dawson29/Dropbox/PIPS_data/unprocessed/netcdf',
+    'plot_dir': '/Users/dawson29/Dropbox/PIPS_data/unprocessed/plots',
     'PIPS_types': ['PIPS'] * 4,
     'PIPS_names': ['PIPS1A', 'PIPS1B', 'PIPS2A', 'PIPS2B'],
-    'PIPS_filenames': ['PIPS1A_030622_merged.txt', 'PIPS1B_030622_merged.txt',
-                       'PIPS2A_030622_merged.txt', 'PIPS2B_030622_merged.txt'],
-    'PIPS_filenames_nc': ['parsivel_combined_Test_030622_PIPS1A_10s.nc',
-                          'parsivel_combined_Test_030622_PIPS1B_10s.nc',
-                          'parsivel_combined_Test_030622_PIPS2A_10s.nc',
-                          'parsivel_combined_Test_030622_PIPS2B_10s.nc'],
-    'start_times': ['202203070300'] * 4,
-    'end_times': ['202203070800'] * 4,
+    'PIPS_filenames': ['PIPS1A_temp_merged.txt', 'PIPS1B_temp_merged.txt',
+                       'PIPS2A_temp_merged.txt', 'PIPS2B_temp_merged.txt'],
+    'PIPS_filenames_nc': ['parsivel_combined_temp_PIPS1A_10s.nc',
+                          'parsivel_combined_temp_PIPS1B_10s.nc',
+                          'parsivel_combined_temp_PIPS2A_10s.nc',
+                          'parsivel_combined_temp_PIPS2B_10s.nc'],
+    'start_times': [None] * 4,
+    'end_times': [None] * 4,
     'requested_interval': 10.
 }
 

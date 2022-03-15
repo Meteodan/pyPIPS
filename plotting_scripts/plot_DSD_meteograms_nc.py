@@ -100,10 +100,11 @@ requested_interval = config.PIPS_IO_dict.get('requested_interval', 10.)
 load_radar_at_PIPS = config.radar_config_dict.get('load_radar_at_PIPS', False)
 save_radar_at_PIPS = config.radar_config_dict.get('save_radar_at_PIPS', False)
 comp_radar = config.radar_config_dict.get('comp_radar', False)
-print("args.plot_radar", args.plot_radar)
 if args.plot_radar is not None:
     plot_radar = 'yes' in args.plot_radar
     comp_radar = comp_radar and plot_radar
+else:
+    plot_radar = False
 clean_radar = config.radar_config_dict.get('clean_radar', False)
 calc_dualpol = config.radar_config_dict.get('calc_dualpol', False)
 plot_retrieval = config.radar_config_dict.get('plot_retrieval', False)
