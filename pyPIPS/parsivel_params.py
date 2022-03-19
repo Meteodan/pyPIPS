@@ -40,6 +40,13 @@ parsivel_parameters = {
     'sensor_area_mm2': 5400.
 }
 
+parsivel_parameters['diameter_bin_edges_mm'] = np.append(
+    parsivel_parameters['min_diameter_bins_mm'],
+    parsivel_parameters['max_diameter_bins_mm'][-1])
+parsivel_parameters['fallspeed_bin_edges_mps'] = np.append(
+    parsivel_parameters['min_fallspeed_bins_mps'],
+    parsivel_parameters['max_fallspeed_bins_mps'][-1])
+
 parsivel_parameters['avg_diameter_bins_mm'] = (parsivel_parameters['min_diameter_bins_mm'] +
                                                parsivel_parameters['max_diameter_bins_mm']) / 2.
 

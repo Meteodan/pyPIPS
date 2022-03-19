@@ -181,7 +181,8 @@ for index, conv_file in enumerate(conv_filelist):
 
     # Plot temperature and dewpoint meteogram
     fig, ax1 = pm.plot_temperature_dewpoint_meteogram(conv_datetimes, conv_ds,
-                                                      pc.PIPS_plotting_dict, ptype=ptype)
+                                                      pc.PIPS_plotting_dict, xlimits=timelimits,
+                                                      ptype=ptype)
     PIPS_plot_name = '{}_{}_{}_{}_T_Td.png'.format(PIPS_name, deployment_name, start_time_string,
                                                    end_time_string)
     plot_path = os.path.join(image_dir, PIPS_plot_name)
@@ -190,7 +191,7 @@ for index, conv_file in enumerate(conv_filelist):
 
     # Plot relative humidity meteogram
     fig, ax1 = pm.plot_RH_meteogram(conv_datetimes, conv_ds,
-                                    pc.PIPS_plotting_dict, ptype=ptype)
+                                    pc.PIPS_plotting_dict, xlimits=timelimits, ptype=ptype)
 
     PIPS_plot_name = '{}_{}_{}_{}_RH.png'.format(PIPS_name, deployment_name, start_time_string,
                                                  end_time_string)
@@ -200,7 +201,7 @@ for index, conv_file in enumerate(conv_filelist):
 
     # Plot pressure meteogram
     fig, ax1 = pm.plot_pressure_meteogram(conv_datetimes, conv_ds,
-                                          pc.PIPS_plotting_dict, ptype=ptype)
+                                          pc.PIPS_plotting_dict, xlimits=timelimits, ptype=ptype)
     PIPS_plot_name = '{}_{}_{}_{}_pressure.png'.format(PIPS_name, deployment_name,
                                                        start_time_string, end_time_string)
     plot_path = os.path.join(image_dir, PIPS_plot_name)
