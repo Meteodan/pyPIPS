@@ -1,21 +1,21 @@
-"""Configuration script for 07/21/20 test deployment"""
+"""Configuration script for PERiLS 2022 IOP1 deployment"""
 
 PIPS_IO_dict = {
-    'dataset_name': 'Test_072120',
-    'deployment_names': ['Test_072120'] * 4,
-    'input_txt_dir': '/Users/dawson29/Projects/PIPS_data/2020/Test_072120/',
-    'PIPS_dir': '/Users/dawson29/Projects/PIPS_data/2020/Test_072120/netcdf',
-    'plot_dir': '/Users/dawson29/Projects/PIPS_data/2020/Test_072120/plots',
+    'dataset_name': 'IOP1_032222',
+    'deployment_names': ['IOP1_032222'] * 4,
+    'input_txt_dir': '/Users/dandawson/Projects/PERiLS/PIPS_data/2022/IOP1_032222/csv/',
+    'PIPS_dir': '/Users/dandawson/Projects/PERiLS/PIPS_data/2022/IOP1_032222/netcdf',
+    'plot_dir': '/Users/dandawson/Projects/PERiLS/PIPS_data/2022/IOP1_032222/plots',
     'PIPS_types': ['PIPS'] * 4,
     'PIPS_names': ['PIPS1A', 'PIPS1B', 'PIPS2A', 'PIPS2B'],
-    'PIPS_filenames': ['PIPS1A_Test_072120_merged.txt', 'PIPS1B_Test_072120_merged.txt',
-                       'PIPS2A_Test_072120_merged.txt', 'PIPS2B_Test_072120_merged.txt'],
-    'PIPS_filenames_nc': ['parsivel_combined_Test_072120_PIPS1A_10s.nc',
-                          'parsivel_combined_Test_072120_PIPS1B_10s.nc',
-                          'parsivel_combined_Test_072120_PIPS2A_10s.nc',
-                          'parsivel_combined_Test_072120_PIPS2B_10s.nc'],
-    'start_times': ['202007211700'] * 4,
-    'end_times': ['202007221400'] * 4,
+    'PIPS_filenames': ['PIPS1A_IOP1_032222_merged.txt', 'PIPS1B_IOP1_032222_merged.txt',
+                       'PIPS2A_IOP1_032222_merged.txt', 'PIPS2B_IOP1_032222_merged.txt'],
+    'PIPS_filenames_nc': ['parsivel_combined_IOP1_032222_PIPS1A_10s.nc',
+                          'parsivel_combined_IOP1_032222_PIPS1B_10s.nc',
+                          'parsivel_combined_IOP1_032222_PIPS2A_10s.nc',
+                          'parsivel_combined_IOP1_032222_PIPS2B_10s.nc'],
+    'start_times': ['20220322192000'] * 4,
+    'end_times': ['20220322214500'] * 4,
     'requested_interval': 10.
 }
 
@@ -24,7 +24,7 @@ PIPS_qc_dict = {
     'splashingQC': True,
     'marginQC': True,
     'rainfallQC': False,
-    'rainonlyQC': False,
+    'rainonlyQC': True,
     'hailonlyQC': False,
     'graupelonlyQC': False,
     'basicQC': False,

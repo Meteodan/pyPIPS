@@ -184,7 +184,7 @@ def get_PIPS_GPS_offset(filename, field_indices, tripips=False):
                 gday = int(GPS_date[:2])
                 ghour = int(GPS_time[:2])
                 gmin = int(GPS_time[2:4])
-                gsec = int(GPS_time[4:])
+                gsec = int(GPS_time[4:6])
 
                 GPS_datetime = datetime(gyear, gmonth, gday, ghour, gmin, gsec)
                 GPS_offset = GPS_datetime - logger_datetime

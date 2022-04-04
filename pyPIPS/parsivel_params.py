@@ -74,6 +74,10 @@ probe_info = {
         'serialnum': '304543',
         'parsivel_angle': 45.,
     },
+    'PIPS3B': {
+        'serialnum': '450990',
+        'parsivel_angle': 45.,
+    },
     'TriPIPS': {
         'serialnum': '390654',
         'parsivel_angle': 90.,

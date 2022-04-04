@@ -1115,8 +1115,8 @@ def plot_vel_D(axdict, PSDdict, rho):
     time = axdict.get('time', None)
     xlim = axdict.get('xlim', (0.0, 9.0))
     ylim = axdict.get('ylim', (0.0, 15.0))
-    min_diameter = axdict.get('min_diameter', None)
-    min_fall_bins = axdict.get('min_fall_bins', None)
+    diameter_bin_edges = axdict.get('diameter_bin_edges', None)
+    fallspeed_bin_edges = axdict.get('fallspeed_bin_edges', None)
     avg_diameter = axdict.get('avg_diameter', None)
     cblim = axdict.get('cblim', (1, 50))
 
@@ -1135,8 +1135,8 @@ def plot_vel_D(axdict, PSDdict, rho):
 
     countsplot = vd_matrix_da
     # countsplot = np.ma.masked_where(vd_matrix_da <= 0, vd_matrix_da)
-    C = ax1.pcolor(min_diameter, min_fall_bins, countsplot, vmin=cblim[0], vmax=cblim[1],
-                   edgecolors='w', cmap=cm.plasma)
+    C = ax1.pcolormesh(diameter_bin_edges, fallspeed_bin_edges, countsplot, vmin=cblim[0],
+                       vmax=cblim[1], edgecolors='w', linewidths=0.2, cmap=cm.plasma)
     rainvd = pips.calc_empirical_fallspeed(avg_diameter, correct_rho=True, rho=rho)
 
     ax1.plot(avg_diameter, rainvd, c='r')
