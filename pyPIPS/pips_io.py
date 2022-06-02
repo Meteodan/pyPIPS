@@ -346,7 +346,6 @@ def read_PIPS(filename, start_timestamp=None, end_timestamp=None, tripips=False,
     parsivel_df = parsivel_df.rename(columns={'parsivel_datetime': 'time'})
     parsivel_df = parsivel_df.set_index('time')
 
-
     # Create an xarray DataArray for the vd_matrix
     vd_matrix_arr = np.dstack(vd_matrix_list)
     vd_matrix_arr = np.rollaxis(vd_matrix_arr, 2, 0)
@@ -669,7 +668,7 @@ def conv_df_to_ds(conv_df):
     # print(duplicated)
     # dup_indices = np.where(duplicated)[0]
     # print(dup_indices)
-    #duplicated = xr.DataArray(parsivel_ds_read.indexes['time'].duplicated())
+    # duplicated = xr.DataArray(parsivel_ds_read.indexes['time'].duplicated())
     # duplicated_times = conv_df['time'].isel(time=dup_indices)
     # print(duplicated_times)
     # duplicated_times_only = conv_df[duplicated]

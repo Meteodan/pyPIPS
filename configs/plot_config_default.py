@@ -14,9 +14,14 @@ PIPS_plotting_dict = {
     'diameter_range': (0.0, 9.0),
     # For meteograms
     'avgwindow': 180.,
-    'plot_diagnostics': True,
+    'plot_diagnostics': False,
     'T_Td_range': (-10., 25.),
-    'ws_range': (0.0, 15.0),
+    # For wind plotting
+    'avgwind': False,
+    'maskbadwind': True,
+    'windavgintv': 60,
+    'windgustintv': 3,
+    'ws_range': (0.0, 20.0),
     # Axis locating and formatting parameters
     'majorxformatter': dates.DateFormatter('%H:%M'),
     'majorxlocator': dates.MinuteLocator(byminute=[0, 15, 30, 45]),
