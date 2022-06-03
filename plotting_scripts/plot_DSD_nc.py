@@ -220,7 +220,7 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
 
         if args.plot_series:
             for t, time in enumerate(parsivel_combined_ds['time'].to_index()):
-                if parsivel_combined_ds['pcount_derived_qc'].loc[time] > 0:
+                if parsivel_combined_ds['pcount_derived{}'.format(ND_tag)].loc[time] > 0:
                     print("Plotting for {} and time {}".format(PIPS_name,
                                                                time.strftime(tm.timefmt3)))
                     axdict['time'] = time
@@ -287,7 +287,7 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
         if args.plot_full:
             ND_full = ND.mean(dim='time')
             print("Plotting full-deployment DSD for {} and {}".format(deployment_name, PIPS_name))
-            # FIXME: Getting some absurd values for the total duration for some of the plots. 
+            # FIXME: Getting some absurd values for the total duration for some of the plots.
             # Find out why
             DSD_interval = len(ND['time']) * DSD_interval
             ND_onedrop_full = pips.calc_ND_onedrop(DSD_interval, correct_rho=True,

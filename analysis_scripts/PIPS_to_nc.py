@@ -25,6 +25,9 @@ import logging
 # TODO: Figure out how to turn off the netCDF logging messages! Below doesn't work....
 # logging.getLogger("xarray").setLevel(logging.ERROR)
 
+qc_attr_names = ['strongwindQC', 'splashingQC', 'marginQC', 'rainfallQC', 'rainonlyQC',
+                 'hailonlyQC', 'graupelonlyQC', 'basicQC']
+
 min_diameter = pp.parsivel_parameters['min_diameter_bins_mm']
 max_diameter = pp.parsivel_parameters['max_diameter_bins_mm']
 bin_width = max_diameter - min_diameter
@@ -44,7 +47,16 @@ parser.add_argument('--check-order', dest='check_order', action='store_true',
                     help='Check if there are any times out of order')
 parser.add_argument('--sort-times', dest='sort_times', action='store_true',
                     help='Sort dataset by time')
+parser.add_argument('--apply-qc', dest='apply_qc', action='store_true', help='apply QC to DSDs?')
+parser.add_argument('--qc-tag', dest='qc_tag', default=None,
+                    help='name of QC tag for DSD variables')
 args = parser.parse_args()
+apply_qc = args.apply_qc
+qc_tag = args.qc_tag
+if qc_tag is None:
+    apply_qc = False
+if not apply_qc:
+    qc_tag = None
 
 # Dynamically import the case configuration file
 utils.log("Case config file is {}".format(args.case_config_path))
@@ -103,38 +115,34 @@ for index, PIPS_filename, PIPS_name, start_time, end_time, geo_loc, ptype, deplo
     # Calculate some additional thermodynamic parameters from the conventional data
     conv_df = pips.calc_thermo(conv_df)
 
-    # Do some QC on the V-D matrix. This will make a copy of the raw matrix. The netCDF file
-    # will contain both
-    strongwindQC = config.PIPS_qc_dict['strongwindQC']
-    splashingQC = config.PIPS_qc_dict['splashingQC']
-    marginQC = config.PIPS_qc_dict['marginQC']
-    rainfallQC = config.PIPS_qc_dict['rainfallQC']
-    rainonlyQC = config.PIPS_qc_dict['rainonlyQC']
-    hailonlyQC = config.PIPS_qc_dict['hailonlyQC']
-    graupelonlyQC = config.PIPS_qc_dict['graupelonlyQC']
-    basicQC = config.PIPS_qc_dict['basicQC']
+    if apply_qc:
+        # Do some QC on the V-D matrix. This will make a copy of the raw matrix. The netCDF file
+        # will contain both
+        qc_attr_dict = {}
+        for qc_attr_name in qc_attr_names:
+            qc_attr_dict[qc_attr_name] = config.PIPS_qc_dict[qc_attr_name]
 
-    if basicQC:
-        strongwindQC = True
-        splashingQC = True
-        marginQC = True
+        if qc_attr_dict['basicQC']:
+            qc_attr_dict['strongwindQC'] = True
+            qc_attr_dict['splashingQC'] = True
+            qc_attr_dict['marginQC'] = True
 
-    vd_matrix_qc_da = vd_matrix_da.copy()
-    if strongwindQC:
-        vd_matrix_qc_da = pqc.strongwindQC(vd_matrix_qc_da)
-    if splashingQC:
-        vd_matrix_qc_da = pqc.splashingQC(vd_matrix_qc_da)
-    if marginQC:
-        vd_matrix_qc_da = pqc.marginQC(vd_matrix_qc_da)
-    if rainfallQC:
-        fallspeedmask = pqc.get_fallspeed_mask(avg_diameter, avg_fall_bins)
-        vd_matrix_qc_da = pqc.rainfallspeedQC(vd_matrix_qc_da, fallspeedmask)
-    if rainonlyQC:
-        vd_matrix_qc_da = pqc.rainonlyQC(vd_matrix_qc_da)
-    if hailonlyQC:
-        vd_matrix_qc_da = pqc.hailonlyQC(vd_matrix_qc_da)
-    # if graupelonlyQC:
-    #     vd_matrix_da = pqc.graupelonlyQC(vd_matrix_da)
+        vd_matrix_qc_da = vd_matrix_da.copy()
+        if qc_attr_dict['strongwindQC']:
+            vd_matrix_qc_da = pqc.strongwindQC(vd_matrix_qc_da)
+        if qc_attr_dict['splashingQC']:
+            vd_matrix_qc_da = pqc.splashingQC(vd_matrix_qc_da)
+        if qc_attr_dict['marginQC']:
+            vd_matrix_qc_da = pqc.marginQC(vd_matrix_qc_da)
+        if qc_attr_dict['rainfallQC']:
+            fallspeedmask = pqc.get_fallspeed_mask(avg_diameter, avg_fall_bins)
+            vd_matrix_qc_da = pqc.rainfallspeedQC(vd_matrix_qc_da, fallspeedmask)
+        if qc_attr_dict['rainonlyQC']:
+            vd_matrix_qc_da = pqc.rainonlyQC(vd_matrix_qc_da)
+        if qc_attr_dict['hailonlyQC']:
+            vd_matrix_qc_da = pqc.hailonlyQC(vd_matrix_qc_da)
+        # if graupelonlyQC:
+        #     vd_matrix_da = pqc.graupelonlyQC(vd_matrix_da)
 
     # Compute the number density ND from the V-D matrix
     # Use measured fallspeed by default
@@ -143,7 +151,8 @@ for index, PIPS_filename, PIPS_name, start_time, end_time, geo_loc, ptype, deplo
     if requested_interval > 10.:
         DSD_interval = pips.check_requested_resampling_interval(requested_interval, 10.)
         vd_matrix_da = pips.resample_vd_matrix(DSD_interval, vd_matrix_da)
-        vd_matrix_qc_da = pips.resample_vd_matrix(DSD_interval, vd_matrix_qc_da)
+        if apply_qc:
+            vd_matrix_qc_da = pips.resample_vd_matrix(DSD_interval, vd_matrix_qc_da)
         parsivel_df = pips.resample_parsivel(DSD_interval, parsivel_df)
     else:
         DSD_interval = 10.
@@ -162,9 +171,10 @@ for index, PIPS_filename, PIPS_name, start_time, end_time, geo_loc, ptype, deplo
     fallspeed_spectrum = pips.calc_fallspeed_spectrum(avg_diameter, avg_fall_bins, correct_rho=True,
                                                       rho=conv_resampled_df['rho'])
     vd_matrix_da = vd_matrix_da.where(vd_matrix_da > 0.0)
-    vd_matrix_qc_da = vd_matrix_qc_da.where(vd_matrix_qc_da > 0.0)
     ND_raw = pips.calc_ND(vd_matrix_da, fallspeed_spectrum, DSD_interval)
-    ND = pips.calc_ND(vd_matrix_qc_da, fallspeed_spectrum, DSD_interval)
+    if apply_qc:
+        vd_matrix_qc_da = vd_matrix_qc_da.where(vd_matrix_qc_da > 0.0)
+        ND = pips.calc_ND(vd_matrix_qc_da, fallspeed_spectrum, DSD_interval)
 
     # Convert conventional data pd.DataFrame to xr.Dataset and add some metadata
     conv_ds = pipsio.conv_df_to_ds(conv_df)
@@ -180,9 +190,16 @@ for index, PIPS_filename, PIPS_name, start_time, end_time, geo_loc, ptype, deplo
     parsivel_combined_ds = pipsio.combine_parsivel_data(parsivel_combined_ds, vd_matrix_da,
                                                         name='VD_matrix')
     parsivel_combined_ds = pipsio.combine_parsivel_data(parsivel_combined_ds, ND_raw, name='ND')
-    parsivel_combined_ds = pipsio.combine_parsivel_data(parsivel_combined_ds, vd_matrix_qc_da,
-                                                        name='VD_matrix_qc')
-    parsivel_combined_ds = pipsio.combine_parsivel_data(parsivel_combined_ds, ND, name='ND_qc')
+    if qc_tag is not None:
+        parsivel_combined_ds = pipsio.combine_parsivel_data(parsivel_combined_ds, vd_matrix_qc_da,
+                                                            name='VD_matrix_{}'.format(qc_tag))
+        parsivel_combined_ds = pipsio.combine_parsivel_data(parsivel_combined_ds, ND,
+                                                            name='ND_{}'.format(qc_tag))
+        for qc_attr_name in qc_attr_names:
+            parsivel_combined_ds['VD_matrix_{}'.format(qc_tag)].attrs[qc_attr_name] = \
+                int(qc_attr_dict[qc_attr_name])
+            parsivel_combined_ds['ND_{}'.format(qc_tag)].attrs[qc_attr_name] = \
+                int(qc_attr_dict[qc_attr_name])
 
     # Add some metadata
     parsivel_combined_ds.attrs['probe_name'] = PIPS_name
@@ -192,14 +209,6 @@ for index, PIPS_filename, PIPS_name, start_time, end_time, geo_loc, ptype, deplo
     parsivel_combined_ds.attrs['starting_time'] = start_time
     parsivel_combined_ds.attrs['ending_time'] = end_time
     parsivel_combined_ds.attrs['DSD_interval'] = DSD_interval
-    parsivel_combined_ds.attrs['strongwindQC'] = int(strongwindQC)
-    parsivel_combined_ds.attrs['splashingQC'] = int(splashingQC)
-    parsivel_combined_ds.attrs['marginQC'] = int(marginQC)
-    parsivel_combined_ds.attrs['rainfallQC'] = int(rainfallQC)
-    parsivel_combined_ds.attrs['rainonlyQC'] = int(rainonlyQC)
-    parsivel_combined_ds.attrs['hailonlyQC'] = int(hailonlyQC)
-    parsivel_combined_ds.attrs['graupelonlyQC'] = int(graupelonlyQC)
-    parsivel_combined_ds.attrs['basicQC'] = int(basicQC)
 
     # Now do the same for the 1-s conventional data (put in a separate Dataset and netCDF file
     # due to different time resolution)

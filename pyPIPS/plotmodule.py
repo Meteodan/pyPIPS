@@ -467,7 +467,7 @@ def plot_wind_meteogram(plottimes, conv_plot_ds, global_plot_config_dict, avgwin
     windspd = conv_plot_ds[windspdstr].values
 
     # Handle bad wind values
-    maskbadwind = global_plot_config_dict['maskbadwind']
+    maskbadwind = global_plot_config_dict.get('maskbadwind', False)
     plot_diagnostics = global_plot_config_dict['plot_diagnostics']
 
     if (maskbadwind or plot_diagnostics) and ptype == 'PIPS':
