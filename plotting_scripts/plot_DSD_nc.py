@@ -214,7 +214,6 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
             'xbin_right': max_diameter,
             'xlim': (0.0, 9.0),
             'ylim': (10.**2., 10.**8.5),
-            'interval': int(DSD_interval),
             'PIPS_name': PIPS_name
         }
 
@@ -223,6 +222,7 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
                 if parsivel_combined_ds['pcount_derived{}'.format(ND_tag)].loc[time] > 0:
                     print("Plotting for {} and time {}".format(PIPS_name,
                                                                time.strftime(tm.timefmt3)))
+                    axdict['interval'] = int(DSD_interval)
                     axdict['time'] = time
                     if args.plot_retr:
                         print('N0, lambda, mu (radar): ', DSD_rad_N0[t], DSD_rad_lamda[t],
@@ -289,8 +289,9 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
             print("Plotting full-deployment DSD for {} and {}".format(deployment_name, PIPS_name))
             # FIXME: Getting some absurd values for the total duration for some of the plots.
             # Find out why
-            DSD_interval = len(ND['time']) * DSD_interval
-            ND_onedrop_full = pips.calc_ND_onedrop(DSD_interval, correct_rho=True,
+            full_DSD_interval = len(ND['time']) * DSD_interval
+            axdict['interval'] = int(full_DSD_interval)
+            ND_onedrop_full = pips.calc_ND_onedrop(full_DSD_interval, correct_rho=True,
                                                    rho=parsivel_combined_ds['rho'].mean(dim='time'))
             PSDdict = {
                 'ND': ND_full,
@@ -299,7 +300,7 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
             # TODO: re-compute parameters for full-deployment DSD and plot them
             fig, ax = pm.plot_DSD(axdict, PSDdict, {}, {})
             image_name = '{}_{}_DSD_{}_{:d}_{}_full.{}'.format(PIPS_name, deployment_name,
-                                                               ND_tag, int(DSD_interval),
+                                                               ND_tag, int(full_DSD_interval),
                                                                radar_name, args.image_fmt)
             image_path = os.path.join(DSD_image_dir, image_name)
             fig.savefig(image_path, dpi=200, bbox_inches='tight')

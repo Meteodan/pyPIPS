@@ -84,7 +84,11 @@ def parse_PIPS_record(record, field_indices, tripips=False):
     if tripips:
         token_dict['fasttemp'] = token_dict['slowtemp']
     token_dict['RH'] = float(tokens[field_indices['RH']])
-    token_dict['pressure'] = float(tokens[field_indices['Pressure']])
+    try:
+        token_dict['pressure'] = float(tokens[field_indices['Pressure']])
+    except KeyError:
+        # Some old headers have "Pressure(1)" instead of "Pressure"
+        token_dict['pressure'] = float(tokens[field_indices['Pressure(1)']])
     token_dict['compass_dir'] = float(tokens[field_indices['FluxDirection']])
     token_dict['GPS_time'] = tokens[field_indices['GPSTime']]
     token_dict['GPS_status'] = tokens[field_indices['GPSStatus']]
@@ -131,6 +135,7 @@ def parse_PIPS_record(record, field_indices, tripips=False):
         RH_derived = token_dict['RH']
     token_dict['RH_derived'] = RH_derived
     token_dict['parsivel_telegram'] = tokens[field_indices['ParsivelStr']]
+    print(token_dict.keys())
 
     return token_dict
 
@@ -313,7 +318,6 @@ def read_PIPS(filename, start_timestamp=None, end_timestamp=None, tripips=False,
             if stoptime is not None and record_dict['logger_datetime'] > stoptime:
                 continue
 
-            print(record_dict['logger_datetime'])
             parsivel_dict, vd_matrix = parse_parsivel_telegram(record_dict['parsivel_telegram'],
                                                                record_dict['logger_datetime'])
             conv_dict = record_dict
