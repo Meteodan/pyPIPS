@@ -45,6 +45,8 @@ else:
 
 if not args.output_ND_tag:
     output_ND_tag = input_ND_tag
+else:
+    output_ND_tag = '_{}'.format(args.output_ND_tag)
 
 # Dynamically import the case configuration file
 utils.log("Case config file is {}".format(args.case_config_path))
@@ -125,7 +127,7 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
     parsivel_combined_ds = pipsio.combine_parsivel_data(parsivel_combined_ds, vd_matrix_qc_da,
                                                         name='VD_matrix{}'.format(output_ND_tag))
     parsivel_combined_ds = pipsio.combine_parsivel_data(parsivel_combined_ds, ND_qc_da,
-                                                        name='ND_{}'.format(output_ND_tag))
+                                                        name='ND{}'.format(output_ND_tag))
     # Update metadata
     parsivel_combined_ds.attrs['strongwindQC'] = int(strongwindQC)
     parsivel_combined_ds.attrs['splashingQC'] = int(splashingQC)

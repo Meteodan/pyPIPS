@@ -95,6 +95,11 @@ radar_end_timestamp = config.radar_config_dict.get('radar_end_timestamp', None)
 scatt_dir = config.radar_config_dict.get('scatt_dir', None)
 wavelength = config.radar_config_dict.get('wavelength', 10.7)
 
+# Set plot averaging intervals, etc.
+avgwind = pc.PIPS_plotting_dict.get('avgwind', False)
+windavgintv = pc.PIPS_plotting_dict.get('windavgintv', 60)
+windgustintv = pc.PIPS_plotting_dict.get('wingustintv', 3)
+
 # Create the directory for the meteogram plots if it doesn't exist
 if args.plot_dir:
     plot_dir = args.plot_dir
@@ -142,9 +147,6 @@ for index, conv_file in enumerate(conv_filelist):
     sec_offset = conv_datetimes[0].second
 
     # Plot wind meteogram
-    avgwind = False
-    windavgintv = 60
-    windgustintv = 3
 
     # Resample wind diagnostics array to flag as bad any time in the interval given by
     # plotinterval. Note, have to use numpy max() as a lambda function because the
@@ -204,6 +206,15 @@ for index, conv_file in enumerate(conv_filelist):
                                           pc.PIPS_plotting_dict, xlimits=timelimits, ptype=ptype)
     PIPS_plot_name = '{}_{}_{}_{}_pressure.png'.format(PIPS_name, deployment_name,
                                                        start_time_string, end_time_string)
+    plot_path = os.path.join(image_dir, PIPS_plot_name)
+    fig.savefig(plot_path, dpi=300)
+    plt.close(fig)
+
+    # Plot compass direction meteogram
+    fig, ax1 = pm.plot_compass_dir_meteogram(conv_datetimes, conv_ds,
+                                             pc.PIPS_plotting_dict, xlimits=timelimits, ptype=ptype)
+    PIPS_plot_name = '{}_{}_{}_{}_compass.png'.format(PIPS_name, deployment_name,
+                                                      start_time_string, end_time_string)
     plot_path = os.path.join(image_dir, PIPS_plot_name)
     fig.savefig(plot_path, dpi=300)
     plt.close(fig)

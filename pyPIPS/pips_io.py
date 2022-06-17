@@ -84,7 +84,11 @@ def parse_PIPS_record(record, field_indices, tripips=False):
     if tripips:
         token_dict['fasttemp'] = token_dict['slowtemp']
     token_dict['RH'] = float(tokens[field_indices['RH']])
-    token_dict['pressure'] = float(tokens[field_indices['Pressure']])
+    try:
+        token_dict['pressure'] = float(tokens[field_indices['Pressure']])
+    except KeyError:
+        # Some old headers have "Pressure(1)" instead of "Pressure"
+        token_dict['pressure'] = float(tokens[field_indices['Pressure(1)']])
     token_dict['compass_dir'] = float(tokens[field_indices['FluxDirection']])
     token_dict['GPS_time'] = tokens[field_indices['GPSTime']]
     token_dict['GPS_status'] = tokens[field_indices['GPSStatus']]
@@ -131,6 +135,7 @@ def parse_PIPS_record(record, field_indices, tripips=False):
         RH_derived = token_dict['RH']
     token_dict['RH_derived'] = RH_derived
     token_dict['parsivel_telegram'] = tokens[field_indices['ParsivelStr']]
+    print(token_dict.keys())
 
     return token_dict
 
@@ -184,7 +189,7 @@ def get_PIPS_GPS_offset(filename, field_indices, tripips=False):
                 gday = int(GPS_date[:2])
                 ghour = int(GPS_time[:2])
                 gmin = int(GPS_time[2:4])
-                gsec = int(GPS_time[4:])
+                gsec = int(GPS_time[4:6])
 
                 GPS_datetime = datetime(gyear, gmonth, gday, ghour, gmin, gsec)
                 GPS_offset = GPS_datetime - logger_datetime
@@ -313,7 +318,6 @@ def read_PIPS(filename, start_timestamp=None, end_timestamp=None, tripips=False,
             if stoptime is not None and record_dict['logger_datetime'] > stoptime:
                 continue
 
-            print(record_dict['logger_datetime'])
             parsivel_dict, vd_matrix = parse_parsivel_telegram(record_dict['parsivel_telegram'],
                                                                record_dict['logger_datetime'])
             conv_dict = record_dict
@@ -345,7 +349,6 @@ def read_PIPS(filename, start_timestamp=None, end_timestamp=None, tripips=False,
     conv_df = conv_df.set_index('time')
     parsivel_df = parsivel_df.rename(columns={'parsivel_datetime': 'time'})
     parsivel_df = parsivel_df.set_index('time')
-
 
     # Create an xarray DataArray for the vd_matrix
     vd_matrix_arr = np.dstack(vd_matrix_list)
@@ -669,7 +672,7 @@ def conv_df_to_ds(conv_df):
     # print(duplicated)
     # dup_indices = np.where(duplicated)[0]
     # print(dup_indices)
-    #duplicated = xr.DataArray(parsivel_ds_read.indexes['time'].duplicated())
+    # duplicated = xr.DataArray(parsivel_ds_read.indexes['time'].duplicated())
     # duplicated_times = conv_df['time'].isel(time=dup_indices)
     # print(duplicated_times)
     # duplicated_times_only = conv_df[duplicated]

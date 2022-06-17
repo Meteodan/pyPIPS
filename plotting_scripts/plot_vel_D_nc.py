@@ -29,6 +29,9 @@ min_fall_bins = pp.parsivel_parameters['min_fallspeed_bins_mps']
 max_fall_bins = pp.parsivel_parameters['max_fallspeed_bins_mps']
 avg_fall_bins = pp.parsivel_parameters['avg_fallspeed_bins_mps']
 
+diameter_bin_edges = pp.parsivel_parameters['diameter_bin_edges_mm']
+fallspeed_bin_edges = pp.parsivel_parameters['fallspeed_bin_edges_mps']
+
 # Parse the command line options
 parser = argparse.ArgumentParser(description="Plots velocity-diameter histograms from PIPS data")
 parser.add_argument('case_config_path', metavar='<path/to/case/config/file.py>',
@@ -40,6 +43,8 @@ parser.add_argument('--plot-raw', action='store_true', dest='plot_raw',
                     help='plot raw velocity-diameter matrix')
 parser.add_argument('--plot-qc', action='store_true', dest='plot_qc',
                     help='plot QC velocity-diameter matrix')
+parser.add_argument('--ND-tag', dest='ND_tag', default=None,
+                    help='Tag for ND variable in file (i.e., qc, RB15_vshift_qc, RB15_qc).')
 parser.add_argument('--plot-full', action='store_true', dest='plot_full',
                     help='Plot full-deployment v-d matrix')
 parser.add_argument('--normalize', action='store_true', dest='normalize',
@@ -126,9 +131,13 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
         vd_matrix_list.append(vd_matrix_raw)
         tag_list.append('raw')
     if args.plot_qc:
-        vd_matrix_qc = parsivel_combined_ds['VD_matrix_qc']
+        if args.ND_tag:
+            ND_tag = args.ND_tag
+        else:
+            ND_tag = 'qc'
+        vd_matrix_qc = parsivel_combined_ds['VD_matrix_{}'.format(ND_tag)]
         vd_matrix_list.append(vd_matrix_qc)
-        tag_list.append('qc')
+        tag_list.append(ND_tag)
 
     for tag, vd_matrix_da in zip(tag_list, vd_matrix_list):
         vel_D_image_dir = os.path.join(plot_dir,
@@ -138,9 +147,9 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
             os.makedirs(vel_D_image_dir)
 
         axdict = {
-            'min_diameter': min_diameter,
+            'diameter_bin_edges': diameter_bin_edges,
             'avg_diameter': avg_diameter,
-            'min_fall_bins': min_fall_bins,
+            'fallspeed_bin_edges': fallspeed_bin_edges,
             'xlim': pc.PIPS_plotting_dict['diameter_range'],
             'ylim': pc.PIPS_plotting_dict['velocity_range'],
             'PIPS_name': PIPS_name

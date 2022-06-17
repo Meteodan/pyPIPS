@@ -57,6 +57,9 @@ windgust_params = {'type': 'line', 'linestyle': 'none',
 winddir_params = {'type': 'line', 'linestyle': 'none',
                   'marker': 'o', 'color': 'k', 'ms': 2}
 
+compass_dir_params = {'type': 'line', 'linestyle': 'none',
+                      'marker': 'o', 'color': 'k', 'ms': 2}
+
 winddiag_params = {'type': 'vertical line',
                    'linestyle': '-', 'color': 'g', 'linewidth': 0.5}
 
@@ -458,10 +461,24 @@ def plot_wind_meteogram(plottimes, conv_plot_ds, global_plot_config_dict, avgwin
         winddirstr = 'swinddirabs'
         windspdstr = 'swindspd'
 
+    # Note that we are extracting the underlying numpy arrays here. In the future will try to
+    # make everything work with xarray dataarrays/datasets
     winddirabs = conv_plot_ds[winddirstr].values
     windspd = conv_plot_ds[windspdstr].values
 
-    # Compute wind speed and direction, and wind gusts
+    # Handle bad wind values
+    maskbadwind = global_plot_config_dict.get('maskbadwind', False)
+    plot_diagnostics = global_plot_config_dict['plot_diagnostics']
+
+    if (maskbadwind or plot_diagnostics) and ptype == 'PIPS':
+        winddiag = conv_plot_ds['winddiag']
+        # Extract indices for "bad" wind data
+        winddiag_index = np.where(np.any([winddiag > 0, np.isnan(winddiag)], axis=0))[0]
+        if maskbadwind:
+            windspd = np.where(winddiag > 0, np.nan, windspd)
+            winddirabs = np.where(winddiag > 0, np.nan, winddirabs)
+
+    # Compute average wind speed and direction, and wind gusts
     # For the NV2 probes, the data are already at 60-s intervals and gust information is
     # provided, so does not need to be computed. In the future, need to make a more general
     # interface to allow for averaging of NV2 data at longer intervals.
@@ -477,22 +494,33 @@ def plot_wind_meteogram(plottimes, conv_plot_ds, global_plot_config_dict, avgwin
                          center=False)
     else:   # No additional averaging/fields already present in file
         windspdavg = windspd
-        windgustavg = conv_plot_ds[windguststr]
+        try:
+            windgustavg = conv_plot_ds[windguststr]
+        except KeyError:
+            windgustavg = None
         winddiravgvec = conv_plot_ds[winddirstr]
 
     fig = plt.figure(figsize=(8, 3))
     ax1 = fig.add_subplot(111)
     ax2 = ax1.twinx()
-    # plt.title('Wind speed (5-min mean) and gust (5-min max of 3-s mean)')
 
-    fields = [windspdavg, windgustavg]
-    fieldparamdicts = [windspeed_params, windgust_params]
+    if avgwind:
+        titlestring = ("Wind direction, wind speed ({:d}-s mean), "
+                       "and gust ({:d}-s max of {:d}-s mean)").format(windavgintv,windgustintv,
+                                                                      windavgintv)
+    else:
+        titlestring = 'Wind direction and wind speed'
+    plt.title(titlestring)
 
-    # Add vertical lines to indicate bad wind values if desired
-    if global_plot_config_dict['plot_diagnostics'] and ptype == 'PIPS':
-        winddiag = conv_plot_ds['winddiag']
-        # Extract indices for "bad" wind data
-        winddiag_index = np.where(np.any([winddiag > 0, np.isnan(winddiag)], axis=0))[0]
+    fields = [windspdavg]
+    fieldparamdicts = [windspeed_params]
+
+    if windgustavg is not None:
+        fields.append(windgustavg)
+        fieldparamdicts.append(windgust_params)
+
+    # Indicate bad wind times with vertical green lines if desired
+    if plot_diagnostics and ptype == 'PIPS':
         # These are the times with bad wind data
         winddiag_plot = plottimes[winddiag_index]
         fields.append(winddiag_plot)
@@ -512,12 +540,51 @@ def plot_wind_meteogram(plottimes, conv_plot_ds, global_plot_config_dict, avgwin
                                    r'wind speed (m s$^{-1}$)']}
     axparamdict2 = {'majorylocator': ticker.MultipleLocator(45.),
                     'axeslimits': [None, [0.0, 360.0]],
-                    'axeslabels': [None, r'Wind direction ($^{\circ}$C)']}
+                    'axeslabels': [None, r'Wind direction ($^{\circ}$)']}
     axparamdicts = [axparamdict1, axparamdict2]
     ax1, ax2 = set_meteogram_axes([ax1, ax2], axparamdicts)
 
     return fig, ax1, ax2
 
+
+def plot_compass_dir_meteogram(plottimes, conv_plot_ds, global_plot_config_dict, xlimits=None,
+                               ptype='PIPS'):
+    """_summary_
+
+    Parameters
+    ----------
+    plottimes : _type_
+        _description_
+    conv_plot_ds : _type_
+        _description_
+    global_plot_config_dict : _type_
+        _description_
+    xlimits : _type_, optional
+        _description_, by default None
+    ptype : str, optional
+        _description_, by default 'PIPS'
+    """
+
+    fig = plt.figure(figsize=(8, 3))
+    ax1 = fig.add_subplot(111)
+
+    fields = [conv_plot_ds['compass_dir'].values]
+    fieldparamdicts = [compass_dir_params]
+
+    ax1 = plotmeteogram(ax1, [plottimes], fields, fieldparamdicts)
+
+    axparamdict1 = {'majorxlocator': global_plot_config_dict['majorxlocator'],
+                    'majorxformatter': global_plot_config_dict['majorxformatter'],
+                    'minorxlocator': global_plot_config_dict['minorxlocator'],
+                    'majorylocator': ticker.MultipleLocator(45.),
+                    'axeslimits': [xlimits, [0.0, 360.0]],
+                    'axeslabels': [global_plot_config_dict['xlabel'],
+                                   r'Compass heading ($^{\circ}$)']}
+
+    axparamdicts = [axparamdict1]
+    ax1, = set_meteogram_axes([ax1], axparamdicts)
+
+    return fig, ax1
 
 def plot_temperature_dewpoint_meteogram(plottimes, conv_plot_ds, global_plot_config_dict,
                                         xlimits=None, ptype='PIPS'):
@@ -1115,8 +1182,8 @@ def plot_vel_D(axdict, PSDdict, rho):
     time = axdict.get('time', None)
     xlim = axdict.get('xlim', (0.0, 9.0))
     ylim = axdict.get('ylim', (0.0, 15.0))
-    min_diameter = axdict.get('min_diameter', None)
-    min_fall_bins = axdict.get('min_fall_bins', None)
+    diameter_bin_edges = axdict.get('diameter_bin_edges', None)
+    fallspeed_bin_edges = axdict.get('fallspeed_bin_edges', None)
     avg_diameter = axdict.get('avg_diameter', None)
     cblim = axdict.get('cblim', (1, 50))
 
@@ -1135,8 +1202,8 @@ def plot_vel_D(axdict, PSDdict, rho):
 
     countsplot = vd_matrix_da
     # countsplot = np.ma.masked_where(vd_matrix_da <= 0, vd_matrix_da)
-    C = ax1.pcolor(min_diameter, min_fall_bins, countsplot, vmin=cblim[0], vmax=cblim[1],
-                   edgecolors='w', cmap=cm.plasma)
+    C = ax1.pcolormesh(diameter_bin_edges, fallspeed_bin_edges, countsplot, vmin=cblim[0],
+                       vmax=cblim[1], edgecolors='w', linewidths=0.2, cmap=cm.plasma)
     rainvd = pips.calc_empirical_fallspeed(avg_diameter, correct_rho=True, rho=rho)
 
     ax1.plot(avg_diameter, rainvd, c='r')
