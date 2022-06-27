@@ -52,6 +52,8 @@ parser.add_argument('--filter_REF', dest='filter_ref', type=float, default=None,
                     help='filter REF < given value')
 parser.add_argument('--use-parsivel-params', dest='use_parsivel_params', action='store_true',
                     default=False, help='Use parsivel RR and counts instead of computed')
+parser.add_argument('--plot-radar', dest='plot_radar', type=str, default=None,
+                    help='Whether to plot derived/observed radar variables (yes/no)')
 
 args = parser.parse_args()
 
@@ -98,6 +100,11 @@ requested_interval = config.PIPS_IO_dict.get('requested_interval', 10.)
 load_radar_at_PIPS = config.radar_config_dict.get('load_radar_at_PIPS', False)
 save_radar_at_PIPS = config.radar_config_dict.get('save_radar_at_PIPS', False)
 comp_radar = config.radar_config_dict.get('comp_radar', False)
+if args.plot_radar is not None:
+    plot_radar = 'yes' in args.plot_radar
+    comp_radar = comp_radar and plot_radar
+else:
+    plot_radar = False
 clean_radar = config.radar_config_dict.get('clean_radar', False)
 calc_dualpol = config.radar_config_dict.get('calc_dualpol', False)
 plot_retrieval = config.radar_config_dict.get('plot_retrieval', False)
@@ -178,7 +185,7 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
     # Compute additional derived parameters
     # disvars['D_0'] = dsd.calc_D0_bin(ND) * 1000.  # Get to mm
     disvars['D_m'] = parsivel_combined_ds['Dm43{}'.format(ND_tag)] * 1000.  # Get to mm
-    if calc_dualpol:
+    if calc_dualpol and plot_radar:
         # Calculate polarimetric variables using the T-matrix technique
         # Note, may try to use pyDSD for this purpose.
         scattfile = os.path.join(scatt_dir, 'SCTT_RAIN_fw100.dat')

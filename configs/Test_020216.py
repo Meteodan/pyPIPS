@@ -9,7 +9,7 @@ PIPS_IO_dict = {
     'PIPS_types': ['PIPS'] * 4,
     'PIPS_names': ['PIPS1A', 'PIPS1B', 'PIPS2A', 'PIPS2B'],
     'PIPS_filenames': ['PIPS1A_020216_merged.txt', 'PIPS1B_020216_merged.txt',
-                       'PIPS2A_020216_merged.txt', 'PIPS2B_020216_merged.txt'],
+                       'PIPS2A_020216_merged_corrected.txt', 'PIPS2B_020216_merged.txt'],
     'PIPS_filenames_nc': ['parsivel_combined_Test_020216_PIPS1A_10s.nc',
                           'parsivel_combined_Test_020216_PIPS1B_10s.nc',
                           'parsivel_combined_Test_020216_PIPS2A_10s.nc',

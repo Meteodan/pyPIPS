@@ -1,6 +1,5 @@
 # This notebook is for testing the download of PIPS data using the web API.
 # It uses urllib3 and BeautifulSoup4
-import netCDF4
 import os
 from datetime import datetime, timedelta
 import bs4
@@ -74,7 +73,6 @@ def scrape_tripips_tensec_data(url, numrecords=360):
             timestamps.append(timestamp)
         except ValueError:
             print("Bad Parsivel string detected. Ignoring this record!")
-
 
     index = pd.to_datetime(timestamps, format='%Y-%m-%d %H:%M:%S')
     df_telegram = pd.DataFrame(telegrams, index=index)
@@ -308,6 +306,7 @@ telegram_ds.close()
 # Check if we are near the top of the hour and save top-of-the-hour netcdf files if we are
 last_timestamp_onesec = onesec_df.index[-1]
 last_timestamp_tensec = telegram_df.index[-1]
+last_timestamp_60sec = telegram_df.index[-6]
 oldest_timestamp_onesec = last_timestamp_onesec - keep_data_for_ts
 last_hour_timestamp = last_timestamp_onesec.replace(microsecond=0, second=0, minute=0)
 previous_hour_timestamp = last_hour_timestamp - timedelta(hours=1)
@@ -349,6 +348,7 @@ if diff > 0 and diff < 300:
 # Create the figures
 fig, ax = plt.subplots()
 fig_vd, ax_vd = plt.subplots()
+fig_dsd, ax_dsd = plt.subplots()
 fig_t_td, ax_t_td = plt.subplots()
 fig_wind, ax_windspd = plt.subplots()
 ax_winddir = ax_windspd.twinx()
@@ -418,21 +418,37 @@ ax = pm.plotmeteogram(ax, plottimes, fields_to_plot, field_parameters,
                       yvals=[diameter_edges] * len(fields_to_plot))
 ax, = pm.set_meteogram_axes([ax], [log_ND_ax_params])
 ax_vd.set_title(
-    'Fall speed vs. diameter for time {0}'.format(
-        last_timestamp_tensec.strftime(
-            tm.timefmt2)))
-spectrum = spectrum_da.loc[last_timestamp_tensec]
+    r'$v_T$ vs. $D$ for time {0} to {1}'.format(
+        (last_timestamp_60sec - timedelta(seconds=10)).strftime(tm.timefmt2),
+        last_timestamp_tensec.strftime(tm.timefmt2)))
+# spectrum_da.loc[last_timestamp_tensec]
+spectrum = spectrum_da.sel(time=slice(last_timestamp_60sec, last_timestamp_tensec)).sum(dim='time')
 countsplot = np.ma.masked_where(spectrum.values <= 0, spectrum)
 C = ax_vd.pcolormesh(diameter_edges, fall_bins_edges, countsplot, vmin=1, vmax=50, edgecolors='w')
 divider = make_axes_locatable(ax_vd)
 cax = divider.append_axes("right", size="5%")
 cb = fig_vd.colorbar(C, cax=cax, orientation='vertical')
+cax.set_ylabel('# of drops')
 ax_vd.set_xlim(0.0, 10.0)
 ax_vd.xaxis.set_major_locator(ticker.MultipleLocator(2.0))
 ax_vd.set_xlabel('diameter (mm)')
 ax_vd.set_ylim(0.0, 10.0)
 ax_vd.yaxis.set_major_locator(ticker.MultipleLocator(1.0))
 ax_vd.set_ylabel('fall speed (m/s)')
+
+# Plot last 60-s DSD
+# Bugfix 03/12/22: changed from sum to mean in following line!
+ND_60s_da = ND_da.sel(time=slice(last_timestamp_60sec, last_timestamp_tensec)).mean(dim='time')
+ND_60s = ND_60s_da.values
+ax_dsd.set_title('DSDs for time {0} to {1}'.format(
+    (last_timestamp_60sec - timedelta(seconds=10)).strftime(tm.timefmt2),
+    last_timestamp_tensec.strftime(tm.timefmt2)))
+ax_dsd.bar(min_diameter, ND_60s * 1000.0, max_diameter - min_diameter, 10.**2., align='edge',
+           log=True, color='tan', edgecolor='k')
+ax_dsd.set_xlim(0.0, 9.0)
+ax_dsd.set_ylim(10.**2., 10.**8.5)
+ax_dsd.set_xlabel('D (mm)')
+ax_dsd.set_ylabel(r'N(D) $(m^{-4})$')
 
 # fig.canvas.draw()
 # Try-except block to test if the mount is working and to reset if it isn't. This is a terrible
@@ -453,6 +469,7 @@ except:
         os.system("/Users/dawson29/scripts/stormlabmount")
 fig.savefig(os.path.join(image_output_dir, 'logND_current.png'), dpi=300)
 fig_vd.savefig(os.path.join(image_output_dir, 'VD_current.png'), dpi=300)
+fig_dsd.savefig(os.path.join(image_output_dir, 'DSD_current.png'), dpi=300)
 fig_t_td.savefig(os.path.join(image_output_dir, 'T_Td_current.png'), dpi=300)
 fig_wind.savefig(os.path.join(image_output_dir, 'wind_current.png'), dpi=300)
 fig_pressure.savefig(os.path.join(image_output_dir, 'pressure.png'), dpi=300)
