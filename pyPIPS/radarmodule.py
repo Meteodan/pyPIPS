@@ -27,7 +27,7 @@ import xarray as xr
 import pandas as pd
 import pytz
 import cartopy.crs as ccrs
-from parse import pcompile
+from parse import compile as pcompile
 
 clevels_ref = np.arange(0.0, 85.0, 5.0)          # Contour levels for reflectivity (dBZ)
 clevels_zdr = np.arange(0.0, 6.25, 0.25)         # Contour levels for Zdr (dB)
@@ -503,6 +503,7 @@ def readCFRadial_pyART(el, filename, sweeptime, radlat=None, radlon=None,
         print("Actual elevation angle at start of sweep: ", el_actual)
 
     # Grab the time information from the file
+    # TODO: fix call to _getsweeptime, but shouldn't really need it anyway.
     if not sweeptime:
         sweeptime = _getsweeptime(filename, True)
     if verbose:
@@ -545,6 +546,7 @@ def readCFRadial_pyART(el, filename, sweeptime, radlat=None, radlon=None,
 
         print("Number of azimuths in sweep ", num_azim)
 
+    # TODO: fix KDP computation
     if compute_kdp:
         kdp = next((f for f in list(radarsweep.fields.items())
                     if f[0] in KDP_aliases), None)
@@ -1930,6 +1932,11 @@ def get_radar_paths_single_elevation(radar_dict, el_req=0.5, radar_type='XTRRA')
         else:  # not supported
             sys.exit("Sorry, this radar type is not yet supported!")
 
+    radar_dict['rad_path_list'] = radar_paths_keepers
+    radar_dict['rad_time_list'] = rad_time_list_keepers
+
+    return radar_dict
+
 
 # TODO: remove this function once I have the above working
 def get_radar_paths_old(radar_paths, starttime, stoptime, el_req=0.5, radar_type='NEXRAD',
@@ -2085,8 +2092,8 @@ def read_sweeps(radar_dict, el_req=0.5, compute_kdp=False):
         dictionary containing the list of sweep objects, as well as the timestamps for each and
         the list of fields that were read in from the files.
     """
-    radpath_list = radar_dict['radarpathlist']
-    sweeptimelist = radar_dict['sweeptimelist']
+    radpath_list = radar_dict['rad_path_list']
+    sweeptimelist = radar_dict['rad_time_list']
     radarsweeplist = []
 
     for radpath, sweeptime in zip(radpath_list, sweeptimelist):
@@ -2094,7 +2101,7 @@ def read_sweeps(radar_dict, el_req=0.5, compute_kdp=False):
         radarsweeplist.append(radarsweep)
 
     # Stuff the list of sweeps into the dictionary
-    radar_dict['radarsweeplist'] = radarsweeplist
+    radar_dict['rad_sweep_list'] = radarsweeplist
     return radar_dict
 
 
