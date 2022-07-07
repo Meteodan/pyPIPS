@@ -2206,6 +2206,7 @@ def interp_sweeps_to_PIPS(radar_name, radarsweep_list, PIPS_names, dradlocs, ave
     return radar_fields_at_PIPS_da
 
 
+# TODO: remove this obsolescent function
 def interp_sweeps_to_one_PIPS(radar_name, radarsweep_list, PIPS_name, rad_loc, average_gates=True,
                               ngates2avg=1, sweeptime_list=None):
     """Interpolates a series of radar sweeps to the locations of a single PIPS. Likely will
@@ -2318,7 +2319,7 @@ def interp_sweeps_to_one_PIPS(radar_name, radarsweep_list, PIPS_name, rad_loc, a
 
 
 def interp_sweeps_to_one_PIPS_new(radar_name, radar_path_dict, PIPS_name, geo_loc, el_req=0.5,
-                                  average_gates=True, ngates2avg=1):
+                                  average_gates=True, ngates2avg=1, compute_kdp=False):
     """Interpolates a series of radar sweeps to the locations of a single PIPS. Likely will
        replace the original interp_sweeps_to_PIPS. This new version avoids loading all of the radar
        sweeps into memory at once.
@@ -2331,10 +2332,14 @@ def interp_sweeps_to_one_PIPS_new(radar_name, radar_path_dict, PIPS_name, geo_lo
         Dictionary containing list of radar files and timestamps to read in
     PIPS_name : str
         The name of the PIPS
-    rad_loc : tuple
-        Tuple containing the (x, y) cartesian coordinates of the PIPS relative to the radar
+    geo_loc : tuple
+        Tuple containing the (lat, lon, height ASL) coordinates of the PIPS
     average_gates : bool, optional
-        Whether to average the closest 9 gates, by default True
+        Whether to average the closest surrounding gates, by default True
+    ngates2avg : int, optional
+        halo width of gates to average, by default 1 (a halo of 1 gate around the center)
+    compute_kdp : bool, optional
+        Whether to compute kdp from phidp, by default False
 
     Returns
     -------
@@ -2348,12 +2353,14 @@ def interp_sweeps_to_one_PIPS_new(radar_name, radar_path_dict, PIPS_name, geo_lo
     # field_names = ['REF', 'VEL', 'ZDR', 'PHI', 'RHO', 'SW']
 
     # Outer loop through radar sweeps
-    radar_input_paths = radar_path_dict['radarpathlist']
-    radar_sweeptimes = radar_path_dict['sweeptimelist']
+    radar_input_paths = radar_path_dict['rad_path_list']
+    radar_times = radar_path_dict['rad_time_list']
     radar_fields_at_PIPS_tlist = []
     zrad_at_PIPS_list = []
-    for radar_input_path, sweeptime in zip(radar_input_paths, radar_sweeptimes):
-        radar_obj = readCFRadial_pyART(el_req, radar_input_path, sweeptime, compute_kdp=False)
+    for radar_input_path, rad_time in zip(radar_input_paths, radar_times):
+        # TODO: need to change the time to the start time of the specific sweep we want
+        # Right now it is the start time of the volume...
+        radar_obj = readCFRadial_pyART(el_req, radar_input_path, rad_time, compute_kdp=False)
         if radar_input_path == radar_input_paths[0]:
             rlat = radar_obj.latitude['data'][0]
             rlon = radar_obj.longitude['data'][0]
@@ -2379,8 +2386,8 @@ def interp_sweeps_to_one_PIPS_new(radar_name, radar_path_dict, PIPS_name, geo_lo
         zrad_at_PIPS_list.append(zrad_at_PIPS)
 
     # Create time dimension DataArray
-    radar_datetimes_da = xr.DataArray(radar_sweeptimes,
-                                      coords={'time': radar_sweeptimes},
+    radar_datetimes_da = xr.DataArray(radar_times,
+                                      coords={'time': radar_times},
                                       dims=['time'],
                                       attrs={
                                           'radar_name': radar_name,
@@ -2395,7 +2402,7 @@ def interp_sweeps_to_one_PIPS_new(radar_name, radar_path_dict, PIPS_name, geo_lo
     # Create a DataArray with the heights of the radar beam for each time
     zrad_at_PIPS_da = xr.DataArray(np.array(zrad_at_PIPS_list),
                                    coords={
-                                       'time': radar_sweeptimes,
+                                       'time': radar_times,
                                    },
                                    dims=['time'],
                                    attrs={
@@ -2422,7 +2429,9 @@ def interp_one_sweep_to_one_PIPS(radar_name, radarsweep, PIPS_name, rad_loc, ave
     rad_loc : tuple
         Tuple containing the (x, y) cartesian coordinates of the PIPS relative to the radar
     average_gates : bool, optional
-        Whether to average the closest 9 gates, by default True
+        Whether to average the closest surrounding gates, by default True
+    ngates2avg : int, optional
+        halo width of gates to average, by default 1 (a halo of 1 gate around the center)
 
     Returns
     -------
