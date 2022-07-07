@@ -31,19 +31,17 @@ PIPS_qc_dict = {
 }
 
 radar_config_dict = {
-    'load_radar_at_PIPS': True,
-    'save_radar_at_PIPS': False,
     'comp_radar': False,
-    'clean_radar': False,
     'calc_dualpol': True,
     'plot_retrieval': False,
     'radar_name': 'KGWX',
     'radar_type': 'NEXRAD',
     'radar_dir': '/depot/dawson29/data/Projects/PERiLS/obsdata/2022/NEXRAD/IOP1/KGWX/',
-    'field_names': ['REF', 'ZDR', 'RHO'], # , 'Dm_Z01', 'sigma_Z01', 'RR_Z01', 'mu_Z01', 'lamda_Z01'],
+    'radar_fname_pattern': '{rad_name}{year:04d}{month:02d}{day:02d}_{hour:02d}{min:02d}{sec:02d}_V06.nc',
+    'field_names': ['REF', 'ZDR', 'RHO'],  # , 'Dm_Z01', 'sigma_Z01', 'RR_Z01', 'mu_Z01', 'lamda_Z01'],
     'el_req': 0.5,
-    'radar_start_timestamp': '20220322190000',
-    'radar_end_timestamp': '20220322191500',
+    'radar_start_timestamp': '20220322192000',
+    'radar_end_timestamp': '20220322214500',
     'scatt_dir': '/depot/dawson29/apps/Projects/pyPIPS/tmatrix/S-Band/',
     'wavelength': 10.7
 }

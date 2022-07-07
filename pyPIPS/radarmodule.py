@@ -16,6 +16,7 @@ from datetime import datetime, timedelta
 from . import obanmodule as oban
 import glob
 import os
+import sys
 import pyart
 from pyart.config import get_metadata
 from . import utils
@@ -26,6 +27,7 @@ import xarray as xr
 import pandas as pd
 import pytz
 import cartopy.crs as ccrs
+from parse import pcompile
 
 clevels_ref = np.arange(0.0, 85.0, 5.0)          # Contour levels for reflectivity (dBZ)
 clevels_zdr = np.arange(0.0, 6.25, 0.25)         # Contour levels for Zdr (dB)
@@ -135,7 +137,8 @@ sigma_plot_dict = {
 
 # Contains some common aliases for the different fields to match up with the above parameter dicts
 REF_aliases = ['dBZ', 'DBZ', 'Z', 'REF', 'DZ', 'corrected_reflectivity', 'reflectivity']
-ZDR_aliases = ['Zdr', 'ZDR', 'DB_ZDR', 'corrected_differential_reflectivity', 'differential_reflectivity']
+ZDR_aliases = ['Zdr', 'ZDR', 'DB_ZDR', 'corrected_differential_reflectivity',
+               'differential_reflectivity']
 KDP_aliases = ['Kdp', 'KDP', 'KD', 'specific_differential_phase']
 PHI_aliases = ['PHI', 'differential_phase']
 RHV_aliases = ['rhv', 'RHV', 'RHO', 'cross_correlation_ratio']
@@ -247,6 +250,10 @@ retrieval_metadata = {
 epr = 80.205 + 1j * 17.167  # Relative permittivity of liquid water
 K2 = np.abs((epr - 1) / (epr + 2))**2.  # Dielectric constant of liquid water squared
 
+# Default radar file name format used by the parse module to grab time information from the name
+radar_fname_format_default = \
+    '{rad_name}{year:04d}{month:02d}{day:02d}_{hour:02d}{min:02d}{sec:02d}_V06.nc'
+
 
 def mtokm(val, pos):
     """Convert m to km for formatting axes tick labels"""
@@ -320,8 +327,45 @@ register_projection(NorthPolarAxes)
 deg2rad = np.pi / 180.
 
 
+def _get_radar_time_from_fname(fname, fname_format):
+    """Generates a radar time in datetime format from the file name using a given pattern.
+       Uses the parse module"""
+    # TODO: probably should put this outside of the function so that it
+    # isn't called a bunch of times.
+    # Parse the file name into a dictionary containing the time elements
+    fname_parser = pcompile(fname_format)
+    fname_parsed = fname_parser.parse(fname)
+    fname_parsed_dict = fname_parsed.named
+
+    # Generate a datetime object from the parsed file name
+    rad_datetime = datetime(fname_parsed_dict['year'], fname_parsed_dict['month'],
+                            fname_parsed_dict['day'], fname_parsed_dict['hour'],
+                            fname_parsed_dict['min'], fname_parsed_dict['sec'])
+    return rad_datetime
+
+
+def _get_radar_time_from_CFRadial(path):
+    """Reads the radar start time from a CFRadial file"""
+    # TODO: refactor the code below. Can use netCDF.num2date to get the start time
+    print("Opening file: ", path)
+    sweepfile_netcdf = netCDF4.Dataset(path, "r")
+    # Wow, what a mess to just convert to a regular string now. There's got be a less ugly way.
+    sweeptime_raw = sweepfile_netcdf.variables['time_coverage_start'][...].tolist(fill_value='')
+    sweeptime = b''.join(sweeptime_raw).decode()
+    radyear = int(sweeptime[:4])
+    radmonth = int(sweeptime[5:7])
+    radday = int(sweeptime[8:10])
+    radhour = int(sweeptime[11:13])
+    radmin = int(sweeptime[14:16])
+    radsec = int(sweeptime[17:19])
+    sweepfile_netcdf.close()
+    return datetime(radyear, radmonth, radday, radhour, radmin, radsec)
+
+
+# TODO: remove this function once refactoring is complete
 def _getsweeptime(path, CFRadial=True):
-    """Attempts to read sweep time from the radar file or construct it from the file name."""
+    """Attempts to read sweep time from the radar file or construct it from the file name. Assumes
+       CFRadial format for the file"""
     if CFRadial:
         print("Opening file: ", path)
         sweepfile_netcdf = netCDF4.Dataset(path, "r")
@@ -354,6 +398,7 @@ def _getelev(path):
     return sweepfile_netcdf.variables['elevation'][-1]
 
 
+# TODO: tag for removal once refactoring is complete
 def getradarfilelist(radar_dir, radar_save_dir, starttime=None, stoptime=None, platform='NEXRAD',
                      radar_name=None, el_req=0.5):
     """
@@ -1802,14 +1847,100 @@ def plotsweeps(pc, ib, sb, sweepstart=-1, sweepstop=-1):
                 plt.close(fig)
 
 
-def get_radar_paths(radar_paths, starttime, stoptime, el_req=0.5, radar_type='NEXRAD'):
-    """Get a list of radar paths between starttime and stoptime that contain the elevation angle
-    requested.
+def get_radar_paths_between_times(radar_paths, starttime, stoptime, radar_type='NEXRAD',
+                                  fname_format=radar_fname_format_default):
+    """Get a list of paths to radar files between starttime and stoptime using the timestamp in
+       the file name.
 
     Parameters
     ----------
     radar_paths : list
-        list of absolute paths to radar files
+        list of paths to radar files (usually as output of a glob operation)
+    starttime : str
+        starting timestamp in '%Y%m%d%H%M%S' format
+    stoptime : str
+        ending timestamp in '%Y%m%d%H%M%S' format
+    radar_type : str, optional
+        type of radar, by default 'NEXRAD'
+    fname_format: str, optional
+        format of the file name, by default a specific pattern defined at the top of this module
+
+    Returns
+    -------
+    dict
+        dict containing a list of sorted paths and associated times (in datetime format)
+    """
+
+    radstarttimedt = datetime.strptime(starttime, tm.timefmt3)
+    radstoptimedt = datetime.strptime(stoptime, tm.timefmt3)
+    rad_time_list = []
+
+    # Determine which files contain data between radstarttime and radstoptime
+    if fname_format is None:
+        radar_paths_keepers = radar_paths
+
+    radar_paths_keepers = []
+    for radar_path in radar_paths:
+        fname = os.path.basename(radar_path)
+        rad_time = _get_radar_time_from_fname(fname, fname_format=fname_format)
+        if radstarttimedt <= rad_time and rad_time <= radstoptimedt:
+            radar_paths_keepers.append(radar_path)
+            rad_time_list.append(rad_time)
+
+    # Sort the lists by increasing time since glob doesn't sort in any particular order
+    sorted_rad_time_list = sorted(rad_time_list)
+    sorted_radar_paths_keepers = [x for _, x in sorted(zip(rad_time_list, radar_paths_keepers),
+                                                       key=lambda pair: pair[0])]
+
+    # Stuff the lists into a dictionary
+    radar_dict = {
+        'rad_time_list': sorted_rad_time_list,
+        'rad_path_list': sorted_radar_paths_keepers
+    }
+    return radar_dict
+
+
+def get_radar_paths_single_elevation(radar_dict, el_req=0.5, radar_type='XTRRA'):
+    """Returns a list of radar_paths that contain sweeps at the requested elevation angle.
+
+    Parameters
+    ----------
+    radar_dict : dict
+        dictionary containing radar paths and associated start times
+    el_req : float, optional
+        requested elevation angle, by default 0.5
+    radar_type : str, optional
+        type of radar, by default 'XTRRA'. Currently only 'XTRRA' is supported
+
+    Returns
+    -------
+    dict
+        dict containing a list of sorted paths and associated times (in datetime format)
+    """
+    radar_paths = radar_dict['rad_path_list']
+    rad_time_list = radar_dict['rad_time_list']
+    radar_paths_keepers = []
+    rad_time_list_keepers = []
+    for radar_path, rad_time in zip(radar_paths, rad_time_list):
+        if 'XTRRA' in radar_type:
+            elevation = _getelev(radar_path)
+            if np.abs(elevation - el_req) < 0.1:
+                radar_paths_keepers.append(radar_path)
+                rad_time_list_keepers.append(rad_time)
+        else:  # not supported
+            sys.exit("Sorry, this radar type is not yet supported!")
+
+
+# TODO: remove this function once I have the above working
+def get_radar_paths_old(radar_paths, starttime, stoptime, el_req=0.5, radar_type='NEXRAD',
+                        fname_format=None, get_time_from_fname=True, CFRadial=True):
+    """Get a list of paths to radar files between starttime and stoptime that contain the elevation
+    angle requested.
+
+    Parameters
+    ----------
+    radar_paths : list
+        list of paths to radar files (usually as output of a glob operation)
     starttime : str
         starting timestamp in '%Y%m%d%H%M%S' format
     stoptime : str
@@ -1819,6 +1950,10 @@ def get_radar_paths(radar_paths, starttime, stoptime, el_req=0.5, radar_type='NE
         contains an entire volume.
     radar_type : str, optional
         type of radar, by default 'NEXRAD'
+    fname_format: str, optional
+        format of the file name, by default None. If None will just use all files in directory!
+    get_time_from_fname: bool, optional
+        whether to read the sweep/volume time from
 
     Returns
     -------
@@ -1860,8 +1995,8 @@ def get_radar_paths(radar_paths, starttime, stoptime, el_req=0.5, radar_type='NE
 
 
 # TODO: the following function is obsolescent
-def read_sweeps(radar_paths, starttime, stoptime, field_names=['dBZ'], el_req=0.5,
-                compute_kdp=False, radar_type='NEXRAD'):
+def read_sweeps_old(radar_paths, starttime, stoptime, field_names=['dBZ'], el_req=0.5,
+                    compute_kdp=False, radar_type='NEXRAD'):
     """Reads sweeps from a list of CFRadial files between the start and stop times requested
     and at the elevation angle requested. Returns a dictionary with the sweeps (pyART radar objects)
 
@@ -1931,13 +2066,13 @@ def read_sweeps(radar_paths, starttime, stoptime, field_names=['dBZ'], el_req=0.
     return radar_dict
 
 
-def read_sweeps_new(radar_dict, el_req=0.5, compute_kdp=False, radar_type='NEXRAD'):
+def read_sweeps(radar_dict, el_req=0.5, compute_kdp=False):
     """Reads sweeps from a list of CFRadial files between the start and stop times requested
     and at the elevation angle requested. Returns a dictionary with the sweeps (pyART radar objects)
 
     Parameters
     ----------
-    radar_paths: list
+    radar_paths : list
         list of absolute paths to radar files
     el_req : float, optional
         desired elevation angle, by default 0.5
@@ -2205,7 +2340,6 @@ def interp_sweeps_to_one_PIPS_new(radar_name, radar_path_dict, PIPS_name, geo_lo
     # NOTE: just read and interpolate all fields in the radar object for now
     # field_names = ['REF', 'VEL', 'ZDR', 'PHI', 'RHO', 'SW']
 
-
     # Outer loop through radar sweeps
     radar_input_paths = radar_path_dict['radarpathlist']
     radar_sweeptimes = radar_path_dict['sweeptimelist']
@@ -2344,7 +2478,6 @@ def dump_radar_fields_at_PIPS_nc(ncfile_path, radar_fields_at_PIPS_da):
 def CreateRadarFromRXM25netCDF(netcdf_file, instrument_name, cfradial_outfile=None, heading=None):
     data = netCDF4.Dataset(netcdf_file, 'r')
     # fileTime = datetime.datetime.strptime(netcdf_file[-22:-7],'%Y%m%d-%H%M%S')
-
 
     ngates = data.dimensions['Gate'].size
     rays_per_sweep = data.dimensions['Radial'].size

@@ -1,6 +1,6 @@
 # pyPIPS_meteograms.py
 #
-# This script calculates radar retrievals from PIPS and collocated radar data (netCDF version)
+# This script calculates radar retrievals from PIPS DSD data (netCDF version)
 import os
 import argparse
 from datetime import datetime, timedelta
@@ -30,7 +30,7 @@ max_fall_bins = pp.parsivel_parameters['max_fallspeed_bins_mps']
 avg_fall_bins = pp.parsivel_parameters['avg_fallspeed_bins_mps']
 
 # Parse the command line options
-description = "Calculates radar retreivals from PIPS and collocated radar data (netCDF version)"
+description = "Calculates radar retrievals from PIPS and collocated radar data (netCDF version)"
 parser = argparse.ArgumentParser(description=description)
 parser.add_argument('case_config_path', metavar='<path/to/case/config/file.py>',
                     help='The path to the case configuration file')

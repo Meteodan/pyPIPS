@@ -70,10 +70,7 @@ geo_locs = config.PIPS_IO_dict.get('geo_locs', [None]*len(PIPS_names))
 requested_interval = config.PIPS_IO_dict.get('requested_interval', 10.)
 
 # Extract needed lists and variables from the radar_dict configuration dictionary
-load_radar_at_PIPS = config.radar_config_dict.get('load_radar_at_PIPS', False)
-save_radar_at_PIPS = config.radar_config_dict.get('save_radar_at_PIPS', False)
 comp_radar = config.radar_config_dict.get('comp_radar', False)
-clean_radar = config.radar_config_dict.get('comp_radar', False)
 calc_dualpol = config.radar_config_dict.get('calc_dualpol', False)
 radar_name = config.radar_config_dict.get('radar_name', None)
 radar_type = config.radar_config_dict.get('radar_type', 'NEXRAD')
@@ -141,11 +138,3 @@ for parsivel_combined_file in parsivel_combined_filelist:
     parsivel_combined_ds.close()
     # Save updated dataset back to file
     parsivel_combined_ds.to_netcdf(parsivel_combined_file)
-
-
-    # if save_radar_at_PIPS:
-    #     radar_at_PIPS_file_name = '{}_{}_{}_fields_at_PIPS.nc'.format(radar_name,
-    #                                                                     radar_start_timestamp,
-    #                                                                     radar_end_timestamp)
-    #     radar_at_PIPS_path = os.path.join(PIPS_dir, radar_at_PIPS_file_name)
-    #     radar.dump_radar_fields_at_PIPS_nc(radar_at_PIPS_path, radar_fields_at_PIPS_da)
