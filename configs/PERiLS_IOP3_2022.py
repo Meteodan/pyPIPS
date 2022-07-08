@@ -40,10 +40,7 @@ PIPS_qc_dict = {
 }
 
 radar_config_dict = {
-    'load_radar_at_PIPS': True,
-    'save_radar_at_PIPS': False,
     'comp_radar': False,
-    'clean_radar': False,
     'calc_dualpol': True,
     'plot_retrieval': True,
     'radar_name': 'KGWX',
