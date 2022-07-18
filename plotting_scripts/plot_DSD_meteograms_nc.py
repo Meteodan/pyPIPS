@@ -3,7 +3,7 @@
 # This script plots meteograms from the Portable Integrated Precipitation Stations (PIPS)
 import os
 import argparse
-from datetime import datetime, timedelta
+from datetime import datetime
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -12,15 +12,13 @@ import matplotlib.dates as dates
 import pyPIPS.parsivel_params as pp
 import pyPIPS.radarmodule as radar
 import pyPIPS.plotmodule as pm
-import pyPIPS.pips_io as pipsio
 import pyPIPS.utils as utils
 import pyPIPS.PIPS as pips
-import pyPIPS.parsivel_qc as pqc
-import pyPIPS.DSDlib as dsd
 import pyPIPS.polarimetric as dp
 import pyPIPS.timemodule as tm
 
 min_diameter = pp.parsivel_parameters['min_diameter_bins_mm']
+diameter_bin_edges = pp.parsivel_parameters['diameter_bin_edges_mm']
 max_diameter = pp.parsivel_parameters['max_diameter_bins_mm']
 bin_width = max_diameter - min_diameter
 avg_diameter = pp.parsivel_parameters['avg_diameter_bins_mm']
@@ -91,9 +89,9 @@ PIPS_types = config.PIPS_IO_dict.get('PIPS_types', None)
 PIPS_names = config.PIPS_IO_dict.get('PIPS_names', None)
 PIPS_filenames = config.PIPS_IO_dict.get('PIPS_filenames', None)
 parsivel_combined_filenames = config.PIPS_IO_dict['PIPS_filenames_nc']
-start_times = config.PIPS_IO_dict.get('start_times', [None]*len(PIPS_names))
-end_times = config.PIPS_IO_dict.get('end_times', [None]*len(PIPS_names))
-geo_locs = config.PIPS_IO_dict.get('geo_locs', [None]*len(PIPS_names))
+start_times = config.PIPS_IO_dict.get('start_times', [None] * len(PIPS_names))
+end_times = config.PIPS_IO_dict.get('end_times', [None] * len(PIPS_names))
+geo_locs = config.PIPS_IO_dict.get('geo_locs', [None] * len(PIPS_names))
 requested_interval = config.PIPS_IO_dict.get('requested_interval', 10.)
 
 # Extract needed lists and variables from the radar_dict configuration dictionary
@@ -177,6 +175,7 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
     # Pack plotting variables into dictionary
     disvars = {
         'min_diameter': min_diameter,
+        'diameter_bin_edges': diameter_bin_edges,
         'PSDstarttimes': PSD_edgetimes,
         'PSDmidtimes': PSD_centertimes,
         'logND': logND.T
@@ -235,7 +234,7 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
     minorlocator.MAXTICKS = 1500
     try:
         formatter = pc.PIPS_plotting_dict['majorxformatter']
-    except:
+    except KeyError:
         formatter = dates.DateFormatter('%H:%M')
 
     axparams = {
@@ -294,7 +293,6 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
             radvars['D_m_rad_Z01'] = radar_fields_at_PIPS_da.loc[{dim_name: 'Dm_Z01'}]
             radvars['D_m_rad_C08'] = radar_fields_at_PIPS_da.loc[{dim_name: 'Dm_C08'}]
 
-
         # TODO: this code below is obsolescent, as filtering is done elsewhere now.
         # NOTE: reinstated this, with slight modifications, because the previous filtering
         # was bugged. That is fixed now, but this is here just in case we are using the old
@@ -315,7 +313,6 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
             for disvarname in ['REF', 'ZDR', 'KDP', 'RHO', 'D_m']:
                 if disvarname in disvars:
                     disvars[disvarname] = np.ma.masked_array(disvars[disvarname], mask=mask)
-
 
     # Make the plot
     PIPS_plot_name = '{}_{}_{}_{}_{}{}'.format(PIPS_name, deployment_name, start_time_string,

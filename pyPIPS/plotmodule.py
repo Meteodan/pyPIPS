@@ -23,7 +23,7 @@ font = {'size': 9}
 matplotlib.rc('font', **font)
 
 fontP = FontProperties()
-fontP.set_size('x-small') # 'small'
+fontP.set_size('x-small')  # 'small'
 
 # Contour levels for reflectivity (dBZ)
 clevels_ref = np.arange(0.0, 85.0, 5.0)
@@ -214,7 +214,7 @@ def colorline(x, y, z=None, cmap=plt.get_cmap('copper'), norm=plt.Normalize(0.0,
     segments = make_segments(x, y)
     lc = LineCollection(segments, array=z, cmap=cmap, norm=norm, linewidth=linewidth, alpha=alpha)
 
-    if(ax is None):
+    if ax is None:
         ax = plt.gca()
     ax.add_collection(lc)
 
@@ -235,16 +235,16 @@ def plotsingle(fig, axes, ptype, xs, ys, x, y, xlim, ylim, field, clevels, cmap,
                cbarlevels, clabel, cformat, ovrmap, gis_info, numovr, ovrx, ovry, ovrfields,
                ovrfieldlvls, ovrfieldcolors, axesticks, rasterized=True):
     """Plot a single-paneled figure from model output (possibly staggered grid)"""
-    if(fig is None):
+    if fig is None:
         fig = plt.figure()
-    if(axes is None):
+    if axes is None:
         axes = fig.add_subplot(111)
-    if(rasterized):
+    if rasterized:
         axes.set_rasterization_zorder(2)
     norm = fieldnorm
-    if(ptype == 1):  # Contour plot
+    if ptype == 1:  # Contour plot
         plot = axes.contourf(xs, ys, field, levels=clevels, cmap=cmap, norm=norm, zorder=1)
-    elif(ptype == 2):  # pcolor plot
+    elif ptype == 2:  # pcolor plot
         # Mask values below lower bounds
         field = np.ma.masked_where(field < clevels[0], field)
         # norm = matplotlib.colors.BoundaryNorm(clevels,cmap.N)
@@ -256,7 +256,7 @@ def plotsingle(fig, axes, ptype, xs, ys, x, y, xlim, ylim, field, clevels, cmap,
                                edgecolors='None', antialiased=False, rasterized=rasterized)
     # Find a nice number of ticks for the colorbar
 
-    if(cbarlevels is None):
+    if cbarlevels is None:
         cintv = clevels[1] - clevels[0]
         cintvs = np.arange(clevels[0], clevels[-1], cintv)
         while True:
@@ -270,14 +270,14 @@ def plotsingle(fig, axes, ptype, xs, ys, x, y, xlim, ylim, field, clevels, cmap,
     divider = make_axes_locatable(axes)
     cax = divider.append_axes("right", size="5%", pad=0.05)
     plt.colorbar(plot, orientation='vertical', ticks=cbarlevels, cax=cax, format=cformat)
-    if(clabel is not None):
+    if clabel is not None:
         cax.set_ylabel(clabel)
-    if(numovr > 0):
+    if numovr > 0:
         for i in range(numovr):
             #             if(i != 1): # Hack!
             axes.contour(ovrx[i], ovry[i], ovrfields[i], levels=ovrfieldlvls[i],
                          colors=ovrfieldcolors[i], lw=2)
-    if(gis_info is not None):
+    if gis_info is not None:
         axes.plot([gis_info[1]], [gis_info[2]], 'ko')
     if xlim is None:
         xlim = [x.min(), x.max()]
@@ -286,16 +286,16 @@ def plotsingle(fig, axes, ptype, xs, ys, x, y, xlim, ylim, field, clevels, cmap,
     print(xlim, ylim)
     axes.set_xlim(xlim[0], xlim[1])
     axes.set_ylim(ylim[0], ylim[1])
-    if(axesticks[0] < 1000.):
-        if(axesticks[0] < 500.):
+    if axesticks[0] < 1000.:
+        if axesticks[0] < 500.:
             formatter = ticker.FuncFormatter(mtokmr2)
         else:
             formatter = ticker.FuncFormatter(mtokmr1)
     else:
         formatter = ticker.FuncFormatter(mtokm)
     axes.xaxis.set_major_formatter(formatter)
-    if(axesticks[1] < 1000.):
-        if(axesticks[0] < 500.):
+    if axesticks[1] < 1000.:
+        if axesticks[0] < 500.:
             formatter = ticker.FuncFormatter(mtokmr2)
         else:
             formatter = ticker.FuncFormatter(mtokmr1)
@@ -307,7 +307,7 @@ def plotsingle(fig, axes, ptype, xs, ys, x, y, xlim, ylim, field, clevels, cmap,
     axes.yaxis.set_major_locator(ticker.MultipleLocator(base=axesticks[1]))
     axes.set_xlabel('km')
     axes.set_ylabel('km')
-    if(axesticks[1] == axesticks[0]):
+    if axesticks[1] == axesticks[0]:
         axes.set_aspect('equal')
     else:
         axes.set_aspect('auto')
@@ -328,7 +328,7 @@ def plotsingle2(fig, axes, ptype, xs, ys, x, y, xlim, ylim, field, clevels, cmap
        only to attempt to match the dimensions of the resulting figure with that
        produced by plotsweep_PyArt in radarmodule.py. Clearly need to refactor some
        of this code..."""
-    if(fig is None):
+    if fig is None:
         fig = plt.figure()
         grid = ImageGrid(
             fig,
@@ -342,12 +342,12 @@ def plotsingle2(fig, axes, ptype, xs, ys, x, y, xlim, ylim, field, clevels, cmap
             aspect=True,
             label_mode="1")
         axes = grid[0]
-    if(rasterized):
+    if rasterized:
         axes.set_rasterization_zorder(2)
     norm = fieldnorm
-    if(ptype == 1):  # Contour plot
+    if ptype == 1:  # Contour plot
         plot = axes.contourf(xs, ys, field, levels=clevels, cmap=cmap, norm=norm, zorder=1)
-    elif(ptype == 2):  # pcolor plot
+    elif ptype == 2:  # pcolor plot
         # Mask values below lower bounds
         field = np.ma.masked_where(field < clevels[0], field)
         # norm = matplotlib.colors.BoundaryNorm(clevels,cmap.N)
@@ -359,11 +359,11 @@ def plotsingle2(fig, axes, ptype, xs, ys, x, y, xlim, ylim, field, clevels, cmap
                                edgecolors='None', antialiased=False, rasterized=rasterized)
     # Find a nice number of ticks for the colorbar
 
-    if(cbarlevels is None):
+    if cbarlevels is None:
         cintv = clevels[1] - clevels[0]
         cintvs = np.arange(clevels[0], clevels[-1], cintv)
         while True:
-            if(cintvs.size > 20):
+            if cintvs.size > 20:
                 cintv = (cintvs[1] - cintvs[0]) * 2.
                 cintvs = np.arange(cintvs[0], cintvs[-1], cintv)
             else:
@@ -373,14 +373,14 @@ def plotsingle2(fig, axes, ptype, xs, ys, x, y, xlim, ylim, field, clevels, cmap
     grid.cbar_axes[0].colorbar(plot)
     grid.cbar_axes[0].toggle_label(True)
     grid.cbar_axes[0].yaxis.set_major_locator(cbarlevels)
-    if(clabel is not None):
+    if clabel is not None:
         grid.cbar_axes[0].set_ylabel(clabel)
-    if(numovr > 0):
+    if numovr > 0:
         for i in range(numovr):
             #             if(i != 1): # Hack!
             axes.contour(ovrx[i], ovry[i], ovrfields[i], levels=ovrfieldlvls[i],
                          colors=ovrfieldcolors[i], lw=2)
-    if(gis_info is not None):
+    if gis_info is not None:
         axes.plot([gis_info[1]], [gis_info[2]], 'ko')
     if xlim is None:
         xlim = [x.min(), x.max()]
@@ -389,16 +389,16 @@ def plotsingle2(fig, axes, ptype, xs, ys, x, y, xlim, ylim, field, clevels, cmap
     print(xlim, ylim)
     axes.set_xlim(xlim[0], xlim[1])
     axes.set_ylim(ylim[0], ylim[1])
-    if(axesticks[0] < 1000.):
-        if(axesticks[0] < 500.):
+    if axesticks[0] < 1000.:
+        if axesticks[0] < 500.:
             formatter = ticker.FuncFormatter(mtokmr2)
         else:
             formatter = ticker.FuncFormatter(mtokmr1)
     else:
         formatter = ticker.FuncFormatter(mtokm)
     axes.xaxis.set_major_formatter(formatter)
-    if(axesticks[1] < 1000.):
-        if(axesticks[0] < 500.):
+    if axesticks[1] < 1000.:
+        if axesticks[0] < 500.:
             formatter = ticker.FuncFormatter(mtokmr2)
         else:
             formatter = ticker.FuncFormatter(mtokmr1)
@@ -410,7 +410,7 @@ def plotsingle2(fig, axes, ptype, xs, ys, x, y, xlim, ylim, field, clevels, cmap
     axes.yaxis.set_major_locator(ticker.MultipleLocator(base=axesticks[1]))
     axes.set_xlabel('km')
     axes.set_ylabel('km')
-    if(axesticks[1] == axesticks[0]):
+    if axesticks[1] == axesticks[0]:
         axes.set_aspect('equal')
     else:
         axes.set_aspect('auto')
@@ -506,7 +506,7 @@ def plot_wind_meteogram(plottimes, conv_plot_ds, global_plot_config_dict, avgwin
 
     if avgwind:
         titlestring = ("Wind direction, wind speed ({:d}-s mean), "
-                       "and gust ({:d}-s max of {:d}-s mean)").format(windavgintv,windgustintv,
+                       "and gust ({:d}-s max of {:d}-s mean)").format(windavgintv, windgustintv,
                                                                       windavgintv)
     else:
         titlestring = 'Wind direction and wind speed'
@@ -585,6 +585,7 @@ def plot_compass_dir_meteogram(plottimes, conv_plot_ds, global_plot_config_dict,
     ax1, = set_meteogram_axes([ax1], axparamdicts)
 
     return fig, ax1
+
 
 def plot_temperature_dewpoint_meteogram(plottimes, conv_plot_ds, global_plot_config_dict,
                                         xlimits=None, ptype='PIPS'):
@@ -826,7 +827,7 @@ def plotDSDmeteograms(dis_name, image_dir, axparams, disvars, radvars=None, clos
     """Plots one or more meteograms of disdrometer number concentrations vs. diameter bins,
        along with one or more derived variables and optionally radar variables for comparison.
        One meteogram is plotted per dualpol variable (i.e. Z,ZDR,KDP,RHV)"""
-    min_diameter = disvars.get('min_diameter', np.empty((0)))
+    diameter_bin_edges = disvars.get('diameter_bin_edges', np.empty((0)))
     PSDstarttimes = disvars.get('PSDstarttimes', np.empty((0)))
     PSDmidtimes = disvars.get('PSDmidtimes', np.empty((0)))
     logND = disvars.get('logND', np.empty((0)))
@@ -839,11 +840,11 @@ def plotDSDmeteograms(dis_name, image_dir, axparams, disvars, radvars=None, clos
     flaggedtimes = disvars.get('flaggedtimes', np.empty((0)))
     hailflag = disvars.get('hailflag', np.empty((0)))
     if radvars is not None:
-        #D_0_rad = radvars.get('D_0_rad', np.empty((0)))
+        # D_0_rad = radvars.get('D_0_rad', np.empty((0)))
         D_m_keys = [k for k, v in radvars.items() if 'D_m' in k]
         radmidtimes = radvars.get('radmidtimes', np.empty((0)))
     else:
-        D_0_rad = np.empty((0))
+        # D_0_rad = np.empty((0))
         D_m_keys = []
         radmidtimes = np.empty((0))
 
@@ -858,7 +859,7 @@ def plotDSDmeteograms(dis_name, image_dir, axparams, disvars, radvars=None, clos
 
     # If no dualpol variables are in the dictionary, we'll still go ahead and plot the
     # meteogram, with just the number concentrations and possibly median volume diameters, etc.
-    if(not dualpol_dis_varnames):
+    if not dualpol_dis_varnames:
         dualpol_dis_varnames.append(None)
         dualpol_dis_vars.append(np.empty((0)))
 
@@ -874,7 +875,7 @@ def plotDSDmeteograms(dis_name, image_dir, axparams, disvars, radvars=None, clos
         fig = plt.figure(figsize=(8, 3))
         ax1 = host_subplot(111)
         fig.autofmt_xdate()
-        if(dualpol_dis_var.size):
+        if dualpol_dis_var.size:
             ax2 = ax1.twinx()
         # divider = make_axes_locatable(ax1)
 
@@ -896,12 +897,12 @@ def plotDSDmeteograms(dis_name, image_dir, axparams, disvars, radvars=None, clos
         # if D_0_rad.size:
         #     xvals.append(PSDmidtimes)
         #     plotvars.append(D_0_rad)
-        #     plotparamdict2 = {'type': 'line', 'linestyle': ':', 'color': 'purple', 'linewidth': 1.0,
-        #                       'label': r'$D_{0,rad} (mm)$'}
+        #     plotparamdict2 = {'type': 'line', 'linestyle': ':', 'color': 'purple',
+        #                       'linewidth': 1.0, 'label': r'$D_{0,rad} (mm)$'}
         #     plotparamdicts.append(plotparamdict2)
 
         # Mass-weighted mean diameter
-        if(D_m_dis.size):
+        if D_m_dis.size:
             xvals.append(PSDmidtimes)
             plotvars.append(D_m_dis)
             plotparamdict2 = {'type': 'line', 'linestyle': ':', 'color': 'r', 'linewidth': 1.0,
@@ -924,7 +925,7 @@ def plotDSDmeteograms(dis_name, image_dir, axparams, disvars, radvars=None, clos
 
 
         # Vertical lines for flagged times (such as from wind contamination).
-        if(flaggedtimes.size):
+        if flaggedtimes.size:
             xvals.append(PSDmidtimes)
             plotvars.append(flaggedtimes)
             plotparamdict = {'type': 'vertical line', 'linestyle': '-', 'color': 'r',
@@ -932,7 +933,7 @@ def plotDSDmeteograms(dis_name, image_dir, axparams, disvars, radvars=None, clos
             plotparamdicts.append(plotparamdict)
 
         # Mark times with hail detected with a vertical purple line
-        if(hailflag.size):
+        if hailflag.size:
             xvals.append(PSDmidtimes)
             plotvars.append(hailflag)
             plotparamdict = {'type': 'vertical line', 'linestyle': '-', 'color': 'purple',
@@ -940,7 +941,7 @@ def plotDSDmeteograms(dis_name, image_dir, axparams, disvars, radvars=None, clos
             plotparamdicts.append(plotparamdict)
 
         ax1 = plotmeteogram(ax1, xvals, plotvars, plotparamdicts,
-                            yvals=[min_diameter] * len(plotvars))
+                            yvals=[diameter_bin_edges] * len(plotvars))
 
         axparamdict1 = axparams
         axes = [ax1]
@@ -958,21 +959,21 @@ def plotDSDmeteograms(dis_name, image_dir, axparams, disvars, radvars=None, clos
                 axis_limits = [0.0, 80.0]
                 axis_intv = 10.0
                 # Also plot Rayleigh version
-                if(dBZ_ray_dis.size):
+                if dBZ_ray_dis.size:
                     xvals.append(PSDmidtimes)
                     plotvars.append(dBZ_ray_dis)
                     dBZ_ray_dis_varlabel = r'$Z_{dis,ray} (dBZ)$'
-            elif(dualpol_dis_varname == 'ZDR'):
+            elif dualpol_dis_varname == 'ZDR':
                 dualpol_dis_varlabel = r'$Z_{DR,dis} (dB)$'
                 axis_label = 'Differential Reflectivity (dBZ)'
                 axis_limits = [0.0, 6.0]
                 axis_intv = 0.5
-            elif(dualpol_dis_varname == 'KDP'):
+            elif dualpol_dis_varname == 'KDP':
                 dualpol_dis_varlabel = r'$K_{DP,dis} (deg km^{-1})$'
                 axis_label = r'Specific Differential Phase (deg km$^{-1}$)'
                 axis_limits = [0.0, 12.0]
                 axis_intv = 1.0
-            elif(dualpol_dis_varname == 'RHO'):
+            elif dualpol_dis_varname == 'RHO':
                 dualpol_dis_varlabel = r'$\sigma_{HV,dis}$'
                 axis_label = r'Cross-correlation Coefficient'
                 axis_limits = [0.0, 1.05]
@@ -981,25 +982,25 @@ def plotDSDmeteograms(dis_name, image_dir, axparams, disvars, radvars=None, clos
             plotparamdict1 = {'type': 'line', 'linestyle': '-', 'color': 'r', 'linewidth': 1.5,
                               'label': dualpol_dis_varlabel}
             plotparamdicts = [plotparamdict1]
-            if(dualpol_dis_varname == 'REF' and dBZ_ray_dis.size):
+            if dualpol_dis_varname == 'REF' and dBZ_ray_dis.size:
                 plotparamdict = {'type': 'line', 'linestyle': '--', 'color': 'r', 'linewidth': 1.5,
                                  'label': dBZ_ray_dis_varlabel}
                 plotparamdicts.append(plotparamdict)
 
 
         # Now add the radar dualpol variables if desired
-        if(dualpol_rad_var is not None):
+        if dualpol_rad_var is not None:
 
-            if(dualpol_dis_varname == 'REF'):
+            if dualpol_dis_varname == 'REF':
                 dualpol_rad_varlabel = r'$Z_{rad} (dBZ)$'
-            elif(dualpol_dis_varname == 'ZDR'):
+            elif dualpol_dis_varname == 'ZDR':
                 dualpol_rad_varlabel = r'$Z_{DR,rad} (dB)$'
-            elif(dualpol_dis_varname == 'KDP'):
+            elif dualpol_dis_varname == 'KDP':
                 dualpol_rad_varlabel = r'$K_{DP,rad} (deg km^{-1})$'
-            elif(dualpol_dis_varname == 'RHO'):
+            elif dualpol_dis_varname == 'RHO':
                 dualpol_rad_varlabel = r'$\sigma_{HV,rad}$'
 
-            if(dualpol_rad_var.size):
+            if dualpol_rad_var.size:
                 xvals.append(radmidtimes)
                 plotvars.append(dualpol_rad_var)
                 plotparamdict2 = {'type': 'line', 'linestyle': '-', 'color': 'purple',
@@ -1015,10 +1016,10 @@ def plotDSDmeteograms(dis_name, image_dir, axparams, disvars, radvars=None, clos
             axes.append(ax2)
             axparamdicts.append(axparamdict2)
             ax2.legend(bbox_to_anchor=(1., 1.), loc='upper right',
-                    ncol=1, fancybox=True, shadow=False, prop=fontP)
+                       ncol=1, fancybox=True, shadow=False, prop=fontP)
 
         axes = set_meteogram_axes(axes, axparamdicts)
-        if(dualpol_dis_varname is not None):
+        if dualpol_dis_varname is not None:
             figpath = os.path.join(image_dir, dis_name + '_' + dualpol_dis_varname + '_logNc.png')
             plt.savefig(figpath, dpi=300)
         else:
@@ -1047,11 +1048,11 @@ def plotmeteogram(ax, xvals, zvals, plotparamdicts, yvals=None):
         clabel = plotparamdict.get('clabel', None)
         plotcbar = plotparamdict.get('plotcbar', True)
 
-        if(mtype == 'fill_between'):
+        if mtype == 'fill_between':
             ax.plot_date(xval, zval, ls=linestyle, lw=linewidth, marker=marker, color=color,
                          markeredgecolor=markeredgecolor, ms=ms, label=plotlabel)
             ax.fill_between(xval, zval, plotmin, facecolor=color, alpha=alpha)
-        elif(mtype == 'pcolor'):
+        elif mtype == 'pcolor':
             divider = make_axes_locatable(ax)
             C = ax.pcolormesh(xval, yvals[idx], zval, vmin=vlimits[0], vmax=vlimits[1])
             cax = divider.append_axes("bottom", size="5%", pad=0.4)
@@ -1062,9 +1063,9 @@ def plotmeteogram(ax, xvals, zvals, plotparamdicts, yvals=None):
                 cax.axis('off')
             else:
                 cb = ax.get_figure().colorbar(C, cax=cax, orientation='horizontal')
-                if(clabel):
+                if clabel:
                     cb.set_label(clabel)
-        elif(mtype == 'vertical line'):  # For flagging times with bad data, etc.
+        elif mtype == 'vertical line':  # For flagging times with bad data, etc.
                                          # zval is interpreted as a list of x-indices
             for x in zval:
                 ax.axvline(x=x, ls=linestyle, lw=linewidth, color=color)
@@ -1087,24 +1088,24 @@ def set_meteogram_axes(axes, axparamdicts):
         axeslabels = axparamdict.get('axeslabels', [None, None])
         axesautofmt = axparamdict.get('axesautofmt', True)
 
-        if(majorxlocator):
+        if majorxlocator:
             ax.xaxis.set_major_locator(majorxlocator)
-        if(majorxformatter):
+        if majorxformatter:
             ax.xaxis.set_major_formatter(majorxformatter)
-        if(minorxlocator):
+        if minorxlocator:
             ax.xaxis.set_minor_locator(minorxlocator)
-        if(axeslimits[0]):
+        if axeslimits[0]:
             ax.set_xlim(axeslimits[0][0], axeslimits[0][1])
-        if(axeslabels[0]):
+        if axeslabels[0]:
             ax.set_xlabel(axeslabels[0])
-        if(axeslabels[1]):
+        if axeslabels[1]:
             ax.set_ylabel(axeslabels[1])
-        if(axeslimits[1]):
+        if axeslimits[1]:
             ax.set_ylim(axeslimits[1][0], axeslimits[1][1])
-        if(majorylocator):
+        if majorylocator:
             ax.yaxis.set_major_locator(majorylocator)
 
-    if(axes[0] and axesautofmt):
+    if axes[0] and axesautofmt:
         axes[0].get_figure().autofmt_xdate()
 
     return axes
@@ -1145,7 +1146,7 @@ def plot_DSD(axdict, PSDdict, PSDfitdict, PSDparamdict):
     # ax1.plot(xbin_mid, ND * 1000.0, lw=2, label='obs')
 
     for fitname, ND_tuple in PSDfitdict.items():
-        if ((fitname == 'Dis Retr') | (fitname == 'Rad Retr')):
+        if (fitname == 'Dis Retr') | (fitname == 'Rad Retr'):
             ND_fit = ND_tuple[0] * 1000.
         else:
             ND_fit = ND_tuple[0]
@@ -1253,7 +1254,7 @@ def computecorners(xe, ye, UM=False):
     extrapolation is performed. Returns xcor and ycor of dimensions (Nye,Nxe).
     """
 
-    if(not UM):
+    if not UM:
         cor_shp = xe.shape[:-2] + (ye.shape[-2], xe.shape[-1])
         xcor = np.zeros(cor_shp)
         ycor = np.zeros(cor_shp)
@@ -1623,7 +1624,3 @@ def plot_retr_timeseries(obs_dict, retr_dis_dict, retr_rad_dict, DSDmidtimes, ax
     # plt.savefig(image_dir + 'meteograms/' + dis_name + '_' + name + '.png', dpi=300)
     # plt.close(fig)
     return fig, ax
-
-
-
-
