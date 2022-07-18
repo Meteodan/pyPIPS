@@ -4,7 +4,6 @@
 import os
 from glob import glob
 import argparse
-import numpy as np
 import xarray as xr
 import pyPIPS.parsivel_params as pp
 import pyPIPS.radarmodule as radar
