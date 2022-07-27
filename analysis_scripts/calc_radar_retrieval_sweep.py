@@ -123,9 +123,8 @@ if args.use_filtered_fields:
 else:
     tag = None
 
-for radar_input_path, sweeptime, radar_output_path in zip(radar_input_paths, radar_sweeptimes,
-                                                          radar_output_paths):
-    radar_obj = radar.readCFRadial_pyART(el_req, radar_input_path, sweeptime, compute_kdp=False)
+for radar_input_path, radar_output_path in zip(radar_input_paths, radar_output_paths):
+    radar_obj = radar.readCFRadial_pyART(el_req, radar_input_path, compute_kdp=False)
     print("Getting ZH and ZDR fields")
     # Get the ZH and ZDR fields from the radar object
     ZH_rad_tuple = radar.get_field_to_plot(radar_obj, radar.REF_aliases, tag=tag)
