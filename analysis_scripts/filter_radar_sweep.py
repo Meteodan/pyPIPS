@@ -3,10 +3,13 @@
 # This script filters radar data from CFRadial sweeps and adds the new filtered fields to the file
 import argparse
 from glob import glob
+import os
+from pathlib import Path
 import numpy as np
 import pyPIPS.parsivel_params as pp
 import pyPIPS.radarmodule as radar
 import pyPIPS.utils as utils
+import pyPIPS.timemodule as tm
 import pyart
 from scipy.signal import medfilt2d
 
@@ -30,7 +33,7 @@ parser = argparse.ArgumentParser(description=description,
 parser.add_argument('case_config_path', metavar='<path/to/case/config/file.py>',
                     help='The path to the case configuration file')
 parser.add_argument('--el-req', type=float, dest='el_req_cl', default=None,
-                    help='Requested elevation angle (overrides value in config file)')
+                    help='Requested elevation angle (overrides value in config file).')
 parser.add_argument('--dBZ-thresh', type=float, dest='dBZ_thresh', default=5.,
                     help='Threshold of reflectivity below which to exclude (dBZ)')
 parser.add_argument('--RHV-thresh', type=float, dest='RHV_thresh', default=0.95,
@@ -42,7 +45,7 @@ help_msg = ('tag to determine filename variant for input nc files (V06 when prod
 parser.add_argument('--fname-variant', dest='fname_variant', default='V06', help=help_msg)
 parser.add_argument('--input-tag', dest='input_tag', default=None,
                     help='Input nametag to determine which files to read in')
-parser.add_argument('--output-tag', dest='output_tag', default=None,
+parser.add_argument('--output-tag', dest='output_tag', default='filt',
                     help='tag for output nc files to distinguish from original')
 
 args = parser.parse_args()
@@ -82,6 +85,7 @@ field_names = config.radar_config_dict.get('field_names', ['REF'])
 if not calc_dualpol:
     field_names = ['REF']
 if args.el_req_cl:
+    print("Here!", args.el_req_cl)
     el_req = args.el_req_cl
 else:
     el_req = config.radar_config_dict.get('el_req', 0.5)
@@ -104,15 +108,57 @@ if radar_type == 'XTRRA':
     radar_dict = radar.get_radar_paths_single_elevation(radar_dict, el_req=el_req,
                                                         radar_type=radar_type)
 
-radar_dict = radar.read_sweeps(radar_dict, el_req=el_req)
-
-if args.output_tag:
-    radar_output_paths = [radar_path.replace('.nc', '_{}.nc'.format(args.output_tag))
-                          for radar_path in radar_dict['rad_path_list']]
+if el_req < 0.0:    # Only should be used for testing.
+    radar_dict_out = radar.read_vols(radar_dict)
 else:
-    radar_output_paths = radar_dict['rad_path_list']
+    radar_dict_out = radar.read_sweeps(radar_dict, el_req=el_req)
+    # Now, loop through the radar sweeps and construct new file names for the filtered output
+    # files using the file name format string in the config file, and tacking on
+    # the output tag name as necessary.
+    # First, treat the filename pattern as a path and extract the stem and extension from it
+    if args.output_tag:
+        radar_fname_pattern_path = Path(radar_fname_pattern)
+        radar_fname_pattern_stem = radar_fname_pattern_path.stem
+        radar_fname_pattern_ext = radar_fname_pattern_path.suffixes[-1]
+        # Now modify the stem to tack on the output tag
+        radar_fname_pattern_stem_new = radar_fname_pattern_stem + "_{output_tag}"
+        # Now put the extension back on
+        radar_fname_pattern_out = radar_fname_pattern_stem_new + radar_fname_pattern_ext
+    else:
+        radar_fname_pattern_out = radar_fname_pattern
 
-for radar_obj, radar_output_path in zip(radar_dict['rad_sweep_list'], radar_output_paths):
+    # Now, loop through the sweeps and construct new file names using the new format
+    radar_sweep_list = radar_dict_out['rad_sweep_list']
+    radar_output_fname_list = []
+    radar_sweep_time_list = []
+    for radar_sweep in radar_sweep_list:
+        radar_sweep_time = pyart.graph.common.generate_radar_time_sweep(radar_sweep, 0)
+        radar_sweep_time_list.append(radar_sweep_time)
+        if args.output_tag:
+            radar_sweep_fname = radar_fname_pattern_out.format(rad_name=radar_name,
+                                                               year=radar_sweep_time.year,
+                                                               month=radar_sweep_time.month,
+                                                               day=radar_sweep_time.day,
+                                                               hour=radar_sweep_time.hour,
+                                                               min=radar_sweep_time.minute,
+                                                               sec=radar_sweep_time.second,
+                                                               output_tag=args.output_tag)
+        else:
+            radar_sweep_fname = radar_fname_pattern_out.format(rad_name=radar_name,
+                                                               year=radar_sweep_time.year,
+                                                               month=radar_sweep_time.month,
+                                                               day=radar_sweep_time.day,
+                                                               hour=radar_sweep_time.hour,
+                                                               min=radar_sweep_time.minute,
+                                                               sec=radar_sweep_time.second)
+        radar_output_fname_list.append(radar_sweep_fname)
+    radar_output_paths = [os.path.join(radar_dir, rof) for rof in radar_output_fname_list]
+
+for radar_obj, radar_sweep_time, radar_output_path in zip(radar_sweep_list,
+                                                          radar_sweep_time_list,
+                                                          radar_output_paths):
+    print("Working on time {}".format(radar_sweep_time.strftime(tm.timefmt2)))
+    print("Output filename will be {}".format(os.path.basename(radar_output_path)))
     print("Getting fields")
     # Get polarimetric fields from the radar object
     ZH_rad_tuple = radar.get_field_to_plot(radar_obj, radar.REF_aliases)

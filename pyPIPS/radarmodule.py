@@ -499,14 +499,14 @@ def readCFRadial_pyART(el, filename, radlat=None, radlon=None,
 
     # Now find any other sweeps in the file with the same nominal elevation angle
     sweep_indices = [i for i, x in enumerate(elevs) if x == el_actual]
-    sweep_start_ray_indices = list(radarobj.sweep_start_ray_index['data'][sweep_indices])
+    # sweep_start_ray_indices = list(radarobj.sweep_start_ray_index['data'][sweep_indices])
 
     if verbose:
         print("Found {:d} sweeps in file with elevation angle {:.2f}".format(len(sweep_indices),
                                                                              el_actual))
     radarsweep_list = []
-    for i, sweep_start_ray_index in enumerate(sweep_start_ray_indices):
-        radarsweep = radarobj.extract_sweeps([sweep_start_ray_index])
+    for i, sweep_index in enumerate(sweep_indices):
+        radarsweep = radarobj.extract_sweeps([sweep_index])
         # TODO: fix KDP computation
         if compute_kdp:
             kdp = next((f for f in list(radarsweep.fields.items())
@@ -548,6 +548,7 @@ def readCFRadial_pyART(el, filename, radlat=None, radlon=None,
             time_string = "Time of sweep #{:d}: {}".format(i,
                                                            sweep_time.strftime('%Y-%m-%d %H:%M:%S'))
             print(time_string)
+            print("Elevation angle: {:.2f}".format(radarsweep.fixed_angle['data'][0]))
             if radlat is None:
                 rlat = radarsweep.latitude['data']
                 rlon = radarsweep.longitude['data']
@@ -563,7 +564,7 @@ def readCFRadial_pyART(el, filename, radlat=None, radlon=None,
                 rlat = radlat
                 rlon = radlon
                 ralt = radalt
-
+            numgates = radarsweep.ngates  # Number of gates
             print("Number of gates: ", numgates)
             print("Radar lat,lon,alt", rlat, rlon, ralt)
 
@@ -2078,6 +2079,32 @@ def read_sweeps_old(radar_paths, starttime, stoptime, field_names=['dBZ'], el_re
     return radar_dict
 
 
+def read_vols(radar_dict):
+    """Reads entire volumes from a list of CFRadial files (i.e. all the sweeps if the file
+       contains more than one). Primarily used by filter_radar_sweep.py
+
+    Parameters
+    ----------
+    radar_dict : dict
+        dictionary containing a list of paths to CFRadial files keyed by 'rad_path_list'
+
+    Returns
+    -------
+    dict
+        dictionary containing the list of radar volume objects
+    """
+    radpath_list = radar_dict['rad_path_list']
+    radar_vol_list = []
+
+    for radpath in radpath_list:
+        radar_vol = pyart.io.read_cfradial(radpath)
+        radar_vol_list.append(radar_vol)
+
+    # Stuff the list of sweeps into the dictionary
+    radar_dict['rad_sweep_list'] = radar_vol_list
+    return radar_dict
+
+
 def read_sweeps(radar_dict, el_req=0.5, compute_kdp=False):
     """Reads sweeps from a list of CFRadial files between the start and stop times requested
     and at the elevation angle requested. Returns a dictionary with the sweeps (pyART radar objects)
@@ -2101,8 +2128,10 @@ def read_sweeps(radar_dict, el_req=0.5, compute_kdp=False):
     radarsweeplist = []
 
     for radpath in radpath_list:
-        radarsweep = readCFRadial_pyART(el_req, radpath, compute_kdp=compute_kdp)
-        radarsweeplist.append(radarsweep)
+        radarsweep_list = readCFRadial_pyART(el_req, radpath, compute_kdp=compute_kdp)
+        # Iterate throught the returned list of sweeps and add to sweep list
+        for radarsweep in radarsweep_list:
+            radarsweeplist.append(radarsweep)
 
     # Stuff the list of sweeps into the dictionary
     radar_dict['rad_sweep_list'] = radarsweeplist

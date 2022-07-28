@@ -38,8 +38,13 @@ parser.add_argument('--ngates2avg', dest='ngates2avg', default=1,
 help_msg = ('tag to determine filename variant for input nc files (V06 when produced by pyART, '
             'SUR when produced by RadxConvert)')
 parser.add_argument('--fname-variant', dest='fname_variant', default='V06', help=help_msg)
+parser.add_argument('--radar-input-tag', dest='radar_input_tag', default=None,
+                    help='Input nametag to determine which radar files to read in')
 parser.add_argument('--input-tag', dest='input_tag', default=None,
-                    help='Input nametag to determine which files to read in')
+                    help='Input nametag to determine which PIPS files to read in')
+parser.add_argument('--output-tag', dest='output_tag', default=None,
+                    help='tag for output PIPS nc files to distinguish from original if desired')
+
 args = parser.parse_args()
 
 # Dynamically import the case configuration file
@@ -59,7 +64,7 @@ plot_dir = config.PIPS_IO_dict.get('plot_dir', None)
 PIPS_types = config.PIPS_IO_dict.get('PIPS_types', None)
 PIPS_names = config.PIPS_IO_dict.get('PIPS_names', None)
 PIPS_filenames = config.PIPS_IO_dict.get('PIPS_filenames', None)
-parsivel_combined_filenames = config.PIPS_IO_dict['PIPS_filenames_nc']
+input_parsivel_combined_filenames = config.PIPS_IO_dict['PIPS_filenames_nc']
 start_times = config.PIPS_IO_dict.get('start_times', [None] * len(PIPS_names))
 end_times = config.PIPS_IO_dict.get('end_times', [None] * len(PIPS_names))
 geo_locs = config.PIPS_IO_dict.get('geo_locs', [None] * len(PIPS_names))
@@ -73,8 +78,8 @@ radar_type = config.radar_config_dict.get('radar_type', 'NEXRAD')
 radar_dir = config.radar_config_dict.get('radar_dir', None)
 radar_fname_pattern = config.radar_config_dict.get('radar_fname_pattern', None)
 # Add the input filename tag to the pattern if needed
-if args.input_tag:
-    radar_fname_pattern = radar_fname_pattern.replace('.', '_{}.'.format(args.input_tag))
+if args.radar_input_tag:
+    radar_fname_pattern = radar_fname_pattern.replace('.', '_{}.'.format(args.radar_input_tag))
 field_names = config.radar_config_dict.get('field_names', ['REF'])
 if not calc_dualpol:
     field_names = ['REF']
@@ -84,6 +89,15 @@ radar_end_timestamp = config.radar_config_dict.get('radar_end_timestamp', None)
 scatt_dir = config.radar_config_dict.get('scatt_dir', None)
 wavelength = config.radar_config_dict.get('wavelength', 10.7)
 
+# Modify PIPS file names to account for an input tag (e.g., a variant version)
+if args.input_tag is not None:
+    parsivel_combined_filenames = []
+    for parsivel_combined_filename in input_parsivel_combined_filenames:
+        parsivel_combined_filename = \
+            parsivel_combined_filename.replace(".nc", "_{}.nc".format(args.input_tag))
+else:
+    parsivel_combined_filenames = input_parsivel_combined_filenames
+
 # Get a list of the combined parsivel netCDF data files that are present in the PIPS directory
 parsivel_combined_filelist = [os.path.join(PIPS_dir, pcf) for pcf in parsivel_combined_filenames]
 
@@ -91,10 +105,10 @@ parsivel_combined_filelist = [os.path.join(PIPS_dir, pcf) for pcf in parsivel_co
 # TODO: make this more flexible
 # Read radar sweeps
 # First get a list of all potentially relevant radar files in the directory
-if args.input_tag is None:
+if args.radar_input_tag is None:
     radar_paths = glob(radar_dir + '/*{}*{}.nc'.format(radar_name, args.fname_variant))
 else:
-    radar_paths = glob(radar_dir + '/*{}*_{}.nc'.format(radar_name, args.input_tag))
+    radar_paths = glob(radar_dir + '/*{}*_{}.nc'.format(radar_name, args.radar_input_tag))
 # Then find only those between the requested times
 radar_path_dict = radar.get_radar_paths_between_times(radar_paths, radar_start_timestamp,
                                                       radar_end_timestamp, radar_type=radar_type,
@@ -104,8 +118,10 @@ if radar_type == 'XTRRA':
                                                              radar_type=radar_type)
 
 # Outer file loop
-for parsivel_combined_file in parsivel_combined_filelist:
-    parsivel_combined_ds = xr.load_dataset(parsivel_combined_file)
+# TODO: change this to interpolate the radar fields to each PIPS in one go, without having to
+# reload
+for parsivel_combined_path in parsivel_combined_filelist:
+    parsivel_combined_ds = xr.load_dataset(parsivel_combined_path)
     PIPS_name = parsivel_combined_ds.probe_name
     geo_loc_str = parsivel_combined_ds.location
     geo_loc = list(map(float, geo_loc_str.strip('()').split(',')))
@@ -142,4 +158,12 @@ for parsivel_combined_file in parsivel_combined_filelist:
                                      name='{}_beam_height_at_PIPS'.format(radar_name))
     # parsivel_combined_ds.close()
     # Save updated dataset back to file
-    parsivel_combined_ds.to_netcdf(parsivel_combined_file, mode='a')
+    # Add a new output name tag (variant) if requested
+    if args.output_tag:
+        parsivel_combined_filename = os.path.basename(parsivel_combined_path)
+        parsivel_combined_filename = \
+            parsivel_combined_filename.replace(".nc", "_{}.nc".format(args.output_tag))
+        parsivel_combined_path = os.path.join(PIPS_dir, parsivel_combined_filename)
+        parsivel_combined_ds.to_netcdf(parsivel_combined_path)
+    else:
+        parsivel_combined_ds.to_netcdf(parsivel_combined_path, mode='a')
