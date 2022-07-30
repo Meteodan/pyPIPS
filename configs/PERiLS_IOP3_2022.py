@@ -3,9 +3,9 @@
 PIPS_IO_dict = {
     'dataset_name': 'IOP3_040522',
     'deployment_names': ['IOP3_040522'] * 6,
-    'input_txt_dir': '/Users/dandawson/Projects/PERiLS/PIPS_data/2022/IOP3_040522/csv/',
-    'PIPS_dir': '/Users/dandawson/Projects/PERiLS/PIPS_data/2022/IOP3_040522/netcdf',
-    'plot_dir': '/Users/dandawson/Projects/PERiLS/PIPS_data/2022/IOP3_040522/plots',
+    'input_txt_dir': '/depot/dawson29/data/Projects/PERiLS/obsdata/2022/PIPS_data/IOP3_040522/csv/',
+    'PIPS_dir': '/depot/dawson29/data/Projects/PERiLS/obsdata/2022/PIPS_data/IOP3_040522/netcdf',
+    'plot_dir': '/depot/dawson29/data/Projects/PERiLS/obsdata/2022/PIPS_data/IOP3_040522_hamid/plots',
     'PIPS_types': ['PIPS'] * 6,
     'PIPS_names': ['PIPS1A', 'PIPS1B', 'PIPS2A', 'PIPS2B', 'PIPS3A', 'PIPS3B'],
     'PIPS_filenames': ['PIPS1A_IOP3_040522_merged.txt', 'PIPS1B_IOP3_040522_merged.txt',
@@ -40,16 +40,17 @@ PIPS_qc_dict = {
 }
 
 radar_config_dict = {
-    'comp_radar': False,
+    'comp_radar': True,
     'calc_dualpol': True,
     'plot_retrieval': True,
     'radar_name': 'KGWX',
     'radar_type': 'NEXRAD',
-    'radar_dir': '/Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/2017/NEXRAD/IOP_1A/CFRadial',
-    'field_names': ['REF', 'ZDR', 'RHO', 'Dm_Z01', 'sigma_Z01', 'RR_Z01', 'mu_Z01', 'lamda_Z01'],
+    'radar_dir': '/depot/dawson29/data/Projects/PERiLS/obsdata/2022/NEXRAD/IOP3/KGWX/',
+    'radar_fname_pattern': '{rad_name}{year:04d}{month:02d}{day:02d}_{hour:02d}{min:02d}{sec:02d}_V06.nc',
+    'field_names': ['REF', 'ZDR', 'RHO'],  # , 'Dm_Z01', 'sigma_Z01', 'RR_Z01', 'mu_Z01', 'lamda_Z01'],
     'el_req': 0.5,
-    'radar_start_timestamp': '20170325173000',
-    'radar_end_timestamp': '20170325184500',
-    'scatt_dir': '/Users/dawson29/Projects/pyPIPS/tmatrix/S-Band/',
+    'radar_start_timestamp': '20220405143500',
+    'radar_end_timestamp': '20220405172000',
+    'scatt_dir': '/depot/dawson29/apps/Projects/pyPIPS/tmatrix/S-Band/',
     'wavelength': 10.7
 }
