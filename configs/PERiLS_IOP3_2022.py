@@ -42,7 +42,7 @@ PIPS_qc_dict = {
 radar_config_dict = {
     'comp_radar': True,
     'calc_dualpol': True,
-    'plot_retrieval': True,
+    'plot_retrieval': False,
     'radar_name': 'KGWX',
     'radar_type': 'NEXRAD',
     'radar_dir': '/depot/dawson29/data/Projects/PERiLS/obsdata/2022/NEXRAD/IOP3/KGWX/',
