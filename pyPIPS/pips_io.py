@@ -305,6 +305,9 @@ def read_PIPS(filename, start_timestamp=None, end_timestamp=None, tripips=False,
         header = disfile.readline()
         field_indices = get_field_indices(header, tripips=tripips)
 
+    if correct_logger_time:
+        GPS_offset = get_PIPS_GPS_offset(filename, field_indices, tripips=tripips)
+
     # Open the file again and start parsing the records
     with open(filename, 'r') as disfile:
         for record in disfile:
@@ -312,6 +315,8 @@ def read_PIPS(filename, start_timestamp=None, end_timestamp=None, tripips=False,
                 record_dict = parse_PIPS_record(record, field_indices, tripips=tripips)
             except:
                 continue
+            if correct_logger_time:
+                record_dict['logger_datetime'] += GPS_offset
             # Skip this record if it lies before or after the desired period
             if starttime is not None and record_dict['logger_datetime'] < starttime:
                 continue
@@ -331,10 +336,10 @@ def read_PIPS(filename, start_timestamp=None, end_timestamp=None, tripips=False,
     conv_df = pd.DataFrame(conv_dict_list)
     parsivel_df = pd.DataFrame(parsivel_dict_list)
 
-    if correct_logger_time:
-        GPS_offset = get_PIPS_GPS_offset(filename, field_indices, tripips=tripips)
-        conv_df['logger_datetime'] += GPS_offset
-        parsivel_df['parsivel_datetime'] += GPS_offset
+    # if correct_logger_time:
+    #     GPS_offset = get_PIPS_GPS_offset(filename, field_indices, tripips=tripips)
+    #     conv_df['logger_datetime'] += GPS_offset
+    #     parsivel_df['parsivel_datetime'] += GPS_offset
 
     # Have to do this because of some weird issue where the DataArray constructor below errors out
     # if you try to give the 'time' coordinate the actual parsivel_df.index as its values.
