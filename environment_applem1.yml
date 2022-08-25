@@ -2,14 +2,12 @@ name: pyPIPS
 channels:
   - conda-forge
 dependencies:
-  - arm_pyart
   - autopep8
   - beautifulsoup4
   - bottleneck
   - cartopy
   - cftime
   - flake8
-  - gfortran
   - joblib
   - jupyter
   - matplotlib
@@ -21,7 +19,6 @@ dependencies:
   - pandas
   - pip
   - pylint
-  - pysteps
   - pytz
   - scipy
   - scikit-learn
@@ -29,4 +26,5 @@ dependencies:
   - urllib3
   - xarray
   - pip:
+    - arm_pyart
     - "--editable=git+https://github.itap.purdue.edu/STorMLab/pyCRMtools.git@master#egg=pyCRMtools"

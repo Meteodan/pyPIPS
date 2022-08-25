@@ -5,15 +5,15 @@ PIPS_IO_dict = {
     'deployment_names': ['IOP2_033022'] * 4,
     'input_txt_dir': '/depot/dawson29/data/Projects/PERiLS/obsdata/2022/PIPS_data/IOP2_033022/csv/',
     'PIPS_dir': '/depot/dawson29/data/Projects/PERiLS/obsdata/2022/PIPS_data/IOP2_033022/netcdf',
-    'plot_dir': '/depot/dawson29/data/Projects/PERiLS/obsdata/2022/PIPS_data/IOP2_033022/plots',
+    'plot_dir': '/depot/dawson29/data/temp_plots',
     'PIPS_types': ['PIPS'] * 4,
     'PIPS_names': ['PIPS1A', 'PIPS1B', 'PIPS2A', 'PIPS3B'],
     'PIPS_filenames': ['PIPS1A_IOP2_033022_merged.txt', 'PIPS1B_IOP2_033022_merged.txt',
                        'PIPS2A_IOP2_033022_merged.txt', 'PIPS3B_IOP2_033022_merged.txt'],
-    'PIPS_filenames_nc': ['parsivel_combined_IOP2_033022_PIPS1A_10s.nc',
-                          'parsivel_combined_IOP2_033022_PIPS1B_10s.nc',
-                          'parsivel_combined_IOP2_033022_PIPS2A_10s.nc',
-                          'parsivel_combined_IOP2_033022_PIPS3B_10s.nc'],
+    'PIPS_filenames_nc': ['parsivel_combined_IOP2_033022_PIPS1A_10s_test.nc',
+                          'parsivel_combined_IOP2_033022_PIPS1B_10s_test.nc',
+                          'parsivel_combined_IOP2_033022_PIPS2A_10s_test.nc',
+                          'parsivel_combined_IOP2_033022_PIPS3B_10s_test.nc'],
     'start_times': ['20220330234000'] * 4,
     'end_times': ['20220331014500'] * 4,
     'requested_interval': 10.
@@ -31,7 +31,7 @@ PIPS_qc_dict = {
 }
 
 radar_config_dict = {
-    'comp_radar': False,
+    'comp_radar': True,
     'calc_dualpol': True,
     'plot_retrieval': False,
     'radar_name': 'KGWX',
