@@ -3,25 +3,26 @@
 # This script calculates radar retrievals for entire radar sweeps. Reads in from previously created
 # lookup tables
 import os
+from pathlib import Path
 import argparse
 from glob import glob
-from datetime import datetime, timedelta
+# from datetime import datetime, timedelta
 import numpy as np
 import pandas as pd
-import xarray as xr
-import matplotlib.ticker as ticker
-import matplotlib.dates as dates
-import matplotlib.pyplot as plt
+# import xarray as xr
+# import matplotlib.ticker as ticker
+# import matplotlib.dates as dates
+# import matplotlib.pyplot as plt
 import pyPIPS.parsivel_params as pp
 import pyPIPS.radarmodule as radar
-import pyPIPS.plotmodule as pm
-import pyPIPS.pips_io as pipsio
+# import pyPIPS.plotmodule as pm
+# import pyPIPS.pips_io as pipsio
 import pyPIPS.utils as utils
-import pyPIPS.PIPS as pips
-import pyPIPS.parsivel_qc as pqc
+# import pyPIPS.PIPS as pips
+# import pyPIPS.parsivel_qc as pqc
 import pyPIPS.timemodule as tm
-import pyPIPS.DSDlib as dsd
-import pyPIPS.polarimetric as dp
+# import pyPIPS.DSDlib as dsd
+# import pyPIPS.polarimetric as dp
 import pyart
 
 
@@ -76,9 +77,9 @@ plot_dir = config.PIPS_IO_dict.get('plot_dir', None)
 PIPS_types = config.PIPS_IO_dict.get('PIPS_types', None)
 PIPS_names = config.PIPS_IO_dict.get('PIPS_names', None)
 PIPS_filenames = config.PIPS_IO_dict.get('PIPS_filenames', None)
-start_times = config.PIPS_IO_dict.get('start_times', [None]*len(PIPS_names))
-end_times = config.PIPS_IO_dict.get('end_times', [None]*len(PIPS_names))
-geo_locs = config.PIPS_IO_dict.get('geo_locs', [None]*len(PIPS_names))
+start_times = config.PIPS_IO_dict.get('start_times', [None] * len(PIPS_names))
+end_times = config.PIPS_IO_dict.get('end_times', [None] * len(PIPS_names))
+geo_locs = config.PIPS_IO_dict.get('geo_locs', [None] * len(PIPS_names))
 requested_interval = config.PIPS_IO_dict.get('requested_interval', 10.)
 
 # Extract needed lists and variables from the radar_dict configuration dictionary
@@ -88,6 +89,10 @@ calc_dualpol = config.radar_config_dict.get('calc_dualpol', False)
 radar_name = config.radar_config_dict.get('radar_name', None)
 radar_type = config.radar_config_dict.get('radar_type', None)
 radar_dir = config.radar_config_dict.get('radar_dir', None)
+radar_fname_pattern = config.radar_config_dict.get('radar_fname_pattern', None)
+# Add the input filename tag to the pattern if needed
+if args.input_tag:
+    radar_fname_pattern = radar_fname_pattern.replace('.', '_{}.'.format(args.input_tag))
 field_names = config.radar_config_dict.get('field_names', ['REF'])
 if not calc_dualpol:
     field_names = ['REF']
@@ -107,24 +112,75 @@ if args.input_tag is None:
 else:
     radar_paths = glob(radar_dir + '/*{}*_{}.nc'.format(radar_name, args.input_tag))
 
-radar_path_dict = radar.get_radar_paths(radar_paths, radar_start_timestamp, radar_end_timestamp,
-                                        el_req=el_req, radar_type=radar_type)
+# Then find only those between the requested times
+radar_dict = radar.get_radar_paths_between_times(radar_paths, radar_start_timestamp,
+                                                 radar_end_timestamp, radar_type=radar_type,
+                                                 fname_format=radar_fname_pattern)
+# TODO: refactor this. Shouldn't need a separate function for XTRRA ideally
+# And, anyway, this is broken since it yields a different format for the radar_dict dictionary
+# that doesn't work anymore
+if radar_type == 'XTRRA':
+    radar_dict = radar.get_radar_paths_single_elevation(radar_dict, el_req=el_req,
+                                                        radar_type=radar_type)
 
-radar_input_paths = radar_path_dict['radarpathlist']
-radar_sweeptimes = radar_path_dict['sweeptimelist']
-if args.output_tag:
-    radar_output_paths = [radar_path.replace('.nc', '_{}.nc'.format(args.output_tag))
-                          for radar_path in radar_input_paths]
+if el_req < 0.0:    # Only should be used for testing.
+    radar_dict_out = radar.read_vols(radar_dict)
 else:
-    radar_output_paths = radar_input_paths
+    # TODO: really should try to avoid reading all the sweeps into memory at once. Change this
+    # back to where it reads the radar object one at a time...
+    radar_dict_out = radar.read_sweeps(radar_dict, el_req=el_req)
+    # Now, loop through the radar sweeps and construct new file names for the filtered output
+    # files using the file name format string in the config file, and tacking on
+    # the output tag name as necessary.
+    # First, treat the filename pattern as a path and extract the stem and extension from it
+    if args.output_tag:
+        radar_fname_pattern_path = Path(radar_fname_pattern)
+        radar_fname_pattern_stem = radar_fname_pattern_path.stem
+        radar_fname_pattern_ext = radar_fname_pattern_path.suffixes[-1]
+        # Now modify the stem to tack on the output tag
+        radar_fname_pattern_stem_new = radar_fname_pattern_stem + "_{output_tag}"
+        # Now put the extension back on
+        radar_fname_pattern_out = radar_fname_pattern_stem_new + radar_fname_pattern_ext
+    else:
+        radar_fname_pattern_out = radar_fname_pattern
+
+    # Now, loop through the sweeps and construct new file names using the new format
+    radar_sweep_list = radar_dict_out['rad_sweep_list']
+    radar_output_fname_list = []
+    radar_sweep_time_list = []
+    for radar_sweep in radar_sweep_list:
+        radar_sweep_time = pyart.graph.common.generate_radar_time_sweep(radar_sweep, 0)
+        radar_sweep_time_list.append(radar_sweep_time)
+        if args.output_tag:
+            radar_sweep_fname = radar_fname_pattern_out.format(rad_name=radar_name,
+                                                               year=radar_sweep_time.year,
+                                                               month=radar_sweep_time.month,
+                                                               day=radar_sweep_time.day,
+                                                               hour=radar_sweep_time.hour,
+                                                               min=radar_sweep_time.minute,
+                                                               sec=radar_sweep_time.second,
+                                                               output_tag=args.output_tag)
+        else:
+            radar_sweep_fname = radar_fname_pattern_out.format(rad_name=radar_name,
+                                                               year=radar_sweep_time.year,
+                                                               month=radar_sweep_time.month,
+                                                               day=radar_sweep_time.day,
+                                                               hour=radar_sweep_time.hour,
+                                                               min=radar_sweep_time.minute,
+                                                               sec=radar_sweep_time.second)
+        radar_output_fname_list.append(radar_sweep_fname)
+    radar_output_paths = [os.path.join(radar_dir, rof) for rof in radar_output_fname_list]
 
 if args.use_filtered_fields:
     tag = '_filtered'
 else:
     tag = None
 
-for radar_input_path, radar_output_path in zip(radar_input_paths, radar_output_paths):
-    radar_obj = radar.readCFRadial_pyART(el_req, radar_input_path, compute_kdp=False)
+for radar_obj, radar_sweep_time, radar_output_path in zip(radar_sweep_list,
+                                                          radar_sweep_time_list,
+                                                          radar_output_paths):
+    print("Working on time {}".format(radar_sweep_time.strftime(tm.timefmt2)))
+    print("Output filename will be {}".format(os.path.basename(radar_output_path)))
     print("Getting ZH and ZDR fields")
     # Get the ZH and ZDR fields from the radar object
     ZH_rad_tuple = radar.get_field_to_plot(radar_obj, radar.REF_aliases, tag=tag)
@@ -183,8 +239,8 @@ for radar_input_path, radar_output_path in zip(radar_input_paths, radar_output_p
             # Gah, for some reason DataFrame.lookup sometimes barfs on perfectly good floating point
             # values in columns, so convert them back to strings here. :rolleyes:
             retr_table.columns = [str(col) for col in retr_table.columns]
-            #print(list(retr_table.index))
-            #print(list(retr_table.columns))
+            # print(list(retr_table.index))
+            # print(list(retr_table.columns))
             # Ok, now retrieve the desired retrieval variable
             # for each ZH/ZDR pair in the flattened radar sweep
             # for ZH, ZDR in zip(ZH_flat, ZDR_flat):
@@ -197,16 +253,16 @@ for radar_input_path, radar_output_path in zip(radar_input_paths, radar_output_p
             # Construct the dictionary. NOTE: Gotcha! Apparently have to make a copy here,
             # otherwise contents of 'data' don't get written when same dictionary is used later.
             retr_val_dict = radar.retrieval_metadata[retr_varname].copy()
-            retr_val_dict['data'] = retr_vals_data  # If I don't make a copy on the previous line
-                                                    # The contents of retr_val_dict['data'] are
-                                                    # not updated after the first time. This is
-                                                    # very weird.
+            # If I don't make a copy on the previous line
+            # The contents of retr_val_dict['data'] are
+            # not updated after the first time. This is
+            # very weird.
+            retr_val_dict['data'] = retr_vals_data
             # Save the retrieved array as a new field in the radar sweep object
             retr_varname_out = '{}_{}'.format(retr_varname, retrieval_tag)
             radar_obj.add_field(retr_varname_out, retr_val_dict, replace_existing=True)
             # Now mask the retrieved values using the original combined mask of ZH and ZDR
             radar_obj.fields[retr_varname_out]['data'].mask = full_mask
-
 
     # Now save the radar object to a new CFRadial file with the added retrieved fields
     print("Saving {}".format(radar_output_path))
