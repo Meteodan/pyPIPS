@@ -81,6 +81,9 @@ radar_name = config.radar_config_dict.get('radar_name', None)
 radar_type = config.radar_config_dict.get('radar_type', None)
 radar_dir = config.radar_config_dict.get('radar_dir', None)
 radar_fname_pattern = config.radar_config_dict.get('radar_fname_pattern', None)
+# Add the input filename tag to the pattern if needed
+if args.input_tag:
+    radar_fname_pattern = radar_fname_pattern.replace('.', '_{}.'.format(args.input_tag))
 field_names = config.radar_config_dict.get('field_names', ['REF'])
 if not calc_dualpol:
     field_names = ['REF']
@@ -104,6 +107,9 @@ else:
 radar_dict = radar.get_radar_paths_between_times(radar_paths, radar_start_timestamp,
                                                  radar_end_timestamp, radar_type=radar_type,
                                                  fname_format=radar_fname_pattern)
+# TODO: refactor this. Shouldn't need a separate function for XTRRA ideally
+# And, anyway, this is broken since it yields a different format for the radar_dict dictionary
+# that doesn't work anymore
 if radar_type == 'XTRRA':
     radar_dict = radar.get_radar_paths_single_elevation(radar_dict, el_req=el_req,
                                                         radar_type=radar_type)
