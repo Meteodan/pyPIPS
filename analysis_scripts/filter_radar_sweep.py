@@ -117,6 +117,8 @@ if radar_type == 'XTRRA':
 if el_req < 0.0:    # Only should be used for testing.
     radar_dict_out = radar.read_vols(radar_dict)
 else:
+    # TODO: really should try to avoid reading all the sweeps into memory at once. Change this
+    # back to where it reads the radar object one at a time...
     radar_dict_out = radar.read_sweeps(radar_dict, el_req=el_req)
     # Now, loop through the radar sweeps and construct new file names for the filtered output
     # files using the file name format string in the config file, and tacking on

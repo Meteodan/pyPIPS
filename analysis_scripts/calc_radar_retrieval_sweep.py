@@ -117,6 +117,8 @@ radar_dict = radar.get_radar_paths_between_times(radar_paths, radar_start_timest
                                                  radar_end_timestamp, radar_type=radar_type,
                                                  fname_format=radar_fname_pattern)
 # TODO: refactor this. Shouldn't need a separate function for XTRRA ideally
+# And, anyway, this is broken since it yields a different format for the radar_dict dictionary
+# that doesn't work anymore
 if radar_type == 'XTRRA':
     radar_dict = radar.get_radar_paths_single_elevation(radar_dict, el_req=el_req,
                                                         radar_type=radar_type)
@@ -124,6 +126,8 @@ if radar_type == 'XTRRA':
 if el_req < 0.0:    # Only should be used for testing.
     radar_dict_out = radar.read_vols(radar_dict)
 else:
+    # TODO: really should try to avoid reading all the sweeps into memory at once. Change this
+    # back to where it reads the radar object one at a time...
     radar_dict_out = radar.read_sweeps(radar_dict, el_req=el_req)
     # Now, loop through the radar sweeps and construct new file names for the filtered output
     # files using the file name format string in the config file, and tacking on
