@@ -9,6 +9,7 @@ dependencies:
   - cartopy
   - cftime
   - flake8
+  - gfortran
   - joblib
   - jupyter
   - matplotlib
@@ -20,7 +21,7 @@ dependencies:
   - pandas
   - pip
   - pylint
-  - pynio
+  - pysteps
   - pytz
   - scipy
   - scikit-learn

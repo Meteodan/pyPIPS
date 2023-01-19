@@ -1,7 +1,7 @@
 """Configuration script for VORTEX-SE IOP1A 2017 deployment"""
 
 PIPS_IO_dict = {
-    'dataset_name': 'IOP1A_2016',
+    'dataset_name': 'IOP1A_2017',
     'deployment_names': ['IOP1A_D1_2017'] * 3,
     'input_txt_dir': '/Volumes/scr_fast/Projects/VORTEXSE/obsdata/full_PIPS_dataset_links',
     'PIPS_dir': '/Volumes/scr_fast/Projects/VORTEXSE/obsdata/full_PIPS_dataset_RB15',
@@ -13,8 +13,8 @@ PIPS_IO_dict = {
     'PIPS_filenames_nc': ['parsivel_combined_IOP1A_D1_2017_PIPS1A_60s.nc',
                           'parsivel_combined_IOP1A_D1_2017_PIPS1B_60s.nc',
                           'parsivel_combined_IOP1A_D1_2017_PIPS2B_60s.nc'],
-    'start_times': [None] * 3,
-    'end_times': [None] * 3,
+    'start_times': ['20170325173000'] * 3,
+    'end_times': ['20170325184500'] * 3,
     'requested_interval': 60.
 }
 
@@ -35,7 +35,7 @@ radar_config_dict = {
     'comp_radar': True,
     'clean_radar': False,
     'calc_dualpol': True,
-    'plot_retrieval': True,
+    'plot_retrieval': False,
     'radar_name': 'KGWX',
     'radar_type': 'NEXRAD',
     'radar_dir': '/Users/dawson29/sshfs_mounts/depot/data/Projects/VORTEXSE/obsdata/2017/NEXRAD/IOP_1A/CFRadial',

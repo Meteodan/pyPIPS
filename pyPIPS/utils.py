@@ -12,6 +12,7 @@ from datetime import datetime
 import numpy as np
 import matplotlib.dates as dates
 import xarray as xr
+import re
 
 logdest = sys.stdout
 
@@ -400,3 +401,37 @@ def interp_along_1D(ds, da1D, dim_to_interp, dim_fixed):
 
     return ds_interp
 
+
+# The following are taken from https://stackoverflow.com/questions/
+# 5967500/how-to-correctly-sort-a-string-with-a-number-inside?noredirect=1&lq=1
+def atoi(text):
+    return int(text) if text.isdigit() else text
+
+
+def natural_keys(text):
+    '''
+    alist.sort(key=natural_keys) sorts in human order
+    http://nedbatchelder.com/blog/200712/human_sorting.html
+    (See Toothy's implementation in the comments)
+    '''
+    return [atoi(c) for c in re.split(r'(\d+)', text)]
+
+
+# From https://stackoverflow.com/questions/6618515/sorting-list-based-on-values-from-another-list
+def sortby(X, Y):
+    """Sorts list X by values in list Y"""
+    return [x for _, x in sorted(zip(Y, X), key=lambda pair: pair[0])]
+
+
+# From
+# https://stackoverflow.com/questions/38987/
+# how-to-merge-two-dictionaries-in-a-single-expression?noredirect=1&lq=1
+def merge_dicts(*dict_args):
+    """
+    Given any number of dicts, shallow copy and merge into a new dict,
+    precedence goes to key value pairs in latter dicts.
+    """
+    result = {}
+    for dictionary in dict_args:
+        result.update(dictionary)
+    return result

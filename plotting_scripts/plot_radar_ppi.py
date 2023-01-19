@@ -23,15 +23,21 @@ max_fall_bins = pp.parsivel_parameters['max_fallspeed_bins_mps']
 avg_fall_bins = pp.parsivel_parameters['avg_fallspeed_bins_mps']
 
 # Parse the command line options
-parser = argparse.ArgumentParser(description="Plots radar PPIs")
+parser = argparse.ArgumentParser(description="Plots radar PPIs",
+                                 formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument('case_config_path', metavar='<path/to/case/config/file.py>',
                     help='The path to the case configuration file')
+parser.add_argument('--el-req', type=float, dest='el_req_cl', default=None,
+                    help='Requested elevation angle (overrides value in config file)')
 parser.add_argument('--plot-config-path', dest='plot_config_path',
                     default='plot_config.py', help='Location of the plot configuration file')
 parser.add_argument('--plot-filtered-fields', dest='plot_filtered', default=False,
                     action='store_true',
                     help=('Whether to also plot previously filtered dBZ and ZDR fields for the '
                           'retrieval'))
+help_msg = ('tag to determine filename variant for input nc files (V06 when produced by pyART, '
+            'SUR when produced by RadxConvert)')
+parser.add_argument('--fname-variant', dest='fname_variant', default='V06', help=help_msg)
 parser.add_argument('--input-tag', dest='input_tag', default=None,
                     help='Input nametag to determine which radar files to read in')
 parser.add_argument('--filter-fix', dest='filter_fix', action='store_true',
@@ -75,9 +81,9 @@ plot_dir = config.PIPS_IO_dict.get('plot_dir', None)
 PIPS_types = config.PIPS_IO_dict.get('PIPS_types', None)
 PIPS_names = config.PIPS_IO_dict.get('PIPS_names', None)
 PIPS_filenames = config.PIPS_IO_dict.get('PIPS_filenames', None)
-start_times = config.PIPS_IO_dict.get('start_times', [None]*len(PIPS_names))
-end_times = config.PIPS_IO_dict.get('end_times', [None]*len(PIPS_names))
-geo_locs = config.PIPS_IO_dict.get('geo_locs', [None]*len(PIPS_names))
+start_times = config.PIPS_IO_dict.get('start_times', [None] * len(PIPS_names))
+end_times = config.PIPS_IO_dict.get('end_times', [None] * len(PIPS_names))
+geo_locs = config.PIPS_IO_dict.get('geo_locs', [None] * len(PIPS_names))
 requested_interval = config.PIPS_IO_dict.get('requested_interval', 10.)
 
 # Extract needed lists and variables from the radar_dict configuration dictionary
@@ -87,10 +93,17 @@ calc_dualpol = config.radar_config_dict.get('calc_dualpol', False)
 radar_name = config.radar_config_dict.get('radar_name', None)
 radar_type = config.radar_config_dict.get('radar_type', None)
 radar_dir = config.radar_config_dict.get('radar_dir', None)
+radar_fname_pattern = config.radar_config_dict.get('radar_fname_pattern', None)
+# Add the input filename tag to the pattern if needed
+if args.input_tag:
+    radar_fname_pattern = radar_fname_pattern.replace('.', '_{}.'.format(args.input_tag))
 field_names = config.radar_config_dict.get('field_names', ['REF'])
 if not calc_dualpol:
     field_names = ['REF']
-el_req = config.radar_config_dict.get('el_req', 0.5)
+if args.el_req_cl:
+    el_req = args.el_req_cl
+else:
+    el_req = config.radar_config_dict.get('el_req', 0.5)
 radar_start_timestamp = config.radar_config_dict.get('radar_start_timestamp', None)
 radar_end_timestamp = config.radar_config_dict.get('radar_end_timestamp', None)
 scatt_dir = config.radar_config_dict.get('scatt_dir', None)
@@ -102,26 +115,30 @@ if not os.path.exists(radar_ppi_image_dir):
     os.makedirs(radar_ppi_image_dir)
 
 # Get a list of the combined parsivel netCDF data files that are present in the PIPS directory
+# TODO: change this logic to actually use the files listed in the config file
 parsivel_combined_filenames = [
     'parsivel_combined_{}_{}_{:d}s.nc'.format(deployment_name, PIPS_name, int(requested_interval))
     for deployment_name, PIPS_name in zip(deployment_names, PIPS_names)]
 parsivel_combined_filelist = [os.path.join(PIPS_dir, pcf) for pcf in parsivel_combined_filenames]
 
 # Read radar sweeps
-
-# Get a list of radar paths between the start and stop times and containing the elevation
-# angle requested
+# First get a list of all potentially relevant radar files in the directory
 if args.input_tag is None:
-    radar_paths = glob(radar_dir + '/*{}*.nc'.format(radar_name))
+    radar_paths = glob(radar_dir + '/*{}*{}.nc'.format(radar_name, args.fname_variant))
 else:
     radar_paths = glob(radar_dir + '/*{}*_{}.nc'.format(radar_name, args.input_tag))
-
-radar_path_dict = radar.get_radar_paths(radar_paths, radar_start_timestamp, radar_end_timestamp,
-                                        el_req=el_req, radar_type=radar_type)
+# Then find only those between the requested times
+radar_path_dict = radar.get_radar_paths_between_times(radar_paths, radar_start_timestamp,
+                                                      radar_end_timestamp, radar_type=radar_type,
+                                                      fname_format=radar_fname_pattern)
+if radar_type == 'XTRRA':
+    radar_path_dict = radar.get_radar_paths_single_elevation(radar_path_dict, el_req=el_req,
+                                                             radar_type=radar_type)
 
 # Read first sweep in to get radar location
-first_sweep = radar.readCFRadial_pyART(el_req, radar_path_dict['radarpathlist'][0],
-                                       radar_path_dict['sweeptimelist'][0], compute_kdp=False)
+first_sweep_list = radar.readCFRadial_pyART(el_req, radar_path_dict['rad_path_list'][0],
+                                            compute_kdp=False)
+first_sweep = first_sweep_list[0]
 rlat = first_sweep.latitude['data'][0]
 rlon = first_sweep.longitude['data'][0]
 ralt = first_sweep.altitude['data'][0]
@@ -144,57 +161,63 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
     rad_loc = radar.get_PIPS_loc_relative_to_radar(geo_loc, rlat, rlon, ralt)
     rad_locs.append(rad_loc)
 
-for radar_path, sweeptime in zip(radar_path_dict['radarpathlist'],
-                                 radar_path_dict['sweeptimelist']):
-    radar_obj = radar.readCFRadial_pyART(el_req, radar_path, sweeptime, compute_kdp=False)
-    # TODO: temporary fix below. Code borrowed from filter_radar_sweep.py
-    if args.filter_fix:
-        # Get polarimetric fields from the radar object
-        ZH_rad_tuple = radar.get_field_to_plot(radar_obj, radar.REF_aliases)
-        ZDR_rad_tuple = radar.get_field_to_plot(radar_obj, radar.ZDR_aliases)
-        RHV_rad_tuple = radar.get_field_to_plot(radar_obj, radar.RHV_aliases)
-        ZH_name = ZH_rad_tuple[0]
-        ZDR_name = ZDR_rad_tuple[0]
-        RHV_name = RHV_rad_tuple[0]
+for radar_path in radar_path_dict['rad_path_list']:
+    radar_obj_list = radar.readCFRadial_pyART(el_req, radar_path, compute_kdp=False)
+    # Loop through the matching sweeps in the file (there may be more than one because of
+    # split cuts/SAILS)
+    for radar_obj in radar_obj_list:
+        # TODO: temporary fix below for fixing bugged filtered fields.
+        # Code borrowed from filter_radar_sweep.py
+        # NOTE: Can we remove this now?
+        if args.filter_fix:
+            # Get polarimetric fields from the radar object
+            ZH_rad_tuple = radar.get_field_to_plot(radar_obj, radar.REF_aliases)
+            ZDR_rad_tuple = radar.get_field_to_plot(radar_obj, radar.ZDR_aliases)
+            RHV_rad_tuple = radar.get_field_to_plot(radar_obj, radar.RHV_aliases)
+            ZH_name = ZH_rad_tuple[0]
+            ZDR_name = ZDR_rad_tuple[0]
+            RHV_name = RHV_rad_tuple[0]
 
-        # Make copies of polarimetric fields
-        for field_name in [ZH_name, ZDR_name, RHV_name]:
-            radar_obj.add_field_like(field_name, field_name+'_filtered',
-                                     radar_obj.fields[field_name]['data'].copy(),
-                                     replace_existing=True)
+            # Make copies of polarimetric fields
+            for field_name in [ZH_name, ZDR_name, RHV_name]:
+                radar_obj.add_field_like(field_name, field_name + '_filtered',
+                                         radar_obj.fields[field_name]['data'].copy(),
+                                         replace_existing=True)
 
-        print("Applying median filter")
-        for field_name in [ZH_name, ZDR_name, RHV_name]:
-            radar_obj.fields[field_name+'_filtered']['data'] = \
-                medfilt2d(radar_obj.fields[field_name+'_filtered']['data'],
-                          kernel_size=args.med_filter_width)
+            print("Applying median filter")
+            for field_name in [ZH_name, ZDR_name, RHV_name]:
+                radar_obj.fields[field_name + '_filtered']['data'] = \
+                    medfilt2d(radar_obj.fields[field_name + '_filtered']['data'],
+                              kernel_size=args.med_filter_width)
 
-        print("Creating dBZ and RHV gate filter")
-        # Create a gate filter to mask out areas with dBZ and RHV below thresholds
-        rhoHV_ref_filter = pyart.correct.moment_based_gate_filter(radar_obj,
-                                                                  rhv_field=RHV_name+'_filtered',
-                                                                  refl_field=ZH_name+'_filtered',
-                                                                  min_ncp=None,
-                                                                  min_rhv=args.RHV_thresh,
-                                                                  min_refl=args.dBZ_thresh,
-                                                                  max_refl=None)
+            print("Creating dBZ and RHV gate filter")
+            # Create a gate filter to mask out areas with dBZ and RHV below thresholds
+            rhoHV_ref_filter = \
+                pyart.correct.moment_based_gate_filter(radar_obj, rhv_field=RHV_name + '_filtered',
+                                                       refl_field=ZH_name + '_filtered',
+                                                       min_ncp=None,
+                                                       min_rhv=args.RHV_thresh,
+                                                       min_refl=args.dBZ_thresh,
+                                                       max_refl=None)
 
-        print("Applying gate filter")
-        # Mask fields using the dBZ/RHV mask
-        for field_name in [ZH_name, ZDR_name, RHV_name]:
-            radar_obj.fields[field_name+'_filtered']['data'] = \
-                np.ma.masked_where(rhoHV_ref_filter.gate_excluded,
-                                   radar_obj.fields[field_name+'_filtered']['data'])
+            print("Applying gate filter")
+            # Mask fields using the dBZ/RHV mask
+            for field_name in [ZH_name, ZDR_name, RHV_name]:
+                radar_obj.fields[field_name + '_filtered']['data'] = \
+                    np.ma.masked_where(rhoHV_ref_filter.gate_excluded,
+                                       radar_obj.fields[field_name + '_filtered']['data'])
+        # Extract time from start of sweep
+        sweep_time = pyart.graph.common.generate_radar_time_sweep(radar_obj, 0)
+        sweep_time_string = sweep_time.strftime(tm.timefmt3)
+        figlist, axlist, fields_plotted = radar.plotsweep_pyART(radar_obj, sweep_time, PIPS_names,
+                                                                geo_locs, rad_locs, field_names,
+                                                                plot_filtered=args.plot_filtered)
 
-    sweeptime_string = sweeptime.strftime(tm.timefmt3)
-    figlist, axlist, fields_plotted = radar.plotsweep_pyART(radar_obj, sweeptime, PIPS_names,
-                                                            geo_locs, rad_locs, field_names,
-                                                            plot_filtered=args.plot_filtered)
-
-    for fig, ax, field_name in zip(figlist, axlist, fields_plotted):
-        PIPS_plot_name = '{}_{}_{}_{}_{}deg.{}'.format(field_name, deployment_name,
-                                                       sweeptime_string, radar_name, str(el_req),
-                                                       args.image_fmt)
-        PIPS_plot_path = os.path.join(image_dir, PIPS_plot_name)
-        fig.savefig(PIPS_plot_path, dpi=200, bbox_inches='tight')
-        plt.close(fig)
+        for fig, ax, field_name in zip(figlist, axlist, fields_plotted):
+            PIPS_plot_name = '{}_{}_{}_{}_{}deg.{}'.format(field_name, deployment_name,
+                                                           sweep_time_string, radar_name,
+                                                           str(el_req),
+                                                           args.image_fmt)
+            PIPS_plot_path = os.path.join(image_dir, PIPS_plot_name)
+            fig.savefig(PIPS_plot_path, dpi=200, bbox_inches='tight')
+            plt.close(fig)

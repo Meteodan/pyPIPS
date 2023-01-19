@@ -1,6 +1,4 @@
 # radarmodule.py: A collection of functions to read and plot radar data
-
-import Nio
 import netCDF4
 import numpy as np
 import matplotlib
@@ -18,6 +16,7 @@ from datetime import datetime, timedelta
 from . import obanmodule as oban
 import glob
 import os
+import sys
 import pyart
 from pyart.config import get_metadata
 from . import utils
@@ -28,6 +27,7 @@ import xarray as xr
 import pandas as pd
 import pytz
 import cartopy.crs as ccrs
+from parse import compile as pcompile
 
 clevels_ref = np.arange(0.0, 85.0, 5.0)          # Contour levels for reflectivity (dBZ)
 clevels_zdr = np.arange(0.0, 6.25, 0.25)         # Contour levels for Zdr (dB)
@@ -137,7 +137,8 @@ sigma_plot_dict = {
 
 # Contains some common aliases for the different fields to match up with the above parameter dicts
 REF_aliases = ['dBZ', 'DBZ', 'Z', 'REF', 'DZ', 'corrected_reflectivity', 'reflectivity']
-ZDR_aliases = ['Zdr', 'ZDR', 'DB_ZDR', 'corrected_differential_reflectivity', 'differential_reflectivity']
+ZDR_aliases = ['Zdr', 'ZDR', 'DB_ZDR', 'corrected_differential_reflectivity',
+               'differential_reflectivity']
 KDP_aliases = ['Kdp', 'KDP', 'KD', 'specific_differential_phase']
 PHI_aliases = ['PHI', 'differential_phase']
 RHV_aliases = ['rhv', 'RHV', 'RHO', 'cross_correlation_ratio']
@@ -249,6 +250,10 @@ retrieval_metadata = {
 epr = 80.205 + 1j * 17.167  # Relative permittivity of liquid water
 K2 = np.abs((epr - 1) / (epr + 2))**2.  # Dielectric constant of liquid water squared
 
+# Default radar file name format used by the parse module to grab time information from the name
+radar_fname_format_default = \
+    '{rad_name}{year:04d}{month:02d}{day:02d}_{hour:02d}{min:02d}{sec:02d}_V06.nc'
+
 
 def mtokm(val, pos):
     """Convert m to km for formatting axes tick labels"""
@@ -322,12 +327,51 @@ register_projection(NorthPolarAxes)
 deg2rad = np.pi / 180.
 
 
+def _get_radar_time_from_fname(fname, fname_format):
+    """Generates a radar time in datetime format from the file name using a given pattern.
+       Uses the parse module"""
+    # TODO: probably should put this outside of the function so that it
+    # isn't called a bunch of times.
+    # Parse the file name into a dictionary containing the time elements
+    fname_parser = pcompile(fname_format)
+    fname_parsed = fname_parser.parse(fname)
+    fname_parsed_dict = fname_parsed.named
+
+    # Generate a datetime object from the parsed file name
+    rad_datetime = datetime(fname_parsed_dict['year'], fname_parsed_dict['month'],
+                            fname_parsed_dict['day'], fname_parsed_dict['hour'],
+                            fname_parsed_dict['min'], fname_parsed_dict['sec'])
+    return rad_datetime
+
+
+def _get_radar_time_from_CFRadial(path):
+    """Reads the radar start time from a CFRadial file"""
+    # TODO: refactor the code below. Can use netCDF.num2date to get the start time
+    print("Opening file: ", path)
+    sweepfile_netcdf = netCDF4.Dataset(path, "r")
+    # Wow, what a mess to just convert to a regular string now. There's got be a less ugly way.
+    sweeptime_raw = sweepfile_netcdf.variables['time_coverage_start'][...].tolist(fill_value='')
+    sweeptime = b''.join(sweeptime_raw).decode()
+    radyear = int(sweeptime[:4])
+    radmonth = int(sweeptime[5:7])
+    radday = int(sweeptime[8:10])
+    radhour = int(sweeptime[11:13])
+    radmin = int(sweeptime[14:16])
+    radsec = int(sweeptime[17:19])
+    sweepfile_netcdf.close()
+    return datetime(radyear, radmonth, radday, radhour, radmin, radsec)
+
+
+# TODO: remove this function once refactoring is complete
 def _getsweeptime(path, CFRadial=True):
-    """Attempts to read sweep time from the radar file or construct it from the file name."""
+    """Attempts to read sweep time from the radar file or construct it from the file name. Assumes
+       CFRadial format for the file"""
     if CFRadial:
-        # print "Opening file: ",path
-        sweepfile_netcdf = Nio.open_file(path)
-        sweeptime = sweepfile_netcdf.variables['time_coverage_start'].get_value().tostring()
+        print("Opening file: ", path)
+        sweepfile_netcdf = netCDF4.Dataset(path, "r")
+        # Wow, what a mess to just convert to a regular string now. There's got be a less ugly way.
+        sweeptime_raw = sweepfile_netcdf.variables['time_coverage_start'][...].tolist(fill_value='')
+        sweeptime = b''.join(sweeptime_raw).decode()
         radyear = int(sweeptime[:4])
         radmonth = int(sweeptime[5:7])
         radday = int(sweeptime[8:10])
@@ -350,10 +394,11 @@ def _getsweeptime(path, CFRadial=True):
 
 
 def _getelev(path):
-    sweepfile_netcdf = Nio.open_file(path)
+    sweepfile_netcdf = netCDF4.Dataset(path, "r")
     return sweepfile_netcdf.variables['elevation'][-1]
 
 
+# TODO: tag for removal once refactoring is complete
 def getradarfilelist(radar_dir, radar_save_dir, starttime=None, stoptime=None, platform='NEXRAD',
                      radar_name=None, el_req=0.5):
     """
@@ -432,107 +477,116 @@ def getradarfilelist(radar_dir, radar_save_dir, starttime=None, stoptime=None, p
     return radar_filelist, radtimes
 
 
-def readCFRadial_pyART(el, filename, sweeptime, radlat=None, radlon=None,
+def readCFRadial_pyART(el, filename, radlat=None, radlon=None,
                        radalt=None, compute_kdp=True, verbose=True):
     """
     Reads radar data from a CFRadial netCDF file using pyART. For nexrad files that contain an
-    entire volume, only the desired elevation angle will be returned.
+    entire volume, only sweeps with the desired elevation angle will be returned.
     """
     print("Opening file: ", filename)
     radarobj = pyart.io.read_cfradial(filename)
-    elevs = radarobj.elevation['data']
-    # Try to match up requested elevation angle with one in the file
+    # Nominal (target) elevations for each sweep in the file
+    elevs = radarobj.fixed_angle['data']
+    # Try to match up requested elevation angle with those in the file
     # Pick closest elevation angle to that requested
-    elev_list = []
-    for elev in radarobj.iter_elevation():
-        elev_list.append(elev[0])  # Just grab the elevation of the first ray in each sweep
-    elev_list = np.array(elev_list)
-
-    # Returns index of sweep with closest elevation angle to that requested
-    sweepindex = (np.abs(elev_list - el)).argmin()
-    radarsweep = radarobj.extract_sweeps([sweepindex])
+    # Find actual elevation angle that is closest to that requested
+    firstsweepindex = (np.abs(elevs - el)).argmin()
+    el_actual = elevs[firstsweepindex]
 
     if verbose:
-        el_actual = elevs[sweepindex]
         print("Requested elevation angle ", el)
-        print("Actual elevation angle at start of sweep: ", el_actual)
+        print("Nominal elevation angle found in file: ", el_actual)
 
-    # Grab the time information from the file
-    if not sweeptime:
-        sweeptime = _getsweeptime(filename, True)
+    # Now find any other sweeps in the file with the same nominal elevation angle
+    sweep_indices = [i for i, x in enumerate(elevs) if x == el_actual]
+    # sweep_start_ray_indices = list(radarobj.sweep_start_ray_index['data'][sweep_indices])
+
     if verbose:
-        print("Time of sweep = ", sweeptime.strftime(tm.timefmt))
-        numgates = radarsweep.ngates              # Number of gates
+        print("Found {:d} sweeps in file with elevation angle {:.2f}".format(len(sweep_indices),
+                                                                             el_actual))
+    radarsweep_list = []
+    for i, sweep_index in enumerate(sweep_indices):
+        radarsweep = radarobj.extract_sweeps([sweep_index])
+        # TODO: fix KDP computation
+        if compute_kdp:
+            kdp = next((f for f in list(radarsweep.fields.items())
+                        if f[0] in KDP_aliases), None)
+            if not kdp:
+                phi_name, phi = next(
+                    (field for field in list(radarsweep.fields.items()) if field[0] in PHI_aliases),
+                    ('', np.empty((0))))
+                phi = phi['data']
+                if phi.size:
+                    # First check that normalized coherent power is in the file.  If not, set to
+                    # all ones (Scott Collis, personal communication 2016). It seems the level-II
+                    # data doesn't have this field.
+                    ncp_exists = any(
+                        x in list(radarsweep.fields.keys()) for x in [
+                            'normalized_coherent_power', 'SQI', 'SQI2', 'NCP', 'NCP_F'])
+                    if not ncp_exists:
+                        ncp_field = pyart.config.get_field_name('normalized_coherent_power')
+                        ncp = pyart.config.get_metadata(ncp_field)
+                        ncp['data'] = np.ones_like(tempfield)
+                        radarsweep.add_field('normalized_coherent_power', ncp)
+                    print("Computing specific differential phase from differential phase.")
+                    refl_field_name = next((field_key for field_key in radarsweep.fields
+                                            if field_key in REF_aliases), None)
+                    rhv_field_name = next((field_key for field_key in radarsweep.fields
+                                        if field_key in RHV_aliases), None)
+                    if refl_field_name and rhv_field_name:
+                        phidp, kdp = pyart.correct.phase_proc_lp(
+                            radarsweep, 0.0, refl_field=refl_field_name, rhv_field=rhv_field_name,
+                            phidp_field=phi_name, debug=True)
+                        radarsweep.add_field('KDP', kdp)
+                    else:
+                        print("Sorry, couldn't compute KDP!")
 
-        if radlat is None:
-            rlat = radarsweep.latitude['data']
-            rlon = radarsweep.longitude['data']
-            ralt = radarsweep.altitude['data']
+        # TODO: consider removing block below or making it into a separate function. It seems like
+        # a lot just to print out some info and is bloating the function.
+        if verbose:
+            sweep_time = pyart.graph.common.generate_radar_time_sweep(radarobj, i)
+            time_string = "Time of sweep #{:d}: {}".format(i,
+                                                           sweep_time.strftime('%Y-%m-%d %H:%M:%S'))
+            print(time_string)
+            print("Elevation angle: {:.2f}".format(radarsweep.fixed_angle['data'][0]))
+            if radlat is None:
+                rlat = radarsweep.latitude['data']
+                rlon = radarsweep.longitude['data']
+                ralt = radarsweep.altitude['data']
 
-            if np.size(rlat) > 1:
-                rlat = rlat[0]
-            if np.size(rlon) > 1:
-                rlon = rlon[0]
-            if np.size(ralt) > 1:
-                ralt = ralt[0]
-        else:
-            rlat = radlat
-            rlon = radlon
-            ralt = radalt
+                if np.size(rlat) > 1:
+                    rlat = rlat[0]
+                if np.size(rlon) > 1:
+                    rlon = rlon[0]
+                if np.size(ralt) > 1:
+                    ralt = ralt[0]
+            else:
+                rlat = radlat
+                rlon = radlon
+                ralt = radalt
+            numgates = radarsweep.ngates  # Number of gates
+            print("Number of gates: ", numgates)
+            print("Radar lat,lon,alt", rlat, rlon, ralt)
 
-        print("Number of gates: ", numgates)
-        print("Radar lat,lon,alt", rlat, rlon, ralt)
+            grange = radarsweep.range['data']
+            gatewidth = grange[1] - grange[0]  # gate spacing
+            print("Gatewidth ", gatewidth)
 
-        grange = radarsweep.range['data']
-        gatewidth = grange[1] - grange[0]  # gate spacing
-        print("Gatewidth ", gatewidth)
+            # Get the Azimuth info
+            try:
+                beam_width = radarsweep.instrument_parameters['radar_beam_width_h']['data'][0]
+                print("Radar beam width (degrees): " + str(beam_width))
+            except (KeyError, TypeError):
+                # TODO: fix XTRRA CFRadial files to include beam width. Not that we really use it here.
+                print("No radar beam width information in file!")
 
-        # Get the Azimuth info
+            num_azim = radarsweep.nrays
 
-        try:
-            beam_width = radarsweep.instrument_parameters['radar_beam_width_h']['data'][0]
-            print("Radar beam width (degrees): " + str(beam_width))
-        except (KeyError, TypeError):
-            # TODO: fix XTRRA CFRadial files to include beam width. Not that we really use it here.
-            print("No radar beam width information in file!")
+            print("Number of azimuths in sweep ", num_azim)
 
-        num_azim = radarsweep.nrays
+        radarsweep_list.append(radarsweep)
 
-        print("Number of azimuths in sweep ", num_azim)
-
-    if compute_kdp:
-        kdp = next((f for f in list(radarsweep.fields.items())
-                    if f[0] in KDP_aliases), None)
-        if not kdp:
-            phi_name, phi = next(
-                (field for field in list(radarsweep.fields.items()) if field[0] in PHI_aliases),
-                ('', np.empty((0))))
-            phi = phi['data']
-            if phi.size:
-                # First check that normalized coherent power is in the file.  If not, set to
-                # all ones (Scott Collis, personal communication 2016). It seems the level-II
-                # data doesn't have this field.
-                ncp_exists = any(
-                    x in list(radarsweep.fields.keys()) for x in [
-                        'normalized_coherent_power', 'SQI', 'SQI2', 'NCP', 'NCP_F'])
-                if not ncp_exists:
-                    ncp_field = pyart.config.get_field_name('normalized_coherent_power')
-                    ncp = pyart.config.get_metadata(ncp_field)
-                    ncp['data'] = np.ones_like(tempfield)
-                    radarsweep.add_field('normalized_coherent_power', ncp)
-                print("Computing specific differential phase from differential phase.")
-                refl_field_name = next((field_key for field_key in radarsweep.fields
-                                        if field_key in REF_aliases), None)
-                rhv_field_name = next((field_key for field_key in radarsweep.fields
-                                       if field_key in RHV_aliases), None)
-                if refl_field_name and rhv_field_name:
-                    phidp, kdp = pyart.correct.phase_proc_lp(
-                        radarsweep, 0.0, refl_field=refl_field_name, rhv_field=rhv_field_name,
-                        phidp_field=phi_name, debug=True)
-                    radarsweep.add_field('KDP', kdp)
-                else:
-                    print("Sorry, couldn't compute KDP!")
-    return radarsweep
+    return radarsweep_list
 
 
 def get_field_to_plot(radar_obj, field_name_list, tag=None):
@@ -591,7 +645,7 @@ def readCFRadial(nexrad, el, radlat, radlon, radalt, file, sweeptime, fieldnames
     fieldlist = []
 
     print("Opening file: ", file)
-    sweepfile_netcdf = Nio.open_file(file)
+    sweepfile_netcdf = netCDF4.Dataset(file, "r")
 
     # Grab the time information from the file
 
@@ -808,7 +862,7 @@ def getncfilelist(platform, filelist, el_req, tolerance=0.5):
     elevations = []
 
     for index, file in enumerate(filelist):
-        sweepfile_netcdf = Nio.open_file(file)
+        sweepfile_netcdf = netCDF4.Dataset(file, "r")
         elevations.append(sweepfile_netcdf.variables[elvarname][0])
 
     elevations = np.array(elevations)
@@ -828,7 +882,7 @@ def readUMXPnc(file, sweeptime, fieldnames, heading=None, correct_attenuation=Tr
     fieldlist = []
 
     print("Opening file: ", file)
-    sweepfile_netcdf = Nio.open_file(file)
+    sweepfile_netcdf = netCDF4.Dataset(file, "r")
 
     # print "Time of sweep = ",sweeptime.strftime(tm.fmt)
 
@@ -1802,14 +1856,105 @@ def plotsweeps(pc, ib, sb, sweepstart=-1, sweepstop=-1):
                 plt.close(fig)
 
 
-def get_radar_paths(radar_paths, starttime, stoptime, el_req=0.5, radar_type='NEXRAD'):
-    """Get a list of radar paths between starttime and stoptime that contain the elevation angle
-    requested.
+def get_radar_paths_between_times(radar_paths, starttime, stoptime, radar_type='NEXRAD',
+                                  fname_format=radar_fname_format_default):
+    """Get a list of paths to radar files between starttime and stoptime using the timestamp in
+       the file name.
 
     Parameters
     ----------
     radar_paths : list
-        list of absolute paths to radar files
+        list of paths to radar files (usually as output of a glob operation)
+    starttime : str
+        starting timestamp in '%Y%m%d%H%M%S' format
+    stoptime : str
+        ending timestamp in '%Y%m%d%H%M%S' format
+    radar_type : str, optional
+        type of radar, by default 'NEXRAD'
+    fname_format: str, optional
+        format of the file name, by default a specific pattern defined at the top of this module
+
+    Returns
+    -------
+    dict
+        dict containing a list of sorted paths and associated times (in datetime format)
+    """
+
+    radstarttimedt = datetime.strptime(starttime, tm.timefmt3)
+    radstoptimedt = datetime.strptime(stoptime, tm.timefmt3)
+    rad_time_list = []
+
+    # Determine which files contain data between radstarttime and radstoptime
+    if fname_format is None:
+        radar_paths_keepers = radar_paths
+
+    radar_paths_keepers = []
+    for radar_path in radar_paths:
+        fname = os.path.basename(radar_path)
+        rad_time = _get_radar_time_from_fname(fname, fname_format=fname_format)
+        if radstarttimedt <= rad_time and rad_time <= radstoptimedt:
+            radar_paths_keepers.append(radar_path)
+            rad_time_list.append(rad_time)
+
+    # Sort the lists by increasing time since glob doesn't sort in any particular order
+    sorted_rad_time_list = sorted(rad_time_list)
+    sorted_radar_paths_keepers = [x for _, x in sorted(zip(rad_time_list, radar_paths_keepers),
+                                                       key=lambda pair: pair[0])]
+
+    # Stuff the lists into a dictionary
+    radar_dict = {
+        'rad_time_list': sorted_rad_time_list,
+        'rad_path_list': sorted_radar_paths_keepers
+    }
+    return radar_dict
+
+
+def get_radar_paths_single_elevation(radar_dict, el_req=0.5, radar_type='XTRRA'):
+    """Returns a list of radar_paths that contain sweeps at the requested elevation angle.
+
+    Parameters
+    ----------
+    radar_dict : dict
+        dictionary containing radar paths and associated start times
+    el_req : float, optional
+        requested elevation angle, by default 0.5
+    radar_type : str, optional
+        type of radar, by default 'XTRRA'. Currently only 'XTRRA' is supported
+
+    Returns
+    -------
+    dict
+        dict containing a list of sorted paths and associated times (in datetime format)
+    """
+    radar_paths = radar_dict['rad_path_list']
+    rad_time_list = radar_dict['rad_time_list']
+    radar_paths_keepers = []
+    rad_time_list_keepers = []
+    for radar_path, rad_time in zip(radar_paths, rad_time_list):
+        if 'XTRRA' in radar_type:
+            elevation = _getelev(radar_path)
+            if np.abs(elevation - el_req) < 0.1:
+                radar_paths_keepers.append(radar_path)
+                rad_time_list_keepers.append(rad_time)
+        else:  # not supported
+            sys.exit("Sorry, this radar type is not yet supported!")
+
+    radar_dict['rad_path_list'] = radar_paths_keepers
+    radar_dict['rad_time_list'] = rad_time_list_keepers
+
+    return radar_dict
+
+
+# TODO: remove this function once I have the above working
+def get_radar_paths_old(radar_paths, starttime, stoptime, el_req=0.5, radar_type='NEXRAD',
+                        fname_format=None, get_time_from_fname=True, CFRadial=True):
+    """Get a list of paths to radar files between starttime and stoptime that contain the elevation
+    angle requested.
+
+    Parameters
+    ----------
+    radar_paths : list
+        list of paths to radar files (usually as output of a glob operation)
     starttime : str
         starting timestamp in '%Y%m%d%H%M%S' format
     stoptime : str
@@ -1819,6 +1964,10 @@ def get_radar_paths(radar_paths, starttime, stoptime, el_req=0.5, radar_type='NE
         contains an entire volume.
     radar_type : str, optional
         type of radar, by default 'NEXRAD'
+    fname_format: str, optional
+        format of the file name, by default None. If None will just use all files in directory!
+    get_time_from_fname: bool, optional
+        whether to read the sweep/volume time from
 
     Returns
     -------
@@ -1860,8 +2009,8 @@ def get_radar_paths(radar_paths, starttime, stoptime, el_req=0.5, radar_type='NE
 
 
 # TODO: the following function is obsolescent
-def read_sweeps(radar_paths, starttime, stoptime, field_names=['dBZ'], el_req=0.5,
-                compute_kdp=False, radar_type='NEXRAD'):
+def read_sweeps_old(radar_paths, starttime, stoptime, field_names=['dBZ'], el_req=0.5,
+                    compute_kdp=False, radar_type='NEXRAD'):
     """Reads sweeps from a list of CFRadial files between the start and stop times requested
     and at the elevation angle requested. Returns a dictionary with the sweeps (pyART radar objects)
 
@@ -1911,9 +2060,8 @@ def read_sweeps(radar_paths, starttime, stoptime, field_names=['dBZ'], el_req=0.
                 radar_paths_keepers.append(radar_path)
                 sweeptimelist.append(sweeptime)
 
-    for radpath, sweeptime in zip(radar_paths_keepers, sweeptimelist):
-
-        radarsweep = readCFRadial_pyART(el_req, radpath, sweeptime, compute_kdp=compute_kdp)
+    for radpath in radar_paths_keepers:
+        radarsweep = readCFRadial_pyART(el_req, radpath, compute_kdp=compute_kdp)
         radarsweeplist.append(radarsweep)
 
     # Sort the lists by increasing time since glob doesn't sort in any particular order
@@ -1931,13 +2079,39 @@ def read_sweeps(radar_paths, starttime, stoptime, field_names=['dBZ'], el_req=0.
     return radar_dict
 
 
-def read_sweeps_new(radar_dict, el_req=0.5, compute_kdp=False, radar_type='NEXRAD'):
+def read_vols(radar_dict):
+    """Reads entire volumes from a list of CFRadial files (i.e. all the sweeps if the file
+       contains more than one). Primarily used by filter_radar_sweep.py
+
+    Parameters
+    ----------
+    radar_dict : dict
+        dictionary containing a list of paths to CFRadial files keyed by 'rad_path_list'
+
+    Returns
+    -------
+    dict
+        dictionary containing the list of radar volume objects
+    """
+    radpath_list = radar_dict['rad_path_list']
+    radar_vol_list = []
+
+    for radpath in radpath_list:
+        radar_vol = pyart.io.read_cfradial(radpath)
+        radar_vol_list.append(radar_vol)
+
+    # Stuff the list of sweeps into the dictionary
+    radar_dict['rad_sweep_list'] = radar_vol_list
+    return radar_dict
+
+
+def read_sweeps(radar_dict, el_req=0.5, compute_kdp=False):
     """Reads sweeps from a list of CFRadial files between the start and stop times requested
     and at the elevation angle requested. Returns a dictionary with the sweeps (pyART radar objects)
 
     Parameters
     ----------
-    radar_paths: list
+    radar_paths : list
         list of absolute paths to radar files
     el_req : float, optional
         desired elevation angle, by default 0.5
@@ -1950,16 +2124,17 @@ def read_sweeps_new(radar_dict, el_req=0.5, compute_kdp=False, radar_type='NEXRA
         dictionary containing the list of sweep objects, as well as the timestamps for each and
         the list of fields that were read in from the files.
     """
-    radpath_list = radar_dict['radarpathlist']
-    sweeptimelist = radar_dict['sweeptimelist']
+    radpath_list = radar_dict['rad_path_list']
     radarsweeplist = []
 
-    for radpath, sweeptime in zip(radpath_list, sweeptimelist):
-        radarsweep = readCFRadial_pyART(el_req, radpath, sweeptime, compute_kdp=compute_kdp)
-        radarsweeplist.append(radarsweep)
+    for radpath in radpath_list:
+        radarsweep_list = readCFRadial_pyART(el_req, radpath, compute_kdp=compute_kdp)
+        # Iterate throught the returned list of sweeps and add to sweep list
+        for radarsweep in radarsweep_list:
+            radarsweeplist.append(radarsweep)
 
     # Stuff the list of sweeps into the dictionary
-    radar_dict['radarsweeplist'] = radarsweeplist
+    radar_dict['rad_sweep_list'] = radarsweeplist
     return radar_dict
 
 
@@ -2064,6 +2239,7 @@ def interp_sweeps_to_PIPS(radar_name, radarsweep_list, PIPS_names, dradlocs, ave
     return radar_fields_at_PIPS_da
 
 
+# TODO: remove this obsolescent function
 def interp_sweeps_to_one_PIPS(radar_name, radarsweep_list, PIPS_name, rad_loc, average_gates=True,
                               ngates2avg=1, sweeptime_list=None):
     """Interpolates a series of radar sweeps to the locations of a single PIPS. Likely will
@@ -2176,7 +2352,7 @@ def interp_sweeps_to_one_PIPS(radar_name, radarsweep_list, PIPS_name, rad_loc, a
 
 
 def interp_sweeps_to_one_PIPS_new(radar_name, radar_path_dict, PIPS_name, geo_loc, el_req=0.5,
-                                  average_gates=True, ngates2avg=1):
+                                  average_gates=True, ngates2avg=1, compute_kdp=False):
     """Interpolates a series of radar sweeps to the locations of a single PIPS. Likely will
        replace the original interp_sweeps_to_PIPS. This new version avoids loading all of the radar
        sweeps into memory at once.
@@ -2189,10 +2365,14 @@ def interp_sweeps_to_one_PIPS_new(radar_name, radar_path_dict, PIPS_name, geo_lo
         Dictionary containing list of radar files and timestamps to read in
     PIPS_name : str
         The name of the PIPS
-    rad_loc : tuple
-        Tuple containing the (x, y) cartesian coordinates of the PIPS relative to the radar
+    geo_loc : tuple
+        Tuple containing the (lat, lon, height ASL) coordinates of the PIPS
     average_gates : bool, optional
-        Whether to average the closest 9 gates, by default True
+        Whether to average the closest surrounding gates, by default True
+    ngates2avg : int, optional
+        halo width of gates to average, by default 1 (a halo of 1 gate around the center)
+    compute_kdp : bool, optional
+        Whether to compute kdp from phidp, by default False
 
     Returns
     -------
@@ -2205,41 +2385,47 @@ def interp_sweeps_to_one_PIPS_new(radar_name, radar_path_dict, PIPS_name, geo_lo
     # NOTE: just read and interpolate all fields in the radar object for now
     # field_names = ['REF', 'VEL', 'ZDR', 'PHI', 'RHO', 'SW']
 
-
     # Outer loop through radar sweeps
-    radar_input_paths = radar_path_dict['radarpathlist']
-    radar_sweeptimes = radar_path_dict['sweeptimelist']
+    radar_input_paths = radar_path_dict['rad_path_list']
+    # radar_times = radar_path_dict['rad_time_list']
+    radar_times = []
     radar_fields_at_PIPS_tlist = []
     zrad_at_PIPS_list = []
-    for radar_input_path, sweeptime in zip(radar_input_paths, radar_sweeptimes):
-        radar_obj = readCFRadial_pyART(el_req, radar_input_path, sweeptime, compute_kdp=False)
+    for radar_input_path in radar_input_paths:
+        radar_obj_list = readCFRadial_pyART(el_req, radar_input_path, compute_kdp=False)
         if radar_input_path == radar_input_paths[0]:
-            rlat = radar_obj.latitude['data'][0]
-            rlon = radar_obj.longitude['data'][0]
-            ralt = radar_obj.altitude['data'][0]
+            rlat = radar_obj_list[0].latitude['data'][0]
+            rlon = radar_obj_list[0].longitude['data'][0]
+            ralt = radar_obj_list[0].altitude['data'][0]
         rad_loc = get_PIPS_loc_relative_to_radar(geo_loc, rlat, rlon, ralt)
-        field_names, radar_fields_at_PIPS_arr, zrad_at_PIPS = \
-            interp_one_sweep_to_one_PIPS(radar_name, radar_obj, PIPS_name, rad_loc,
-                                         average_gates=average_gates, ngates2avg=ngates2avg)
-        radar_fields_at_PIPS_one_sweep_da = \
-            xr.DataArray(radar_fields_at_PIPS_arr,
-                         coords={
-                             'fields_{}'.format(radar_name): field_names,
-                         },
-                         dims=['fields_{}'.format(radar_name)],
-                         attrs={
-                             'radar_name': radar_name,
-                             'PIPS_name': PIPS_name,
-                             'PIPS_x': rad_loc[0],
-                             'PIPS_y': rad_loc[1],
-                         })
+        # Loop through the matching sweeps in the file (there may be more than one because of
+        # split cuts/SAILS)
+        for radar_obj in radar_obj_list:
+            field_names, radar_fields_at_PIPS_arr, zrad_at_PIPS = \
+                interp_one_sweep_to_one_PIPS(radar_name, radar_obj, PIPS_name, rad_loc,
+                                             average_gates=average_gates, ngates2avg=ngates2avg)
+            radar_fields_at_PIPS_one_sweep_da = \
+                xr.DataArray(radar_fields_at_PIPS_arr,
+                             coords={
+                                 'fields_{}'.format(radar_name): field_names,
+                             },
+                             dims=['fields_{}'.format(radar_name)],
+                             attrs={
+                                 'radar_name': radar_name,
+                                 'PIPS_name': PIPS_name,
+                                 'PIPS_x': rad_loc[0],
+                                 'PIPS_y': rad_loc[1],
+                             })
 
-        radar_fields_at_PIPS_tlist.append(radar_fields_at_PIPS_one_sweep_da)
-        zrad_at_PIPS_list.append(zrad_at_PIPS)
+            radar_fields_at_PIPS_tlist.append(radar_fields_at_PIPS_one_sweep_da)
+            zrad_at_PIPS_list.append(zrad_at_PIPS)
+            # Extract time from start of sweep
+            sweep_time = pyart.graph.common.generate_radar_time_sweep(radar_obj, 0)
+            radar_times.append(sweep_time)
 
     # Create time dimension DataArray
-    radar_datetimes_da = xr.DataArray(radar_sweeptimes,
-                                      coords={'time': radar_sweeptimes},
+    radar_datetimes_da = xr.DataArray(radar_times,
+                                      coords={'time': radar_times},
                                       dims=['time'],
                                       attrs={
                                           'radar_name': radar_name,
@@ -2254,7 +2440,7 @@ def interp_sweeps_to_one_PIPS_new(radar_name, radar_path_dict, PIPS_name, geo_lo
     # Create a DataArray with the heights of the radar beam for each time
     zrad_at_PIPS_da = xr.DataArray(np.array(zrad_at_PIPS_list),
                                    coords={
-                                       'time': radar_sweeptimes,
+                                       'time': radar_times,
                                    },
                                    dims=['time'],
                                    attrs={
@@ -2281,7 +2467,9 @@ def interp_one_sweep_to_one_PIPS(radar_name, radarsweep, PIPS_name, rad_loc, ave
     rad_loc : tuple
         Tuple containing the (x, y) cartesian coordinates of the PIPS relative to the radar
     average_gates : bool, optional
-        Whether to average the closest 9 gates, by default True
+        Whether to average the closest surrounding gates, by default True
+    ngates2avg : int, optional
+        halo width of gates to average, by default 1 (a halo of 1 gate around the center)
 
     Returns
     -------
@@ -2344,7 +2532,6 @@ def dump_radar_fields_at_PIPS_nc(ncfile_path, radar_fields_at_PIPS_da):
 def CreateRadarFromRXM25netCDF(netcdf_file, instrument_name, cfradial_outfile=None, heading=None):
     data = netCDF4.Dataset(netcdf_file, 'r')
     # fileTime = datetime.datetime.strptime(netcdf_file[-22:-7],'%Y%m%d-%H%M%S')
-
 
     ngates = data.dimensions['Gate'].size
     rays_per_sweep = data.dimensions['Radial'].size
