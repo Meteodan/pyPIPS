@@ -5,7 +5,7 @@ PIPS_IO_dict = {
     'deployment_names': ['IOP2_033022'] * 4,
     'input_txt_dir': '/depot/dawson29/data/Projects/PERiLS/obsdata/2022/PIPS_data/IOP2_033022/csv/',
     'PIPS_dir': '/depot/dawson29/data/Projects/PERiLS/obsdata/2022/PIPS_data/IOP2_033022/netcdf',
-    'plot_dir': '/depot/dawson29/data/Projects/PERiLS/obsdata/2022/PIPS_data/IOP2_033022/plots/60s',
+    'plot_dir': '/home/fvendl/Projects/PERiLS/IOP2_033022/PIPS_data/plots',
     'PIPS_types': ['PIPS'] * 4,
     'PIPS_names': ['PIPS1A', 'PIPS1B', 'PIPS2A', 'PIPS3B'],
     'PIPS_filenames': ['PIPS1A_IOP2_033022_merged.txt', 'PIPS1B_IOP2_033022_merged.txt',
