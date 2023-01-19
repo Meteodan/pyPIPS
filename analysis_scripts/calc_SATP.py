@@ -127,6 +127,7 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
     # rainrate = rainrate.where(RR_ind)
 
     # Compute D0 (in mm)
+    # TODO: change this to only calculate if it is not already present in the file
     D0 = dsd.calc_D0_bin(ND) * 1000.
     D0_ind = (D0 <= D0_bins[-1]) & (D0 >= D0_bins[0])
     # D0 = D0.where(D0_ind)

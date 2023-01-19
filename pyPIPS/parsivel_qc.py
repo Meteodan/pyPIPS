@@ -172,8 +172,8 @@ def splashingQC(countsMatrix):
     # Remove drops that likely result from splashing (use mask to index the count array)
 
     for t in range(numtimes):
-        # countsMatrix[t,mask] = 0.0
-        countsMatrix[t, :] = ma.masked_array(countsMatrix[t, :], mask=splashingmask)
+        countsMatrix[t, splashingmask] = 0.0
+        # countsMatrix[t, :] = ma.masked_array(countsMatrix[t, :], mask=splashingmask)
 
     return countsMatrix
 

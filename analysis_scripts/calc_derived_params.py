@@ -31,7 +31,7 @@ parser.add_argument('--output-tag', dest='output_tag', default='',
 args = parser.parse_args()
 if args.ND_tag:
     ND_tag = '_{}'.format(args.ND_tag)
-    if args.ND_tag in 'RB15_qc':
+    if 'RB15_qc' in args.ND_tag:
         VD_tag = '_RB15_vshift_qc'
     else:
         VD_tag = '_{}'.format(args.ND_tag)
@@ -88,6 +88,8 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
     rainrate_bin = (6. * 10.**-4.) * np.pi * fallspeeds_emp * avg_diameter**3. * ND * bin_width
     rainrate = rainrate_bin.sum(dim='diameter_bin')
     parsivel_combined_ds['rainrate_derived{}'.format(ND_tag)] = rainrate
+    parsivel_combined_ds['rainrate_derived{}'.format(ND_tag)].attrs['units'] = \
+        'millimeters per hour'
 
     # Compute particle counts from raw or QC'ed VD matrix
     pcount = vd_matrix.sum(dim=['fallspeed_bin', 'diameter_bin'])
@@ -96,6 +98,25 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
     # Compute (Rayleigh) radar reflectivity from raw or QC'ed ND
     reflectivity = dsd.calc_dBZ_from_bins(ND)
     parsivel_combined_ds['reflectivity_derived{}'.format(ND_tag)] = reflectivity
+    parsivel_combined_ds['reflectivity_derived{}'.format(ND_tag)].attrs['units'] = 'dBZ'
+
+    # Compute median volume diameter D0 (m)
+    D0 = dsd.calc_D0_bin(ND)
+    parsivel_combined_ds['D0{}'.format(ND_tag)] = D0
+    parsivel_combined_ds['D0{}'.format(ND_tag)].attrs['units'] = 'meters'
+
+    # Compute mass weighted mean diameter and spectral width
+    D = ND['diameter']
+    dD = ND['max_diameter'] - ND['min_diameter']
+
+    Dm = dsd.calc_Dmpq_binned(4, 3, ND)
+    sigma = dsd.calc_sigma(D, dD, ND)
+
+    parsivel_combined_ds['Dm43{}'.format(ND_tag)] = Dm
+    parsivel_combined_ds['Dm43{}'.format(ND_tag)].attrs['units'] = 'meters'
+
+    parsivel_combined_ds['sigma{}'.format(ND_tag)] = sigma
+    parsivel_combined_ds['sigma{}'.format(ND_tag)].attrs['units'] = 'meters'
 
     parsivel_combined_output_file = parsivel_combined_file + args.output_tag
     print("Dumping {}".format(parsivel_combined_output_file))

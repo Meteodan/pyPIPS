@@ -26,8 +26,10 @@
 
 import os
 import glob
-import sys
 import re
+from pyPIPS.pips_io import correct_PIPS
+import pyPIPS.utils as utils
+import sys
 import csv
 from datetime import datetime
 import numpy as np
@@ -149,8 +151,6 @@ def parseTimeStamp(timestring):
 
 # The following are taken from https://stackoverflow.com/questions/
 # 5967500/how-to-correctly-sort-a-string-with-a-number-inside?noredirect=1&lq=1
-
-
 def atoi(text):
     return int(text) if text.isdigit() else text
 
@@ -169,11 +169,10 @@ def sortby(X, Y):
     """Sorts list X by values in list Y"""
     return [x for _, x in sorted(zip(Y, X), key=lambda pair: pair[0])]
 
+
 # From
 # https://stackoverflow.com/questions/38987/
 # how-to-merge-two-dictionaries-in-a-single-expression?noredirect=1&lq=1
-
-
 def merge_dicts(*dict_args):
     """
     Given any number of dicts, shallow copy and merge into a new dict,
@@ -478,8 +477,20 @@ if __name__ == "__main__":
     if len(sys.argv) > 1:
         PIPS_data_dir = sys.argv[1]
         output_filename = sys.argv[2]
+        if len(sys.argv) > 3:
+            serialnum = sys.argv[3]
+            print(serialnum)
+        else:
+            serialnum = None
     else:
         PIPS_data_dir = _PIPS_data_dir
         output_filename = _output_filename
+        serialnum = None
 
     mergeData(PIPS_data_dir, output_filename)
+    if serialnum:
+        print("Correcting offset Parsivel strings!")
+        output_path = os.path.join(PIPS_data_dir, output_filename)
+        corrected_filename = 'corrected_' + output_filename
+        corrected_output_path = os.path.join(PIPS_data_dir, corrected_filename)
+        correct_PIPS(serialnum, output_path, corrected_output_path)

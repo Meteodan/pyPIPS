@@ -16,6 +16,7 @@ min_diameter = pp.parsivel_parameters['min_diameter_bins_mm']
 max_diameter = pp.parsivel_parameters['max_diameter_bins_mm']
 bin_width = max_diameter - min_diameter
 avg_diameter = pp.parsivel_parameters['avg_diameter_bins_mm']
+diameter_edges = np.append(min_diameter, max_diameter[-1])
 min_fall_bins = pp.parsivel_parameters['min_fallspeed_bins_mps']
 max_fall_bins = pp.parsivel_parameters['max_fallspeed_bins_mps']
 avg_fall_bins = pp.parsivel_parameters['avg_fallspeed_bins_mps']
@@ -454,15 +455,24 @@ def calc_ND_onedrop(sample_interval, correct_rho=False, rho=None):
     fallspeed_spectrum = calc_fallspeed_spectrum(diameter_bins, fallspeed_bins,
                                                  correct_rho=correct_rho, rho=rho,
                                                  use_measured_fallspeed=False)
-    vd_matrix_onedrop = np.ones((rho.size, 1, diameter_bins.size))
+    if 'time' in rho.dims:
+        vd_matrix_onedrop = np.ones((rho.size, 1, diameter_bins.size))
+        coords = {
+            'time': rho['time'],
+            'diameter': ('diameter_bin', diameter_bins),
+        }
+        dims = ['time', 'fallspeed_bin', 'diameter_bin']
+    else:
+        vd_matrix_onedrop = np.ones((1, diameter_bins.size))
+        coords = {
+            'diameter': ('diameter_bin', diameter_bins)
+        }
+        dims = ['fallspeed_bin', 'diameter_bin']
     vd_matrix_onedrop_da = \
         xr.DataArray(vd_matrix_onedrop,
                      name='velocity_diameter_onedrop_per_bin',
-                     coords={
-                         'time': rho['time'],
-                         'diameter': ('diameter_bin', diameter_bins)
-                     },
-                     dims=['time', 'fallspeed_bin', 'diameter_bin'])
+                     coords=coords,
+                     dims=dims)
 
     ND_onedrop = calc_ND(vd_matrix_onedrop_da, fallspeed_spectrum, sample_interval)
     return ND_onedrop
@@ -495,12 +505,18 @@ def calc_fallspeed_spectrum(diameter_bins, fallspeed_bins,
                                                       rho=rho)
         # print('rho', rho)
         # exit
-        fallspeed_da = xr.DataArray(fallspeed_spectrum,
-                                    coords={
-                                        'time': rho['time'],
-                                        'diameter': ('diameter_bin', diameter_bins),
-                                    },
-                                    dims=['time', 'diameter_bin'])
+        if 'time' in rho.dims:
+            coords = {
+                'time': rho['time'],
+                'diameter': ('diameter_bin', diameter_bins),
+            }
+            dims = ['time', 'diameter_bin']
+        else:
+            coords = {
+                'diameter': ('diameter_bin', diameter_bins),
+            }
+            dims = ['diameter_bin']
+        fallspeed_da = xr.DataArray(fallspeed_spectrum, coords=coords, dims=dims)
     else:
         _, fallspeed_spectrum = np.meshgrid(diameter_bins, fallspeed_bins)
         # TODO: STOPPED HERE! 09/03/19. Need to fix the dimension names here to match
@@ -667,6 +683,8 @@ def calc_mean_velocity(vd_matrix_rebinned):
 def shift_mean_velocity(vd_matrix_rebinned, vt_rain):
     # We have to iterate over both time and diameter dimensions, because the shift needed is a
     # function of both
+    # TODO: This is painfully slow and memory-intensive for large timeseries of DSDs.
+    # Need to optimize!
     vel_interval = (vd_matrix_rebinned['fallspeed_bin'][1] -
                     vd_matrix_rebinned['fallspeed_bin'][0].values)
     # print(vel_interval)

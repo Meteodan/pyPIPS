@@ -4,13 +4,12 @@ channels:
 dependencies:
   - arm_pyart
   - autopep8
-  - basemap
-  - basemap-data-hires
   - beautifulsoup4
   - bottleneck
   - cartopy
   - cftime
   - flake8
+  - gfortran
   - joblib
   - jupyter
   - matplotlib
@@ -22,10 +21,12 @@ dependencies:
   - pandas
   - pip
   - pylint
-  - pynio
+  - pysteps
   - pytz
   - scipy
+  - scikit-learn
+  - seaborn
   - urllib3
   - xarray
   - pip:
-    - "--editable=git+https://github.rcac.purdue.edu/STorMLab/pyCRMtools.git@master#egg=pyCRMtools"
+    - "--editable=git+https://github.itap.purdue.edu/STorMLab/pyCRMtools.git@master#egg=pyCRMtools"

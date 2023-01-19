@@ -202,13 +202,19 @@ def cale(RH, es):
     return RH * es
 
 
-def calqv(RH, p, T):
+def calw(RH, p, T):
     """ Calculate water vapor mixing ratio from relative humidity, pressure, and temperature"""
     es = cales(p, T)
     e = cale(RH, es)
-    qv = (Rd / Rv) * (e / (p - e))
+    w = (Rd / Rv) * (e / (p - e))
 
-    return qv
+    return w
+
+
+def calqv(RH, p, T):
+    """ Calculate water vapor specific humidity from relative humidity, pressure, and temperature"""
+    w = calw(RH, p, T)
+    return w2qv(w)
 
 
 def calRH(p, T, Td):
@@ -216,3 +222,13 @@ def calRH(p, T, Td):
     es = cales(p, T)
     e = cales(p, Td)
     return e / es
+
+
+def w2qv(w):
+    """Converts water vapor mixing ratio to water vapor specific humidity"""
+    return w / (1. + w)
+
+
+def qv2w(qv):
+    """Converts water vapor specific humidity to water vapor mixing ratio"""
+    return qv / (1. - qv)

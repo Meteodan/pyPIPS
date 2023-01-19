@@ -29,20 +29,34 @@ min_fall_bins = pp.parsivel_parameters['min_fallspeed_bins_mps']
 max_fall_bins = pp.parsivel_parameters['max_fallspeed_bins_mps']
 avg_fall_bins = pp.parsivel_parameters['avg_fallspeed_bins_mps']
 
+diameter_bin_edges = pp.parsivel_parameters['diameter_bin_edges_mm']
+fallspeed_bin_edges = pp.parsivel_parameters['fallspeed_bin_edges_mps']
+
 # Parse the command line options
 parser = argparse.ArgumentParser(description="Plots velocity-diameter histograms from PIPS data")
 parser.add_argument('case_config_path', metavar='<path/to/case/config/file.py>',
                     help='The path to the case configuration file')
 parser.add_argument('--plot-config-path', dest='plot_config_path',
-                    default='plot_config.py', help='Location of the plot configuration file')
+                    default='plot_config_default.py',
+                    help='Location of the plot configuration file')
 parser.add_argument('--plot-raw', action='store_true', dest='plot_raw',
                     help='plot raw velocity-diameter matrix')
 parser.add_argument('--plot-qc', action='store_true', dest='plot_qc',
                     help='plot QC velocity-diameter matrix')
+parser.add_argument('--ND-tag', dest='ND_tag', default=None,
+                    help='Tag for ND variable in file (i.e., qc, RB15_vshift_qc, RB15_qc).')
 parser.add_argument('--plot-full', action='store_true', dest='plot_full',
                     help='Plot full-deployment v-d matrix')
+parser.add_argument('--normalize', action='store_true', dest='normalize',
+                    help='Normalize full-deployment v-d matrix by total drop count')
 parser.add_argument('--plot-series', action='store_true', dest='plot_series',
                     help='Plot time series of v-d matrix')
+parser.add_argument('--cb-limits-full', nargs=2, metavar=('lower', 'upper'), type=float,
+                    dest='cb_limits_full', default=[1, 2000],
+                    help='color bar limits for drop number for full deployment plot')
+parser.add_argument('--cb-limits-indv', nargs=2, metavar=('lower', 'upper'), type=float,
+                    dest='cb_limits_indv', default=[1, 50],
+                    help='color bar limits for drop number for individual DSDs')
 
 args = parser.parse_args()
 
@@ -94,6 +108,18 @@ print(parsivel_combined_filenames)
 for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
     print("Reading {}".format(parsivel_combined_file))
     parsivel_combined_ds = xr.load_dataset(parsivel_combined_file)
+    # Set up desired start and end times if they are not "None". Otherwise just use all times in
+    # each file
+    start_time = start_times[index]
+    end_time = end_times[index]
+    if start_time is not None and end_time is not None:
+        start_datetime = datetime.strptime(start_time, tm.timefmt3)
+        end_datetime = datetime.strptime(end_time, tm.timefmt3)
+        start_time = start_datetime.strftime(tm.timefmt2)
+        end_time = end_datetime.strftime(tm.timefmt2)
+        print("Extracting subset of times between {} and {}".format(start_time, end_time))
+        parsivel_combined_ds = parsivel_combined_ds.sel(time=slice(start_time, end_time))
+
     DSD_interval = parsivel_combined_ds.DSD_interval
     PIPS_name = parsivel_combined_ds.probe_name
     deployment_name = parsivel_combined_ds.deployment_name
@@ -105,9 +131,13 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
         vd_matrix_list.append(vd_matrix_raw)
         tag_list.append('raw')
     if args.plot_qc:
-        vd_matrix_qc = parsivel_combined_ds['VD_matrix_qc']
+        if args.ND_tag:
+            ND_tag = args.ND_tag
+        else:
+            ND_tag = 'qc'
+        vd_matrix_qc = parsivel_combined_ds['VD_matrix_{}'.format(ND_tag)]
         vd_matrix_list.append(vd_matrix_qc)
-        tag_list.append('qc')
+        tag_list.append(ND_tag)
 
     for tag, vd_matrix_da in zip(tag_list, vd_matrix_list):
         vel_D_image_dir = os.path.join(plot_dir,
@@ -117,9 +147,9 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
             os.makedirs(vel_D_image_dir)
 
         axdict = {
-            'min_diameter': min_diameter,
+            'diameter_bin_edges': diameter_bin_edges,
             'avg_diameter': avg_diameter,
-            'min_fall_bins': min_fall_bins,
+            'fallspeed_bin_edges': fallspeed_bin_edges,
             'xlim': pc.PIPS_plotting_dict['diameter_range'],
             'ylim': pc.PIPS_plotting_dict['velocity_range'],
             'PIPS_name': PIPS_name
@@ -131,7 +161,7 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
                     print("Plotting for {} and time {}".format(PIPS_name,
                                                                time.strftime(tm.timefmt3)))
                     axdict['time'] = time
-                    axdict['cblim'] = (1, 50)
+                    axdict['cblim'] = args.cb_limits_indv
                     PSDdict = {
                         'vd_matrix_da': vd_matrix_da[t, :],
                         'DSD_interval': DSD_interval
@@ -150,9 +180,17 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
         if args.plot_full:
             vd_matrix_da_full = vd_matrix_da.sum(dim='time')
             vd_matrix_da_full = vd_matrix_da_full.where(vd_matrix_da_full > 0.)
+            print('Maximum bin drop count: ', vd_matrix_da_full.max())
             print("Plotting full-deployment v-d matrix for {} and {}".format(deployment_name,
                                                                              PIPS_name))
-            axdict['cblim'] = (1, 1500)
+            if args.normalize:
+                print("Normalizing by total drop count")
+                axdict['cblim'] = (0., 0.05)
+                vd_matrix_da_full = vd_matrix_da_full / vd_matrix_da_full.sum()
+                image_tag = 'full_norm'
+            else:
+                axdict['cblim'] = args.cb_limits_full
+                image_tag = 'full'
             PSDdict = {
                 'vd_matrix_da': vd_matrix_da_full,
                 'DSD_interval': len(vd_matrix_da['time']) * DSD_interval
@@ -161,7 +199,7 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
             }
             fig, ax = pm.plot_vel_D(axdict, PSDdict, parsivel_combined_ds['rho'].mean(dim='time'))
             image_name =  \
-                '{}_{}_vel_D_{}_full.png'.format(PIPS_name, deployment_name, tag)
+                '{}_{}_vel_D_{}_{}.png'.format(PIPS_name, deployment_name, tag, image_tag)
             image_path = os.path.join(vel_D_image_dir, image_name)
             fig.savefig(image_path, dpi=200, bbox_inches='tight')
             plt.close(fig)

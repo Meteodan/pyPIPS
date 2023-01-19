@@ -83,8 +83,8 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
 
     # Make some index coordinates out of existing dimensions. This is a limitation of xarray right
     # now that you can't index using coordinates that aren't index coordinates.
-    parsivel_ds.coords['fallspeed_bin'] = ('fallspeed_bin', parsivel_ds.coords['fallspeed'])
-    parsivel_ds.coords['diameter_bin'] = ('diameter_bin', parsivel_ds.coords['diameter'])
+    parsivel_ds.coords['fallspeed_bin'] = ('fallspeed_bin', parsivel_ds.coords['fallspeed'].data)
+    parsivel_ds.coords['diameter_bin'] = ('diameter_bin', parsivel_ds.coords['diameter'].data)
 
     # We want the raw VD matrix here.
     vd_matrix = parsivel_ds['VD_matrix']
@@ -98,9 +98,9 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
                                             rho=parsivel_ds['rho'])
     vt_rain_da = xr.DataArray(vt_rain,
                               coords={
-                                  'time': ('time', vd_matrix_rebinned.coords['time']),
+                                  'time': ('time', vd_matrix_rebinned.coords['time'].data),
                                   'diameter_bin': ('diameter_bin',
-                                                   vd_matrix_rebinned.coords['diameter'])
+                                                   vd_matrix_rebinned.coords['diameter'].data)
                                   },
                               dims=['time', 'diameter_bin'])
     # Shift the velocities in each diameter bin of each DSD such that the mean matches
