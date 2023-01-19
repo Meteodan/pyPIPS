@@ -3,21 +3,21 @@
 # This script calculates radar retrievals from PIPS DSD data (netCDF version)
 import os
 import argparse
-from datetime import datetime, timedelta
-import numpy as np
-import pandas as pd
+# from datetime import datetime, timedelta
+# import numpy as np
+# import pandas as pd
 import xarray as xr
-import matplotlib.ticker as ticker
-import matplotlib.dates as dates
-import matplotlib.pyplot as plt
+# import matplotlib.ticker as ticker
+# import matplotlib.dates as dates
+# import matplotlib.pyplot as plt
 import pyPIPS.parsivel_params as pp
-import pyPIPS.radarmodule as radar
-import pyPIPS.plotmodule as pm
+# import pyPIPS.radarmodule as radar
+# import pyPIPS.plotmodule as pm
 import pyPIPS.pips_io as pipsio
 import pyPIPS.utils as utils
-import pyPIPS.PIPS as pips
-import pyPIPS.parsivel_qc as pqc
-import pyPIPS.timemodule as tm
+# import pyPIPS.PIPS as pips
+# import pyPIPS.parsivel_qc as pqc
+# import pyPIPS.timemodule as tm
 import pyPIPS.DSDlib as dsd
 import pyPIPS.polarimetric as dp
 
@@ -45,6 +45,9 @@ parser.add_argument('--retrieval-tag', dest='retrieval_tag', default='',
                     help='nametag for the name of the mu-lambda relation (e.g. SATP, C08, Z01)')
 parser.add_argument('--output-tag', dest='output_tag', default='',
                     help='tag for output nc files to distinguish from original if desired')
+parser.add_argument('--update-CG-coeff-attrs', dest='update_CG_coeff_attrs', action='store_true',
+                    default=False,
+                    help='Write CG coefficients as attributes back to PIPS nc files?')
 
 args = parser.parse_args()
 if not args.ND_tag:
@@ -72,9 +75,9 @@ PIPS_types = config.PIPS_IO_dict.get('PIPS_types', None)
 PIPS_names = config.PIPS_IO_dict.get('PIPS_names', None)
 PIPS_filenames = config.PIPS_IO_dict.get('PIPS_filenames', None)
 parsivel_combined_filenames = config.PIPS_IO_dict['PIPS_filenames_nc']
-start_times = config.PIPS_IO_dict.get('start_times', [None]*len(PIPS_names))
-end_times = config.PIPS_IO_dict.get('end_times', [None]*len(PIPS_names))
-geo_locs = config.PIPS_IO_dict.get('geo_locs', [None]*len(PIPS_names))
+start_times = config.PIPS_IO_dict.get('start_times', [None] * len(PIPS_names))
+end_times = config.PIPS_IO_dict.get('end_times', [None] * len(PIPS_names))
+geo_locs = config.PIPS_IO_dict.get('geo_locs', [None] * len(PIPS_names))
 requested_interval = config.PIPS_IO_dict.get('requested_interval', 10.)
 
 # Extract needed lists and variables from the radar_dict configuration dictionary
@@ -148,7 +151,17 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
     # parsivel_combined_ds.attrs['CG_coeff_{}'.format(args.retrieval_tag)] = mu_lambda_coeff
     parsivel_combined_ds.attrs['retrieval_wavelength'] = wavelength
 
-    parsivel_combined_output_file = parsivel_combined_file + args.output_tag
-    print("Dumping {}".format(parsivel_combined_output_file))
-    parsivel_combined_ds.to_netcdf(parsivel_combined_output_file)
+    # Save the CG coefficients as attributes if desired
+    if args.update_CG_coeff_attrs:
+        CG_attr_name = 'CG_coeff_{}'.format(retrieval_tag)
+        parsivel_combined_ds.attrs[CG_attr_name] = mu_lambda_coeff
 
+    if args.output_tag:
+        parsivel_combined_output_file = \
+            parsivel_combined_file.replace(".nc", "_{}.nc".format(args.output_tag))
+        print("Dumping {}".format(parsivel_combined_output_file))
+        parsivel_combined_ds.to_netcdf(parsivel_combined_output_file)
+    else:
+        parsivel_combined_output_file = parsivel_combined_file
+        print("Dumping {}".format(parsivel_combined_output_file))
+        parsivel_combined_ds.to_netcdf(parsivel_combined_output_file, mode='a')

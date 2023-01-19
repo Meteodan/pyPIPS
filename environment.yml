@@ -9,6 +9,7 @@ dependencies:
   - cartopy
   - cftime
   - flake8
+  - gfortran
   - joblib
   - jupyter
   - matplotlib
