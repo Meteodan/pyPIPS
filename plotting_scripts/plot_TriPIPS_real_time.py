@@ -183,9 +183,9 @@ def calc_ND(spectrum, interval=10, use_measured_fs=True):
 base_output_dir = '/Users/dawson29/sshfs_mounts/stormlab_web/'
 image_output_dir = os.path.join(base_output_dir, 'images')
 # netcdf_output_dir = '/Users/dawson29/sshfs_mounts/depot/data/Projects/TriPIPS/netcdf_web/'
-netcdf_output_dir = '/Volumes/scr_fast/Projects/TriPIPS/netcdf_web/'
-if not os.path.exists(netcdf_output_dir):
-    os.makedirs(netcdf_output_dir)
+netcdf_output_base_dir = '/Volumes/scr_fast/Projects/TriPIPS/netcdf_web/'
+if not os.path.exists(netcdf_output_base_dir):
+    os.makedirs(netcdf_output_base_dir)
 base_url = "http://10.163.29.26/?command=TableDisplay&table="
 onesec_table = "One_Hz"
 tensec_table = "Ten_Hz"
@@ -280,25 +280,25 @@ ND_da = calc_ND_da(spectrum_da)
 
 # Dump onesec dataframe to netCDF file (via xarray)
 netcdf_filename = 'onesec_current_hour.nc'
-netcdf_path = os.path.join(netcdf_output_dir, netcdf_filename)
+netcdf_path = os.path.join(netcdf_output_base_dir, netcdf_filename)
 onesec_ds = onesec_df.to_xarray()
 onesec_ds.to_netcdf(netcdf_path)
 onesec_ds.close()
 # Dump raw spectrum to netcdf file
 netcdf_filename = 'spectrum_current_hour.nc'
-netcdf_path = os.path.join(netcdf_output_dir, netcdf_filename)
+netcdf_path = os.path.join(netcdf_output_base_dir, netcdf_filename)
 spectrum_ds = spectrum_da.to_dataset(name='spectrum')
 spectrum_ds.to_netcdf(netcdf_path)
 spectrum_ds.close()
 # Dump ND_da to netcdf file
 netcdf_filename = 'ND_current_hour.nc'
-netcdf_path = os.path.join(netcdf_output_dir, netcdf_filename)
+netcdf_path = os.path.join(netcdf_output_base_dir, netcdf_filename)
 ND_ds = ND_da.to_dataset(name='ND')
 ND_ds.to_netcdf(netcdf_path)
 ND_ds.close()
 # Dump telegram data to netcdf file
 netcdf_filename = 'tensec_telegram_current_hour.nc'
-netcdf_path = os.path.join(netcdf_output_dir, netcdf_filename)
+netcdf_path = os.path.join(netcdf_output_base_dir, netcdf_filename)
 telegram_ds = telegram_df.to_xarray()
 telegram_ds.to_netcdf(netcdf_path)
 telegram_ds.close()
@@ -317,6 +317,14 @@ diff = (last_timestamp_onesec - last_hour_timestamp).total_seconds()
 if diff > 0 and diff < 300:
     last_hour_string = last_hour_timestamp.strftime('%Y%m%d%H%M%S')
     previous_hour_string = previous_hour_timestamp.strftime('%Y%m%d%H%M%S')
+
+    # Save the files to a subdirectory structure of YYYY/MM/
+    year_string = previous_hour_timestamp.strftime('%Y')
+    month_string = previous_hour_timestamp.strftime('%m')
+    netcdf_output_dir = os.path.join(netcdf_output_base_dir, f'{year_string}/{month_string}')
+    if not os.path.exists(netcdf_output_dir):
+        os.makedirs(netcdf_output_dir)
+
     onesec_hourly_filename = 'onesec_{}.nc'.format(previous_hour_string)
     onesec_hourly_path = os.path.join(netcdf_output_dir, onesec_hourly_filename)
     spectrum_hourly_filename = 'spectrum_{}.nc'.format(previous_hour_string)
