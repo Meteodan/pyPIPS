@@ -180,7 +180,7 @@ def calc_ND(spectrum, interval=10, use_measured_fs=True):
 
 # Set up directories for output/plotting and URLs for grabbing the data
 # base_output_dir = '/Users/dawson29/sshfs_mounts/depot/data/Projects/TriPIPS/webdata/'
-base_output_dir = '/Users/dawson29/sshfs_mounts/stormlab_web/'
+base_output_dir = '/Users/dawson29/sshfs_mounts/stormlab_web/tripips'
 image_output_dir = os.path.join(base_output_dir, 'images')
 # netcdf_output_dir = '/Users/dawson29/sshfs_mounts/depot/data/Projects/TriPIPS/netcdf_web/'
 netcdf_output_base_dir = '/Volumes/scr_fast/Projects/TriPIPS/netcdf_web/'
