@@ -96,3 +96,4 @@ target/
 default.profraw
 pips_realtime_config.py
 *.nc
+*.log
