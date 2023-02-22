@@ -77,7 +77,6 @@ target/
 #pycharm
 .idea/*
 
-
 #Ipython Notebook
 .ipynb_checkpoints
 
@@ -95,3 +94,5 @@ target/
 .vscode
 *.bak
 default.profraw
+pips_realtime_config.py
+*.nc
