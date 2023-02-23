@@ -8,10 +8,14 @@ dependencies:
   - bottleneck
   - cartopy
   - cftime
+  - dask
   - flake8
   - gfortran
+  - h5py
+  - h5netcdf
   - joblib
   - jupyter
+  - lxml
   - matplotlib
   - metpy
   - nbdime

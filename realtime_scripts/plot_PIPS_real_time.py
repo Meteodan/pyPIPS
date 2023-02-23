@@ -151,7 +151,7 @@ url_tensec = f"{base_url}Ten_Hz"
 
 http = urllib3.PoolManager()
 
-meteogram_duration = 900  # Length of meteogram plot in seconds
+meteogram_duration = 3600  # Length of meteogram plot in seconds
 plot_update_interval = 60  # number of seconds between plotting activity
 plot_update_interval_ts = pd.Timedelta(seconds=plot_update_interval)
 
@@ -190,6 +190,7 @@ while True:
     fdata = [io.BytesIO(file_req.data) for file_req in file_reqs]
     print("Opening with xarray")
     onesec_ds = xr.open_mfdataset(fdata, combine='nested', concat_dim='logger_datetime')
+    onesec_ds = onesec_ds.drop_duplicates('logger_datetime')
 
     # Do the same for the ten-sec data files
     file_list_ND = [file_name for file_name in file_list_onePIPS if 'ND' in file_name]
@@ -203,6 +204,7 @@ while True:
     fdata = [io.BytesIO(file_req.data) for file_req in file_reqs]
     print("Opening with xarray")
     ND_ds = xr.open_mfdataset(fdata, combine='nested', concat_dim='time')
+    ND_ds = ND_ds.drop_duplicates('time')
 
     file_list_spectrum = [file_name for file_name in file_list_onePIPS if 'spectrum' in file_name]
     file_list_spectrum = [file_name for file_name in file_list_spectrum if 'current' not in file_name]
@@ -215,6 +217,8 @@ while True:
     fdata = [io.BytesIO(file_req.data) for file_req in file_reqs]
     print("Opening with xarray")
     spectrum_ds = xr.open_mfdataset(fdata, combine='nested', concat_dim='time')
+    spectrum_ds = spectrum_ds.drop_duplicates('time')
+    print(spectrum_ds['time'])
 
     last_timestamp_onesec = onesec_ds['logger_datetime'].to_index().to_pydatetime()[-1]
     last_timestamp_tensec = spectrum_ds['time'].to_index().to_pydatetime()[-1]
@@ -232,22 +236,25 @@ while True:
     plottimes_onesec = onesec_ds['logger_datetime'].to_index().to_pydatetime()
     plottimes_onesec = [plottimes_onesec]
     # Temperature and Dewpoint
-    Tmin = np.nanmin(onesec_ds['dewpoint'].values)
-    Tmax = np.nanmax(onesec_ds['fasttemp'].values)
-    fields_to_plot_onesec = [onesec_ds['fasttemp'].values, onesec_ds['dewpoint'].values]
-    temp_params = pm.temp_params.copy()
-    dewpoint_params = pm.dewpoint_params.copy()
-    temp_params['plotmin'] = Tmin - 5.0
-    dewpoint_params['plotmin'] = Tmin - 5.0
-    field_parameters_onesec = [temp_params, dewpoint_params]
-    ax_t_td = pm.plotmeteogram(
-        ax_t_td,
-        plottimes_onesec,
-        fields_to_plot_onesec,
-        field_parameters_onesec)
-    temp_dewp_ax_params['axeslimits'] = [[plottimes_onesec[0][0], plottimes_onesec[0][-1]],
-                                        [Tmin - 5.0, Tmax + 5.0]]
-    ax_t_td, = pm.set_meteogram_axes([ax_t_td], [temp_dewp_ax_params])
+    try:
+        Tmin = np.nanmin(onesec_ds['dewpoint'].values)
+        Tmax = np.nanmax(onesec_ds['fasttemp'].values)
+        fields_to_plot_onesec = [onesec_ds['fasttemp'].values, onesec_ds['dewpoint'].values]
+        temp_params = pm.temp_params.copy()
+        dewpoint_params = pm.dewpoint_params.copy()
+        temp_params['plotmin'] = Tmin - 5.0
+        dewpoint_params['plotmin'] = Tmin - 5.0
+        field_parameters_onesec = [temp_params, dewpoint_params]
+        ax_t_td = pm.plotmeteogram(
+            ax_t_td,
+            plottimes_onesec,
+            fields_to_plot_onesec,
+            field_parameters_onesec)
+        temp_dewp_ax_params['axeslimits'] = [[plottimes_onesec[0][0], plottimes_onesec[0][-1]],
+                                            [Tmin - 5.0, Tmax + 5.0]]
+        ax_t_td, = pm.set_meteogram_axes([ax_t_td], [temp_dewp_ax_params])
+    except:
+        pass
 
     # Wind speed and direction
     ax_windspd = pm.plotmeteogram(
@@ -264,18 +271,21 @@ while True:
         [ax_windspd, ax_winddir], [windspd_ax_params, winddir_ax_params])
 
     # Pressure
-    pmin = np.nanmin(onesec_ds['pressure'].values)
-    pmax = np.nanmax(onesec_ds['pressure'].values)
-    pressure_ax_params['axeslimits'] = [[plottimes_onesec[0][0], plottimes_onesec[0][-1]],
-                                        [pmin - 2.5, pmax + 2.5]]
-    fields_to_plot_press = [onesec_ds['pressure'].values]
-    field_parameters_press = [pm.pressure_params]
-    ax_pressure = pm.plotmeteogram(
-        ax_pressure,
-        plottimes_onesec,
-        fields_to_plot_press,
-        field_parameters_press)
-    ax_pressure, = pm.set_meteogram_axes([ax_pressure], [pressure_ax_params])
+    try:
+        pmin = np.nanmin(onesec_ds['pressure'].values)
+        pmax = np.nanmax(onesec_ds['pressure'].values)
+        pressure_ax_params['axeslimits'] = [[plottimes_onesec[0][0], plottimes_onesec[0][-1]],
+                                            [pmin - 2.5, pmax + 2.5]]
+        fields_to_plot_press = [onesec_ds['pressure'].values]
+        field_parameters_press = [pm.pressure_params]
+        ax_pressure = pm.plotmeteogram(
+            ax_pressure,
+            plottimes_onesec,
+            fields_to_plot_press,
+            field_parameters_press)
+        ax_pressure, = pm.set_meteogram_axes([ax_pressure], [pressure_ax_params])
+    except:
+        pass
 
     # DSD plots
     plottimes_tmp = ND_ds['time'].to_index().to_pydatetime()
@@ -351,11 +361,11 @@ while True:
     #     	PIPS1A_onesec_20230222170657_20230222170806.nc
 
 
-    fig.savefig(os.path.join(args.image_output_dir, 'logND_current.png'), dpi=300)
-    fig_vd.savefig(os.path.join(args.image_output_dir, 'VD_current.png'), dpi=300)
-    fig_dsd.savefig(os.path.join(args.image_output_dir, 'DSD_current.png'), dpi=300)
-    fig_t_td.savefig(os.path.join(args.image_output_dir, 'T_Td_current.png'), dpi=300)
-    fig_wind.savefig(os.path.join(args.image_output_dir, 'wind_current.png'), dpi=300)
-    fig_pressure.savefig(os.path.join(args.image_output_dir, 'pressure.png'), dpi=300)
+    fig.savefig(os.path.join(args.image_output_dir, f'{args.PIPS_name}_logND_current.png'), dpi=300)
+    fig_vd.savefig(os.path.join(args.image_output_dir, f'{args.PIPS_name}_VD_current.png'), dpi=300)
+    fig_dsd.savefig(os.path.join(args.image_output_dir, f'{args.PIPS_name}_DSD_current.png'), dpi=300)
+    fig_t_td.savefig(os.path.join(args.image_output_dir, f'{args.PIPS_name}_T_Td_current.png'), dpi=300)
+    fig_wind.savefig(os.path.join(args.image_output_dir, f'{args.PIPS_name}_wind_current.png'), dpi=300)
+    fig_pressure.savefig(os.path.join(args.image_output_dir, f'{args.PIPS_name}_pressure.png'), dpi=300)
 
     time.sleep(plot_update_interval - ((time.time() - starttime_loop) % plot_update_interval))
