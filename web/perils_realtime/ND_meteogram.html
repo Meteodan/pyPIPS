@@ -1,93 +1,70 @@
-<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<!DOCTYPE html>
 <html>
 <head>
-  <title>NSSTC NOWCASTER Wx Stn Graphics</title>
+	<title>PIPS Real-time DSD meteograms</title>
   <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
   <meta http-equiv="Refresh" content="30">
+	<style>
+		.row {
+			display: flex;
+			flex-wrap: wrap;
+			justify-content: space-between;
+			margin-bottom: 20px;
+		}
+
+		.col {
+			flex-basis: 48%;
+			margin-bottom: 20px;
+		}
+
+		img {
+			max-width: 100%;
+			height: auto;
+		}
+	</style>
 </head>
-<body background="webclouds.jpg" text="#000000">
-  <h4 align="center">
-    <font color="#000000">REAL-TIME DATA PLOTS</font>
-  </h4>
-  <!--
-<h4 align="center"><a href="http://vortex.nsstc.uah.edu/mips/data/archive/dsd2" target="_blank">Archived
-
-  Images</a><br>
-
-</h4>
-<h4 align="center"><a href="http://vortex.nsstc.uah.edu/mips/data/archive/dsd2/data" target="_blank">Archived
-
-  Data</a><br>
-
-</h4>
--->
-  <h4 align="center">
-    <font color="#000000">PIPS1A</font>
-  </h4>
-  <p align="center"><img src="./images/PIPS1A_logND_current.png" alt="" width="720" height="576">
-    <br>
-    <h4 align="center">
-      <font color="#000000">PIPS1B</font>
-    </h4>
-  </p>
-  <p align="center"><img src="./images/PIPS1B_logND_current.png" alt="" width="720" height="576">
-    <br>
-    <h4 align="center">
-      <font color="#000000">PIPS2A</font>
-    </h4>
-  </p>
-  <p align="center"><img src="./images/PIPS2A_logND_current.png" alt="" width="720" height="576">
-    <br>
-    <br>
-    <h4 align="center">
-      <font color="#000000">PIPS2B</font>
-    </h4>
-  </p>
-  <p align="center"><img src="./images/PIPS2B_logND_current.png" alt="" width="720" height="576">
-    <br>
-    <br>
-    <br>
-    <h4 align="center">
-      <font color="#000000">PIPS3A</font>
-    </h4>
-  </p>
-  <p align="center"><img src="./images/PIPS3A_logND_current.png" alt="" width="720" height="576">
-    <br>
-    <h4 align="center">
-      <font color="#000000">PIPS3B</font>
-    </h4>
-  </p>
-  <p align="center"><img src="./images/PIPS3B_logND_current.png" alt="" width="720" height="576">
-    <!--
-<h4 align="center"><font color="#000000">3-Minute Drop Size Distribution</font></h4>
-<p align="center"><img src="dsd.png" alt="" width="800" height="500">
-<br>
-<h4 align="center"><font color="#000000">30-Minute Drop Size Distribution</font></h4>
-<h4 align="center"><a href="http://vortex.nsstc.uah.edu/mips/data/archive/dsd_distribution/" target="_blank">Archived
-Images</a><br>
-</h4>
-<p align="center"><img src="../dsd_distribution/dsd_current_concentration.png" alt="" width="600" height="800">
--->
-    <br>
-    <h4 align="center">
-      <font color="#000000">OTHER REAL-TIME DISTROMETER DATA PLOTS</font>
-    </h4>
-  </p>
-            <!--
-<p align="center"><img src="dsd_current_inten.png" alt="" width="600" height="200">
-  <img src="dsd_current_dbz.png" alt="" width="600" height="200"> <img src="dsd_current_mor.png" alt="" width="600" height="200">
-  <img src="dsd_current_partic.png" alt="" width="600" height="200"> </p>
--->
-  <div align="center">
-    <hr width="100%" size="2">&copy;All rights reserved. &nbsp;Unauthorized duplication
-    or distribution is prohibited.<br>
-    Disclaimer: &nbsp;This page contains no implied or other
-    guarantees of accuracy or timeliness of data. &nbsp;Important decisions
-    should not be solely based on weather data from this site.<br>
-  </div>
-  <hr width="100%" size="2">
-  <p align="center"><a name="disclaimer"></a>Web page based on design by Dustin Phillips
-    (<a href="mailto:phillips@nsstc.uah.edu">phillips@nsstc.uah.edu</a>)<br>
-    Responsible Official: Dr. Dan Dawson (<a href="mailto:">dandawson@purdue.edu</a>) </p>
+<body>
+	<div class="row">
+		<div class="col">
+      <h4 align="center">
+        <font color="#000000">PIPS1A</font>
+      </h4>
+			<img src="./images/PIPS1A_logND_current.png" alt="PIPS1A">
+		</div>
+		<div class="col">
+      <h4 align="center">
+        <font color="#000000">PIPS1B</font>
+      </h4>
+			<img src="./images/PIPS1B_logND_current.png" alt="PIPS1B">
+		</div>
+	</div>
+	<div class="row">
+		<div class="col">
+      <h4 align="center">
+        <font color="#000000">PIPS2A</font>
+      </h4>
+			<img src="./images/PIPS2A_logND_current.png" alt="PIPS2A">
+		</div>
+		<div class="col">
+      <h4 align="center">
+        <font color="#000000">PIPS2B</font>
+      </h4>
+			<img src="./images/PIPS2B_logND_current.png" alt="PIPS2B">
+		</div>
+	</div>
+	<div class="row">
+		<div class="col">
+      <h4 align="center">
+        <font color="#000000">PIPS3A</font>
+      </h4>
+			<img src="./images/PIPS3A_logND_current.png" alt="PIPS3A">
+		</div>
+		<div class="col">
+      <h4 align="center">
+        <font color="#000000">PIPS3B</font>
+      </h4>
+			<img src="./images/PIPS3B_logND_current.png" alt="PIPS3B">
+		</div>
+	</div>
 </body>
 </html>
