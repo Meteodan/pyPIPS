@@ -361,11 +361,17 @@ while True:
     #     	PIPS1A_onesec_20230222170657_20230222170806.nc
 
 
-    fig.savefig(os.path.join(args.image_output_dir, f'{args.PIPS_name}_logND_current.png'), dpi=300)
-    fig_vd.savefig(os.path.join(args.image_output_dir, f'{args.PIPS_name}_VD_current.png'), dpi=300)
-    fig_dsd.savefig(os.path.join(args.image_output_dir, f'{args.PIPS_name}_DSD_current.png'), dpi=300)
-    fig_t_td.savefig(os.path.join(args.image_output_dir, f'{args.PIPS_name}_T_Td_current.png'), dpi=300)
-    fig_wind.savefig(os.path.join(args.image_output_dir, f'{args.PIPS_name}_wind_current.png'), dpi=300)
-    fig_pressure.savefig(os.path.join(args.image_output_dir, f'{args.PIPS_name}_pressure.png'), dpi=300)
+    fig.savefig(os.path.join(args.image_output_dir,
+                             f'{args.PIPS_name}_logND_current.png'), dpi=300)
+    fig_vd.savefig(os.path.join(args.image_output_dir,
+                                f'{args.PIPS_name}_VD_current.png'), dpi=300)
+    fig_dsd.savefig(os.path.join(args.image_output_dir,
+                                 f'{args.PIPS_name}_DSD_current.png'), dpi=300)
+    fig_t_td.savefig(os.path.join(args.image_output_dir,
+                                  f'{args.PIPS_name}_T_Td_current.png'), dpi=300)
+    fig_wind.savefig(os.path.join(args.image_output_dir,
+                                  f'{args.PIPS_name}_wind_current.png'), dpi=300)
+    fig_pressure.savefig(os.path.join(args.image_output_dir,
+                                      f'{args.PIPS_name}_pressure_current.png'), dpi=300)
 
     time.sleep(plot_update_interval - ((time.time() - starttime_loop) % plot_update_interval))
