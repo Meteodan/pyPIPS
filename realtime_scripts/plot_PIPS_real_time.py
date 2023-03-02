@@ -374,4 +374,13 @@ while True:
     fig_pressure.savefig(os.path.join(args.image_output_dir,
                                       f'{args.PIPS_name}_pressure_current.png'), dpi=300)
 
+    # Clear all figures from memory
+    plt.close(fig)
+    plt.close(fig_vd)
+    plt.close(fig_dsd)
+    plt.close(fig_t_td)
+    plt.close(fig_wind)
+    plt.close(fig_pressure)
+    plt.close('all')
+
     time.sleep(plot_update_interval - ((time.time() - starttime_loop) % plot_update_interval))

@@ -35,20 +35,35 @@ def get_data_table(http, url, numrecords=3600):
 
 def scrape_onesec_data(url, http=None, numrecords=3600, tripips=False):
     """Grabs one-second records from the PIPS http server. Uses urlib3 and beautifulsoup4"""
+    last_good_gps_dict = {}
     if http is None:
         http = urllib3.PoolManager()
     headers, rows = get_data_table(http, url, numrecords=numrecords)
     # headers.pop(0)
     headers = [header.string for header in headers]
     field_indices = pipsio.get_field_indices(headers, tripips=tripips)
-    data = []
     onesec_dict_list = []
-    timestamps = []
     for row in rows:
         tokens = row.find_all('td')
         tokens = [token.string.strip(' "') for token in tokens]
+
+
+
         token_dict = pipsio.parse_PIPS_record(tokens, field_indices, tripips=tripips,
                                               include_parsivel_string=False)
+
+        # Do some additional checks on the GPS data. Sometimes it gets garbled, so in case that it
+        # does, we keep a running record of the last known "good" GPS info and insert it into
+        # the bad fields when needed.
+
+        if token_dict['GPS_status'] == "A":
+            GPS_keys = [key for key in token_dict.keys() if "GPS" in key]
+            for key in GPS_keys:
+                last_good_gps_dict[key] = token_dict[key]
+        elif token_dict['GPS_status'] != 'V' and last_good_gps_dict:
+            for key in last_good_gps_dict.keys():
+                token_dict[key] = last_good_gps_dict[key]
+
         # timestamp = token_dict['logger_datetime']
         # token_dict['logger_datetime'] = pd.to_datetime(timestamp, format='%Y-%m-%d %H:%M:%S')
         onesec_dict_list.append(token_dict)
