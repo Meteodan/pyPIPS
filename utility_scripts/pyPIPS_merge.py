@@ -94,16 +94,16 @@ def process_onesec_record(row):
     try:
         tokens = row['GPSLat'].strip().split()
         try:
-            # DTD: TODO: it looks like we should be using 9.4f instead of 7.4f so as not
+            # DTD: TODO: it looks like we should be using 9.6f instead of 7.4f so as not
             # to lose too much precision.
-            row['GPSLat'] = '{:7.4f}'.format(np.float(tokens[0]) / 100.)
+            row['GPSLat'] = '{:9.6f}'.format(np.float(tokens[0]) / 100.)
             row['GPSLatHem'] = tokens[1]
         except Exception:
             row['GPSLat'] = 'NaN'
             row['GPSLatHem'] = ''
         tokens = row['GPSLon'].strip().split()
         try:
-            row['GPSLon'] = '{:7.4f}'.format(np.float(tokens[0]) / 100.)
+            row['GPSLon'] = '{:9.6f}'.format(np.float(tokens[0]) / 100.)
             row['GPSLonHem'] = tokens[1]
         except Exception:
             row['GPSLon'] = 'NaN'

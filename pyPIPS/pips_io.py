@@ -41,12 +41,11 @@ def parseTimeStamp(timestring):
 
 def get_field_indices(header, tripips=False):
 
-    if len(header) == 1:
+    if not isinstance(header, list):
         header_fields = header.strip().split(',')
     else:
-        # Already split?
+        # Already split into a list of strings?
         header_fields = header
-    # header_fields = header.strip().split(',')
     header_fields_upper = [field.upper() for field in header_fields]
     if 'TIMESTAMP' not in header_fields_upper:
         if not tripips:
@@ -73,10 +72,10 @@ def parse_PIPS_record(record, field_indices, tripips=False, include_parsivel_str
     """
     # TODO: refactor this function to do more efficient parsing?
     token_dict = {}
-    if len(record) == 1:
+    if not isinstance(record, list):
         tokens = record.strip().split(',')
     else:
-        # Already split?
+        # Already split into a list of strings?
         tokens = record
     try:
         timestamp = tokens[field_indices['TIMESTAMP']]
