@@ -30,13 +30,17 @@ def get_files(file_list, starttime, endtime, ftype='onesec'):
         making a loop of files.'''
 
     len_prefix = 8 + len(ftype)
-
+    print(starttime.day, endtime.day)
+    print((endtime.day - starttime.day))
     day_str = [(starttime + timedelta(days=i)).strftime("%Y%m%d")
-               for i in range((endtime - starttime).days + 1)]
+               for i in range((endtime.day - starttime.day) + 1)]
+    print(day_str)
 
     # find all PIPS files with days between starttime and endtime
     file_list = [file_name for file_name in file_list if any(day in file_name for day in day_str)]
+    # print(file_list)
     # file_list = [f for subf in file_list for f in subf]  # flatten list in case of multiple days
+    # print(file_list)
 
     if file_list:
         # sort files by date, then find nearest indices for all the dates, and loop over that
@@ -160,6 +164,7 @@ starttime_loop = time.time()
 # Main loop
 while True:
     endtime = datetime.utcnow()
+    print(f"It is currently {endtime}")
     starttime = endtime - timedelta(seconds=meteogram_duration)
 
     # Grab list of onesec files for the given PIPS
@@ -235,6 +240,9 @@ while True:
 
     plottimes_onesec = onesec_ds['logger_datetime'].to_index().to_pydatetime()
     plottimes_onesec = [plottimes_onesec]
+    plottimes_onesec_max = plottimes_onesec[0][-1]
+    plottimes_onesec_min = plottimes_onesec_max - timedelta(seconds=3600)
+
     # Temperature and Dewpoint
     try:
         Tmin = np.nanmin(onesec_ds['dewpoint'].values)
@@ -250,7 +258,7 @@ while True:
             plottimes_onesec,
             fields_to_plot_onesec,
             field_parameters_onesec)
-        temp_dewp_ax_params['axeslimits'] = [[plottimes_onesec[0][0], plottimes_onesec[0][-1]],
+        temp_dewp_ax_params['axeslimits'] = [[plottimes_onesec_min, plottimes_onesec_max],
                                             [Tmin - 5.0, Tmax + 5.0]]
         ax_t_td, = pm.set_meteogram_axes([ax_t_td], [temp_dewp_ax_params])
     except:
@@ -265,8 +273,8 @@ while True:
         ax_winddir, plottimes_onesec, [
             onesec_ds['winddirabs'].values], [
             pm.winddir_params])
-    windspd_ax_params['axeslimits'][0] = (plottimes_onesec[0][0], plottimes_onesec[0][-1])
-    winddir_ax_params['axeslimits'][0] = (plottimes_onesec[0][0], plottimes_onesec[0][-1])
+    windspd_ax_params['axeslimits'][0] = (plottimes_onesec_min, plottimes_onesec_max)
+    winddir_ax_params['axeslimits'][0] = (plottimes_onesec_min, plottimes_onesec_max)
     ax_windspd, ax_winddir = pm.set_meteogram_axes(
         [ax_windspd, ax_winddir], [windspd_ax_params, winddir_ax_params])
 
@@ -274,7 +282,7 @@ while True:
     try:
         pmin = np.nanmin(onesec_ds['pressure'].values)
         pmax = np.nanmax(onesec_ds['pressure'].values)
-        pressure_ax_params['axeslimits'] = [[plottimes_onesec[0][0], plottimes_onesec[0][-1]],
+        pressure_ax_params['axeslimits'] = [[plottimes_onesec_min, plottimes_onesec_max],
                                             [pmin - 2.5, pmax + 2.5]]
         fields_to_plot_press = [onesec_ds['pressure'].values]
         field_parameters_press = [pm.pressure_params]
@@ -293,6 +301,8 @@ while True:
     # edges of the DSD intervals.
     plottimes = np.insert(plottimes_tmp, 0, plottimes_tmp[0] - timedelta(seconds=10))
     plottimes = [plottimes]
+    plottimes_tensec_max = plottimes[0][-1]
+    plottimes_tensec_min = plottimes_tensec_max - timedelta(seconds=3600)
     # Do the same at the end of the "min_diameter" and "min_fall_bins" arrays
     # TODO: apparently this is a problem in the main DSD meteogram plotting script as well, so
     # go back and fix that soon! NOTE: this is now done in PIPS.py and stored in "diameter_edges"
@@ -303,8 +313,9 @@ while True:
     logND_arr = np.ma.log10(ND_arr)
     fields_to_plot = [logND_arr]
     field_parameters = [log_ND_params]
+    log_ND_ax_params['axeslimits'] = [[plottimes_tensec_min, plottimes_tensec_max], [0.0, 9.0]]
     ax = pm.plotmeteogram(ax, plottimes, fields_to_plot, field_parameters,
-                        yvals=[diameter_edges] * len(fields_to_plot))
+                          yvals=[diameter_edges] * len(fields_to_plot))
     ax, = pm.set_meteogram_axes([ax], [log_ND_ax_params])
 
     ax_vd.set_title(

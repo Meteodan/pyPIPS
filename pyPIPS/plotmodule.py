@@ -1050,7 +1050,7 @@ def plotmeteogram(ax, xvals, zvals, plotparamdicts, yvals=None):
 
         if mtype == 'fill_between':
             ax.plot_date(xval, zval, ls=linestyle, lw=linewidth, marker=marker, color=color,
-                         markeredgecolor=markeredgecolor, ms=ms, label=plotlabel)
+                         markeredgecolor=markeredgecolor, ms=ms, label=plotlabel, fmt="")
             ax.fill_between(xval, zval, plotmin, facecolor=color, alpha=alpha)
         elif mtype == 'pcolor':
             divider = make_axes_locatable(ax)
@@ -1071,7 +1071,7 @@ def plotmeteogram(ax, xvals, zvals, plotparamdicts, yvals=None):
                 ax.axvline(x=x, ls=linestyle, lw=linewidth, color=color)
         else:
             ax.plot_date(xval, zval, ls=linestyle, lw=linewidth, marker=marker, color=color,
-                         markeredgecolor=markeredgecolor, ms=ms, label=plotlabel)
+                         markeredgecolor=markeredgecolor, ms=ms, label=plotlabel, fmt="")
     return ax
 
 

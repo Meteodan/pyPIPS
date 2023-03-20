@@ -25,7 +25,8 @@ eff_sensor_area = parsivel_parameters['eff_sensor_area_mm2'] * 1.e-6
 def get_data_table(http, url, numrecords=3600):
     """Grabs the data table from the PIPS http server given the requested http pool manager,
        requested URL, and desired number of records. Uses urlib3 and beautifulsoup4"""
-    content = http.request('GET', url + '&records={:d}'.format(numrecords))
+    content = http.request('GET', url + '&records={:d}'.format(numrecords), retries=False,
+                           timeout=10.0)
     soup = bs4.BeautifulSoup(content.data, "lxml")
     table = soup.find('table')
     rows = table.find_all('tr')
