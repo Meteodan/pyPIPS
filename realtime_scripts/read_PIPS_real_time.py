@@ -76,7 +76,7 @@ online = False
 while True:
     if not online:
         try:
-            content = http.request('GET', f'http://{pips_ip}', retries=False,
+            content = http.request('GET', f'http://{pips_ip}/default.html', retries=False,
                                    timeout=urllib3.Timeout(connect=5.0))
             online = True
             print(f"{args.PIPS_name} is online!")
