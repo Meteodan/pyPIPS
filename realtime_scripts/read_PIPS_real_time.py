@@ -20,8 +20,25 @@ from pyPIPS import pips_realtime as prt
 from pyPIPS import thermolib as thermo
 from pyPIPS import timemodule as tm
 from pyPIPS import pips_realtime_config as prc
+from pyPIPS import PIPS as pips
 import pyPIPS.utils as utils
 import pyPIPS.plotmodule as pm
+
+
+# From
+# https://gist.github.com/blaylockbk/1677b446bc741ee2db3e943ab7e4cabd?permalink_comment_id=3775327
+def to_datetime(date):
+    """
+    Converts a numpy datetime64 object to a python datetime object
+    Input:
+      date - a np.datetime64 object
+    Output:
+      DATE - a python datetime object
+    """
+    timestamp = ((date - np.datetime64('1970-01-01T00:00:00'))
+                 / np.timedelta64(1, 's'))
+    return datetime.utcfromtimestamp(timestamp)
+
 
 eff_sensor_area = parsivel_parameters['eff_sensor_area_mm2'] * 1.e-6
 interval_onesec = 1.
@@ -33,9 +50,9 @@ parser.add_argument('PIPS_name', default=None,
                     help='Name of the PIPS to query and plot data for')
 parser.add_argument('--plot-config-path', dest='plot_config_path',
                     default='plot_config.py', help='Location of the plot configuration file')
-parser.add_argument('--netcdf-output-dir', dest='netcdf_output_dir',
-                    default='../web/perils_realtime/netcdf',
-                    help='output directory for web images')
+parser.add_argument('--base-output-dir', dest='base_output_dir',
+                    default='../web/perils_realtime/',
+                    help='base output directory for web content')
 args = parser.parse_args()
 
 # Dynamically import the plotting configuration file
@@ -49,8 +66,12 @@ except Exception:
     import configs.plot_config_default as pc
 
 # Set up directories for output/plotting and URLs for grabbing the data
-if not os.path.exists(args.netcdf_output_dir):
-    os.makedirs(args.netcdf_output_dir)
+netcdf_output_dir = os.path.join(args.base_output_dir, 'netcdf')
+csv_output_dir = os.path.join(args.base_output_dir, 'csv')
+if not os.path.exists(netcdf_output_dir):
+    os.makedirs(netcdf_output_dir)
+if not os.path.exists(csv_output_dir):
+    os.makedirs(csv_output_dir)
 
 # Construct the URL for the PIPS
 pips_ip = prc.PIPS_PERiLS_IPs[args.PIPS_name]
@@ -89,6 +110,7 @@ while True:
         time1 = time.time()
         try:
             onesec_df = prt.scrape_onesec_data(url_onesec, numrecords=numrecords_onesec)
+            onesec_df = pips.calc_thermo(onesec_df)
             print(onesec_df)
         except:
             online = False
@@ -112,17 +134,44 @@ while True:
         # speed things up if needed by dumping to simple CSV files. Although
         # This does seem to be fast enough.
 
+        # First dump a basic state vector to a CSV file for ingest by SASSI
+        # Resample to 1-min interval and convert to xarray Dataset
+         # Resample conventional data to the parsivel times
+        sec_offset = 0
+        onesec_rs_df = pips.resample_conv('PIPS', data_interval, sec_offset, onesec_df)
+        onesec_rs_ds = onesec_rs_df.to_xarray()
+        # Now just grab the last record
+        onesec_rs_ds = onesec_rs_ds.isel(logger_datetime=-1)
+        timestamp = to_datetime(onesec_rs_ds['logger_datetime'].values)
+        print(timestamp)
+        # Now construct the dictionary of the state variables
+
+        PIPS_SASSI_state = {}
+        PIPS_SASSI_state['ID'] = args.PIPS_name
+        PIPS_SASSI_state['lon'] = onesec_rs_ds['GPS_lon'].values
+        PIPS_SASSI_state['lat'] = onesec_rs_ds['GPS_lat'].values
+        PIPS_SASSI_state['elev'] = onesec_rs_ds['GPS_alt'].values
+        PIPS_SASSI_state['FastTemp'] = onesec_rs_ds['fasttemp'].values
+        PIPS_SASSI_state['SlowTemp'] = onesec_rs_ds['slowtemp'].values
+        PIPS_SASSI_state['RH'] = onesec_rs_ds['RH'].values
+        PIPS_SASSI_state['p'] = onesec_rs_ds['pressure'].values
+        PIPS_SASSI_state['lat'] = onesec_rs_ds['GPS_lat'].values
+
+        # Output to file
+        prt.dump_real_time_csv_for_SASSI(PIPS_SASSI_state, csv_output_dir, args.PIPS_name,
+                                         timestamp)
+
         # Dump onesec dataframe to netCDF file (via xarray)
-        prt.dump_real_time_df_netcdf(onesec_df, args.netcdf_output_dir, 'onesec',
+        prt.dump_real_time_df_netcdf(onesec_df, netcdf_output_dir, 'onesec',
                                      args.PIPS_name, copy_to_ts_file=True)
         # Dump raw spectrum to netcdf file
-        prt.dump_real_time_da_netcdf(spectrum_da, args.netcdf_output_dir, 'spectrum',
+        prt.dump_real_time_da_netcdf(spectrum_da, netcdf_output_dir, 'spectrum',
                                      args.PIPS_name, copy_to_ts_file=True)
         # Dump ND_da to netcdf file
-        prt.dump_real_time_da_netcdf(ND_da, args.netcdf_output_dir, 'ND',
+        prt.dump_real_time_da_netcdf(ND_da, netcdf_output_dir, 'ND',
                                      args.PIPS_name, copy_to_ts_file=True)
         # Dump telegram data to netcdf file
-        prt.dump_real_time_df_netcdf(telegram_df, args.netcdf_output_dir, 'telegram',
+        prt.dump_real_time_df_netcdf(telegram_df, netcdf_output_dir, 'telegram',
                                      args.PIPS_name, copy_to_ts_file=True)
 
         time2 = time.time()

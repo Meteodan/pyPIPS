@@ -1,5 +1,6 @@
 """Module for real-time monitoring functionality"""
 import os, shutil
+import csv
 from datetime import datetime, timedelta
 import bs4
 import urllib3
@@ -208,6 +209,20 @@ def calc_ND(spectrum, interval=10, use_measured_fs=True):
             # ND = ND.sum(axis=0)
             ND = ND.sum(dim='velocity')
     return ND
+
+
+def dump_real_time_csv_for_SASSI(state_dict, csv_output_dir, PIPS_name, timestamp):
+    """Dumps a one-line CSV file with the current state for a given PIPS for ingest by SASSI"""
+    timestamp_str = timestamp.strftime('%Y%m%d%H%M%S')
+    filename = f'{PIPS_name}_{timestamp_str}.txt'
+    filepath = os.path.join(csv_output_dir, filename)
+    field_names = ['ID', 'lon', 'lat', 'elev', 'FastTemp', 'SlowTemp', 'RH', 'p'] # , 'dir', 'spd']
+
+    with open(filepath, 'w', newline='') as csvfile:
+        writer = csv.DictWriter(csvfile, fieldnames=field_names)
+
+        # writer.writeheader()
+        writer.writerow(state_dict)
 
 
 def dump_real_time_df_netcdf(df, netcdf_output_dir, ds_name, PIPS_name, copy_to_ts_file=True):
