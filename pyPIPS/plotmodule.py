@@ -1029,7 +1029,7 @@ def plotDSDmeteograms(dis_name, image_dir, axparams, disvars, radvars=None, clos
             plt.close(fig)
 
 
-def plotmeteogram(ax, xvals, zvals, plotparamdicts, yvals=None):
+def plotmeteogram(ax, xvals, zvals, plotparamdicts, yvals=None, plot_data_bounds=True):
     """Plots a meteogram (time series) of one or more meteorological variables"""
     ax = ax or plt.figure().add_subplot(111)
     for idx, xval, zval, plotparamdict in zip(range(len(zvals)), cycle(xvals), zvals,
@@ -1072,6 +1072,12 @@ def plotmeteogram(ax, xvals, zvals, plotparamdicts, yvals=None):
         else:
             ax.plot_date(xval, zval, ls=linestyle, lw=linewidth, marker=marker, color=color,
                          markeredgecolor=markeredgecolor, ms=ms, label=plotlabel, fmt="")
+
+    # If desired, plot the start and end times of data collection as vertical black dashed lines
+    if plot_data_bounds:
+        ax.axvline(x=xvals[0][0], ls='--', lw=0.5, color='k', alpha=0.75)
+        ax.axvline(x=xvals[0][-1], ls='--', lw=0.5, color='k', alpha=0.75)
+
     return ax
 
 
