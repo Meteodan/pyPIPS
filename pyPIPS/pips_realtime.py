@@ -216,7 +216,7 @@ def dump_real_time_csv_for_SASSI(state_dict, csv_output_dir, PIPS_name, timestam
     timestamp_str = timestamp.strftime('%Y%m%d%H%M%S')
     filename = f'{PIPS_name}_{timestamp_str}.txt'
     filepath = os.path.join(csv_output_dir, filename)
-    field_names = ['ID', 'lon', 'lat', 'elev', 'FastTemp', 'SlowTemp', 'RH', 'p'] # , 'dir', 'spd']
+    field_names = ['ID', 'lon', 'lat', 'elev', 'FastTemp', 'SlowTemp', 'RH', 'p', 'dir', 'spd']
 
     with open(filepath, 'w', newline='') as csvfile:
         writer = csv.DictWriter(csvfile, fieldnames=field_names)

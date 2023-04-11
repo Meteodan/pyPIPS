@@ -155,7 +155,9 @@ while True:
         PIPS_SASSI_state['SlowTemp'] = onesec_rs_ds['slowtemp'].values
         PIPS_SASSI_state['RH'] = onesec_rs_ds['RH'].values
         PIPS_SASSI_state['p'] = onesec_rs_ds['pressure'].values
-        PIPS_SASSI_state['lat'] = onesec_rs_ds['GPS_lat'].values
+        PIPS_SASSI_state['dir'] = onesec_rs_ds['winddirabs'].values
+        PIPS_SASSI_state['spd'] = onesec_rs_ds['windspd'].values
+
 
         # Output to file
         prt.dump_real_time_csv_for_SASSI(PIPS_SASSI_state, csv_output_dir, args.PIPS_name,

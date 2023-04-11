@@ -30,14 +30,15 @@ def get_files(file_list, starttime, endtime, ftype='onesec'):
         making a loop of files.'''
 
     len_prefix = 8 + len(ftype)
-    print(starttime.day, endtime.day)
-    print((endtime.day - starttime.day))
-    day_str = [(starttime + timedelta(days=i)).strftime("%Y%m%d")
-               for i in range((endtime.day - starttime.day) + 1)]
-    print(day_str)
+    # print(starttime.day, endtime.day)
+    # print((endtime.day - starttime.day))
+
+    # day_str = [(starttime + timedelta(days=i)).strftime("%Y%m%d")
+    #            for i in range((endtime.day - starttime.day) + 1)]
+    # print(day_str)
 
     # find all PIPS files with days between starttime and endtime
-    file_list = [file_name for file_name in file_list if any(day in file_name for day in day_str)]
+    # file_list = [file_name for file_name in file_list if any(day in file_name for day in day_str)]
     # print(file_list)
     # file_list = [f for subf in file_list for f in subf]  # flatten list in case of multiple days
     # print(file_list)
@@ -184,8 +185,9 @@ while True:
     file_list_onePIPS = [file_name for file_name in file_list if args.PIPS_name in file_name]
     file_list_onesec = [file_name for file_name in file_list_onePIPS if 'onesec' in file_name]
     file_list_onesec = [file_name for file_name in file_list_onesec if 'current' not in file_name]
+    print(file_list_onesec)
     file_list_onesec = get_files(file_list_onesec, starttime, endtime)
-
+    print(file_list_onesec)
     # Now, load the list of files into memory and read them with xarray
 
     file_urls = [f'http://{args.netcdf_dir_url}/{file}' for file in file_list_onesec]
@@ -194,9 +196,12 @@ while True:
     print("Extracting data from files into memory")
     fdata = [io.BytesIO(file_req.data) for file_req in file_reqs]
     print("Opening with xarray")
-    onesec_ds = xr.open_mfdataset(fdata, combine='nested', concat_dim='logger_datetime')
-    onesec_ds = onesec_ds.drop_duplicates('logger_datetime')
-
+    try:
+        onesec_ds = xr.open_mfdataset(fdata, combine='nested', concat_dim='logger_datetime')
+        onesec_ds = onesec_ds.drop_duplicates('logger_datetime')
+    except Exception:
+        print("No files on server, waiting for files!")
+        continue
     # Do the same for the ten-sec data files
     file_list_ND = [file_name for file_name in file_list_onePIPS if 'ND' in file_name]
     file_list_ND = [file_name for file_name in file_list_ND if 'current' not in file_name]
