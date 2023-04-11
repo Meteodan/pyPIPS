@@ -1,6 +1,8 @@
 # This notebook is for testing the download of PIPS data using the web API.
 # It uses urllib3 and BeautifulSoup4
 import os
+import sys
+import time
 from datetime import datetime, timedelta
 import bs4
 import urllib3
@@ -18,14 +20,17 @@ from pyPIPS import thermolib as thermo
 from pyPIPS import timemodule as tm
 import pyPIPS.plotmodule as pm
 
+starttime = time.time()
+print(f"Starting time is {time.ctime(starttime)}")
 eff_sensor_area = parsivel_parameters['eff_sensor_area_mm2'] * 1.e-6
 
 
 # Function definitions. These will eventually go into their own module
-def scrape_tripips_onesec_data(url, numrecords=3600):
+def scrape_tripips_onesec_data(url, numrecords=3600, timeout=15):
     """Grabs one-second records from the TriPIPS http server. Uses urlib3 and beautifulsoup4"""
     http = urllib3.PoolManager()
-    content = http.request('GET', url + '&records={:d}'.format(numrecords))
+    content = http.request('GET', url + '&records={:d}'.format(numrecords), retries=False,
+                           timeout=timeout)
     soup = bs4.BeautifulSoup(content.data, "lxml")
     table = soup.find('table')
     rows = table.find_all('tr')
@@ -46,10 +51,11 @@ def scrape_tripips_onesec_data(url, numrecords=3600):
     return df
 
 
-def scrape_tripips_tensec_data(url, numrecords=360):
+def scrape_tripips_tensec_data(url, numrecords=360, timeout=15):
     """Grabs ten-second records from the TriPIPS http server. Uses urlib3 and beautifulsoup4"""
     http = urllib3.PoolManager()
-    content = http.request('GET', url + '&records={:d}'.format(numrecords))
+    content = http.request('GET', url + '&records={:d}'.format(numrecords), retries=False,
+                           timeout=timeout)
     soup = bs4.BeautifulSoup(content.data, "lxml")
     table = soup.find('table')
     rows = table.find_all('tr')
@@ -180,7 +186,7 @@ def calc_ND(spectrum, interval=10, use_measured_fs=True):
 
 # Set up directories for output/plotting and URLs for grabbing the data
 # base_output_dir = '/Users/dawson29/sshfs_mounts/depot/data/Projects/TriPIPS/webdata/'
-base_output_dir = '/Users/dawson29/sshfs_mounts/stormlab_web/'
+base_output_dir = '/Users/dawson29/sshfs_mounts/stormlab_web/tripips'
 image_output_dir = os.path.join(base_output_dir, 'images')
 # netcdf_output_dir = '/Users/dawson29/sshfs_mounts/depot/data/Projects/TriPIPS/netcdf_web/'
 netcdf_output_base_dir = '/Volumes/scr_fast/Projects/TriPIPS/netcdf_web/'
@@ -266,11 +272,20 @@ numrecords_tensec = int(keep_data_for / interval_tensec)
 
 # Grab and process the previous hour's worth of data
 onesec_df = scrape_tripips_onesec_data(url_onesec, numrecords=numrecords_onesec)
-print(onesec_df.keys())
-onesec_df['Dewpoint'] = thermo.calTdfromRH(onesec_df['Pressure'] * 100.,
-                                           onesec_df['SlowTemp'] + 273.15,
-                                           onesec_df['RH'] / 100.) - 273.15
-telegram_df, spectrum_da = scrape_tripips_tensec_data(url_tensec, numrecords=numrecords_tensec)
+print("Reading one-sec data...")
+try:
+    onesec_df['Dewpoint'] = thermo.calTdfromRH(onesec_df['Pressure'] * 100.,
+                                               onesec_df['SlowTemp'] + 273.15,
+                                               onesec_df['RH'] / 100.) - 273.15
+except Exception as err:
+    sys.exit(f"Problem reading one-sec data: {err}")
+print("One-sec data read was successful!")
+print("Reading ten-sec data!")
+try:
+    telegram_df, spectrum_da = scrape_tripips_tensec_data(url_tensec, numrecords=numrecords_tensec)
+except Exception as err:
+     sys.exit(f"Problem reading ten-sec data: {err}")
+print("Ten-sec data read was successful!")
 ND_da = calc_ND_da(spectrum_da)
 
 # DTD 06/19/2021: getting some permission denied errors here for some reason. Need to find out
@@ -278,6 +293,7 @@ ND_da = calc_ND_da(spectrum_da)
 # EDIT: found the problem. The issue was that cron was not given full disk access. I followed
 # the instructions here to fix the problem: https://blog.bejarano.io/fixing-cron-jobs-in-mojave/
 
+print("Saving current-hour data to files!")
 # Dump onesec dataframe to netCDF file (via xarray)
 netcdf_filename = 'onesec_current_hour.nc'
 netcdf_path = os.path.join(netcdf_output_base_dir, netcdf_filename)
@@ -302,6 +318,7 @@ netcdf_path = os.path.join(netcdf_output_base_dir, netcdf_filename)
 telegram_ds = telegram_df.to_xarray()
 telegram_ds.to_netcdf(netcdf_path)
 telegram_ds.close()
+print("Current-hour data dump was successful!")
 
 # Check if we are near the top of the hour and save top-of-the-hour netcdf files if we are
 last_timestamp_onesec = onesec_df.index[-1]
@@ -335,6 +352,7 @@ if diff > 0 and diff < 300:
     telegram_hourly_path = os.path.join(netcdf_output_dir, telegram_hourly_filename)
     # First see if the file already exists
     if not os.path.exists(onesec_hourly_path):
+        print("Saving last hour of data to files!")
         onesec_df_dump = onesec_df.loc[previous_hour_timestamp:last_hour_timestamp]
         spectrum_da_dump = spectrum_da.loc[previous_hour_timestamp:last_hour_timestamp]
         ND_da_dump = ND_da.loc[previous_hour_timestamp:last_hour_timestamp]
@@ -352,7 +370,9 @@ if diff > 0 and diff < 300:
         ND_ds_dump = ND_da_dump.to_dataset(name='spectrum')
         ND_ds_dump.to_netcdf(ND_hourly_path)
         ND_ds_dump.close()
+        print("Saving of hourly data was successful!")
 
+print("Creating figures...")
 # Create the figures
 fig, ax = plt.subplots()
 fig_vd, ax_vd = plt.subplots()
@@ -475,9 +495,17 @@ except:
     finally:
         print("mounting stormlab")
         os.system("/Users/dawson29/scripts/stormlabmount")
+
+print("Saving figures to files...")
 fig.savefig(os.path.join(image_output_dir, 'logND_current.png'), dpi=300)
 fig_vd.savefig(os.path.join(image_output_dir, 'VD_current.png'), dpi=300)
 fig_dsd.savefig(os.path.join(image_output_dir, 'DSD_current.png'), dpi=300)
 fig_t_td.savefig(os.path.join(image_output_dir, 'T_Td_current.png'), dpi=300)
 fig_wind.savefig(os.path.join(image_output_dir, 'wind_current.png'), dpi=300)
 fig_pressure.savefig(os.path.join(image_output_dir, 'pressure.png'), dpi=300)
+print("Figure saving was successful!")
+
+endtime = time.time()
+print(f"Ending time is {time.ctime(endtime)}.")
+duration = endtime - starttime
+print(f"The script took {duration} seconds.")

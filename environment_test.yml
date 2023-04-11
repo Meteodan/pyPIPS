@@ -1,7 +1,8 @@
-name: pyPIPS
+name: pyPIPS_test
 channels:
   - conda-forge
 dependencies:
+  - arm_pyart
   - autopep8
   - beautifulsoup4
   - bottleneck
@@ -24,12 +25,10 @@ dependencies:
   - pandas
   - pip
   - pylint
-  - pysteps
   - pytz
-  - python=3.10
+  - python
   - scipy
   - urllib3
   - xarray
   - pip:
-    - arm_pyart
     - "--editable=git+https://github.itap.purdue.edu/STorMLab/pyCRMtools.git@master#egg=pyCRMtools"

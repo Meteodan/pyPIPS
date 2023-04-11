@@ -41,8 +41,13 @@ def parseTimeStamp(timestring):
 
 def get_field_indices(header, tripips=False):
 
-    header_fields = header.strip().split(',')
-    if 'TIMESTAMP' not in header_fields:
+    if not isinstance(header, list):
+        header_fields = header.strip().split(',')
+    else:
+        # Already split into a list of strings?
+        header_fields = header
+    header_fields_upper = [field.upper() for field in header_fields]
+    if 'TIMESTAMP' not in header_fields_upper:
         if not tripips:
             header_fields = parsivel_params.parsivel_parameters['PIPS_file_field_names']
         else:
@@ -50,7 +55,7 @@ def get_field_indices(header, tripips=False):
     return {field: header_fields.index(field) for field in header_fields}
 
 
-def parse_PIPS_record(record, field_indices, tripips=False):
+def parse_PIPS_record(record, field_indices, tripips=False, include_parsivel_string=True):
     """[summary]
 
     Parameters
@@ -67,9 +72,15 @@ def parse_PIPS_record(record, field_indices, tripips=False):
     """
     # TODO: refactor this function to do more efficient parsing?
     token_dict = {}
-
-    tokens = record.strip().split(',')
-    timestamp = tokens[field_indices['TIMESTAMP']]
+    if not isinstance(record, list):
+        tokens = record.strip().split(',')
+    else:
+        # Already split into a list of strings?
+        tokens = record
+    try:
+        timestamp = tokens[field_indices['TIMESTAMP']]
+    except KeyError:
+        timestamp = tokens[field_indices['TimeStamp']]
     if timestamp[-4:] == '.000':
         token_dict['logger_datetime'] = datetime.strptime(timestamp, PIPS_timestamp_format2)
     else:
@@ -92,29 +103,72 @@ def parse_PIPS_record(record, field_indices, tripips=False):
     token_dict['compass_dir'] = float(tokens[field_indices['FluxDirection']])
     token_dict['GPS_time'] = tokens[field_indices['GPSTime']]
     token_dict['GPS_status'] = tokens[field_indices['GPSStatus']]
-    GPS_lat = float(tokens[field_indices['GPSLat']])
-    GPS_lat_hem = tokens[field_indices['GPSLatHem']]
-    token_dict['GPS_lat'] = utils.DDMtoDD(GPS_lat, GPS_lat_hem)
-    GPS_lon = float(tokens[field_indices['GPSLon']])
-    GPS_lon_hem = tokens[field_indices['GPSLonHem']]
-    token_dict['GPS_lon'] = utils.DDMtoDD(GPS_lon, GPS_lon_hem)
-    token_dict['GPS_spd'] = float(tokens[field_indices['GPSSpd']])
-    token_dict['GPS_dir'] = float(tokens[field_indices['GPSDir']])
-    token_dict['GPS_date'] = tokens[field_indices['GPSDate']]
-    try:
-        token_dict['GPS_magvar'] = float(tokens[field_indices['GPSMagVar']])
-    except ValueError:
+    # Sometimes the GPS parsing gets screwed up and puts the latitude field in the status field
+    # In such a case we just set the rest of the fields to "NaN"
+    if token_dict['GPS_status'] != "A":
+        token_dict['GPS_status'] = ""
+        token_dict['GPS_lat'] = np.nan
+        token_dict['GPS_lon'] = np.nan
+        token_dict['GPS_spd'] = np.nan
+        token_dict['GPS_dir'] = np.nan
+        token_dict['GPS_date'] = ""
         token_dict['GPS_magvar'] = np.nan
-    try:
-        token_dict['GPS_alt'] = float(tokens[field_indices['GPSAlt']])
-    except ValueError:
         token_dict['GPS_alt'] = np.nan
-    try:
-        winddirabs = float(tokens[field_indices['WindDirAbs']])
-        if np.isnan(winddirabs):
-            winddirabs = token_dict['winddirrel']
-    except ValueError:
-        winddirabs = np.nan
+    else:
+        # Need to do some extra checks for the GPS Lat and Lon fields. Sometimes
+        # the hemisphere is included in the token and the GPS Lat and Lon have
+        # the decimal shifted two places to the right. This happens if we are
+        # reading the data right off of the logger (like through the web interface)
+        # without first processing it with the pyPIPS_merge.py script. Take care of that here.
+        GPS_lat = tokens[field_indices['GPSLat']]
+        if 'N' in GPS_lat or 'S' in GPS_lat:
+            GPS_lat_list = GPS_lat.strip().split()
+            GPS_lat = float(GPS_lat_list[0])
+            if np.abs(GPS_lat) > 100:
+                GPS_lat = GPS_lat / 100.
+            GPS_lat_hem = GPS_lat_list[1]
+        else:
+            GPS_lat = float(tokens[field_indices['GPSLat']])
+            GPS_lat_hem = tokens[field_indices['GPSLatHem']]
+        token_dict['GPS_lat'] = utils.DDMtoDD(GPS_lat, GPS_lat_hem)
+        GPS_lon = tokens[field_indices['GPSLon']]
+        if 'W' in GPS_lon or 'E' in GPS_lon:
+            GPS_lon_list = GPS_lon.strip().split()
+            GPS_lon = float(GPS_lon_list[0])
+            if np.abs(GPS_lon > 180.):
+                GPS_lon = GPS_lon / 100.
+            GPS_lon_hem = GPS_lon_list[1]
+        else:
+            GPS_lon = float(tokens[field_indices['GPSLon']])
+            GPS_lon_hem = tokens[field_indices['GPSLonHem']]
+        token_dict['GPS_lon'] = utils.DDMtoDD(GPS_lon, GPS_lon_hem)
+        token_dict['GPS_spd'] = float(tokens[field_indices['GPSSpd']])
+        token_dict['GPS_dir'] = float(tokens[field_indices['GPSDir']])
+        token_dict['GPS_date'] = tokens[field_indices['GPSDate']]
+        try:
+            token_dict['GPS_magvar'] = float(tokens[field_indices['GPSMagVar']])
+        except ValueError:
+            token_dict['GPS_magvar'] = np.nan
+        try:
+            token_dict['GPS_alt'] = float(tokens[field_indices['GPSAlt']])
+        except ValueError:
+            token_dict['GPS_alt'] = np.nan
+    # Need to check if the absolute wind direction is included in the
+    # record. If not, let's derive it here
+    if 'WindDirAbs' not in field_indices:
+        try:
+            winddirabs = np.mod(token_dict['compass_dir'] +
+                                token_dict['winddirrel'], 360.)
+        except:
+            winddirabs = np.nan
+    else:
+        try:
+            winddirabs = float(tokens[field_indices['WindDirAbs']])
+            # TODO: do we really want to do this?
+            if np.isnan(winddirabs):
+                winddirabs = token_dict['winddirrel']
+        except ValueError:
+            winddirabs = np.nan
     token_dict['winddirabs'] = winddirabs
     try:
         dewpoint = float(tokens[field_indices['Dewpoint']])
@@ -122,7 +176,7 @@ def parse_PIPS_record(record, field_indices, tripips=False):
             dewpoint = (thermo.calTdfromRH(token_dict['pressure'] * 100.,
                                            token_dict['fasttemp'] + 273.15,
                                            token_dict['RH'] / 100.) - 273.15)
-    except ValueError:
+    except (ValueError, KeyError):
         dewpoint = thermo.calTdfromRH(token_dict['pressure'] * 100.,
                                       token_dict['fasttemp'] + 273.15,
                                       token_dict['RH'] / 100.) - 273.15
@@ -131,11 +185,12 @@ def parse_PIPS_record(record, field_indices, tripips=False):
         RH_derived = float(tokens[field_indices['RHDer']])
         if np.isnan(RH_derived):
             RH_derived = token_dict['RH']
-    except ValueError:
+    # TODO: STOPPED HERE 02/21/23. Need to rederive RH
+    except (ValueError, KeyError):
         RH_derived = token_dict['RH']
     token_dict['RH_derived'] = RH_derived
-    token_dict['parsivel_telegram'] = tokens[field_indices['ParsivelStr']]
-    print(token_dict.keys())
+    if include_parsivel_string:
+        token_dict['parsivel_telegram'] = tokens[field_indices['ParsivelStr']]
 
     return token_dict
 
