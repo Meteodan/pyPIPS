@@ -396,44 +396,53 @@ def read_PIPS(filename, start_timestamp=None, end_timestamp=None, tripips=False,
     #     conv_df['logger_datetime'] += GPS_offset
     #     parsivel_df['parsivel_datetime'] += GPS_offset
 
+    
+    # Set the pd.Series of datetimes as the new index for both the conv_df and parsivel_df
+    # DataFrames
+    conv_df = conv_df.rename(columns={'logger_datetime': 'time'})
+    conv_df = conv_df.set_index('time')
+    
     # Have to do this because of some weird issue where the DataArray constructor below errors out
     # if you try to give the 'time' coordinate the actual parsivel_df.index as its values.
     # Instead, we save the pd.Series of datetimes ina  separate variable here *before* setting it
     # as the index to parsivel_df, and then use it as the values for the DataArray
     # time coordinates. Bizarre.
-    parsivel_datetime = parsivel_df['parsivel_datetime']
+    try:
+        parsivel_datetime = parsivel_df['parsivel_datetime']
+        parsivel_df = parsivel_df.rename(columns={'parsivel_datetime': 'time'})
+        parsivel_df = parsivel_df.set_index('time')
 
-    # Set the pd.Series of datetimes as the new index for both the conv_df and parsivel_df
-    # DataFrames
-    conv_df = conv_df.rename(columns={'logger_datetime': 'time'})
-    conv_df = conv_df.set_index('time')
-    parsivel_df = parsivel_df.rename(columns={'parsivel_datetime': 'time'})
-    parsivel_df = parsivel_df.set_index('time')
+        # Create an xarray DataArray for the vd_matrix
+        vd_matrix_arr = np.dstack(vd_matrix_list)
+        vd_matrix_arr = np.rollaxis(vd_matrix_arr, 2, 0)
 
-    # Create an xarray DataArray for the vd_matrix
-    vd_matrix_arr = np.dstack(vd_matrix_list)
-    vd_matrix_arr = np.rollaxis(vd_matrix_arr, 2, 0)
-
-    diameters = parsivel_params.parsivel_parameters['avg_diameter_bins_mm']
-    min_diameters = parsivel_params.parsivel_parameters['min_diameter_bins_mm']
-    max_diameters = parsivel_params.parsivel_parameters['max_diameter_bins_mm']
-    fallspeeds = parsivel_params.parsivel_parameters['avg_fallspeed_bins_mps']
-    min_fallspeeds = parsivel_params.parsivel_parameters['min_fallspeed_bins_mps']
-    max_fallspeeds = parsivel_params.parsivel_parameters['max_fallspeed_bins_mps']
-    # Note, on below, I get an error if I try to use the parsivel_df.index as the value of the
-    # coordinate 'time'.
-    vd_matrix_da = \
-        xr.DataArray(vd_matrix_arr,
-                     name='VD_matrix',
-                     coords={'time': parsivel_datetime,
-                             'fallspeed': ('fallspeed_bin', fallspeeds),
-                             'diameter': ('diameter_bin', diameters),
-                             'min_diameter': ('diameter_bin', min_diameters),
-                             'max_diameter': ('diameter_bin', max_diameters),
-                             'min_fallspeeds': ('fallspeed_bin', min_fallspeeds),
-                             'max_fallspeeds': ('fallspeed_bin', max_fallspeeds)
-                             },
-                     dims=['time', 'fallspeed_bin', 'diameter_bin'])
+        diameters = parsivel_params.parsivel_parameters['avg_diameter_bins_mm']
+        min_diameters = parsivel_params.parsivel_parameters['min_diameter_bins_mm']
+        max_diameters = parsivel_params.parsivel_parameters['max_diameter_bins_mm']
+        fallspeeds = parsivel_params.parsivel_parameters['avg_fallspeed_bins_mps']
+        min_fallspeeds = parsivel_params.parsivel_parameters['min_fallspeed_bins_mps']
+        max_fallspeeds = parsivel_params.parsivel_parameters['max_fallspeed_bins_mps']
+        # Note, on below, I get an error if I try to use the parsivel_df.index as the value of the
+        # coordinate 'time'.
+        vd_matrix_da = \
+            xr.DataArray(vd_matrix_arr,
+                        name='VD_matrix',
+                        coords={'time': parsivel_datetime,
+                                'fallspeed': ('fallspeed_bin', fallspeeds),
+                                'diameter': ('diameter_bin', diameters),
+                                'min_diameter': ('diameter_bin', min_diameters),
+                                'max_diameter': ('diameter_bin', max_diameters),
+                                'min_fallspeeds': ('fallspeed_bin', min_fallspeeds),
+                                'max_fallspeeds': ('fallspeed_bin', max_fallspeeds)
+                                },
+                        dims=['time', 'fallspeed_bin', 'diameter_bin'])
+    except KeyError:
+        # TODO: this is a band-aid fix for the case of missing/corrupt Parsivel data.
+        # Come back to this later to make a more graceful fail state.
+        print("The Parsivel data appear to be missing or corrupted. Will return 'None' "
+              "in place of the Parsivel data")
+        parsivel_df = None
+        vd_matrix_da = None
 
     if check_order:
         time_diff = conv_df.to_xarray()['time'].diff('time').astype(float)*1.e-9
@@ -446,8 +455,10 @@ def read_PIPS(filename, start_timestamp=None, end_timestamp=None, tripips=False,
 
     if sort:
         conv_df = conv_df.sort_index()
-        parsivel_df = parsivel_df.sort_index()
-        vd_matrix_da = vd_matrix_da.sortby('time')
+        if parsivel_df is not None:
+            parsivel_df = parsivel_df.sort_index()
+        if vd_matrix_da is not None:
+            vd_matrix_da = vd_matrix_da.sortby('time')
 
     return conv_df, parsivel_df, vd_matrix_da
 

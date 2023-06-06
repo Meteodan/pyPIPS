@@ -107,6 +107,32 @@ def calc_Zr_gamma(rhoa, q, Nt, alpha):
     return 10.0 * np.log10(1.e18 * Zr)
 
 
+def calc_Zr_lin_gamma(rhoa, q, Nt, alpha):
+    """Computes the rain radar reflectivity factor given q, Nt, and alpha. All units are SI unless
+    otherwise specified. Returns linear units
+
+    Parameters
+    ----------
+    rhoa : array_like
+        Air density
+    q : array_like
+        rain water mass mixing ratio
+    Nt : array_like
+        Total number concentration
+    alpha : array_like
+        Shape parameter
+
+    Returns
+    -------
+    array_like
+        The rain radar reflectivity factor
+    """
+    Gr = ((6. + alpha) * (5. + alpha) * (4. + alpha)) / \
+        ((3. + alpha) * (2. + alpha) * (1. + alpha))
+    Zr = ((1. / cmr)**2.) * Gr * ((rhoa * q)**2.) / Nt
+    return Zr
+
+
 def calc_Nt_gamma(rhoa, q, N0, cx, alpha):
     """!
     !-----------------------------------------------------------------------
