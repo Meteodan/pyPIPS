@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
+import matplotlib.animation as animation
 from mpl_toolkits.axes_grid1 import ImageGrid, make_axes_locatable, host_subplot
 import matplotlib.ticker as ticker
 from matplotlib.collections import Collection, LineCollection
@@ -260,7 +261,7 @@ def plotsingle(fig, axes, ptype, xs, ys, x, y, xlim, ylim, field, clevels, cmap,
         cintv = clevels[1] - clevels[0]
         cintvs = np.arange(clevels[0], clevels[-1], cintv)
         while True:
-            if(cintvs.size > 20):
+            if cintvs.size > 20:
                 cintv = (cintvs[1] - cintvs[0]) * 2.
                 cintvs = np.arange(cintvs[0], cintvs[-1], cintv)
             else:
@@ -312,8 +313,9 @@ def plotsingle(fig, axes, ptype, xs, ys, x, y, xlim, ylim, field, clevels, cmap,
     else:
         axes.set_aspect('auto')
 
-#     if(ovrmap): # Overlay map
-#         readshapefile(track_shapefile_location,'track',drawbounds=True,linewidth=0.5,color='black',ax=axes)
+#   if(ovrmap): # Overlay map
+#       readshapefile(track_shapefile_location,'track',drawbounds=True,linewidth=0.5,color='black'
+#                     ax=axes)
 # readshapefile(county_shapefile_location,'counties',drawbounds=True,
 # linewidth=0.5, color='gray',ax=axes)  #Draws US county boundaries.
 
@@ -831,7 +833,7 @@ def plotDSDmeteograms(dis_name, image_dir, axparams, disvars, radvars=None, clos
     PSDstarttimes = disvars.get('PSDstarttimes', np.empty((0)))
     PSDmidtimes = disvars.get('PSDmidtimes', np.empty((0)))
     logND = disvars.get('logND', np.empty((0)))
-    if(not logND.size or not PSDstarttimes.size or not PSDmidtimes.size):
+    if not logND.size or not PSDstarttimes.size or not PSDmidtimes.size:
         print("No DSD info to plot! Quitting!")
         return
     # D_0_dis = disvars.get('D_0', np.empty((0)))
@@ -923,7 +925,6 @@ def plotDSDmeteograms(dis_name, image_dir, axparams, disvars, radvars=None, clos
                                   'label': r'$D_{{m}}$ {} (mm)'.format(plot_key)}
                 plotparamdicts.append(plotparamdict2)
 
-
         # Vertical lines for flagged times (such as from wind contamination).
         if flaggedtimes.size:
             xvals.append(PSDmidtimes)
@@ -986,7 +987,6 @@ def plotDSDmeteograms(dis_name, image_dir, axparams, disvars, radvars=None, clos
                 plotparamdict = {'type': 'line', 'linestyle': '--', 'color': 'r', 'linewidth': 1.5,
                                  'label': dBZ_ray_dis_varlabel}
                 plotparamdicts.append(plotparamdict)
-
 
         # Now add the radar dualpol variables if desired
         if dualpol_rad_var is not None:
@@ -1065,8 +1065,9 @@ def plotmeteogram(ax, xvals, zvals, plotparamdicts, yvals=None, plot_data_bounds
                 cb = ax.get_figure().colorbar(C, cax=cax, orientation='horizontal')
                 if clabel:
                     cb.set_label(clabel)
-        elif mtype == 'vertical line':  # For flagging times with bad data, etc.
-                                         # zval is interpreted as a list of x-indices
+        # For flagging times with bad data, etc.
+        # zval is interpreted as a list of x-indices
+        elif mtype == 'vertical line':
             for x in zval:
                 ax.axvline(x=x, ls=linestyle, lw=linewidth, color=color)
         else:
@@ -1329,8 +1330,6 @@ def circles(x, y, s, c='b', vmin=None, vmax=None, **kwargs):
     This code is under [The BSD 3-Clause License]
     (http://opensource.org/licenses/BSD-3-Clause)
     """
-    import numpy as np
-    import matplotlib.pyplot as plt
     from matplotlib.patches import Circle
     from matplotlib.collections import PatchCollection
 
@@ -1630,3 +1629,73 @@ def plot_retr_timeseries(obs_dict, retr_dis_dict, retr_rad_dict, DSDmidtimes, ax
     # plt.savefig(image_dir + 'meteograms/' + dis_name + '_' + name + '.png', dpi=300)
     # plt.close(fig)
     return fig, ax
+
+
+def plot_animation(xplt, yplt, field_da, clevels, cbarlabel=None, cbarintv=None,
+                   cmap='pyart_HomeyerRainbow', norm=None, PIPS_list=None, PIPS_xy_list=None,
+                   ax=None, ptype='pcolor', axestickintv=10000., axeslimits=None):
+
+    if norm is None:
+        norm = cm.colors.Normalize(vmin=clevels[0], vmax=clevels[-1])
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(8, 8))
+    else:
+        fig = ax.get_figure()
+    ims = []
+    for i, var in enumerate(field_da):
+        plotdata = []
+        time = np.datetime_as_string(var.coords['time'].values, unit='m')  # Ugly, but whatever
+
+        title = ax.text(0.5, 1.05, f"Time: {time}",
+                        size=plt.rcParams["axes.titlesize"],
+                        ha="center", transform=ax.transAxes)
+        plotdata.append(title)
+
+        if ptype == 'pcolor':
+            ci = ax.pcolormesh(xplt, yplt, var.squeeze(), vmin=clevels[0], vmax=clevels[-1],
+                               cmap=cmap, norm=norm)
+            plotdata.append(ci)
+        else:
+            ci = ax.contourf(xplt, yplt, var.squeeze(), levels=clevels,
+                             cmap=cmap, norm=norm)
+            plotdata.extend(ci.collections)
+
+        if PIPS_list is not None and PIPS_xy_list is not None:
+            # Plot PIPS locations
+            for PIPS, PIPS_xy in zip(PIPS_list, PIPS_xy_list):
+                PIPS_x = PIPS_xy[0]
+                PIPS_y = PIPS_xy[1]
+                ax.plot([PIPS_x], [PIPS_y], 'k*')
+        if i == 0.:
+            if cbarintv is None:
+                cbarintv = clevels[1] - clevels[0]
+            cbarlevels = ticker.MultipleLocator(base=cbarintv)
+            divider = make_axes_locatable(ax)
+            cax = divider.append_axes("right", size="5%", pad=0.05)
+            fig.colorbar(ci, orientation='vertical', ticks=cbarlevels, cax=cax)
+            if cbarlabel is not None:
+                cax.set_ylabel(cbarlabel)
+            formatter = ticker.FuncFormatter(mtokm)
+            ax.xaxis.set_major_formatter(formatter)
+            ax.yaxis.set_major_formatter(formatter)
+            ax.xaxis.set_major_locator(ticker.MultipleLocator(base=axestickintv))
+            ax.yaxis.set_major_locator(ticker.MultipleLocator(base=axestickintv))
+            ax.set_xlabel('km')
+            ax.set_ylabel('km')
+            if axeslimits is None:
+                xmin = xplt[0]
+                xmax = xplt[-1]
+                ymin = yplt[0]
+                ymax = yplt[-1]
+            else:
+                xmin, xmax, ymin, ymax = axeslimits
+            ax.set_xlim(xmin, xmax)
+            ax.set_ylim(ymin, ymax)
+            ax.set_aspect('equal')
+
+        ims.append(plotdata)
+
+    ani = animation.ArtistAnimation(fig, ims, interval=50, blit=True,
+                                    repeat_delay=1000)
+    plt.close()
+    return ani

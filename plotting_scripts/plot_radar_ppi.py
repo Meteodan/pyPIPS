@@ -156,7 +156,7 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
     if not os.path.exists(image_dir):
         os.makedirs(image_dir)
     geo_loc_str = parsivel_combined_ds.location
-    geo_loc = list(map(np.float, geo_loc_str.strip('()').split(',')))
+    geo_loc = list(map(float, geo_loc_str.strip('()').split(',')))
     geo_locs.append(geo_loc)
     rad_loc = radar.get_PIPS_loc_relative_to_radar(geo_loc, rlat, rlon, ralt)
     rad_locs.append(rad_loc)

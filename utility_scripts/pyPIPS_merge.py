@@ -80,13 +80,13 @@ def process_onesec_record(row):
         # Convert strings to numeric values where appropriate
         if field not in ('GPSDate', 'GPSTime'):
             try:
-                value = np.float(value)
+                value = float(value)
                 # This part isn't really needed, but is added for consistency with output
                 # from the original Matlab script
                 if np.isnan(value):
                     value = 'NaN'
-                if np.int(value) == value:
-                    value = np.int(value)
+                if int(value) == value:
+                    value = int(value)
             except Exception:
                 pass
         row[field] = value
@@ -96,14 +96,14 @@ def process_onesec_record(row):
         try:
             # DTD: TODO: it looks like we should be using 9.6f instead of 7.4f so as not
             # to lose too much precision.
-            row['GPSLat'] = '{:9.6f}'.format(np.float(tokens[0]) / 100.)
+            row['GPSLat'] = '{:9.6f}'.format(float(tokens[0]) / 100.)
             row['GPSLatHem'] = tokens[1]
         except Exception:
             row['GPSLat'] = 'NaN'
             row['GPSLatHem'] = ''
         tokens = row['GPSLon'].strip().split()
         try:
-            row['GPSLon'] = '{:9.6f}'.format(np.float(tokens[0]) / 100.)
+            row['GPSLon'] = '{:9.6f}'.format(float(tokens[0]) / 100.)
             row['GPSLonHem'] = tokens[1]
         except Exception:
             row['GPSLon'] = 'NaN'
@@ -124,13 +124,13 @@ def process_tensec_record(row):
         value = value.replace('\n', '')
         # Convert strings to numeric values where appropriate
         try:
-            value = np.float(value)
+            value = float(value)
             # This part isn't really needed, but is added for consistency with output
             # from the original Matlab script
             if np.isnan(value):
                 value = 'NAN'
-            if np.int(value) == value:
-                value = np.int(value)
+            if int(value) == value:
+                value = int(value)
         except Exception:
             pass
         row[field] = value
@@ -142,12 +142,12 @@ def parseTimeStamp(timestring):
     """Parses a logger timestamp string and returns a datetime object"""
     date = timestring[0]  # .strip('-')
     time = timestring[1]  # .strip(':')
-    year = np.int(date[:4])
-    month = np.int(date[5:7])
-    day = np.int(date[8:])
-    hour = np.int(time[:2])
-    minute = np.int(time[3:5])
-    sec = np.int(time[6:8])
+    year = int(date[:4])
+    month = int(date[5:7])
+    day = int(date[8:])
+    hour = int(time[:2])
+    minute = int(time[3:5])
+    sec = int(time[6:8])
     return datetime(year, month, day, hour, minute, sec)
 
 
