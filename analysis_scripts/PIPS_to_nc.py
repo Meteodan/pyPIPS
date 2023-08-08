@@ -47,16 +47,16 @@ parser.add_argument('--check-order', dest='check_order', action='store_true',
                     help='Check if there are any times out of order')
 parser.add_argument('--sort-times', dest='sort_times', action='store_true',
                     help='Sort dataset by time')
-parser.add_argument('--apply-qc', dest='apply_qc', action='store_true', help='apply QC to DSDs?')
-parser.add_argument('--qc-tag', dest='qc_tag', default=None,
-                    help='name of QC tag for DSD variables')
+# parser.add_argument('--apply-qc', dest='apply_qc', action='store_true', help='apply QC to DSDs?')
+# parser.add_argument('--qc-tag', dest='qc_tag', default=None,
+#                     help='name of QC tag for DSD variables')
 args = parser.parse_args()
-apply_qc = args.apply_qc
-qc_tag = args.qc_tag
-if qc_tag is None:
-    apply_qc = False
-if not apply_qc:
-    qc_tag = None
+# apply_qc = args.apply_qc
+# qc_tag = args.qc_tag
+# if qc_tag is None:
+#     apply_qc = False
+# if not apply_qc:
+#     qc_tag = None
 
 # Dynamically import the case configuration file
 utils.log("Case config file is {}".format(args.case_config_path))
@@ -120,34 +120,35 @@ for index, PIPS_filename, PIPS_name, start_time, end_time, geo_loc, ptype, deplo
 
     if parsivel_df is not None and vd_matrix_da is not None:
 
-        if apply_qc:
-            # Do some QC on the V-D matrix. This will make a copy of the raw matrix. The netCDF file
-            # will contain both
-            qc_attr_dict = {}
-            for qc_attr_name in qc_attr_names:
-                qc_attr_dict[qc_attr_name] = config.PIPS_qc_dict[qc_attr_name]
+        # if apply_qc:
+        #     # Do some QC on the V-D matrix. This will make a copy of the raw matrix. The netCDF 
+        #     # file
+        #     # will contain both
+        #     qc_attr_dict = {}
+        #     for qc_attr_name in qc_attr_names:
+        #         qc_attr_dict[qc_attr_name] = config.PIPS_qc_dict[qc_attr_name]
 
-            if qc_attr_dict['basicQC']:
-                qc_attr_dict['strongwindQC'] = True
-                qc_attr_dict['splashingQC'] = True
-                qc_attr_dict['marginQC'] = True
+        #     if qc_attr_dict['basicQC']:
+        #         qc_attr_dict['strongwindQC'] = True
+        #         qc_attr_dict['splashingQC'] = True
+        #         qc_attr_dict['marginQC'] = True
 
-            vd_matrix_qc_da = vd_matrix_da.copy()
-            if qc_attr_dict['strongwindQC']:
-                vd_matrix_qc_da = pqc.strongwindQC(vd_matrix_qc_da)
-            if qc_attr_dict['splashingQC']:
-                vd_matrix_qc_da = pqc.splashingQC(vd_matrix_qc_da)
-            if qc_attr_dict['marginQC']:
-                vd_matrix_qc_da = pqc.marginQC(vd_matrix_qc_da)
-            if qc_attr_dict['rainfallQC']:
-                fallspeedmask = pqc.get_fallspeed_mask(avg_diameter, avg_fall_bins)
-                vd_matrix_qc_da = pqc.rainfallspeedQC(vd_matrix_qc_da, fallspeedmask)
-            if qc_attr_dict['rainonlyQC']:
-                vd_matrix_qc_da = pqc.rainonlyQC(vd_matrix_qc_da)
-            if qc_attr_dict['hailonlyQC']:
-                vd_matrix_qc_da = pqc.hailonlyQC(vd_matrix_qc_da)
-            # if graupelonlyQC:
-            #     vd_matrix_da = pqc.graupelonlyQC(vd_matrix_da)
+        #     vd_matrix_qc_da = vd_matrix_da.copy()
+        #     if qc_attr_dict['strongwindQC']:
+        #         vd_matrix_qc_da = pqc.strongwindQC(vd_matrix_qc_da)
+        #     if qc_attr_dict['splashingQC']:
+        #         vd_matrix_qc_da = pqc.splashingQC(vd_matrix_qc_da)
+        #     if qc_attr_dict['marginQC']:
+        #         vd_matrix_qc_da = pqc.marginQC(vd_matrix_qc_da)
+        #     if qc_attr_dict['rainfallQC']:
+        #         fallspeedmask = pqc.get_fallspeed_mask(avg_diameter, avg_fall_bins)
+        #         vd_matrix_qc_da = pqc.rainfallspeedQC(vd_matrix_qc_da, fallspeedmask)
+        #     if qc_attr_dict['rainonlyQC']:
+        #         vd_matrix_qc_da = pqc.rainonlyQC(vd_matrix_qc_da)
+        #     if qc_attr_dict['hailonlyQC']:
+        #         vd_matrix_qc_da = pqc.hailonlyQC(vd_matrix_qc_da)
+        #     # if graupelonlyQC:
+        #     #     vd_matrix_da = pqc.graupelonlyQC(vd_matrix_da)
 
         # Compute the number density ND from the V-D matrix
         # Use measured fallspeed by default
@@ -156,8 +157,8 @@ for index, PIPS_filename, PIPS_name, start_time, end_time, geo_loc, ptype, deplo
         if requested_interval > 10.:
             DSD_interval = pips.check_requested_resampling_interval(requested_interval, 10.)
             vd_matrix_da = pips.resample_vd_matrix(DSD_interval, vd_matrix_da)
-            if apply_qc:
-                vd_matrix_qc_da = pips.resample_vd_matrix(DSD_interval, vd_matrix_qc_da)
+            # if apply_qc:
+            #     vd_matrix_qc_da = pips.resample_vd_matrix(DSD_interval, vd_matrix_qc_da)
             parsivel_df = pips.resample_parsivel(DSD_interval, parsivel_df)
         else:
             DSD_interval = 10.
@@ -173,13 +174,14 @@ for index, PIPS_filename, PIPS_name, start_time, end_time, geo_loc, ptype, deplo
         conv_resampled_df_index = conv_resampled_df.index.intersection(parsivel_df.index)
         conv_resampled_df = conv_resampled_df.loc[conv_resampled_df_index]
 
-        fallspeed_spectrum = pips.calc_fallspeed_spectrum(avg_diameter, avg_fall_bins, correct_rho=True,
-                                                        rho=conv_resampled_df['rho'])
+        fallspeed_spectrum = pips.calc_fallspeed_spectrum(avg_diameter, avg_fall_bins, 
+                                                          correct_rho=True, 
+                                                          rho=conv_resampled_df['rho'])
         vd_matrix_da = vd_matrix_da.where(vd_matrix_da > 0.0)
         ND_raw = pips.calc_ND(vd_matrix_da, fallspeed_spectrum, DSD_interval)
-        if apply_qc:
-            vd_matrix_qc_da = vd_matrix_qc_da.where(vd_matrix_qc_da > 0.0)
-            ND = pips.calc_ND(vd_matrix_qc_da, fallspeed_spectrum, DSD_interval)
+        # if apply_qc:
+        #     vd_matrix_qc_da = vd_matrix_qc_da.where(vd_matrix_qc_da > 0.0)
+        #     ND = pips.calc_ND(vd_matrix_qc_da, fallspeed_spectrum, DSD_interval)
 
         # Convert resampled conventional data pd.DataFrame to xr.Dataset and add some metadata
         conv_resampled_ds = pipsio.conv_df_to_ds(conv_resampled_df)
@@ -194,16 +196,19 @@ for index, PIPS_filename, PIPS_name, start_time, end_time, geo_loc, ptype, deplo
         parsivel_combined_ds = pipsio.combine_parsivel_data(parsivel_combined_ds, vd_matrix_da,
                                                             name='VD_matrix')
         parsivel_combined_ds = pipsio.combine_parsivel_data(parsivel_combined_ds, ND_raw, name='ND')
-        if qc_tag is not None:
-            parsivel_combined_ds = pipsio.combine_parsivel_data(parsivel_combined_ds, vd_matrix_qc_da,
-                                                                name='VD_matrix_{}'.format(qc_tag))
-            parsivel_combined_ds = pipsio.combine_parsivel_data(parsivel_combined_ds, ND,
-                                                                name='ND_{}'.format(qc_tag))
-            for qc_attr_name in qc_attr_names:
-                parsivel_combined_ds['VD_matrix_{}'.format(qc_tag)].attrs[qc_attr_name] = \
-                    int(qc_attr_dict[qc_attr_name])
-                parsivel_combined_ds['ND_{}'.format(qc_tag)].attrs[qc_attr_name] = \
-                    int(qc_attr_dict[qc_attr_name])
+        # if qc_tag is not None:
+        #     new_VD_name = 'VD_matrix_{}'.format(qc_tag)
+        #     new_ND_name = 'ND_{}'.format(qc_tag)
+        #     parsivel_combined_ds = pipsio.combine_parsivel_data(parsivel_combined_ds, 
+        #                                                         vd_matrix_qc_da,
+        #                                                         name=new_VD_name)
+        #     parsivel_combined_ds = pipsio.combine_parsivel_data(parsivel_combined_ds, ND,
+        #                                                         name=new_ND_name)
+        #     for qc_attr_name in qc_attr_names:
+        #         parsivel_combined_ds['VD_matrix_{}'.format(qc_tag)].attrs[qc_attr_name] = \
+        #             int(qc_attr_dict[qc_attr_name])
+        #         parsivel_combined_ds['ND_{}'.format(qc_tag)].attrs[qc_attr_name] = \
+        #             int(qc_attr_dict[qc_attr_name])
 
         # Add some metadata
         parsivel_combined_ds.attrs['probe_name'] = PIPS_name

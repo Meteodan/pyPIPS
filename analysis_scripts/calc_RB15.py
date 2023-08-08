@@ -101,7 +101,7 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
                                   'time': ('time', vd_matrix_rebinned.coords['time'].data),
                                   'diameter_bin': ('diameter_bin',
                                                    vd_matrix_rebinned.coords['diameter'].data)
-                                  },
+                              },
                               dims=['time', 'diameter_bin'])
     # Shift the velocities in each diameter bin of each DSD such that the mean matches
     # the expected terminal velocity
@@ -110,49 +110,19 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
     # Then collect the counts into the original parsivel velocity bins
     vd_matrix_shifted = pips.rebin_to_parsivel(vd_matrix_rebinned_shifted)
 
-    # Apply some QC love
-
-    strongwindQC = config.PIPS_qc_dict['strongwindQC']
-    splashingQC = config.PIPS_qc_dict['splashingQC']
-    marginQC = config.PIPS_qc_dict['marginQC']
-    rainfallQC = config.PIPS_qc_dict['rainfallQC']
-    rainonlyQC = config.PIPS_qc_dict['rainonlyQC']
-    basicQC = config.PIPS_qc_dict['basicQC']
-
-    if basicQC:
-        strongwindQC = True
-        splashingQC = True
-        marginQC = True
-
-    vd_matrix_shifted_qc = vd_matrix_shifted.copy()
-    if strongwindQC:
-        vd_matrix_shifted_qc = pqc.strongwindQC(vd_matrix_shifted_qc)
-    if splashingQC:
-        vd_matrix_shifted_qc = pqc.splashingQC(vd_matrix_shifted_qc)
-    if marginQC:
-        vd_matrix_shifted_qc = pqc.marginQC(vd_matrix_shifted_qc)
-    if rainfallQC:
-        fallspeedmask = pqc.get_fallspeed_mask(avg_diameter, avg_fall_bins)
-        vd_matrix_shifted_qc = pqc.rainfallspeedQC(vd_matrix_shifted_qc, fallspeedmask)
-    if rainonlyQC:
-        vd_matrix_shifted_qc = pqc.rainonlyQC(vd_matrix_shifted_qc)
-
     print("Computing ND for shifted VD matrix.")
     # Compute ND from the shifted VD matrix
     fallspeed_spectrum = pips.calc_fallspeed_spectrum(avg_diameter, avg_fall_bins, correct_rho=True,
                                                       rho=parsivel_ds['rho'])
 
     vd_matrix_shifted = vd_matrix_shifted.where(vd_matrix_shifted > 0.)
-    vd_matrix_shifted_qc = vd_matrix_shifted_qc.where(vd_matrix_shifted_qc > 0.)
-    ND_RB15_vshift = pips.calc_ND(vd_matrix_shifted_qc, fallspeed_spectrum, DSD_interval)
+    ND_RB15_vshift = pips.calc_ND(vd_matrix_shifted, fallspeed_spectrum, DSD_interval)
 
     # Add the new variables to the parsivel_ds
     parsivel_ds = pipsio.combine_parsivel_data(parsivel_ds, vd_matrix_shifted,
                                                name='VD_matrix_RB15_vshift')
-    parsivel_ds = pipsio.combine_parsivel_data(parsivel_ds, vd_matrix_shifted_qc,
-                                               name='VD_matrix_RB15_vshift_qc')
     parsivel_ds = pipsio.combine_parsivel_data(parsivel_ds, ND_RB15_vshift,
-                                               name='ND_RB15_vshift_qc')
+                                               name='ND_RB15_vshift')
 
     print("Computing corrected ND.")
     # Compute the ND correction from RB15 and add the new corrected ND array

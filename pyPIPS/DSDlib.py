@@ -315,7 +315,7 @@ def calc_D0_gamma(rhoa, q, Ntx, cx, alpha):
     return (3.672 + alpha) / lamda
 
 
-def calc_moment_bin(ND, moment=0):
+def calc_moment_bin(ND, moment=0, diameter_dim_name='diameter_bin'):
     """Compute the desired moment from number density bins.
 
     Parameters
@@ -324,6 +324,8 @@ def calc_moment_bin(ND, moment=0):
         Number density as a function of diameter
     moment : int, optional
         The desired moment, by default 0
+    diameter_dim_name : str, optional
+        The name of the diameter dimension in the xarray DataArray
 
     Returns
     -------
@@ -334,7 +336,7 @@ def calc_moment_bin(ND, moment=0):
     bin_width_m = (ND['max_diameter'] - ND['min_diameter']) / 1000.  # Convert mm to m
 
     moment_binned = avg_diameter_m**moment * (1000. * ND) * bin_width_m  # binned moments
-    moment = moment_binned.sum(dim='diameter_bin')  # Sum over bins to get final moment
+    moment = moment_binned.sum(dim=diameter_dim_name)  # Sum over bins to get final moment
 
     return moment, moment_binned
 
@@ -360,7 +362,7 @@ def calc_moment_bin(ND, moment=0):
 #     return D0
 
 
-def calc_D0_bin(ND):
+def calc_D0_bin(ND, diameter_dim_name='diameter_bin'):
     """Calculate D0 for a binned distribution"""
     Dl = ND['min_diameter'] / 1000.  # Convert mm to m
     Dm = ND['diameter'] / 1000.  # Convert mm to m
@@ -368,7 +370,7 @@ def calc_D0_bin(ND):
     M3, M3_binned = calc_moment_bin(ND, moment=3)
 
     # Cumulative sum of M3 with increasing bin size
-    M3_cumsum = M3_binned.cumsum(dim='diameter_bin')
+    M3_cumsum = M3_binned.cumsum(dim=diameter_dim_name)
     # Proportion of M3 in each bin
     pro = M3_binned / M3
     # Cumulative proportion of M3 in each bin
@@ -379,7 +381,7 @@ def calc_D0_bin(ND):
 
     # Find indices of bin where cumulative sum exceeds 1/2 of total and the indices
     # of the bin just below that, thresholding on the smallest bin
-    medindices = (pro_cumsum > 0.5).argmax(dim='diameter_bin')
+    medindices = (pro_cumsum > 0.5).argmax(dim=diameter_dim_name)
     medindices_m1 = medindices - 1
     medindices_m1 = medindices_m1.where(medindices_m1 >= 0, other=0)
     # medindices_m1[medindices_m1 < 0] = 0
@@ -1465,7 +1467,7 @@ def calc_rain_axis_ratio(D, fit_name='Brandes_2002'):
     return ar
 
 
-def calc_Dmpq_binned(p, q, ND):
+def calc_Dmpq_binned(p, q, ND, diameter_dim_name='diameter_bin'):
     """Computes the requested moment-weighted mean diameter
 
     Parameters
@@ -1476,14 +1478,17 @@ def calc_Dmpq_binned(p, q, ND):
         Moment in denominator
     ND : array_like
         binned DSD
+    diameter_dim_name : str, optional
+        The name of the diameter dimension in the xarray DataArray
+
 
     Returns
     -------
     array_like
         The appropriate moment-weighted mean diameter
     """
-    Mp, _ = calc_moment_bin(ND, moment=p)
-    Mq, _ = calc_moment_bin(ND, moment=q)
+    Mp, _ = calc_moment_bin(ND, moment=p, diameter_dim_name=diameter_dim_name)
+    Mq, _ = calc_moment_bin(ND, moment=q, diameter_dim_name=diameter_dim_name)
 
     return (Mp / Mq)**(1. / (p - q))
 
@@ -1514,7 +1519,7 @@ def calc_sigma(D, dD, ND):
     return np.sqrt(sigma_numerator / M3)
 
 
-def calc_rainrate_from_bins(ND, correct_rho=False, rho=None):
+def calc_rainrate_from_bins(ND, correct_rho=False, rho=None, diameter_dim_name='diameter_bin'):
     """[summary]
 
     Parameters
@@ -1525,6 +1530,9 @@ def calc_rainrate_from_bins(ND, correct_rho=False, rho=None):
         [description], by default False
     rho : [type], optional
         [description], by default None
+    diameter_dim_name : str, optional
+        The name of the diameter dimension in the xarray DataArray
+
 
     Returns
     -------
@@ -1536,7 +1544,7 @@ def calc_rainrate_from_bins(ND, correct_rho=False, rho=None):
     bin_width_mm = (ND['max_diameter'] - ND['min_diameter'])
     fallspeed = PIPS.calc_empirical_fallspeed(avg_diameter_mm, correct_rho=correct_rho, rho=rho)
     rainrate_bin = (6. * 10.**-4.) * np.pi * fallspeed * avg_diameter_mm**3. * ND * bin_width_mm
-    rainrate = rainrate_bin.sum(dim='diameter_bin')
+    rainrate = rainrate_bin.sum(dim=diameter_dim_name)
     return rainrate
 
 

@@ -8,6 +8,34 @@ from . import parsivel_params
 from . import PIPS
 from .utils import enable_xarray_wrapper
 
+
+# This dictionary contains mappings of QC "groups" as keys with the values being
+# dictionaries of the appropriate QC flags for that group. Replaces the old way of using
+# QC dictionaries in the individual case config files since we often want to compute several
+# different QC'ed versions of the parsivel data at once and save the associated variables to
+# the netCDF files.
+PIPS_qc_dict = {
+    'qc': {
+        'strongwindQC': True,
+        'splashingQC': True,
+        'marginQC': True,
+        'rainfallQC': False,
+        'rainonlyQC': False,
+        'hailonlyQC': False,
+        'graupelonlyQC': False,
+    },
+    'roqc': {
+        'strongwindQC': True,
+        'splashingQC': True,
+        'marginQC': True,
+        'rainfallQC': False,
+        'rainonlyQC': True,
+        'hailonlyQC': False,
+        'graupelonlyQC': False,
+    }
+}
+
+
 # Some rain QC parameters
 
 rain_QC_params = {

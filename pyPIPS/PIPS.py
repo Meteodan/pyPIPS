@@ -5,6 +5,7 @@ import xarray as xr
 from . import thermolib as thermo
 from . import utils
 import pyPIPS.parsivel_params as pp
+import pyPIPS.PIPS as pips
 from .parsivel_params import parsivel_parameters
 from .pips_io import combine_parsivel_data
 from numba import jit
@@ -87,13 +88,14 @@ def wind_dir_and_speed_from_u_and_v(u, v):
 # instead of pandas DataFrames
 def resample_wind_da(wind_dir, wind_spd, intervalstr, offset, gusts=True, gustintervalstr='3S',
                      center=False):
+    offset_str = pips.get_interval_str(offset)
     wind_spd_avg = wind_spd.resample(time=intervalstr, label='right', closed='right',
-                                     base=offset).mean()
+                                     offset=offset_str).mean()
     if gusts:
         wind_gust = wind_spd.resample(time=gustintervalstr, label='right', closed='right',
-                                      base=offset).mean()
+                                      offset=offset_str).mean()
         wind_gust_avg = wind_gust.resample(time=intervalstr, label='right', closed='right',
-                                           base=offset).max()
+                                           offset=offset_str).max()
     else:
         wind_gust = None
         wind_gust_avg = None
@@ -107,8 +109,8 @@ def resample_wind_da(wind_dir, wind_spd, intervalstr, offset, gusts=True, gustin
     # u = interpnan1D(u)
     # v = interpnan1D(v)
     # Compute averages of wind components
-    u_avg = u.resample(time=intervalstr, label='right', closed='right', base=offset).mean()
-    v_avg = v.resample(time=intervalstr, label='right', closed='right', base=offset).mean()
+    u_avg = u.resample(time=intervalstr, label='right', closed='right', offset=offset_str).mean()
+    v_avg = v.resample(time=intervalstr, label='right', closed='right', offset=offset_str).mean()
 
     wind_spd_vec_avg = np.sqrt(u_avg**2. + v_avg**2.)
     # Need to use %360 to keep wind dir between 0 and 360 degrees
@@ -118,9 +120,9 @@ def resample_wind_da(wind_dir, wind_spd, intervalstr, offset, gusts=True, gustin
     unit_u = u / wind_spd
     unit_v = v / wind_spd
     unit_u_avg = unit_u.resample(time=intervalstr, label='right', closed='right',
-                                 base=offset).mean()
+                                 offset=offset_str).mean()
     unit_v_avg = unit_v.resample(time=intervalstr, label='right', closed='right',
-                                 base=offset).mean()
+                                 offset=offset_str).mean()
 
     # Need to use %360 to keep wind dir between 0 and 360 degrees
     wind_dir_unit_vec_avg = (270.0 - (180. / np.pi) * np.arctan2(unit_u_avg, unit_v_avg)) % 360.
@@ -139,16 +141,16 @@ def resample_wind(datetimes, offset, winddirs, windspds, intervalstr, gusts=True
     """Given a timeseries of wind directions and speeds, and an interval for resampling,
        compute the vector and scalar average wind speed, and vector average wind direction.
        Optionally also compute gusts."""
-
+    offset_str = pips.get_interval_str(offset)
     windspdsavg = pd.Series(data=windspds, index=datetimes).resample(intervalstr, label='right',
                                                                      closed='right',
-                                                                     base=offset).mean()
+                                                                     offset=offset_str).mean()
     if gusts:
         windgusts = pd.Series(data=windspds, index=datetimes).resample(gustintvstr, label='right',
                                                                        closed='right',
-                                                                       base=offset).mean()
+                                                                       offset=offset_str).mean()
         windgustsavg = windgusts.resample(intervalstr, label='right', closed='right',
-                                          base=offset).max()
+                                          offset=offset_str).max()
     else:
         windgusts = None
         windgustsavg = None
@@ -168,14 +170,14 @@ def resample_wind(datetimes, offset, winddirs, windspds, intervalstr, gusts=True
         intervalstr,
         label='right',
         closed='right',
-        base=offset).mean()
+        offset=offset_str).mean()
     vsavg = pd.Series(
         data=vs,
         index=datetimes).resample(
         intervalstr,
         label='right',
         closed='right',
-        base=offset).mean()
+        offset=offset_str).mean()
 
     windspdsavgvec = np.sqrt(usavg**2. + vsavg**2.)
     # Need to use %360 to keep wind dir between 0 and 360 degrees
@@ -190,14 +192,14 @@ def resample_wind(datetimes, offset, winddirs, windspds, intervalstr, gusts=True
         intervalstr,
         label='right',
         closed='right',
-        base=offset).mean()
+        offset=offset_str).mean()
     unit_vsavg = pd.Series(
         data=unit_vs,
         index=datetimes).resample(
         intervalstr,
         label='right',
         closed='right',
-        base=offset).mean()
+        offset=offset_str).mean()
     # Need to use %360 to keep wind dir between 0 and 360 degrees
     winddirsunitavgvec = (270.0 - (180. / np.pi) * np.arctan2(unit_vsavg, unit_usavg)) % 360.
 
@@ -213,7 +215,7 @@ def resample_wind(datetimes, offset, winddirs, windspds, intervalstr, gusts=True
 
 
 def resample_compass(datetimes, compass_dir, offset, intervalstr):
-
+    offset_str = pips.get_interval_str(offset)
     # Compute x- and y-components of compass direction
     x = np.cos(np.deg2rad(-compass_dir + 270.))
     y = np.sin(np.deg2rad(-compass_dir + 270.))
@@ -225,14 +227,14 @@ def resample_compass(datetimes, compass_dir, offset, intervalstr):
         intervalstr,
         label='right',
         closed='right',
-        base=offset).mean()
+        offset=offset_str).mean()
     y_avg = pd.Series(
         data=y,
         index=datetimes).resample(
         intervalstr,
         label='right',
         closed='right',
-        base=offset).mean()
+        offset=offset_str).mean()
 
     # Need to use %360 to keep direction between 0 and 360 degrees
     compass_dir_avg = (270.0 - (180. / np.pi) * np.arctan2(y_avg, x_avg)) % 360.
@@ -242,7 +244,7 @@ def resample_compass(datetimes, compass_dir, offset, intervalstr):
 def resample_conv(probe_type, resample_interval, sec_offset, conv_df, gusts=False, gustintvstr='3S',
                   center=False):
     """Resamples the conventional data to a longer interval"""
-
+    sec_offset_str = pips.get_interval_str(sec_offset)
     if probe_type == 'PIPS':
         winddirkey = 'winddirabs'
         windspdkey = 'windspd'
@@ -284,14 +286,14 @@ def resample_conv(probe_type, resample_interval, sec_offset, conv_df, gusts=Fals
     if probe_type == 'PIPS':
         winddiags_rs = pd.Series(data=conv_df['winddiag'], index=conv_df.index).resample(
             intervalstr, label='right', closed='right',
-            base=sec_offset).apply(lambda x: utils.trymax(x.values))
+            offset=sec_offset_str).apply(lambda x: utils.trymax(x.values))
 
         conv_resampled_df['winddiag'] = winddiags_rs
 
     # Now, resample the other one-sec data
     other_resampled_df = \
         conv_df[other_data].resample(intervalstr, label='right', closed='right',
-                                     base=sec_offset).mean()
+                                     offset=sec_offset_str).mean()
 
     conv_resampled_df = conv_resampled_df.join(other_resampled_df)
 
@@ -341,9 +343,10 @@ def resample_vd_matrix(resample_interval, vd_matrix):
     # We need to find the offset corresponding to the starting second and then
     # generate the frequency string. Seems like there should be an easier way...
     sec_offset = pd.to_datetime(vd_matrix['time'].values)[0].second
+    sec_offset_str = pips.get_interval_str(sec_offset)
     # Resample the vd_matrix in time, filling missing values with zero
     vd_matrix = vd_matrix.resample(time=intervalstr, label='right', closed='right',
-                                   base=sec_offset).sum(dim='time').fillna(0)
+                                   offset=sec_offset_str).sum(dim='time').fillna(0)
 
     return vd_matrix
 
@@ -367,10 +370,11 @@ def resample_parsivel(resample_interval, parsivel_df):
     # We need to find the offset corresponding to the starting second and then
     # generate the frequency string. Seems like there should be an easier way...
     sec_offset = parsivel_df.index.to_pydatetime()[0].second
+    sec_offset_str = pips.get_interval_str(sec_offset)
     # Resample parsivel_df in time, filling missing values with zero: TEMPORARY FIX. later will deal
     # with missing values differently
     parsivel_rs = parsivel_df.resample(intervalstr, label='right', closed='right',
-                                       base=sec_offset)
+                                       offset=sec_offset_str)
 
     # Each column of the dataframe needs to downsample differently. For example, the
     # precipitation totals need to be summed, while the reflectivity should be averaged,
@@ -411,7 +415,7 @@ def resample_ND(resample_interval, ND_df):
     # Resample parsivel_df in time, filling missing values with zero: TEMPORARY FIX. later will deal
     # with missing values differently
     ND_df = ND_df.resample(intervalstr, label='right', closed='right',
-                           base=sec_offset).mean().fillna(0)
+                           offset=sec_offset_str).mean().fillna(0)
 
     return ND_df
 
