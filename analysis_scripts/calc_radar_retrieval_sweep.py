@@ -246,7 +246,11 @@ for radar_obj, radar_sweep_time, radar_output_path in zip(radar_sweep_list,
             # for ZH, ZDR in zip(ZH_flat, ZDR_flat):
             #     print(ZH, ZDR)
             #     retr_val = retr_table.lookup([ZH], [str(ZDR)])
-            retr_vals = retr_table.lookup(ZH_flat, ZDR_flat.astype('str'))
+            # Below is from https://stackoverflow.com/questions/65882258/
+            # pandas-lookup-to-be-deprecated-elegant-and-efficient-alternative?noredirect=1&lq=1
+            retr_vals = retr_table.to_numpy()[retr_table.index.get_indexer(ZH_flat.astype('str')),
+                                              retr_table.columns.get_indexer(ZDR_flat.astype('str'))]
+            # retr_vals = retr_table.lookup(ZH_flat, ZDR_flat.astype('str'))
             # Reshape back to original shape
             retr_vals_data = retr_vals.reshape(ZH_shape)
             retr_vals_data = np.ma.masked_array(retr_vals_data, mask=full_mask)
