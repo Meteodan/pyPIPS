@@ -2,6 +2,7 @@
 polarimetric.py: a set of functions dealing with computing polarimetric radar variables for PSDs
 """
 import numpy as np
+import xarray as xr
 
 # TODO: consider interfacing with pytmatrix and pyDSD
 
@@ -156,20 +157,49 @@ def calpolrain_bulk_xr(wavelength, filename, Nd, intv, diameter_bin_name='diamet
 
     lamda = wavelength * 10.  # Get radar wavelength in mm
     Kw2 = 0.93  # Dielectric factor for water
-    sar_h = fa2 * Nd * intv
-    sar_v = fb2 * Nd * intv
-    sar_hv = fab * Nd * intv
-    fsar = far * Nd * intv
+    Zh_list = []
+    Zv_list = []
+    Zhv_list = []
+    Kdp_list = []
+    dBZ_list = []
+    ZDR_list = []
+    rhv_list = []
 
-    # TODO: return binned values (by diameter) in addition to total
-    Zh = 4. * lamda**4. / (np.pi**4. * Kw2) * sar_h.sum(dim=diameter_bin_name)
-    Zv = 4. * lamda**4. / (np.pi**4. * Kw2) * sar_v.sum(dim=diameter_bin_name)
-    Zhv = np.abs(4. * lamda**4. / (np.pi**4. * Kw2) * sar_hv.sum(dim=diameter_bin_name))
-    Kdp = 180. * lamda / np.pi * fsar.sum(dim=diameter_bin_name) * 1.e-3
-    dBZ = 10. * np.log10(Zh)
-    ZDR = 10. * np.log10(np.maximum(1.0, Zh / Zv))
-    # Added by Jess (was temp > 0).  Find out why...
-    rhv = np.where(Zh != Zv, Zhv / (np.sqrt(Zh * Zv)), np.nan)
+    for t, Nd_1t in enumerate(Nd):
+        print("Working on time ", t)
+
+        sar_h = fa2 * Nd_1t * intv
+        sar_v = fb2 * Nd_1t * intv
+        sar_hv = fab * Nd_1t * intv
+        fsar = far * Nd_1t * intv
+
+        # TODO: return binned values (by diameter) in addition to total
+        Zh = 4. * lamda**4. / (np.pi**4. * Kw2) * sar_h.sum(dim=diameter_bin_name)
+        Zv = 4. * lamda**4. / (np.pi**4. * Kw2) * sar_v.sum(dim=diameter_bin_name)
+        Zhv = np.abs(4. * lamda**4. / (np.pi**4. * Kw2) * sar_hv.sum(dim=diameter_bin_name))
+        Kdp = 180. * lamda / np.pi * fsar.sum(dim=diameter_bin_name) * 1.e-3
+        dBZ = 10. * np.log10(Zh)
+        ZDR = 10. * np.log10(np.maximum(1.0, Zh / Zv))
+        # Added by Jess (was temp > 0).  Find out why...
+        # rhv = np.where(Zh != Zv, Zhv / (np.sqrt(Zh * Zv)), np.nan)
+        rhv = Zhv / (np.sqrt(Zh * Zv))
+        rhv = xr.where(Zh == Zv, np.nan, rhv)
+
+        Zh_list.append(Zh)
+        Zv_list.append(Zv)
+        Zhv_list.append(Zhv)
+        Kdp_list.append(Kdp)
+        dBZ_list.append(dBZ)
+        ZDR_list.append(ZDR)
+        rhv_list.append(rhv)
+
+    Zh = xr.concat(Zh_list, dim='time')
+    Zv = xr.concat(Zv_list, dim='time')
+    Zhv = xr.concat(Zhv_list, dim='time')
+    Kdp = xr.concat(Kdp_list, dim='time')
+    dBZ = xr.concat(dBZ_list, dim='time')
+    ZDR = xr.concat(ZDR_list, dim='time')
+    rhv = xr.concat(rhv_list, dim='time')
 
     dualpol_dict = {'ZH': Zh, 'ZV': Zv, 'ZHV': Zhv, 'REF': dBZ, 'ZDR': ZDR,
                     'KDP': Kdp, 'RHO': rhv, 'intv': intv, 'd': d, 'fa2': fa2, 'fb2': fb2}

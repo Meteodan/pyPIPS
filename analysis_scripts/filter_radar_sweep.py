@@ -12,6 +12,8 @@ import pyPIPS.utils as utils
 import pyPIPS.timemodule as tm
 import pyart
 from scipy.signal import medfilt2d
+from scipy import ndimage
+import json
 
 
 def roundPartial(value, resolution, decimals=4):
@@ -38,8 +40,9 @@ parser.add_argument('--dBZ-thresh', type=float, dest='dBZ_thresh', default=5.,
                     help='Threshold of reflectivity below which to exclude (dBZ)')
 parser.add_argument('--RHV-thresh', type=float, dest='RHV_thresh', default=0.95,
                     help='Threshold of RHV below which to exclude')
-parser.add_argument('--med-filter-width', type=float, dest='med_filter_width', default=3,
-                    help='Width of median filter in gates')
+parser.add_argument('--med-filter-footprint', type=json.loads, dest='med_filter_footprint',
+                    default=[[1, 1, 1, 1, 1]],
+                    help='Footprint of median filter (uses scipy.ndimage.median_filter)')
 help_msg = ('tag to determine filename variant for input nc files (V06 when produced by pyART, '
             'SUR when produced by RadxConvert)')
 parser.add_argument('--fname-variant', dest='fname_variant', default='V06', help=help_msg)
@@ -181,11 +184,14 @@ for radar_obj, radar_sweep_time, radar_output_path in zip(radar_sweep_list,
         radar_obj.add_field_like(field_name, field_name + '_filtered',
                                  radar_obj.fields[field_name]['data'].copy(), replace_existing=True)
 
-    print("Applying median filter")
+    print("Applying median filter with the following shape: ", args.med_filter_footprint)
     for field_name in [ZH_name, ZDR_name, RHV_name]:
         radar_obj.fields[field_name + '_filtered']['data'] = \
-            medfilt2d(radar_obj.fields[field_name + '_filtered']['data'],
-                      kernel_size=args.med_filter_width)
+            ndimage.median_filter(radar_obj.fields[field_name + '_filtered']['data'].copy(),
+                                  footprint=args.med_filter_footprint)
+        # radar_obj.fields[field_name + '_filtered']['data'] = \
+        #     medfilt2d(radar_obj.fields[field_name + '_filtered']['data'],
+        #               kernel_size=args.med_filter_width)
 
     print("Creating dBZ and RHV gate filter")
     # Create a gate filter to mask out areas with dBZ and RHV below thresholds
