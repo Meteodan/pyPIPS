@@ -32,8 +32,8 @@ parser.add_argument('case_config_path', metavar='<path/to/case/config/file.py>',
                     help='The path to the case configuration file')
 parser.add_argument('--plot-config-path', dest='plot_config_path',
                     default='plot_config.py', help='Location of the plot configuration file')
-parser.add_argument('--ND-tag', dest='ND_tag', default=None,
-                    help='Tag for ND variable in file (i.e., qc, RB15_vshift_qc, RB15_qc).')
+parser.add_argument('--QC-tag', dest='QC_tag', default=None,
+                    help='QC tag for DSD variables in file (i.e., qc, RB15_vshift_qc, RB15_qc).')
 parser.add_argument('--use-filtered-fields', dest='use_filtered_fields', default=False,
                     action='store_true',
                     help='Whether to use previously filtered dBZ and ZDR fields for the retrieval')
@@ -55,10 +55,10 @@ parser.add_argument('--plot-radar', dest='plot_radar', type=str, default=None,
 
 args = parser.parse_args()
 
-if not args.ND_tag:
-    ND_tag = ''
+if not args.QC_tag:
+    QC_tag = ''
 else:
-    ND_tag = '_{}'.format(args.ND_tag)
+    QC_tag = '_{}'.format(args.QC_tag)
 
 # Dynamically import the case configuration file
 utils.log("Case config file is {}".format(args.case_config_path))
@@ -136,10 +136,10 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
     image_dir = os.path.join(meteogram_image_dir, deployment_name)
     if not os.path.exists(image_dir):
         os.makedirs(image_dir)
-    fname_tag = ND_tag
+    fname_tag = QC_tag
     if comp_radar:
         radar_fields_at_PIPS_da = parsivel_combined_ds['{}_at_PIPS'.format(radar_name)]
-        fname_tag = ND_tag + '_{}'.format(radar_name)
+        fname_tag = QC_tag + '_{}'.format(radar_name)
 
     start_time = start_times[index]
     end_time = end_times[index]
@@ -149,18 +149,18 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
         if args.use_parsivel_params:
             rainrate_key = 'precipintensity'
         else:
-            rainrate_key = 'rainrate_derived{}'.format(ND_tag)
+            rainrate_key = 'rainrate_derived{}'.format(QC_tag)
         parsivel_combined_ds = parsivel_combined_ds.where(
             parsivel_combined_ds[rainrate_key] >= args.filter_RR)
     if args.filter_counts:
         if args.use_parsivel_params:
             counts_key = 'pcount'
         else:
-            counts_key = 'pcount_derived{}'.format(ND_tag)
+            counts_key = 'pcount_derived{}'.format(QC_tag)
         parsivel_combined_ds = parsivel_combined_ds.where(
             parsivel_combined_ds[counts_key] >= args.filter_counts)
 
-    ND = parsivel_combined_ds['ND{}'.format(ND_tag)]
+    ND = parsivel_combined_ds['ND{}'.format(QC_tag)]
     logND = np.log10(ND)
 
     # Get times for PIPS meteogram plotting
@@ -183,7 +183,7 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
 
     # Compute additional derived parameters
     # disvars['D_0'] = dsd.calc_D0_bin(ND) * 1000.  # Get to mm
-    disvars['D_m'] = parsivel_combined_ds['Dm43{}'.format(ND_tag)] * 1000.  # Get to mm
+    disvars['D_m'] = parsivel_combined_ds['Dm43{}'.format(QC_tag)] * 1000.  # Get to mm
     if calc_dualpol and plot_radar:
         # Calculate polarimetric variables using the T-matrix technique
         # Note, may try to use pyDSD for this purpose.
@@ -282,9 +282,9 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
             # TODO: allow for selection of retrievals to plot on command line
             try:
                 radvars['D_m_rad_SATP'] = radar_fields_at_PIPS_da.loc[{
-                    dim_name: 'Dm_SATP_TMM{}'.format(ND_tag)}]
+                    dim_name: 'Dm_SATP_TMM{}'.format(QC_tag)}]
                 radvars['D_m_rad_TMM_F'] = radar_fields_at_PIPS_da.loc[{
-                    dim_name: 'Dm_TMM_F{}'.format(ND_tag)}]
+                    dim_name: 'Dm_TMM_F{}'.format(QC_tag)}]
             except KeyError:
                 radvars['D_m_rad_SATP'] = radar_fields_at_PIPS_da.loc[{
                     dim_name: 'Dm_SATP'}]
