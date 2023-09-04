@@ -590,7 +590,7 @@ def plot_compass_dir_meteogram(plottimes, conv_plot_ds, global_plot_config_dict,
 
 
 def plot_temperature_dewpoint_meteogram(plottimes, conv_plot_ds, global_plot_config_dict,
-                                        xlimits=None, ptype='PIPS'):
+                                        xlimits=None, ptype='PIPS', use_corrected_vars=True):
     # Plot temperature and dewpoint
     # tavgintv = 10  # Currently not used
 
@@ -601,10 +601,21 @@ def plot_temperature_dewpoint_meteogram(plottimes, conv_plot_ds, global_plot_con
     elif ptype == 'NV2':
         tempstr = 'slowtemp'
 
+    # Some fields may have "corrected" versions. Use those if they exist
+    if use_corrected_vars and ptype == 'PIPS':
+        # For now we only potentially have corrected dewpoint, RH_derived, and slowtemp for the
+        # PIPS, but we don't even plot slowtemp for the PIPS
+        # TODO: make this more general later
+        dewpoint_str = 'dewpoint_corrected'
+        if dewpoint_str not in conv_plot_ds.data_vars:
+            dewpoint_str = 'dewpoint'
+    else:
+        dewpoint_str = 'dewpoint'
+
     fig = plt.figure(figsize=(8, 3))
     ax1 = fig.add_subplot(111)
 
-    fields = [conv_plot_ds[tempstr].values, conv_plot_ds['dewpoint'].values]
+    fields = [conv_plot_ds[tempstr].values, conv_plot_ds[dewpoint_str].values]
     temp_params['plotmin'] = global_plot_config_dict['T_Td_range'][0]
     dewpoint_params['plotmin'] = global_plot_config_dict['T_Td_range'][0]
     fieldparamdicts = [temp_params, dewpoint_params]
@@ -626,7 +637,7 @@ def plot_temperature_dewpoint_meteogram(plottimes, conv_plot_ds, global_plot_con
 
 
 def plot_RH_meteogram(plottimes, conv_plot_ds, global_plot_config_dict, xlimits=None,
-                      ptype='PIPS'):
+                      ptype='PIPS', use_corrected_vars=True):
     # Plot relative humidity
     # avgintv = 10  # Currently not used
 
@@ -636,6 +647,15 @@ def plot_RH_meteogram(plottimes, conv_plot_ds, global_plot_config_dict, xlimits=
         RHstr = 'RH'
     elif ptype == 'NV2':
         RHstr = 'RH'
+
+    # Some fields may have "corrected" versions. Use those if they exist
+    if use_corrected_vars and ptype == 'PIPS':
+        # For now we only potentially have corrected dewpoint, RH_derived, and slowtemp for the
+        # PIPS, but we don't even plot slowtemp for the PIPS
+        # TODO: make this more general later
+        RHstr = 'RH_derived_corrected'
+        if RHstr not in conv_plot_ds.data_vars:
+            RHstr = 'RH_derived'
 
     fig = plt.figure(figsize=(8, 3))
     ax1 = fig.add_subplot(111)

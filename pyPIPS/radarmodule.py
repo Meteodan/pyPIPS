@@ -1,4 +1,5 @@
 # radarmodule.py: A collection of functions to read and plot radar data
+import itertools
 import netCDF4
 import numpy as np
 import matplotlib
@@ -9,7 +10,7 @@ import matplotlib.cm as cm
 import matplotlib.ticker as ticker
 from matplotlib.projections import PolarAxes, register_projection
 from matplotlib.transforms import Affine2D, Bbox, IdentityTransform
-from mpl_toolkits.axes_grid1 import ImageGrid
+from mpl_toolkits.axes_grid1 import ImageGrid, make_axes_locatable, host_subplot
 # import ctablesfrompyesviewer as ctables
 from metpy.plots import ctables
 from datetime import datetime, timedelta
@@ -26,6 +27,7 @@ import pickle
 import xarray as xr
 import pandas as pd
 import pytz
+import cartopy
 import cartopy.crs as ccrs
 from parse import compile as pcompile
 
@@ -609,6 +611,7 @@ def get_field_to_plot(radar_obj, field_name_list, tag=None):
         new_field_name_list = [field_name + tag for field_name in field_name_list]
     else:
         new_field_name_list = field_name_list
+
     return next((f for f in list(radar_obj.fields.items()) if f[0] in new_field_name_list), None)
 
 
@@ -1329,7 +1332,8 @@ def plotsweep(radlims, plotlims, fieldnames, fieldlist, masklist, range_start, r
 
 
 def plotsweep_pyART(radar_obj, sweeptime, PIPS_names, PIPS_geo_locs, PIPS_rad_locs, radar_fields,
-                    PIPS_fields=None, bounds=[-20., 20., -20., 20.], plot_filtered=False):
+                    PIPS_fields=None, bounds=[-20000., 20000., -20000., 20000.],
+                    plot_filtered=False):
     """
     Plots an individual radar sweep, with an option to overlay a map.  This version uses pyART
     routines and assumes the radar sweep has been read in using readCFRadial_pyART.
@@ -1339,12 +1343,18 @@ def plotsweep_pyART(radar_obj, sweeptime, PIPS_names, PIPS_geo_locs, PIPS_rad_lo
     projection = ccrs.LambertConformal(central_latitude=radar_obj.latitude['data'][0],
                                        central_longitude=radar_obj.longitude['data'][0])
 
-    PIPS_x = [PIPS_rad_loc[0] for PIPS_rad_loc in PIPS_rad_locs]
-    PIPS_y = [PIPS_rad_loc[1] for PIPS_rad_loc in PIPS_rad_locs]
-    xmin = min(PIPS_x) + bounds[0] * 1000.
-    xmax = max(PIPS_x) + bounds[1] * 1000.
-    ymin = min(PIPS_y) + bounds[2] * 1000.
-    ymax = max(PIPS_y) + bounds[3] * 1000.
+    if False:
+        PIPS_x = [PIPS_rad_loc[0] for PIPS_rad_loc in PIPS_rad_locs]
+        PIPS_y = [PIPS_rad_loc[1] for PIPS_rad_loc in PIPS_rad_locs]
+        xmin = min(PIPS_x) + bounds[0] * 1000.
+        xmax = max(PIPS_x) + bounds[1] * 1000.
+        ymin = min(PIPS_y) + bounds[2] * 1000.
+        ymax = max(PIPS_y) + bounds[3] * 1000.
+    else:
+        xmin = bounds[0]
+        xmax = bounds[1]
+        ymin = bounds[2]
+        ymax = bounds[3]
 
     figlist = []
     axlist = []
@@ -1385,7 +1395,7 @@ def plotsweep_pyART(radar_obj, sweeptime, PIPS_names, PIPS_geo_locs, PIPS_rad_lo
                 fields_to_plot.append(field_to_plot[0])
 
     for field in fields_to_plot:
-        fig, ax = plt.subplots(figsize=(10, 8))
+        fig = plt.figure(figsize=(10, 8))
         titlestringfmt = 'Radar name: {}; Field: {}; Time: {}; elevation: {:2.1f}'
         titlestring = titlestringfmt.format(radar_obj.metadata['instrument_name'], field,
                                             sweeptime.strftime(tm.timefmt3),
@@ -1404,7 +1414,7 @@ def plotsweep_pyART(radar_obj, sweeptime, PIPS_names, PIPS_geo_locs, PIPS_rad_lo
         # TODO: add colorbar label levels, other arguments
         display.plot_ppi_map(field, 0, title_flag=False, cmap=field_plot_params['cmap'],
                              vmin=field_plot_params['clevels'][0],
-                             vmax=field_plot_params['clevels'][-1], colorbar_label='', ax=ax,
+                             vmax=field_plot_params['clevels'][-1], colorbar_label='',  # ax=ax,
                              resolution='10m', projection=projection, fig=fig,
                              lat_lines=np.arange(30, 46, 0.1), lon_lines=np.arange(-110, -75, 0.1),
                              raster=True)
@@ -1415,6 +1425,161 @@ def plotsweep_pyART(radar_obj, sweeptime, PIPS_names, PIPS_geo_locs, PIPS_rad_lo
                                label_text=PIPS_name)
 
         display.ax.set_extent([xmin, xmax, ymin, ymax], crs=projection)
+
+        figlist.append(fig)
+        axlist.append(display.ax)
+
+    return figlist, axlist, fields_to_plot
+
+
+def plotsweep_pcolor(radar_obj, radar_fields, sweeptime, PIPS_names=None, PIPS_rad_loc_dict=None,
+                     PIPS_fields=None, bounds=[-20000., 20000., -20000., 20000.],
+                     plot_filtered=False, norm=None, cbarlabel=None, axestickintv=10000.):
+
+    projection = ccrs.LambertConformal(central_latitude=radar_obj.latitude['data'][0],
+                                       central_longitude=radar_obj.longitude['data'][0])
+
+    # Find nice text label positions for the PIPS overlays
+    if PIPS_names is not None and PIPS_rad_loc_dict is not None:
+        PIPS_x_dict = {PIPS_name: PIPS_rad_loc_dict[PIPS_name][0] for PIPS_name in PIPS_names}
+        PIPS_y_dict = {PIPS_name: PIPS_rad_loc_dict[PIPS_name][1] for PIPS_name in PIPS_names}
+        text_x_dict = {PIPS_name: PIPS_x_dict[PIPS_name] + 500. for PIPS_name in PIPS_names}
+        text_y_dict = {PIPS_name: PIPS_y_dict[PIPS_name] + 500. for PIPS_name in PIPS_names}
+
+        for PIPS_pair in itertools.combinations(PIPS_names, 2):
+            if (np.abs(text_x_dict[PIPS_pair[0]] - text_x_dict[PIPS_pair[1]]) < 500. and
+                np.abs(text_y_dict[PIPS_pair[0]] - text_y_dict[PIPS_pair[1]]) < 500.):
+                text_y_dict[PIPS_pair[0]] -= 1000.
+
+    xplt, yplt, _ = radar_obj.get_gate_x_y_z(0, edges=True)
+    xplt = xplt.squeeze()
+    yplt = yplt.squeeze()
+
+    xmin = bounds[0]
+    xmax = bounds[1]
+    ymin = bounds[2]
+    ymax = bounds[3]
+
+    figlist = []
+    axlist = []
+
+    # Try to match up each field with what is in the file
+    # TODO: split this part off into a separate function and simplify the logic!
+    fields_to_plot = []
+    for field in radar_fields:
+        # Reflectivity
+        if field in REF_aliases:
+            field_to_plot = get_field_to_plot(radar_obj, REF_aliases)
+        elif field in ZDR_aliases:
+            field_to_plot = get_field_to_plot(radar_obj, ZDR_aliases)
+        elif field in KDP_aliases:
+            field_to_plot = get_field_to_plot(radar_obj, KDP_aliases)
+        elif field in RHV_aliases:
+            field_to_plot = get_field_to_plot(radar_obj, RHV_aliases)
+        elif field in VR_aliases:
+            field_to_plot = get_field_to_plot(radar_obj, VR_aliases)
+        else:
+            # Try to find the field "as is" in the file
+            try:
+                field_arr = radar_obj.fields[field]
+                field_to_plot = (field, field_arr)
+            except KeyError:
+                field_to_plot = None
+        if field_to_plot:
+            fields_to_plot.append(field_to_plot[0])
+
+        # Need to simplify this tortured logic!
+        if plot_filtered and (field in REF_aliases or field in ZDR_aliases or field in RHV_aliases):
+            if field in REF_aliases:
+                field_to_plot = get_field_to_plot(radar_obj, REF_aliases, tag='_filtered')
+            elif field in ZDR_aliases:
+                field_to_plot = get_field_to_plot(radar_obj, ZDR_aliases, tag='_filtered')
+            elif field in RHV_aliases:
+                field_to_plot = get_field_to_plot(radar_obj, RHV_aliases, tag='_filtered')
+            if field_to_plot:
+                fields_to_plot.append(field_to_plot[0])
+
+    for field in fields_to_plot:
+        fig, ax = plt.subplots(figsize=(10, 8), subplot_kw={'projection': projection})
+        titlestringfmt = 'Radar name: {}; Field: {}; Time: {}; elevation: {:2.1f}'
+        titlestring = titlestringfmt.format(radar_obj.metadata['instrument_name'], field,
+                                            sweeptime.strftime(tm.timefmt3),
+                                            radar_obj.elevation['data'][0])
+
+        field_to_match = field
+        # DTD: find a better way to do this
+        retr_aliases = [retr_alias for aliases in retr_alias_list for retr_alias in aliases]
+        for field_trial in retr_aliases:
+            if field_trial in field:
+                field_to_match = field_trial
+                break
+        field_to_match = field_to_match.replace('_filtered', '')
+        field_to_match = field_to_match.replace('_corrected', '')
+        field_plot_params = radar_plot_param_matching[field_to_match]
+
+        # TODO: add colorbar label levels, other arguments
+
+        var = radar_obj.fields[field]['data']
+
+        if norm is None:
+            ci = ax.pcolormesh(xplt, yplt, var.squeeze(), vmin=field_plot_params['clevels'][0],
+                               vmax=field_plot_params['clevels'][-1],
+                               cmap=field_plot_params['cmap'], norm=norm)
+        else:
+            ci = ax.pcolormesh(xplt, yplt, var.squeeze(), cmap=field_plot_params['cmap'], norm=norm)
+
+        ax.set_title(titlestring, fontsize=10)
+        # Overlay locations of the PIPS
+
+        for PIPS_name in PIPS_names:
+            # PIPS_names_toplot.append(PIPS_name)
+            # rad_locs_toplot.append(rad_loc_dict[PIPS_name])
+            PIPS_x = PIPS_x_dict[PIPS_name]
+            PIPS_y = PIPS_y_dict[PIPS_name]
+            ax.plot([PIPS_x], [PIPS_y], 'r*', ms=10, alpha=0.5)
+            x_text = text_x_dict[PIPS_name]
+            y_text = text_y_dict[PIPS_name]
+            ax.annotate(PIPS_name, xy=(x_text, y_text))
+
+        # Overlay roads
+        ax.add_feature(cartopy.feature.NaturalEarthFeature('cultural', 'roads', '10m'),
+                       facecolor='none', edgecolor='black', alpha=.3)
+
+        if isinstance(field_plot_params['cbint'], list):
+            cbarlevels = field_plot_params['cbint']
+        else:
+            cbarintv = field_plot_params['cbint']
+            cbarlevels = ticker.MultipleLocator(base=cbarintv)
+        divider = make_axes_locatable(ax)
+        cax = divider.append_axes("right", size="5%", pad=0.05, axes_class=matplotlib.axes.Axes)
+        fig.colorbar(ci, orientation='vertical', ticks=cbarlevels, cax=cax)
+        if cbarlabel is not None:
+            cax.set_ylabel(cbarlabel)
+#         formatter = ticker.FuncFormatter(mtokm)
+#         ax.xaxis.set_major_formatter(formatter)
+#         ax.yaxis.set_major_formatter(formatter)
+#         ax.xaxis.set_major_locator(ticker.MultipleLocator(base=axestickintv))
+#         ax.yaxis.set_major_locator(ticker.MultipleLocator(base=axestickintv))
+#         ax.set_xlabel('km')
+#         ax.set_ylabel('km')
+#         ax.set_xlim(xmin, xmax)
+#         ax.set_ylim(ymin, ymax)
+#         ax.set_aspect('equal')
+
+        gl = ax.gridlines(draw_labels=True, dms=True, x_inline=False, y_inline=False, color="None",
+                          crs=ccrs.PlateCarree(), rotate_labels=False)
+        gl.xlocator = cartopy.mpl.ticker.LongitudeLocator()
+        gl.ylocator = cartopy.mpl.ticker.LatitudeLocator()
+        gl.xformatter = cartopy.mpl.ticker.LongitudeFormatter()
+        gl.yformatter = cartopy.mpl.ticker.LatitudeFormatter()
+        gl.bottom_labels = True
+        gl.left_labels   = True
+        gl.top_labels    = False
+        gl.right_labels  = False
+        ax.set_extent([xmin, xmax, ymin, ymax], crs=projection)
+
+#         ax.xaxis.set_major_formatter(cartopy.mpl.gridliner.LONGITUDE_FORMATTER)
+#         ax.yaxis.set_major_formatter(cartopy.mpl.gridliner.LATITUDE_FORMATTER)
 
         figlist.append(fig)
         axlist.append(ax)

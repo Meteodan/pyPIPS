@@ -98,7 +98,7 @@ wavelength = config.radar_config_dict.get('wavelength', 10.7)
 # Set plot averaging intervals, etc.
 avgwind = pc.PIPS_plotting_dict.get('avgwind', False)
 windavgintv = pc.PIPS_plotting_dict.get('windavgintv', 60)
-windgustintv = pc.PIPS_plotting_dict.get('wingustintv', 3)
+windgustintv = pc.PIPS_plotting_dict.get('windgustintv', 3)
 
 # Create the directory for the meteogram plots if it doesn't exist
 if args.plot_dir:

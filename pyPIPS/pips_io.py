@@ -396,12 +396,12 @@ def read_PIPS(filename, start_timestamp=None, end_timestamp=None, tripips=False,
     #     conv_df['logger_datetime'] += GPS_offset
     #     parsivel_df['parsivel_datetime'] += GPS_offset
 
-    
+
     # Set the pd.Series of datetimes as the new index for both the conv_df and parsivel_df
     # DataFrames
     conv_df = conv_df.rename(columns={'logger_datetime': 'time'})
     conv_df = conv_df.set_index('time')
-    
+
     # Have to do this because of some weird issue where the DataArray constructor below errors out
     # if you try to give the 'time' coordinate the actual parsivel_df.index as its values.
     # Instead, we save the pd.Series of datetimes ina  separate variable here *before* setting it

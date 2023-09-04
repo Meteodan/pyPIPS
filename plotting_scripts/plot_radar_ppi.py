@@ -50,6 +50,10 @@ parser.add_argument('--RHV-thresh', type=float, dest='RHV_thresh', default=0.95,
                     help='Threshold of RHV below which to exclude')
 parser.add_argument('--image-fmt', dest='image_fmt', default='png',
                     help='Image file format (i.e. png, eps, pdf)')
+parser.add_argument('--use-plot-ppi-map', dest='use_plot_ppi_map', default=False,
+                    help='Whether to use pyart plot_ppi_map vs. simpler, faster solution.')
+parser.add_argument('--dealias-vel', dest='dealias_vel', action='store_true',
+                    help='whether to dealias velocity (uses pyART region-based method)')
 
 args = parser.parse_args()
 
@@ -81,6 +85,7 @@ plot_dir = config.PIPS_IO_dict.get('plot_dir', None)
 PIPS_types = config.PIPS_IO_dict.get('PIPS_types', None)
 PIPS_names = config.PIPS_IO_dict.get('PIPS_names', None)
 PIPS_filenames = config.PIPS_IO_dict.get('PIPS_filenames', None)
+parsivel_combined_filenames = config.PIPS_IO_dict['PIPS_filenames_nc']
 start_times = config.PIPS_IO_dict.get('start_times', [None] * len(PIPS_names))
 end_times = config.PIPS_IO_dict.get('end_times', [None] * len(PIPS_names))
 geo_locs = config.PIPS_IO_dict.get('geo_locs', [None] * len(PIPS_names))
@@ -98,6 +103,8 @@ radar_fname_pattern = config.radar_config_dict.get('radar_fname_pattern', None)
 if args.input_tag:
     radar_fname_pattern = radar_fname_pattern.replace('.', '_{}.'.format(args.input_tag))
 field_names = config.radar_config_dict.get('field_names', ['REF'])
+if 'VEL' in field_names and args.dealias_vel and 'VEL_corrected' not in field_names:
+    field_names.append("VEL_corrected")
 if not calc_dualpol:
     field_names = ['REF']
 if args.el_req_cl:
@@ -116,9 +123,12 @@ if not os.path.exists(radar_ppi_image_dir):
 
 # Get a list of the combined parsivel netCDF data files that are present in the PIPS directory
 # TODO: change this logic to actually use the files listed in the config file
-parsivel_combined_filenames = [
-    'parsivel_combined_{}_{}_{:d}s.nc'.format(deployment_name, PIPS_name, int(requested_interval))
-    for deployment_name, PIPS_name in zip(deployment_names, PIPS_names)]
+# parsivel_combined_filenames = [
+#     'parsivel_combined_{}_{}_{:d}s.nc'.format(deployment_name, PIPS_name, int(requested_interval))
+#     for deployment_name, PIPS_name in zip(deployment_names, PIPS_names)]
+# parsivel_combined_filelist = [os.path.join(PIPS_dir, pcf) for pcf in parsivel_combined_filenames]
+
+# Get a list of the combined parsivel netCDF data files that are present in the PIPS directory
 parsivel_combined_filelist = [os.path.join(PIPS_dir, pcf) for pcf in parsivel_combined_filenames]
 
 # Read radar sweeps
@@ -143,13 +153,15 @@ rlat = first_sweep.latitude['data'][0]
 rlon = first_sweep.longitude['data'][0]
 ralt = first_sweep.altitude['data'][0]
 
-geo_locs = []
-rad_locs = []
+geo_loc_dict = {}
+rad_loc_dict = {}
 PIPS_names = []
+PIPS_ds_dict = {}
 for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
     print("Reading {}".format(parsivel_combined_file))
     parsivel_combined_ds = xr.load_dataset(parsivel_combined_file)
     PIPS_name = parsivel_combined_ds.probe_name
+    PIPS_ds_dict[PIPS_name] = parsivel_combined_ds
     PIPS_names.append(PIPS_name)
     deployment_name = parsivel_combined_ds.deployment_name
     image_dir = os.path.join(radar_ppi_image_dir, deployment_name)
@@ -157,15 +169,48 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
         os.makedirs(image_dir)
     geo_loc_str = parsivel_combined_ds.location
     geo_loc = list(map(float, geo_loc_str.strip('()').split(',')))
-    geo_locs.append(geo_loc)
+    geo_loc_dict[PIPS_name] = geo_loc
     rad_loc = radar.get_PIPS_loc_relative_to_radar(geo_loc, rlat, rlon, ralt)
-    rad_locs.append(rad_loc)
+    rad_loc_dict[PIPS_name] = rad_loc
+
+# Find nice bounds for the radar PPI plots to center the PIPS deployments
+PIPS_x = [rad_loc_dict[PIPS_name][0] for PIPS_name in PIPS_names]
+PIPS_y = [rad_loc_dict[PIPS_name][1] for PIPS_name in PIPS_names]
+
+# buffer zone in meters surrounding PIPS for radar plot
+# TODO: make these command-line arguments
+buffer_x = 20000.
+buffer_y = 20000.
+
+xmin = min(PIPS_x) - buffer_x
+xmax = max(PIPS_x) + buffer_x
+ymin = min(PIPS_y) - buffer_y
+ymax = max(PIPS_y) + buffer_y
+
+bounds = [xmin, xmax, ymin, ymax]
 
 for radar_path in radar_path_dict['rad_path_list']:
     radar_obj_list = radar.readCFRadial_pyART(el_req, radar_path, compute_kdp=False)
     # Loop through the matching sweeps in the file (there may be more than one because of
     # split cuts/SAILS)
     for radar_obj in radar_obj_list:
+
+        # TODO: temporarily including optional dealiasing of velocity. Later will split
+        # this off into its own script
+        if args.dealias_vel and 'VEL' in field_names:
+            print("Dealiasing velocities using region-based method")
+            # create a gate filter which specifies gates to exclude from dealiasing
+            gatefilter = pyart.filters.GateFilter(radar_obj)
+            gatefilter.exclude_transition()
+            gatefilter.exclude_invalid("VEL")
+            gatefilter.exclude_invalid("REF")
+            gatefilter.exclude_outside("REF", 0, 80)
+
+            # perform dealiasing
+            dealias_data = pyart.correct.dealias_region_based(radar_obj, gatefilter=gatefilter,
+                                                              vel_field='VEL')
+            radar_obj.add_field("VEL_corrected", dealias_data, replace_existing=True)
+
         # TODO: temporary fix below for fixing bugged filtered fields.
         # Code borrowed from filter_radar_sweep.py
         # NOTE: Can we remove this now?
@@ -208,10 +253,40 @@ for radar_path in radar_path_dict['rad_path_list']:
                                        radar_obj.fields[field_name + '_filtered']['data'])
         # Extract time from start of sweep
         sweep_time = pyart.graph.common.generate_radar_time_sweep(radar_obj, 0)
+        # Convert to np.datetime64
+        sweep_time_dt64 = np.datetime64(sweep_time)
         sweep_time_string = sweep_time.strftime(tm.timefmt3)
-        figlist, axlist, fields_plotted = radar.plotsweep_pyART(radar_obj, sweep_time, PIPS_names,
-                                                                geo_locs, rad_locs, field_names,
-                                                                plot_filtered=args.plot_filtered)
+
+        # Figure out which PIPS (if any) were deployed at this radar time and add them to the lists
+        # to plot
+        PIPS_names_toplot = []
+        geo_locs_toplot = []
+        rad_locs_toplot = []
+        geo_locs_dict_toplot = {}
+        rad_locs_dict_toplot = {}
+
+        for PIPS_name, PIPS_ds in PIPS_ds_dict.items():
+            PIPS_start_time = PIPS_ds.time[0].values
+            PIPS_end_time = PIPS_ds.time[-1].values
+
+            if sweep_time_dt64 >= PIPS_start_time and sweep_time_dt64 <= PIPS_end_time:
+                PIPS_names_toplot.append(PIPS_name)
+                geo_locs_toplot.append(geo_loc_dict[PIPS_name])
+                rad_locs_toplot.append(rad_loc_dict[PIPS_name])
+                geo_locs_dict_toplot[PIPS_name] = geo_loc_dict[PIPS_name]
+                rad_locs_dict_toplot[PIPS_name] = rad_loc_dict[PIPS_name]
+
+        if args.use_plot_ppi_map:
+            figlist, axlist, fields_plotted = \
+                radar.plotsweep_pyART(radar_obj, sweep_time, PIPS_names_toplot, geo_locs_toplot,
+                                      rad_locs_toplot, field_names,
+                                      plot_filtered=args.plot_filtered, bounds=bounds)
+        else:
+            figlist, axlist, fields_plotted = \
+                radar.plotsweep_pcolor(radar_obj, field_names, sweep_time,
+                                       PIPS_names=PIPS_names_toplot,
+                                       PIPS_rad_loc_dict=rad_locs_dict_toplot,
+                                       plot_filtered=args.plot_filtered, bounds=bounds)
 
         for fig, ax, field_name in zip(figlist, axlist, fields_plotted):
             PIPS_plot_name = '{}_{}_{}_{}_{}deg.{}'.format(field_name, deployment_name,
