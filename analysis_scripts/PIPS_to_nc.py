@@ -121,7 +121,7 @@ for index, PIPS_filename, PIPS_name, start_time, end_time, geo_loc, ptype, deplo
     if parsivel_df is not None and vd_matrix_da is not None:
 
         # if apply_qc:
-        #     # Do some QC on the V-D matrix. This will make a copy of the raw matrix. The netCDF 
+        #     # Do some QC on the V-D matrix. This will make a copy of the raw matrix. The netCDF
         #     # file
         #     # will contain both
         #     qc_attr_dict = {}
@@ -174,8 +174,8 @@ for index, PIPS_filename, PIPS_name, start_time, end_time, geo_loc, ptype, deplo
         conv_resampled_df_index = conv_resampled_df.index.intersection(parsivel_df.index)
         conv_resampled_df = conv_resampled_df.loc[conv_resampled_df_index]
 
-        fallspeed_spectrum = pips.calc_fallspeed_spectrum(avg_diameter, avg_fall_bins, 
-                                                          correct_rho=True, 
+        fallspeed_spectrum = pips.calc_fallspeed_spectrum(avg_diameter, avg_fall_bins,
+                                                          correct_rho=True,
                                                           rho=conv_resampled_df['rho'])
         vd_matrix_da = vd_matrix_da.where(vd_matrix_da > 0.0)
         ND_raw = pips.calc_ND(vd_matrix_da, fallspeed_spectrum, DSD_interval)
@@ -199,7 +199,7 @@ for index, PIPS_filename, PIPS_name, start_time, end_time, geo_loc, ptype, deplo
         # if qc_tag is not None:
         #     new_VD_name = 'VD_matrix_{}'.format(qc_tag)
         #     new_ND_name = 'ND_{}'.format(qc_tag)
-        #     parsivel_combined_ds = pipsio.combine_parsivel_data(parsivel_combined_ds, 
+        #     parsivel_combined_ds = pipsio.combine_parsivel_data(parsivel_combined_ds,
         #                                                         vd_matrix_qc_da,
         #                                                         name=new_VD_name)
         #     parsivel_combined_ds = pipsio.combine_parsivel_data(parsivel_combined_ds, ND,

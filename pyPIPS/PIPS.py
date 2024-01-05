@@ -5,7 +5,6 @@ import xarray as xr
 from . import thermolib as thermo
 from . import utils
 import pyPIPS.parsivel_params as pp
-import pyPIPS.PIPS as pips
 from .parsivel_params import parsivel_parameters
 from .pips_io import combine_parsivel_data
 from numba import jit
@@ -24,7 +23,7 @@ avg_fall_bins = pp.parsivel_parameters['avg_fallspeed_bins_mps']
 fall_bins_edges = np.append(min_fall_bins, max_fall_bins[-1])
 
 
-def calc_thermo(conv_df):
+def calc_thermo(conv_df, p_var='pressure', T_var='fasttemp', RH_var='RH_derived', suffix=''):
     """[summary]
 
     Parameters
@@ -38,17 +37,13 @@ def calc_thermo(conv_df):
         [description]
     """
 
-    p_Pa = conv_df['pressure'] * 100.
-    T_K = conv_df['fasttemp'] + 273.15
-    RH = conv_df['RH_derived'] / 100.
+    p_Pa = conv_df[p_var] * 100.
+    T_K = conv_df[T_var] + 273.15
+    RH = conv_df[RH_var] / 100.
 
-    pt = thermo.caltheta(p_Pa, T_K)
-    qv = thermo.calqv(RH, p_Pa, T_K)
-    rho = thermo.calrho(p_Pa, pt, qv)
-
-    conv_df['pt'] = pt
-    conv_df['qv'] = qv
-    conv_df['rho'] = rho
+    conv_df[f'pt{suffix}'] = thermo.caltheta(p_Pa, T_K)
+    conv_df[f'qv{suffix}'] = thermo.calqv(RH, p_Pa, T_K)
+    conv_df[f'rho{suffix}'] = thermo.calrho(p_Pa, conv_df[f'pt{suffix}'], conv_df[f'qv{suffix}'])
 
     return conv_df
 
@@ -86,13 +81,13 @@ def wind_dir_and_speed_from_u_and_v(u, v):
 
 # TODO: not used right now, but will eventually refactor everything to use xarray DataArrays
 # instead of pandas DataFrames
-def resample_wind_da(wind_dir, wind_spd, intervalstr, offset, gusts=True, gustintervalstr='3S',
+def resample_wind_da(wind_dir, wind_spd, intervalstr, offset, gusts=True, gustintvstr='3S',
                      center=False):
-    offset_str = pips.get_interval_str(offset)
+    offset_str = get_interval_str(offset)
     wind_spd_avg = wind_spd.resample(time=intervalstr, label='right', closed='right',
                                      offset=offset_str).mean()
     if gusts:
-        wind_gust = wind_spd.resample(time=gustintervalstr, label='right', closed='right',
+        wind_gust = wind_spd.resample(time=gustintvstr, label='right', closed='right',
                                       offset=offset_str).mean()
         wind_gust_avg = wind_gust.resample(time=intervalstr, label='right', closed='right',
                                            offset=offset_str).max()
@@ -127,13 +122,15 @@ def resample_wind_da(wind_dir, wind_spd, intervalstr, offset, gusts=True, gustin
     # Need to use %360 to keep wind dir between 0 and 360 degrees
     wind_dir_unit_vec_avg = (270.0 - (180. / np.pi) * np.arctan2(unit_u_avg, unit_v_avg)) % 360.
 
-    # Pack everything into a dictionary and return
+    # Pack everything into a dictionary and then an xarray Dataset and return
     wind_dict = {'windspd': wind_spd_avg, 'windspdavgvec': wind_spd_vec_avg,
                  'winddirabs': wind_dir_vec_avg, 'winddirunitavgvec': wind_dir_unit_vec_avg,
                  'windgust': wind_gust_avg, 'uavg': u_avg, 'vavg': v_avg,
                  'unit_uavg': unit_u_avg, 'unit_vavg': unit_v_avg}
 
-    return wind_dict
+    wind_ds = xr.Dataset(wind_dict)
+
+    return wind_ds
 
 
 def resample_wind(datetimes, offset, winddirs, windspds, intervalstr, gusts=True, gustintvstr='3S',
@@ -141,7 +138,7 @@ def resample_wind(datetimes, offset, winddirs, windspds, intervalstr, gusts=True
     """Given a timeseries of wind directions and speeds, and an interval for resampling,
        compute the vector and scalar average wind speed, and vector average wind direction.
        Optionally also compute gusts."""
-    offset_str = pips.get_interval_str(offset)
+    offset_str = get_interval_str(offset)
     windspdsavg = pd.Series(data=windspds, index=datetimes).resample(intervalstr, label='right',
                                                                      closed='right',
                                                                      offset=offset_str).mean()
@@ -214,8 +211,25 @@ def resample_wind(datetimes, offset, winddirs, windspds, intervalstr, gusts=True
     return wind_df
 
 
+def resample_compass_da(compass_dir, offset, intervalstr):
+    offset_str = get_interval_str(offset)
+
+    # Compute x- and y-components of compass direction
+    x = np.cos(np.deg2rad(-compass_dir + 270.))
+    y = np.sin(np.deg2rad(-compass_dir + 270.))
+
+    # Compute averages of components using xarray's resample
+    x_avg = x.resample(time=intervalstr, label='right', closed='right', offset=offset_str).mean()
+    y_avg = y.resample(time=intervalstr, label='right', closed='right', offset=offset_str).mean()
+
+    # Calculate averaged compass direction
+    compass_dir_avg = (270.0 - (180. / np.pi) * np.arctan2(y_avg, x_avg)) % 360.
+
+    return compass_dir_avg
+
+
 def resample_compass(datetimes, compass_dir, offset, intervalstr):
-    offset_str = pips.get_interval_str(offset)
+    offset_str = get_interval_str(offset)
     # Compute x- and y-components of compass direction
     x = np.cos(np.deg2rad(-compass_dir + 270.))
     y = np.sin(np.deg2rad(-compass_dir + 270.))
@@ -241,29 +255,82 @@ def resample_compass(datetimes, compass_dir, offset, intervalstr):
     return compass_dir_avg
 
 
-def resample_conv(probe_type, resample_interval, sec_offset, conv_df, gusts=False, gustintvstr='3S',
-                  center=False):
+def resample_conv_da(probe_type, resample_interval, sec_offset, conv_ds, gusts=False,
+                     gustintvstr='3S', center=False):
     """Resamples the conventional data to a longer interval"""
-    sec_offset_str = pips.get_interval_str(sec_offset)
+    sec_offset_str = get_interval_str(sec_offset)
     if probe_type == 'PIPS':
         winddirkey = 'winddirabs'
         windspdkey = 'windspd'
         other_data = ['fasttemp', 'slowtemp', 'RH', 'RH_derived', 'pressure',
-                      'GPS_lat', 'GPS_lon', 'GPS_alt', 'voltage', 'dewpoint', 'rho']
+                      'GPS_lat', 'GPS_lon', 'GPS_alt', 'voltage', 'dewpoint', 'rho', 'pt', 'qv']
     elif probe_type == 'TriPIPS':
         winddirkey = 'winddirabs'
         windspdkey = 'windspd'
         other_data = ['slowtemp', 'RH', 'RH_derived', 'pressure',
-                      'GPS_lat', 'GPS_lon', 'GPS_alt', 'voltage', 'dewpoint', 'rho']
+                      'GPS_lat', 'GPS_lon', 'GPS_alt', 'voltage', 'dewpoint', 'rho', 'pt', 'qv']
     elif probe_type == 'CU':
         winddirkey = 'bwinddirabs'
         windspdkey = 'bwindspd'
         other_data = ['slowtemp', 'RH', 'pressure',
-                      'GPS_lat', 'GPS_lon', 'GPS_alt', 'voltage', 'dewpoint', 'rho']
+                      'GPS_lat', 'GPS_lon', 'GPS_alt', 'voltage', 'dewpoint', 'rho', 'pt', 'qv']
     elif probe_type == 'NV2':
         winddirkey = 'swinddirabs'
         windspdkey = 'swindspd'
-        other_data = ['slowtemp', 'RH', 'pressure', 'dewpoint', 'rho']
+        other_data = ['slowtemp', 'RH', 'pressure', 'dewpoint', 'rho', 'pt', 'qv']
+
+    intervalstr = '{:d}S'.format(int(resample_interval))
+
+    # First, resample the winds
+    conv_resampled_ds = resample_wind_da(conv_ds[winddirkey], conv_ds[windspdkey], intervalstr,
+                                         sec_offset, gusts=gusts, gustintvstr=gustintvstr,
+                                         center=center)
+
+    # Resample compass direction
+    if probe_type == 'PIPS':
+        compass_dir_avg = resample_compass_da(conv_ds['compass_dir'], sec_offset, intervalstr)
+        conv_resampled_ds['compass_dir'] = compass_dir_avg
+
+    # Special treatment for wind diagnostic flags
+    if probe_type == 'PIPS':
+        winddiags_rs = \
+            conv_ds['winddiag'].resample(time=intervalstr, label='right', closed='right',
+                                         offset=sec_offset_str).max(skipna=False)
+        conv_resampled_ds['winddiag'] = winddiags_rs
+
+    # Now, resample the other one-sec data
+    other_resampled_ds = \
+        conv_ds[other_data].resample(time=intervalstr, label='right', closed='right',
+                                     offset=sec_offset_str).mean()
+
+    conv_resampled_ds = xr.merge([conv_resampled_ds, other_resampled_ds])
+
+    return conv_resampled_ds
+
+
+def resample_conv(probe_type, resample_interval, sec_offset, conv_df, gusts=False, gustintvstr='3S',
+                  center=False):
+    """Resamples the conventional data to a longer interval"""
+    sec_offset_str = get_interval_str(sec_offset)
+    if probe_type == 'PIPS':
+        winddirkey = 'winddirabs'
+        windspdkey = 'windspd'
+        other_data = ['fasttemp', 'slowtemp', 'RH', 'RH_derived', 'pressure',
+                      'GPS_lat', 'GPS_lon', 'GPS_alt', 'voltage', 'dewpoint', 'rho', 'pt', 'qv']
+    elif probe_type == 'TriPIPS':
+        winddirkey = 'winddirabs'
+        windspdkey = 'windspd'
+        other_data = ['slowtemp', 'RH', 'RH_derived', 'pressure',
+                      'GPS_lat', 'GPS_lon', 'GPS_alt', 'voltage', 'dewpoint', 'rho', 'pt', 'qv']
+    elif probe_type == 'CU':
+        winddirkey = 'bwinddirabs'
+        windspdkey = 'bwindspd'
+        other_data = ['slowtemp', 'RH', 'pressure',
+                      'GPS_lat', 'GPS_lon', 'GPS_alt', 'voltage', 'dewpoint', 'rho', 'pt', 'qv']
+    elif probe_type == 'NV2':
+        winddirkey = 'swinddirabs'
+        windspdkey = 'swindspd'
+        other_data = ['slowtemp', 'RH', 'pressure', 'dewpoint', 'rho', 'pt', 'qv']
 
     intervalstr = '{:d}S'.format(int(resample_interval))
 
@@ -343,7 +410,7 @@ def resample_vd_matrix(resample_interval, vd_matrix):
     # We need to find the offset corresponding to the starting second and then
     # generate the frequency string. Seems like there should be an easier way...
     sec_offset = pd.to_datetime(vd_matrix['time'].values)[0].second
-    sec_offset_str = pips.get_interval_str(sec_offset)
+    sec_offset_str = get_interval_str(sec_offset)
     # Resample the vd_matrix in time, filling missing values with zero
     vd_matrix = vd_matrix.resample(time=intervalstr, label='right', closed='right',
                                    offset=sec_offset_str).sum(dim='time').fillna(0)
@@ -370,7 +437,7 @@ def resample_parsivel(resample_interval, parsivel_df):
     # We need to find the offset corresponding to the starting second and then
     # generate the frequency string. Seems like there should be an easier way...
     sec_offset = parsivel_df.index.to_pydatetime()[0].second
-    sec_offset_str = pips.get_interval_str(sec_offset)
+    sec_offset_str = get_interval_str(sec_offset)
     # Resample parsivel_df in time, filling missing values with zero: TEMPORARY FIX. later will deal
     # with missing values differently
     parsivel_rs = parsivel_df.resample(intervalstr, label='right', closed='right',
@@ -412,6 +479,7 @@ def resample_ND(resample_interval, ND_df):
     # We need to find the offset corresponding to the starting second and then
     # generate the frequency string. Seems like there should be an easier way...
     sec_offset = ND_df.index.to_pydatetime()[0].second
+    sec_offset_str = get_interval_str(sec_offset)
     # Resample parsivel_df in time, filling missing values with zero: TEMPORARY FIX. later will deal
     # with missing values differently
     ND_df = ND_df.resample(intervalstr, label='right', closed='right',
@@ -440,7 +508,8 @@ def calc_ND(vd_matrix, fallspeed_spectrum, sample_interval, use_measured_fallspe
     eff_sensor_area = xr.DataArray(pp.parsivel_parameters['eff_sensor_area_mm2'],
                                    dims=['diameter_bin']) * 1.e-6  # Get to m2
     bin_width = xr.DataArray((pp.parsivel_parameters['max_diameter_bins_mm'] -
-                              pp.parsivel_parameters['min_diameter_bins_mm']), dims=['diameter_bin'])
+                              pp.parsivel_parameters['min_diameter_bins_mm']),
+                             dims=['diameter_bin'])
 
     if not use_measured_fallspeed:
         vd_matrix = vd_matrix.sum(dim='fallspeed_bin')

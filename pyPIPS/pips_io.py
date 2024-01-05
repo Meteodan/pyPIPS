@@ -173,21 +173,35 @@ def parse_PIPS_record(record, field_indices, tripips=False, include_parsivel_str
     try:
         dewpoint = float(tokens[field_indices['Dewpoint']])
         if np.isnan(dewpoint):
+            # DTD bugix 12/23/23. slowtemp should be used instead of fasttemp here.
+            # All real-time data from before this date needs to be corrected accordingly
             dewpoint = (thermo.calTdfromRH(token_dict['pressure'] * 100.,
-                                           token_dict['fasttemp'] + 273.15,
+                                           token_dict['slowtemp'] + 273.15,
                                            token_dict['RH'] / 100.) - 273.15)
+            # dewpoint = (thermo.calTdfromRH(token_dict['pressure'] * 100.,
+            #                                token_dict['fasttemp'] + 273.15,
+            #                                token_dict['RH'] / 100.) - 273.15)
     except (ValueError, KeyError):
         dewpoint = thermo.calTdfromRH(token_dict['pressure'] * 100.,
-                                      token_dict['fasttemp'] + 273.15,
+                                      token_dict['slowtemp'] + 273.15,
                                       token_dict['RH'] / 100.) - 273.15
+        # dewpoint = thermo.calTdfromRH(token_dict['pressure'] * 100.,
+        #                               token_dict['fasttemp'] + 273.15,
+        #                               token_dict['RH'] / 100.) - 273.15
+
     token_dict['dewpoint'] = dewpoint
     try:
         RH_derived = float(tokens[field_indices['RHDer']])
         if np.isnan(RH_derived):
-            RH_derived = token_dict['RH']
-    # TODO: STOPPED HERE 02/21/23. Need to rederive RH
+            fasttemp = token_dict['fasttemp']
+            RH_derived = 100. * (np.exp((17.625 * dewpoint) / (243.04 + dewpoint)) /
+                                 np.exp((17.625 * fasttemp) / (243.04 + fasttemp)))
+
+            # RH_derived = token_dict['RH']
     except (ValueError, KeyError):
-        RH_derived = token_dict['RH']
+        # RH_derived = token_dict['RH']
+        RH_derived = 100. * (np.exp((17.625 * dewpoint) / (243.04 + dewpoint)) /
+                             np.exp((17.625 * fasttemp) / (243.04 + fasttemp)))
     token_dict['RH_derived'] = RH_derived
     if include_parsivel_string:
         token_dict['parsivel_telegram'] = tokens[field_indices['ParsivelStr']]
