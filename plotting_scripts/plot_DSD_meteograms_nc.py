@@ -52,6 +52,10 @@ parser.add_argument('--use-parsivel-params', dest='use_parsivel_params', action=
                     default=False, help='Use parsivel RR and counts instead of computed')
 parser.add_argument('--plot-radar', dest='plot_radar', type=str, default=None,
                     help='Whether to plot derived/observed radar variables (yes/no)')
+parser.add_argument('--plot-start-time', metavar='YYYYmmDDHHMMSS', dest='plot_start_time',
+                    default=None, help='start time for plotting (overrides those in config file)')
+parser.add_argument('--plot-end-time', metavar='YYYYmmDDHHMMSS', dest='plot_end_time',
+                    default=None, help='end time for plotting (overrides those in config file)')
 
 args = parser.parse_args()
 
@@ -89,8 +93,14 @@ PIPS_types = config.PIPS_IO_dict.get('PIPS_types', None)
 PIPS_names = config.PIPS_IO_dict.get('PIPS_names', None)
 PIPS_filenames = config.PIPS_IO_dict.get('PIPS_filenames', None)
 parsivel_combined_filenames = config.PIPS_IO_dict['PIPS_filenames_nc']
-start_times = config.PIPS_IO_dict.get('start_times', [None] * len(PIPS_names))
-end_times = config.PIPS_IO_dict.get('end_times', [None] * len(PIPS_names))
+if args.plot_start_time:
+    start_times = [args.plot_start_time] * len(PIPS_names)
+else:
+    start_times = config.PIPS_IO_dict.get('start_times', [None]*len(PIPS_names))
+if args.plot_end_time:
+    end_times = [args.plot_end_time] * len(PIPS_names)
+else:
+    end_times = config.PIPS_IO_dict.get('end_times', [None]*len(PIPS_names))
 geo_locs = config.PIPS_IO_dict.get('geo_locs', [None] * len(PIPS_names))
 requested_interval = config.PIPS_IO_dict.get('requested_interval', 10.)
 

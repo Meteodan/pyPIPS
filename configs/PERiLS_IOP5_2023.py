@@ -3,9 +3,9 @@
 PIPS_IO_dict = {
     'dataset_name': 'IOP5_040523',
     'deployment_names': ['IOP5_040523'] * 6,
-    'input_txt_dir': '/Users/dawson29/Projects/PERiLS/obsdata/2023/PIPS_data/IOP5_040523/csv',
-    'PIPS_dir': '/Users/dawson29/Projects/PERiLS/obsdata/2023/PIPS_data/IOP5_040523/netcdf',
-    'plot_dir': '/Users/dawson29/Projects/PERiLS/obsdata/2023/PIPS_data/IOP5_040523/plots/10s',
+    'input_txt_dir': '/Users/dawson29/Dropbox/Projects/PERiLS/obsdata/2023/IOP5_040523/csv',
+    'PIPS_dir': '/Users/dawson29/Dropbox/Projects/PERiLS/obsdata/2023/IOP5_040523/netcdf',
+    'plot_dir': '/Users/dawson29/Dropbox/Projects/PERiLS/obsdata/2023/IOP5_040523/plots/10s',
     'PIPS_types': ['PIPS'] * 6,
     'PIPS_names': ['PIPS1A', 'PIPS1B', 'PIPS2A', 'PIPS2B', 'PIPS3A', 'PIPS3B'],
     'PIPS_filenames': ['PIPS1A_IOP5_040523_merged.txt',
@@ -25,8 +25,12 @@ PIPS_IO_dict = {
                           'conventional_raw_IOP5_040523_PIPS2B.nc',
                           'conventional_raw_IOP5_040523_PIPS3A.nc',
                           'conventional_raw_IOP5_040523_PIPS3B.nc'],
-    'start_times': ['20230405163000'] * 6,
-    'end_times': ['20230405183100'] * 6,
+    # 'start_times': ['20230405163000'] * 6,
+    # 'end_times': ['20230405183100'] * 6,
+    'start_times': ['20230405163858', '20230405163638', '20230405164838',
+                    '20230405163056', '20230405163329', '20230405164519'],
+    'end_times': ['20230405181908', '20230405180558', '20230405183038',
+                  '20230405175528', '20230405180419', '20230405181649'],
     'requested_interval': 10.
 }
 

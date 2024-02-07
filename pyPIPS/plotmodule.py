@@ -235,7 +235,38 @@ def clear_frame(ax=None):
 def plotsingle(fig, axes, ptype, xs, ys, x, y, xlim, ylim, field, clevels, cmap, fieldnorm,
                cbarlevels, clabel, cformat, ovrmap, gis_info, numovr, ovrx, ovry, ovrfields,
                ovrfieldlvls, ovrfieldcolors, axesticks, rasterized=True):
-    """Plot a single-paneled figure from model output (possibly staggered grid)"""
+    """
+    Plot a single figure with various options for customization.
+
+    Parameters:
+    fig (matplotlib.figure.Figure): The figure to plot on. If None, a new figure is created.
+    axes (matplotlib.axes.Axes): The axes to plot on. If None, new axes are added to the figure.
+    ptype (int): The type of plot to create. 1 for contour plot, 2 for pcolor plot.
+    xs, ys (array-like): The x and y coordinates for the contour plot.
+    x, y (array-like): The x and y coordinates for the pcolor plot.
+    xlim, ylim (list): The limits for the x and y axes. If None, the limits are set to the min and
+        max of x and y.
+    field (array-like): The data to plot.
+    clevels (array-like): The contour levels for the plot.
+    cmap (matplotlib.colors.Colormap): The colormap to use for the plot.
+    fieldnorm (matplotlib.colors.Normalize): The normalization for the field data.
+    cbarlevels (array-like): The levels for the colorbar. If None, a suitable range is calculated.
+    clabel (str): The label for the colorbar. If None, no label is set.
+    cformat (str): The format for the colorbar labels.
+    ovrmap (bool): Whether to overlay a map on the plot.
+    gis_info (list): GIS information for the plot.
+    numovr (int): The number of overlays for the plot.
+    ovrx, ovry (array-like): The x and y coordinates for the overlays.
+    ovrfields (array-like): The data for the overlays.
+    ovrfieldlvls (array-like): The levels for the overlays.
+    ovrfieldcolors (array-like): The colors for the overlays.
+    axesticks (list): The major tick locations for the axes.
+    rasterized (bool): Whether to rasterize the plot. Default is True.
+
+    Returns:
+    fig (matplotlib.figure.Figure): The figure with the plot.
+    axes (matplotlib.axes.Axes): The axes with the plot.
+    """
     if fig is None:
         fig = plt.figure()
     if axes is None:
@@ -323,13 +354,50 @@ def plotsingle(fig, axes, ptype, xs, ys, x, y, xlim, ylim, field, clevels, cmap,
 
 
 def plotsingle2(fig, axes, ptype, xs, ys, x, y, xlim, ylim, field, clevels, cmap, fieldnorm,
-                cbarlevels, clabel, cformat, ovrmap, gis_info, numovr, ovrx, ovry, ovrfields,
+                cbarlevels, clabel, ovrmap, gis_info, numovr, ovrx, ovry, ovrfields,
                 ovrfieldlvls, ovrfieldcolors, axesticks, rasterized=True):
-    """Plot a single-paneled figure from model output (possibly staggered grid).
-       This version is set up to use ImageGrid with a single panel and is provided
-       only to attempt to match the dimensions of the resulting figure with that
-       produced by plotsweep_PyArt in radarmodule.py. Clearly need to refactor some
-       of this code..."""
+    """
+    Plot a single-paneled figure from model output (possibly staggered grid).
+    This version is set up to use ImageGrid with a single panel and is provided
+    only to attempt to match the dimensions of the resulting figure with that
+    produced by plotsweep_PyArt in radarmodule.py. Clearly need to refactor some
+    of this code...
+
+    Parameters:
+    - fig: Figure object or None, the figure to plot on. If None, a new figure will be created.
+    - axes: Axes object or None, the axes to plot on. If None, a new axes will be created.
+    - ptype: int, the type of plot to create. 1 for contour plot, 2 for pcolor plot.
+    - xs: array-like, the x-coordinates of the data points.
+    - ys: array-like, the y-coordinates of the data points.
+    - x: array-like, the x-coordinates of the grid.
+    - y: array-like, the y-coordinates of the grid.
+    - xlim: list or None, the x-axis limits of the plot. If None, the limits will be determined
+        automatically.
+    - ylim: list or None, the y-axis limits of the plot. If None, the limits will be determined
+        automatically.
+    - field: array-like, the data values to plot.
+    - clevels: array-like, the contour levels for the plot.
+    - cmap: Colormap object, the colormap to use for the plot.
+    - fieldnorm: Normalize object, the normalization to apply to the data values.
+    - cbarlevels: Locator object or None, the locator for the colorbar ticks. If None, a default
+        locator will be used.
+    - clabel: str or None, the label for the colorbar. If None, no label will be shown.
+    - ovrmap: bool, whether to overlay a map on the plot.
+    - gis_info: tuple or None, information about the GIS data to overlay on the plot.
+    - numovr: int, the number of overlays to plot.
+    - ovrx: array-like, the x-coordinates of the overlay data.
+    - ovry: array-like, the y-coordinates of the overlay data.
+    - ovrfields: array-like, the overlay data values.
+    - ovrfieldlvls: array-like, the contour levels for the overlay data.
+    - ovrfieldcolors: array-like, the colors for the overlay contours.
+    - axesticks: list, the tick intervals for the x and y axes.
+    - rasterized: bool, whether to rasterize the plot for better performance.
+
+    Returns:
+    - fig: Figure object, the plotted figure.
+    - axes: Axes object, the plotted axes.
+    - grid: ImageGrid object, the grid containing the plot and colorbar.
+    """
     if fig is None:
         fig = plt.figure()
         grid = ImageGrid(
@@ -426,30 +494,25 @@ def plotsingle2(fig, axes, ptype, xs, ys, x, y, xlim, ylim, field, clevels, cmap
 
 
 def plot_wind_meteogram(plottimes, conv_plot_ds, global_plot_config_dict, avgwind=True,
-                        windavgintv=60, windgustintv=3, xlimits=None, ptype='PIPS'):
-    """[summary]
+                        windavgintv=60, windgustintv=3, xlimits=None, ptype='PIPS',
+                        use_corrected_vars=True):
+    """
+    Plot wind meteogram.
 
-    Parameters
-    ----------
-    plottimes : [type]
-        [description]
-    conv_plot_ds : [type]
-        [description]
-    global_plot_config_dict : [type]
-        [description]
-    windavgintv : int, optional
-        [description], by default 60
-    windgustintv : int, optional
-        [description], by default 3
-    xlimits : [type], optional
-        [description], by default None
-    ptype : str, optional
-        [description], by default 'PIPS'
+    Parameters:
+        plottimes (array-like): Array of plot times.
+        conv_plot_ds (xarray.Dataset): Dataset containing the plot data.
+        global_plot_config_dict (dict): Global plot configuration dictionary.
+        avgwind (bool, optional): Flag to compute average wind speed and direction. Defaults to
+            True.
+        windavgintv (int, optional): Interval for averaging wind speed. Defaults to 60.
+        windgustintv (int, optional): Interval for wind gusts. Defaults to 3.
+        xlimits (tuple, optional): Limits for the x-axis. Defaults to None.
+        ptype (str, optional): Type of probe. Defaults to 'PIPS'.
+        use_corrected_vars (bool, optional): Flag to use corrected variables. Defaults to True.
 
-    Returns
-    -------
-    [type]
-        [description]
+    Returns:
+        tuple: Tuple containing the figure and two axes objects.
     """
     # Plot wind meteogram
     if ptype == 'PIPS':
@@ -462,6 +525,26 @@ def plot_wind_meteogram(plottimes, conv_plot_ds, global_plot_config_dict, avgwin
     elif ptype == 'NV2':
         winddirstr = 'swinddirabs'
         windspdstr = 'swindspd'
+
+    # Some fields may have "corrected" versions. Use those if they exist
+    if use_corrected_vars and ptype == 'PIPS':
+        # TODO: make this more general later
+        winddirstr = 'winddirabs_corrected'
+        if winddirstr not in conv_plot_ds.data_vars:
+            print("No corrected wind directions found. Using uncorrected values!")
+            winddirstr = 'winddirabs'
+        windspdstr = 'windspd_corrected'
+        if windspdstr not in conv_plot_ds.data_vars:
+            print("No corrected wind speeds found. Using uncorrected values!")
+            windspdstr = 'windspd'
+        windguststr = 'windgust_corrected'
+        if windguststr not in conv_plot_ds.data_vars:
+            print("No corrected wind gusts found. Using uncorrected values!")
+            windguststr = 'windgust'
+    else:
+        winddirstr = 'winddirabs'
+        windspdstr = 'windspd'
+        windguststr = 'windgust'
 
     # Note that we are extracting the underlying numpy arrays here. In the future will try to
     # make everything work with xarray dataarrays/datasets
@@ -551,20 +634,18 @@ def plot_wind_meteogram(plottimes, conv_plot_ds, global_plot_config_dict, avgwin
 
 def plot_compass_dir_meteogram(plottimes, conv_plot_ds, global_plot_config_dict, xlimits=None,
                                ptype='PIPS'):
-    """_summary_
+    """
+    Plot a meteogram of compass direction.
 
-    Parameters
-    ----------
-    plottimes : _type_
-        _description_
-    conv_plot_ds : _type_
-        _description_
-    global_plot_config_dict : _type_
-        _description_
-    xlimits : _type_, optional
-        _description_, by default None
-    ptype : str, optional
-        _description_, by default 'PIPS'
+    Parameters:
+        plottimes (list): List of plot times.
+        conv_plot_ds (Dataset): Dataset containing the compass direction data.
+        global_plot_config_dict (dict): Dictionary containing global plot configuration parameters.
+        xlimits (list, optional): List of x-axis limits. Defaults to None.
+        ptype (str, optional): Type of probe. Defaults to 'PIPS'.
+
+    Returns:
+        tuple: A tuple containing the figure and axes objects.
     """
 
     fig = plt.figure(figsize=(8, 3))
@@ -591,6 +672,20 @@ def plot_compass_dir_meteogram(plottimes, conv_plot_ds, global_plot_config_dict,
 
 def plot_temperature_dewpoint_meteogram(plottimes, conv_plot_ds, global_plot_config_dict,
                                         xlimits=None, ptype='PIPS', use_corrected_vars=True):
+    """
+    Plot temperature and dewpoint meteogram.
+
+    Parameters:
+        plottimes (list): List of plot times.
+        conv_plot_ds (xarray.Dataset): Dataset containing the plot data.
+        global_plot_config_dict (dict): Global plot configuration dictionary.
+        xlimits (list, optional): List of x-axis limits. Defaults to None.
+        ptype (str, optional): Type of probe. Defaults to 'PIPS'.
+        use_corrected_vars (bool, optional): Flag to use corrected variables. Defaults to True.
+
+    Returns:
+        tuple: Figure and axes objects.
+    """
     # Plot temperature and dewpoint
     # tavgintv = 10  # Currently not used
 
@@ -638,6 +733,21 @@ def plot_temperature_dewpoint_meteogram(plottimes, conv_plot_ds, global_plot_con
 
 def plot_RH_meteogram(plottimes, conv_plot_ds, global_plot_config_dict, xlimits=None,
                       ptype='PIPS', use_corrected_vars=True):
+    """
+    Plot the meteogram for relative humidity.
+
+    Parameters:
+        plottimes (list): List of plot times.
+        conv_plot_ds (xarray.Dataset): Dataset containing the plot data.
+        global_plot_config_dict (dict): Dictionary containing global plot configuration parameters.
+        xlimits (list, optional): List of x-axis limits. Defaults to None.
+        ptype (str, optional): Type of probe. Defaults to 'PIPS'.
+        use_corrected_vars (bool, optional): Whether to use corrected variables. Defaults to True.
+
+    Returns:
+        tuple: Tuple containing the figure and axes objects.
+    """
+
     # Plot relative humidity
     # avgintv = 10  # Currently not used
 
@@ -680,6 +790,19 @@ def plot_RH_meteogram(plottimes, conv_plot_ds, global_plot_config_dict, xlimits=
 
 def plot_pressure_meteogram(plottimes, conv_plot_ds, global_plot_config_dict,
                             xlimits=None, ptype='PIPS'):
+    """
+    Plot a pressure meteogram.
+
+    Parameters:
+        plottimes (list): List of times to be plotted.
+        conv_plot_ds (Dataset): Dataset containing the pressure data.
+        global_plot_config_dict (dict): Dictionary containing global plot configuration parameters.
+        xlimits (list, optional): List of x-axis limits. Defaults to None.
+        ptype (str, optional): Type of probe. Defaults to 'PIPS'.
+
+    Returns:
+        tuple: A tuple containing the figure and the axes object.
+    """
 
     pmin = np.nanmin(conv_plot_ds['pressure'].values)
     pmax = np.nanmax(conv_plot_ds['pressure'].values)
@@ -709,7 +832,20 @@ def plot_pressure_meteogram(plottimes, conv_plot_ds, global_plot_config_dict,
 
 def plot_voltage_meteogram(plottimes, conv_plot_ds, global_plot_config_dict,
                            xlimits=None, ptype='PIPS'):
+    """
+    Plot a voltage meteogram.
 
+    Parameters:
+    plottimes (list): List of times for plotting.
+    conv_plot_ds (dict): Dictionary containing the voltage data.
+    global_plot_config_dict (dict): Dictionary containing global plot configuration settings.
+    xlimits (list, optional): List of x-axis limits. Defaults to None.
+    ptype (str, optional): Type of probe. Defaults to 'PIPS'.
+
+    Returns:
+    fig (matplotlib.figure.Figure): The generated figure.
+    ax1 (matplotlib.axes.Axes): The generated axes.
+    """
     fig = plt.figure(figsize=(8, 3))
     ax1 = fig.add_subplot(111)
 
@@ -732,6 +868,19 @@ def plot_voltage_meteogram(plottimes, conv_plot_ds, global_plot_config_dict,
 
 def plot_GPS_speed_meteogram(plottimes, conv_plot_ds, global_plot_config_dict,
                              xlimits=None, ptype='PIPS'):
+    """
+    Plot a meteogram of GPS-derived speed.
+
+    Parameters:
+        plottimes (list): List of plot times.
+        conv_plot_ds (dict): Dictionary containing plot data.
+        global_plot_config_dict (dict): Dictionary containing global plot configuration.
+        xlimits (list, optional): List of x-axis limits. Defaults to None.
+        ptype (str, optional): Type of probe. Defaults to 'PIPS'.
+
+    Returns:
+        tuple: A tuple containing the figure and axes objects.
+    """
     try:
         # GPS-derived speed
         fig = plt.figure(figsize=(8, 3))
@@ -758,7 +907,18 @@ def plot_GPS_speed_meteogram(plottimes, conv_plot_ds, global_plot_config_dict,
 
 
 def plotDSDderivedmeteograms(PIPS_index, pc, ib, **PSDderiveddict):
-    """Plots meteograms of the various derived DSD quantities from the PIPS"""
+    """
+    Plot DSD-derived meteograms.
+
+    Parameters:
+        PIPS_index (int): The PIPS index.
+        pc (object): The pc object.
+        ib (object): The ib object.
+        **PSDderiveddict: Additional keyword arguments for PSD derived data.
+
+    Returns:
+        None
+    """
     PSDmidtimes = PSDderiveddict.get('PSDmidtimes')
     PSD_plot_df = PSDderiveddict.get('PSD_plot_df')
 
@@ -846,9 +1006,22 @@ def plotDSDderivedmeteograms(PIPS_index, pc, ib, **PSDderiveddict):
 
 
 def plotDSDmeteograms(dis_name, image_dir, axparams, disvars, radvars=None, close_fig=True):
-    """Plots one or more meteograms of disdrometer number concentrations vs. diameter bins,
+    """
+    Plots one or more meteograms of disdrometer number concentrations vs. diameter bins,
        along with one or more derived variables and optionally radar variables for comparison.
-       One meteogram is plotted per dualpol variable (i.e. Z,ZDR,KDP,RHV)"""
+       One meteogram is plotted per dualpol variable (i.e. Z,ZDR,KDP,RHV)
+
+    Parameters:
+        dis_name (str): The name of the DSD.
+        image_dir (str): The directory to save the generated images.
+        axparams (dict): Parameters for the axes.
+        disvars (dict): Dictionary containing DSD variables.
+        radvars (dict, optional): Dictionary containing radar variables. Defaults to None.
+        close_fig (bool, optional): Whether to close the figure after saving. Defaults to True.
+
+    Returns:
+        None
+    """
     diameter_bin_edges = disvars.get('diameter_bin_edges', np.empty((0)))
     PSDstarttimes = disvars.get('PSDstarttimes', np.empty((0)))
     PSDmidtimes = disvars.get('PSDmidtimes', np.empty((0)))
@@ -1050,7 +1223,21 @@ def plotDSDmeteograms(dis_name, image_dir, axparams, disvars, radvars=None, clos
 
 
 def plotmeteogram(ax, xvals, zvals, plotparamdicts, yvals=None, plot_data_bounds=True):
-    """Plots a meteogram (time series) of one or more meteorological variables"""
+    """
+    Plot a meteogram.
+
+    Parameters:
+    - ax: The matplotlib Axes object to plot on. If None, a new figure and Axes will be created.
+    - xvals: List of x-values for the plot.
+    - zvals: List of y-values for the plot.
+    - plotparamdicts: List of dictionaries containing plot parameters for each line or fill.
+    - yvals: List of y-values for the plot. If None, the y-values will be automatically generated.
+    - plot_data_bounds: Boolean indicating whether to plot the start and end times of data
+        collection.
+
+    Returns:
+    - ax: The matplotlib Axes object containing the plot.
+    """
     ax = ax or plt.figure().add_subplot(111)
     for idx, xval, zval, plotparamdict in zip(range(len(zvals)), cycle(xvals), zvals,
                                               plotparamdicts):
@@ -1103,7 +1290,21 @@ def plotmeteogram(ax, xvals, zvals, plotparamdicts, yvals=None, plot_data_bounds
 
 
 def set_meteogram_axes(axes, axparamdicts):
-    """Sets up and formats the axes for a meteogram plot"""
+    """
+    Set the properties for a list of axes for a meteogram plot.
+
+    Parameters:
+    -----------
+    axes (list): A list of matplotlib.axes.Axes objects to be configured.
+    axparamdicts (list): A list of dictionaries, each containing parameters for the corresponding
+                        Axes object in the 'axes' list. Each dictionary can contain keys for
+                        'majorxlocator', 'majorxformatter', 'minorxlocator', 'axeslimits',
+                        and 'axeslabels'.
+
+    Returns:
+    --------
+    list: A list of configured matplotlib.axes.Axes objects.
+    """
     for ax, axparamdict in zip(axes, axparamdicts):
         ax = ax or plt.figure().add_subplot(111)
         majorxlocator = axparamdict.get('majorxlocator', None)
@@ -1139,8 +1340,21 @@ def set_meteogram_axes(axes, axparamdicts):
 
 
 def plot_DSD(axdict, PSDdict, PSDfitdict, PSDparamdict):
-    """Plots an individual measured PSD on a semilog plot, along with optional exponential and gamma
-       fits and associated parameters."""
+    """
+    Plots an individual measured PSD on a semilog plot, along with optional exponential and gamma
+    fits and associated parameters.
+
+    Parameters:
+    -----------
+    axdict (dict): A dictionary containing the axes objects for the plot.
+    PSDdict (dict): A dictionary containing the Particle Size Distribution (PSD) data.
+    PSDfitdict (dict): A dictionary containing the fitted PSD data.
+    PSDparamdict (dict): A dictionary containing the parameters for the PSD.
+
+    Returns:
+    --------
+    None
+    """
 
     time_to_plot = axdict.get('time', None)
     if time_to_plot is not None:
@@ -1205,8 +1419,19 @@ def plot_DSD(axdict, PSDdict, PSDfitdict, PSDparamdict):
 
 
 def plot_vel_D(axdict, PSDdict, rho):
-    """Plots the terminal velocity vs. diameter matrix for a given DSD"""
+    """
+    Plot the velocity as a function of drop diameter.
 
+    Parameters:
+    -----------
+    axdict (dict): A dictionary containing the axes objects for the plot.
+    PSDdict (dict): A dictionary containing the Particle Size Distribution (PSD) data.
+    rho (float): The air density.
+
+    Returns:
+    --------
+    None
+    """
     time = axdict.get('time', None)
     xlim = axdict.get('xlim', (0.0, 9.0))
     ylim = axdict.get('ylim', (0.0, 15.0))
@@ -1279,6 +1504,16 @@ def computecorners(xe, ye, UM=False):
     and staggered (e) grid), compute the grid corners as simple horizontal averages of adjacent
     edge points in each direction.  For the edges of the domain, an optional simple linear
     extrapolation is performed. Returns xcor and ycor of dimensions (Nye,Nxe).
+
+    Parameters:
+    -----------
+    xe (array-like): The x-coordinates of the edges.
+    ye (array-like): The y-coordinates of the edges.
+    UM (bool, optional): Flag to indicate if the grid is from the UM model. Defaults to False.
+
+    Returns:
+    --------
+    tuple: A tuple containing two 2D arrays representing the x and y coordinates of the corners.
     """
 
     if not UM:
@@ -1463,7 +1698,25 @@ def circles(x, y, s, c='b', vmin=None, vmax=None, **kwargs):
 
 def plot_mu_lamda(poly_coeff=None, poly=None, lamda=None, mu=None, ax=None, title=None,
                   plot_Z01_C08=True, plot_legend=True, plot_poly_coeff=True):
+    """
+    Plot mu as a function of lambda with optional polynomial fit.
 
+    Parameters:
+    -----------
+    poly_coeff (array-like, optional): Coefficients of the polynomial fit. Defaults to None.
+    poly (numpy.poly1d, optional): Polynomial fit. Defaults to None.
+    lamda (array-like, optional): Array of lambda values. Defaults to None.
+    mu (array-like, optional): Array of mu values. Defaults to None.
+    ax (matplotlib.axes.Axes, optional): Axes object to plot on. Defaults to None.
+    title (str, optional): Title of the plot. Defaults to None.
+    plot_Z01_C08 (bool, optional): Flag to plot Z01_C08 line. Defaults to True.
+    plot_legend (bool, optional): Flag to plot legend. Defaults to True.
+    plot_poly_coeff (bool, optional): Flag to plot polynomial coefficients. Defaults to True.
+
+    Returns:
+    --------
+    None
+    """
     xx = np.linspace(0.0, 30.0)
     if plot_Z01_C08:
         y_Cao = -0.0201 * xx**2. + 0.902 * xx - 1.718
@@ -1504,6 +1757,25 @@ def plot_mu_lamda(poly_coeff=None, poly=None, lamda=None, mu=None, ax=None, titl
 
 
 def plot_scatter(ds, var_x, var_y, axparams, fig=None, ax=None, add_colorbar=True):
+    """
+    Plot a scatter plot of two variables from a dataset.
+
+    Parameters:
+    -----------
+    ds (xarray.Dataset): The dataset containing the data to plot.
+    var_x (str): The name of the variable to plot on the x-axis.
+    var_y (str): The name of the variable to plot on the y-axis.
+    axparams (dict): A dictionary containing parameters for the axes.
+    fig (matplotlib.figure.Figure, optional): The figure object to plot on. If None, a new
+                                              figure will be created. Defaults to None.
+    ax (matplotlib.axes.Axes, optional): The axes object to plot on. If None, a new axes will
+                                         be created. Defaults to None.
+    add_colorbar (bool, optional): Whether to add a colorbar to the plot. Defaults to True.
+
+    Returns:
+    --------
+    tuple: A tuple containing the figure and axes objects.
+    """
     label_x = axparams.get('label_x', var_x)
     label_y = axparams.get('label_y', var_y)
     var_lims = axparams.get('var_lims', [[0., 1.], [0., 1.]])
@@ -1554,7 +1826,26 @@ def plot_scatter(ds, var_x, var_y, axparams, fig=None, ax=None, add_colorbar=Tru
 
 def plot_one2one(ds, var_x, var_y, axparams, fig=None, ax=None, compute_stats=True,
                  add_colorbar=True):
+    """
+    Plot a one-to-one comparison of two variables from a dataset.
 
+    Parameters:
+    -----------
+    ds (xarray.Dataset): The dataset containing the data to plot.
+    var_x (str): The name of the variable to plot on the x-axis.
+    var_y (str): The name of the variable to plot on the y-axis.
+    axparams (dict): A dictionary containing parameters for the axes.
+    fig (matplotlib.figure.Figure, optional): The figure object to plot on. If None, a new
+                                              figure will be created. Defaults to None.
+    ax (matplotlib.axes.Axes, optional): The axes object to plot on. If None, a new axes will
+                                         be created. Defaults to None.
+    compute_stats (bool, optional): Whether to compute and display statistics. Defaults to True.
+    add_colorbar (bool, optional): Whether to add a colorbar to the plot. Defaults to True.
+
+    Returns:
+    --------
+    tuple: A tuple containing the figure and axes objects.
+    """
     var_lims = axparams.get('var_lims', [[0., 1.], [0., 1.]])
     plot_log = axparams.get('plot_log', [False, False])
     if compute_stats:
@@ -1583,7 +1874,27 @@ def plot_one2one(ds, var_x, var_y, axparams, fig=None, ax=None, compute_stats=Tr
 
 def plot_retr_timeseries(obs_dict, retr_dis_dict, retr_rad_dict, DSDmidtimes, axparams, fig=None,
                          ax=None, compute_stats=True, name=None):
+    """
+    Plot a time series of radar retrieval parameters (applied to radar data or disdrometer data).
 
+    Parameters:
+    -----------
+    obs_dict (dict): A dictionary containing the observed data.
+    retr_dis_dict (dict): A dictionary containing the retrieved disdrometer data.
+    retr_rad_dict (dict): A dictionary containing the retrieved radar data.
+    DSDmidtimes (array-like): Array of midtimes for the Drop Size Distribution (DSD).
+    axparams (dict): A dictionary containing parameters for the axes.
+    fig (matplotlib.figure.Figure, optional): The figure object to plot on. If None, a new
+                                              figure will be created. Defaults to None.
+    ax (matplotlib.axes.Axes, optional): The axes object to plot on. If None, a new axes will
+                                         be created. Defaults to None.
+    compute_stats (bool, optional): Whether to compute and display statistics. Defaults to True.
+    name (str, optional): The name of the dataset. Defaults to None.
+
+    Returns:
+    --------
+    tuple: A tuple containing the figure and axes objects.
+    """
     obs = obs_dict.get('field', None)
     retr_dis = retr_dis_dict.get('field', None)
     retr_rad = retr_rad_dict.get('field', None)
@@ -1654,7 +1965,33 @@ def plot_retr_timeseries(obs_dict, retr_dis_dict, retr_rad_dict, DSDmidtimes, ax
 def plot_animation(xplt, yplt, field_da, clevels, cbarlabel=None, cbarintv=None,
                    cmap='pyart_HomeyerRainbow', norm=None, PIPS_list=None, PIPS_xy_list=None,
                    ax=None, ptype='pcolor', axestickintv=10000., axeslimits=None):
+    """
+    Plot an animation of a field.
 
+    Parameters:
+    -----------
+    xplt (array-like): The x-coordinates for the plot.
+    yplt (array-like): The y-coordinates for the plot.
+    field_da (xarray.DataArray): The data array containing the field to plot.
+    clevels (array-like): The contour levels for the plot.
+    cbarlabel (str, optional): The label for the colorbar. Defaults to None.
+    cbarintv (float, optional): The interval for the colorbar ticks. Defaults to None.
+    cmap (str, optional): The colormap to use for the plot. Defaults to 'pyart_HomeyerRainbow'.
+    norm (matplotlib.colors.Normalize, optional): A Normalize instance to scale the colormap.
+                                                 Defaults to None.
+    PIPS_list (list, optional): A list of PIPS objects to plot. Defaults to None.
+    PIPS_xy_list (list, optional): A list of (x, y) coordinates for the PIPS objects.
+                                   Defaults to None.
+    ax (matplotlib.axes.Axes, optional): The axes object to plot on. If None, a new axes will
+                                         be created. Defaults to None.
+    ptype (str, optional): The type of plot to create. Defaults to 'pcolor'.
+    axestickintv (float, optional): The interval for the axes ticks. Defaults to 10000.
+    axeslimits (list, optional): The limits for the axes. Defaults to None.
+
+    Returns:
+    --------
+    matplotlib.axes.Axes: The axes object with the plot.
+    """
     if norm is None:
         norm = cm.colors.Normalize(vmin=clevels[0], vmax=clevels[-1])
     if ax is None:

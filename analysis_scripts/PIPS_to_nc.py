@@ -1,6 +1,14 @@
-# pyPIPS_meteograms.py
-#
-# This script plots meteograms from the Portable Integrated Precipitation Stations (PIPS)
+""" PIPS_to_nc.py
+    This script reads in PIPS data from comma-delimited text files and converts it to netCDF format.
+    The netCDF files are then written to the directory specified in the case configuration file.
+    The script also resamples the data to a longer interval if desired, and fills in time gaps with
+    missing values (NaNs) if desired. The script also calculates some
+    additional thermodynamic parameters from the conventional data and the number density ND from
+    the V-D matrix. The script also resamples the conventional data to the parsivel times and the
+    fallspeed spectrum. The script also adds some metadata to the netCDF files. The script also
+    writes the conventional data to a separate netCDF file due to the different time resolution.
+"""
+
 import os
 import argparse
 from datetime import datetime, timedelta
@@ -47,6 +55,8 @@ parser.add_argument('--check-order', dest='check_order', action='store_true',
                     help='Check if there are any times out of order')
 parser.add_argument('--sort-times', dest='sort_times', action='store_true',
                     help='Sort dataset by time')
+parser.add_argument('--fill-gaps', dest='fill_gaps', action='store_true',
+                    help='fill in gaps in time with missing values (NaNs)')
 # parser.add_argument('--apply-qc', dest='apply_qc', action='store_true', help='apply QC to DSDs?')
 # parser.add_argument('--qc-tag', dest='qc_tag', default=None,
 #                     help='name of QC tag for DSD variables')
@@ -177,6 +187,7 @@ for index, PIPS_filename, PIPS_name, start_time, end_time, geo_loc, ptype, deplo
         fallspeed_spectrum = pips.calc_fallspeed_spectrum(avg_diameter, avg_fall_bins,
                                                           correct_rho=True,
                                                           rho=conv_resampled_df['rho'])
+        # TODO: Why am I doing the following line? Shouldn't I leave the zeros as zeros here?
         vd_matrix_da = vd_matrix_da.where(vd_matrix_da > 0.0)
         ND_raw = pips.calc_ND(vd_matrix_da, fallspeed_spectrum, DSD_interval)
         # if apply_qc:
@@ -196,6 +207,25 @@ for index, PIPS_filename, PIPS_name, start_time, end_time, geo_loc, ptype, deplo
         parsivel_combined_ds = pipsio.combine_parsivel_data(parsivel_combined_ds, vd_matrix_da,
                                                             name='VD_matrix')
         parsivel_combined_ds = pipsio.combine_parsivel_data(parsivel_combined_ds, ND_raw, name='ND')
+
+            # Fill in time gaps with NaNs if desired
+        if args.fill_gaps:
+            intervalstr = '{:d}S'.format(int(DSD_interval))
+            parsivel_starttime = parsivel_combined_ds['time'][0].values
+            parsivel_endtime = parsivel_combined_ds['time'][-1].values
+            all_parsivel_times = xr.date_range(parsivel_starttime, parsivel_endtime,
+                                               freq=intervalstr)
+            missing_times = np.array([0 if time in parsivel_combined_ds.indexes['time']
+                                      else 1 for time in all_parsivel_times])
+
+            parsivel_combined_ds = parsivel_combined_ds.reindex({'time': all_parsivel_times})
+            missing_times_da = xr.DataArray(missing_times,
+                                            coords={'time': parsivel_combined_ds['time'].values},
+                                            dims=['time'])
+            parsivel_combined_ds['missing_times'] = missing_times_da
+            parsivel_combined_ds['missing_times'].attrs['description'] = '1 for missing data'
+
+
         # if qc_tag is not None:
         #     new_VD_name = 'VD_matrix_{}'.format(qc_tag)
         #     new_ND_name = 'ND_{}'.format(qc_tag)
@@ -229,6 +259,20 @@ for index, PIPS_filename, PIPS_name, start_time, end_time, geo_loc, ptype, deplo
 
     # Convert conventional data pd.DataFrame to xr.Dataset and add some metadata
     conv_ds = pipsio.conv_df_to_ds(conv_df)
+
+    # Fill in time gaps with NaNs if desired
+    if args.fill_gaps:
+        conv_starttime = conv_ds['time'][0].values
+        conv_endtime = conv_ds['time'][-1].values
+        all_conv_times = xr.date_range(conv_starttime, conv_endtime, freq='1S')
+        missing_times = np.array([0 if time in conv_ds.indexes['time']
+                                  else 1 for time in all_conv_times])
+        conv_ds = conv_ds.reindex({'time': all_conv_times})
+        missing_times_da = xr.DataArray(missing_times,
+                                        coords={'time': conv_ds['time'].values},
+                                        dims=['time'])
+        conv_ds['missing_times'] = missing_times_da
+        conv_ds['missing_times'].attrs['description'] = '1 for missing data'
 
     # Now do the same for the 1-s conventional data (put in a separate Dataset and netCDF file
     # due to different time resolution)

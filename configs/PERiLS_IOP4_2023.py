@@ -56,6 +56,6 @@ radar_config_dict = {
     'el_req': 0.5,
     'radar_start_timestamp': '20220330234000',
     'radar_end_timestamp': '20220331014500',
-    'scatt_dir': '/depot/dawson29/apps/Projects/pyPIPS/tmatrix/S-Band/',
+    'scatt_dir': '/Users/dawson29/Projects/pyPIPS/tmatrix/S-Band/',
     'wavelength': 10.7
 }
