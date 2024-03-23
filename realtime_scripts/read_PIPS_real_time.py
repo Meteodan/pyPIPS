@@ -114,7 +114,7 @@ while True:
             print(onesec_df)
         except:
             online = False
-            print(f"{args.PIPS_name} is offline!")
+            print(f"{args.PIPS_name} is offline or problem reading data!")
             continue
         # print(onesec_df.keys())
         # onesec_df['Dewpoint'] = thermo.calTdfromRH(onesec_df['Pressure'] * 100.,
@@ -127,7 +127,7 @@ while True:
             ND_da = prt.calc_ND_da(spectrum_da)
         except:
             online = False
-            print(f"{args.PIPS_name} is offline!")
+            print(f"{args.PIPS_name} is offline or problem reading data!")
             continue
 
         # TODO: dumping to netcdf might be overkill here. We might be able to

@@ -200,8 +200,12 @@ def parse_PIPS_record(record, field_indices, tripips=False, include_parsivel_str
             # RH_derived = token_dict['RH']
     except (ValueError, KeyError):
         # RH_derived = token_dict['RH']
-        RH_derived = 100. * (np.exp((17.625 * dewpoint) / (243.04 + dewpoint)) /
-                             np.exp((17.625 * fasttemp) / (243.04 + fasttemp)))
+        try:
+            fasttemp = token_dict['fasttemp']
+            RH_derived = 100. * (np.exp((17.625 * dewpoint) / (243.04 + dewpoint)) /
+                                 np.exp((17.625 * fasttemp) / (243.04 + fasttemp)))
+        except:
+            RH_derived = token_dict['RH']
     token_dict['RH_derived'] = RH_derived
     if include_parsivel_string:
         token_dict['parsivel_telegram'] = tokens[field_indices['ParsivelStr']]
