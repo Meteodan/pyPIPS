@@ -605,7 +605,7 @@ def calc_fallspeed_spectrum(diameter_bins, fallspeed_bins,
     return fallspeed_da
 
 
-@jit
+# @jit
 def calc_empirical_fallspeed(d, correct_rho=False, rho=None):
     """Assigns a fall speed for a range of diameters based on code
        from David Dowell (originally from Terry Schuur).  It appears that
