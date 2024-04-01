@@ -112,9 +112,10 @@ while True:
             onesec_df = prt.scrape_onesec_data(url_onesec, numrecords=numrecords_onesec)
             onesec_df = pips.calc_thermo(onesec_df)
             print(onesec_df)
+            print(f"{args.PIPS_name}: successfully read 1-s data!")
         except:
             online = False
-            print(f"{args.PIPS_name} is offline or problem reading data!")
+            print(f"{args.PIPS_name} is offline or problem reading 1-s data!")
             continue
         # print(onesec_df.keys())
         # onesec_df['Dewpoint'] = thermo.calTdfromRH(onesec_df['Pressure'] * 100.,
@@ -122,12 +123,13 @@ while True:
         #                                            onesec_df['RH'] / 100.) - 273.15
         try:
             telegram_df, spectrum_da = prt.scrape_tensec_data(url_tensec,
-                                                              numrecords=numrecords_tensec)
+                                                                numrecords=numrecords_tensec)
             print(telegram_df)
             ND_da = prt.calc_ND_da(spectrum_da)
+            print(f"{args.PIPS_name}: successfully read 10-s data!")
         except:
             online = False
-            print(f"{args.PIPS_name} is offline or problem reading data!")
+            print(f"{args.PIPS_name} is offline or problem reading 10-s data!")
             continue
 
         # TODO: dumping to netcdf might be overkill here. We might be able to

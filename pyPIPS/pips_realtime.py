@@ -106,8 +106,10 @@ def scrape_tensec_data(url, http=None, numrecords=360):
             timestamps.append(timestamp)
         except ValueError:
             print("Bad Parsivel string detected. Ignoring this record!")
-
-    index = pd.to_datetime(timestamps, format='%Y-%m-%d %H:%M:%S')
+    try:
+        index = pd.to_datetime(timestamps, format='%Y-%m-%d %H:%M:%S')
+    except ValueError:  # Sometimes the timestring has microseconds
+        index = pd.to_datetime(timestamps, format='%Y-%m-%d %H:%M:%S.%f')
     df_telegram = pd.DataFrame(telegrams, index=index)
     # print(np.array(spectrum_list).shape)
     da_spectrum = xr.DataArray(spectrum_list, coords=[index, avg_fall_bins,
