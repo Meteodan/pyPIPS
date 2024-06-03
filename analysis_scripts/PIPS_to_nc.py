@@ -86,6 +86,8 @@ plot_dir = config.PIPS_IO_dict.get('plot_dir', None)
 PIPS_types = config.PIPS_IO_dict.get('PIPS_types', None)
 PIPS_names = config.PIPS_IO_dict.get('PIPS_names', None)
 PIPS_filenames = config.PIPS_IO_dict.get('PIPS_filenames', None)
+PIPS_filenames_nc = config.PIPS_IO_dict.get('PIPS_filenames_nc', None)
+conv_filenames_nc = config.PIPS_IO_dict.get('conv_filenames_nc', None)
 start_times = config.PIPS_IO_dict.get('start_times', [None]*len(PIPS_names))
 end_times = config.PIPS_IO_dict.get('end_times', [None]*len(PIPS_names))
 geo_locs = config.PIPS_IO_dict.get('geo_locs', [None]*len(PIPS_names))
@@ -103,9 +105,11 @@ conv_resampled_df_list = []
 parsivel_df_list = []
 vd_matrix_da_list = []
 
-for index, PIPS_filename, PIPS_name, start_time, end_time, geo_loc, ptype, deployment_name in \
-        zip(range(0, len(PIPS_filenames)), PIPS_filenames, PIPS_names, start_times, end_times,
-            geo_locs, PIPS_types, deployment_names):
+for index, PIPS_filename, PIPS_name, start_time, end_time, geo_loc, ptype, deployment_name, \
+    PIPS_filename_nc, conv_filename_nc in zip(range(0, len(PIPS_filenames)), PIPS_filenames,
+                                             PIPS_names, start_times, end_times, geo_locs,
+                                             PIPS_types, deployment_names, PIPS_filenames_nc,
+                                             conv_filenames_nc):
 
     tripips = (ptype == 'TriPIPS')
     PIPS_data_file_path = os.path.join(input_txt_dir, PIPS_filename)
@@ -251,8 +255,11 @@ for index, PIPS_filename, PIPS_name, start_time, end_time, geo_loc, ptype, deplo
 
         # Dump to netCDF files
 
-        ncfile_name = 'parsivel_combined_{}_{}_{:d}s.nc'.format(deployment_name, PIPS_name,
-                                                                int(DSD_interval))
+        if PIPS_filename_nc:
+            ncfile_name = PIPS_filename_nc
+        else:
+            ncfile_name = 'parsivel_combined_{}_{}_{:d}s.nc'.format(deployment_name, PIPS_name,
+                                                                    int(DSD_interval))
         ncfile_path = os.path.join(output_dir, ncfile_name)
         print("Dumping {}".format(ncfile_path))
         parsivel_combined_ds.to_netcdf(ncfile_path)
@@ -283,8 +290,10 @@ for index, PIPS_filename, PIPS_name, start_time, end_time, geo_loc, ptype, deplo
     conv_ds.attrs['starting_time'] = start_time
     conv_ds.attrs['ending_time'] = end_time
 
-
-    ncfile_name = 'conventional_raw_{}_{}.nc'.format(deployment_name, PIPS_name)
+    if conv_filename_nc:
+        ncfile_name = conv_filename_nc
+    else:
+        ncfile_name = 'conventional_raw_{}_{}.nc'.format(deployment_name, PIPS_name)
     ncfile_path = os.path.join(output_dir, ncfile_name)
     print("Dumping {}".format(ncfile_path))
     conv_ds.to_netcdf(ncfile_path)

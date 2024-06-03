@@ -43,8 +43,8 @@ parser.add_argument('--plot-raw', action='store_true', dest='plot_raw',
                     help='plot raw velocity-diameter matrix')
 parser.add_argument('--plot-qc', action='store_true', dest='plot_qc',
                     help='plot QC velocity-diameter matrix')
-parser.add_argument('--ND-tag', dest='ND_tag', default=None,
-                    help='Tag for ND variable in file (i.e., qc, RB15_vshift_qc, RB15_qc).')
+parser.add_argument('--QC-tag', dest='QC_tag', default=None,
+                    help='Tag for QC variable in file (i.e., qc, RB15_vshift_qc, RB15_qc).')
 parser.add_argument('--plot-full', action='store_true', dest='plot_full',
                     help='Plot full-deployment v-d matrix')
 parser.add_argument('--normalize', action='store_true', dest='normalize',
@@ -88,6 +88,8 @@ plot_dir = config.PIPS_IO_dict.get('plot_dir', None)
 PIPS_types = config.PIPS_IO_dict.get('PIPS_types', None)
 PIPS_names = config.PIPS_IO_dict.get('PIPS_names', None)
 PIPS_filenames = config.PIPS_IO_dict.get('PIPS_filenames', None)
+PIPS_filenames_nc = config.PIPS_IO_dict.get('PIPS_filenames_nc', None)
+conv_filenames_nc = config.PIPS_IO_dict.get('conv_filenames_nc', None)
 start_times = config.PIPS_IO_dict.get('start_times', [None]*len(PIPS_names))
 end_times = config.PIPS_IO_dict.get('end_times', [None]*len(PIPS_names))
 geo_locs = config.PIPS_IO_dict.get('geo_locs', [None]*len(PIPS_names))
@@ -99,9 +101,13 @@ if not os.path.exists(meteogram_image_dir):
     os.makedirs(meteogram_image_dir)
 
 # Get a list of the combined parsivel netCDF data files that are present in the PIPS directory
-parsivel_combined_filenames = [
-    'parsivel_combined_{}_{}_{:d}s.nc'.format(deployment_name, PIPS_name, int(requested_interval))
-    for deployment_name, PIPS_name in zip(deployment_names, PIPS_names)]
+if PIPS_filenames_nc:
+    parsivel_combined_filenames = PIPS_filenames_nc
+else:
+    parsivel_combined_filenames = [
+        'parsivel_combined_{}_{}_{:d}s.nc'.format(deployment_name, PIPS_name,
+                                                  int(requested_interval))
+            for deployment_name, PIPS_name in zip(deployment_names, PIPS_names)]
 parsivel_combined_filelist = [os.path.join(PIPS_dir, pcf) for pcf in parsivel_combined_filenames]
 print(parsivel_combined_filenames)
 
@@ -131,13 +137,13 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
         vd_matrix_list.append(vd_matrix_raw)
         tag_list.append('raw')
     if args.plot_qc:
-        if args.ND_tag:
-            ND_tag = args.ND_tag
+        if args.QC_tag:
+            QC_tag = args.QC_tag
         else:
-            ND_tag = 'qc'
-        vd_matrix_qc = parsivel_combined_ds['VD_matrix_{}'.format(ND_tag)]
+            QC_tag = 'qc'
+        vd_matrix_qc = parsivel_combined_ds['VD_matrix_{}'.format(QC_tag)]
         vd_matrix_list.append(vd_matrix_qc)
-        tag_list.append(ND_tag)
+        tag_list.append(QC_tag)
 
     for tag, vd_matrix_da in zip(tag_list, vd_matrix_list):
         vel_D_image_dir = os.path.join(plot_dir,
