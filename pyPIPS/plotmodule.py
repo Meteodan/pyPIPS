@@ -1361,6 +1361,7 @@ def plot_DSD(axdict, PSDdict, PSDfitdict, PSDparamdict):
     time_to_plot = axdict.get('time', None)
     if time_to_plot is not None:
         time_to_plot_datetime = pd.to_datetime(time_to_plot).to_pydatetime()
+    xlim = axdict.get('xlim', (0.0, 9.0))
     xbin_left = axdict.get('xbin_left', np.empty(0))
     xbin_right = axdict.get('xbin_right', np.empty(0))
     xbin_mid = axdict.get('xbin_mid', np.empty(0))
@@ -1400,7 +1401,7 @@ def plot_DSD(axdict, PSDdict, PSDfitdict, PSDparamdict):
 
     ax1.set_yscale('log')
     ax1.set_ylim(10.**2.0, 10.**8.5)
-    ax1.set_xlim(0.0, 9.0)
+    ax1.set_xlim(xlim[0], xlim[1])
     ax1.set_xlabel('D (mm)')
     ax1.set_ylabel(r'N(D) $(m^{-4})$')
 

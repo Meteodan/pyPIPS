@@ -44,17 +44,17 @@ PIPS_qc_dict = {
 }
 
 radar_config_dict = {
-    'comp_radar': False,
+    'comp_radar': True,
     'calc_dualpol': True,
     'plot_retrieval': False,
-    'radar_name': 'KFDX',
+    'radar_name': 'KLBB',
     'radar_type': 'NEXRAD',
-    'radar_dir': '/Users/dawson29/Projects/SPOTTR_2023/053123/nexrad_data/KFDX/CFRadial/20230531',
+    'radar_dir': '/Users/dawson29/Projects/SPOTTR_2024/NEXRAD_data/053024/KLBB/CFRadial/',
     'radar_fname_pattern': '{rad_name}{year:04d}{month:02d}{day:02d}_{hour:02d}{min:02d}{sec:02d}_V06.nc',
-    'field_names': ['VEL'], # ['REF', 'ZDR', 'RHO'], # , 'Dm_Z01', 'sigma_Z01', 'RR_Z01', 'mu_Z01', 'lamda_Z01'],
+    'field_names': ['REF', 'ZDR', 'RHO', 'VEL'], # , 'Dm_Z01', 'sigma_Z01', 'RR_Z01', 'mu_Z01', 'lamda_Z01'],
     'el_req': 0.5,
-    'radar_start_timestamp': '20230531220000',
-    'radar_end_timestamp': '20230531233200',
+    'radar_start_timestamp': '20240530231500',
+    'radar_end_timestamp': '20240531024000',
     'scatt_dir': '/Users/dawson29/Projects/pyPIPS/tmatrix/S-Band/',
     'wavelength': 10.7
 }

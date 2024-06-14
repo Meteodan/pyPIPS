@@ -1081,7 +1081,7 @@ def fit_DSD_TMM246_xr(M2, M4, M6, D_min, D_max):
 
 
 # @jit(parallel=True)
-@jit
+# @jit
 def fit_DSD_TMM246(M2, M4, M6, D_min, D_max):
     """Fits gamma distributions using the Truncated Method of Moments (TMM) using M2, M4, and M6
     and D_min, and D_max. Operates on numpy arrays and uses numba jit to speed things up
@@ -1166,7 +1166,7 @@ def fit_DSD_TMM246(M2, M4, M6, D_min, D_max):
     return N0_tmf, lamda_tmf, mu_tmf
 
 
-@jit
+# @jit
 def fit_DSD_TMM234(M2, M3, M4, D_min, D_max):
     """Fits gamma distributions using the Truncated Method of Moments (TMM) using M2, M3, and M4
     and D_min, and D_max. Operates on numpy arrays and uses numba jit to speed things up
@@ -1707,7 +1707,7 @@ def retrieval_Cao_xr(ZH, ZDR, ND, D, dD, fa2, fb2, wavelength, mu_lamda_coeff, Z
 
 
 # @jit(parallel=True)
-@jit
+# @jit
 def retrieval_Cao(ZH, ZDR, D, dD, fa2, fb2, wavelength, mu_lamda_coeff, ZDR_thresh=3.,
                   retrieval_tag=''):
     Dmx = 9.     # maximum diameter of 9 mm

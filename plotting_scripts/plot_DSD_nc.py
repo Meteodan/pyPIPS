@@ -89,6 +89,7 @@ plot_dir = config.PIPS_IO_dict.get('plot_dir', None)
 PIPS_types = config.PIPS_IO_dict.get('PIPS_types', None)
 PIPS_names = config.PIPS_IO_dict.get('PIPS_names', None)
 PIPS_filenames = config.PIPS_IO_dict.get('PIPS_filenames', None)
+PIPS_filenames_nc = config.PIPS_IO_dict.get('PIPS_filenames_nc', None)
 start_times = config.PIPS_IO_dict.get('start_times', [None]*len(PIPS_names))
 end_times = config.PIPS_IO_dict.get('end_times', [None]*len(PIPS_names))
 geo_locs = config.PIPS_IO_dict.get('geo_locs', [None]*len(PIPS_names))
@@ -99,9 +100,13 @@ scatt_dir = config.radar_config_dict.get('scatt_dir', None)
 comp_radar = config.radar_config_dict.get('comp_radar', False)
 
 # Get a list of the combined parsivel netCDF data files that are present in the PIPS directory
-parsivel_combined_filenames = [
-    'parsivel_combined_{}_{}_{:d}s.nc'.format(deployment_name, PIPS_name, int(requested_interval))
-    for deployment_name, PIPS_name in zip(deployment_names, PIPS_names)]
+if PIPS_filenames_nc:
+    parsivel_combined_filenames = PIPS_filenames_nc
+else:
+    parsivel_combined_filenames = [
+        'parsivel_combined_{}_{}_{:d}s.nc'.format(deployment_name, PIPS_name,
+                                                  int(requested_interval))
+        for deployment_name, PIPS_name in zip(deployment_names, PIPS_names)]
 parsivel_combined_filelist = [os.path.join(PIPS_dir, pcf) for pcf in parsivel_combined_filenames]
 # print(parsivel_combined_filenames)
 
@@ -128,6 +133,9 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
                                       rho=parsivel_combined_ds['rho'])
 
     for ND_tag, ND in zip(ND_tags, ND_list):
+        rad_dim_name = 'fields_{}'.format(radar_name)
+        rad_fields_key = '{}_at_PIPS'.format(radar_name)
+
         if args.plot_MM_fits:
             DSD_MM24 = parsivel_combined_ds['DSD_MM24{}'.format(ND_tag)]
             DSD_MM246 = parsivel_combined_ds['DSD_MM246{}'.format(ND_tag)]
@@ -138,8 +146,6 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
                            1000**(1 + DSD_retr_mu))  # Get to m^-4
             DSD_retr_lamda = (parsivel_combined_ds['lamda_retr_{}{}'.format(args.retr_tag, ND_tag)] *
                               1000.)
-            rad_dim_name = 'fields_{}'.format(radar_name)
-            rad_fields_key = '{}_at_PIPS'.format(radar_name)
             # Annoying.. if the ND tag is 'qc', the radar fields don't have it as a suffix,
             # so remove it here. Also SATP_TMM is called just "SATP" here. Grumble.
 
@@ -212,7 +218,7 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
             'xbin_left': min_diameter,
             'xbin_mid': avg_diameter,
             'xbin_right': max_diameter,
-            'xlim': (0.0, 9.0),
+            'xlim': pc.PIPS_plotting_dict['diameter_range'],  # (0.0, 9.0),
             'ylim': (10.**2., 10.**8.5),
             'PIPS_name': PIPS_name
         }

@@ -5,7 +5,7 @@ import matplotlib.colors as colors
 
 PIPS_plotting_dict = {
     # For DSD meteograms
-    'DSD_D_range': (0.0, 22.4),
+    'DSD_D_range': (0.0, 26.0),
     'DSD_D_ytick': 2.0,
     'DSD_param_avg_window': 180.,
     'plot_only_precip': False,
