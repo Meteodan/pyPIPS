@@ -1,19 +1,22 @@
 # filter_radar_sweep.py
 #
 # This script filters radar data from CFRadial sweeps and adds the new filtered fields to the file
+from __future__ import annotations
+
 import argparse
-from glob import glob
+import json
 import os
+from glob import glob
 from pathlib import Path
+
 import numpy as np
+import pyart
+from scipy import ndimage
+
 import pyPIPS.parsivel_params as pp
 import pyPIPS.radarmodule as radar
-import pyPIPS.utils as utils
 import pyPIPS.timemodule as tm
-import pyart
-from scipy.signal import medfilt2d
-from scipy import ndimage
-import json
+from pyPIPS import utils
 
 
 def roundPartial(value, resolution, decimals=4):
@@ -54,7 +57,7 @@ parser.add_argument('--output-tag', dest='output_tag', default='filt',
 args = parser.parse_args()
 
 # Dynamically import the case configuration file
-utils.log("Case config file is {}".format(args.case_config_path))
+utils.log(f"Case config file is {args.case_config_path}")
 config = utils.import_all_from(args.case_config_path)
 try:
     config = utils.import_all_from(args.case_config_path)
@@ -86,15 +89,11 @@ radar_dir = config.radar_config_dict.get('radar_dir', None)
 radar_fname_pattern = config.radar_config_dict.get('radar_fname_pattern', None)
 # Add the input filename tag to the pattern if needed
 if args.input_tag:
-    radar_fname_pattern = radar_fname_pattern.replace('.', '_{}.'.format(args.input_tag))
+    radar_fname_pattern = radar_fname_pattern.replace('.', f'_{args.input_tag}.')
 field_names = config.radar_config_dict.get('field_names', ['REF'])
 if not calc_dualpol:
     field_names = ['REF']
-if args.el_req_cl:
-    print("Here!", args.el_req_cl)
-    el_req = args.el_req_cl
-else:
-    el_req = config.radar_config_dict.get('el_req', 0.5)
+el_req = args.el_req_cl if args.el_req_cl else config.radar_config_dict.get('el_req', 0.5)
 radar_start_timestamp = config.radar_config_dict.get('radar_start_timestamp', None)
 radar_end_timestamp = config.radar_config_dict.get('radar_end_timestamp', None)
 scatt_dir = config.radar_config_dict.get('scatt_dir', None)
@@ -103,9 +102,9 @@ wavelength = config.radar_config_dict.get('wavelength', 10.7)
 # Read radar sweeps
 # First get a list of all potentially relevant radar files in the directory
 if args.input_tag is None:
-    radar_paths = glob(radar_dir + '/*{}*{}.nc'.format(radar_name, args.fname_variant))
+    radar_paths = glob(radar_dir + f'/*{radar_name}*{args.fname_variant}.nc')
 else:
-    radar_paths = glob(radar_dir + '/*{}*_{}.nc'.format(radar_name, args.input_tag))
+    radar_paths = glob(radar_dir + f'/*{radar_name}*_{args.input_tag}.nc')
 # Then find only those between the requested times
 radar_dict = radar.get_radar_paths_between_times(radar_paths, radar_start_timestamp,
                                                  radar_end_timestamp, radar_type=radar_type,
@@ -168,9 +167,9 @@ else:
 for radar_obj, radar_sweep_time, radar_output_path in zip(radar_sweep_list,
                                                           radar_sweep_time_list,
                                                           radar_output_paths):
-    print("Working on time {}".format(radar_sweep_time.strftime(tm.timefmt2)))
-    print("Output filename will be {}".format(os.path.basename(radar_output_path)))
-    print("Getting fields")
+    print(f"Working on time {radar_sweep_time.strftime(tm.timefmt2)}")  # noqa: T201
+    print(f"Output filename will be {os.path.basename(radar_output_path)}")  # noqa: T201
+    print("Getting fields")  # noqa: T201
     # Get polarimetric fields from the radar object
     ZH_rad_tuple = radar.get_field_to_plot(radar_obj, radar.REF_aliases)
     ZDR_rad_tuple = radar.get_field_to_plot(radar_obj, radar.ZDR_aliases)
@@ -184,7 +183,7 @@ for radar_obj, radar_sweep_time, radar_output_path in zip(radar_sweep_list,
         radar_obj.add_field_like(field_name, field_name + '_filtered',
                                  radar_obj.fields[field_name]['data'].copy(), replace_existing=True)
 
-    print("Applying median filter with the following shape: ", args.med_filter_footprint)
+    print("Applying median filter with the following shape: ", args.med_filter_footprint)  # noqa: T201
     for field_name in [ZH_name, ZDR_name, RHV_name]:
         radar_obj.fields[field_name + '_filtered']['data'] = \
             ndimage.median_filter(radar_obj.fields[field_name + '_filtered']['data'].copy(),
@@ -193,7 +192,7 @@ for radar_obj, radar_sweep_time, radar_output_path in zip(radar_sweep_list,
         #     medfilt2d(radar_obj.fields[field_name + '_filtered']['data'],
         #               kernel_size=args.med_filter_width)
 
-    print("Creating dBZ and RHV gate filter")
+    print("Creating dBZ and RHV gate filter")  # noqa: T201
     # Create a gate filter to mask out areas with dBZ and RHV below thresholds
     rhoHV_ref_filter = pyart.correct.moment_based_gate_filter(radar_obj,
                                                               rhv_field=RHV_name + '_filtered',
@@ -203,13 +202,18 @@ for radar_obj, radar_sweep_time, radar_output_path in zip(radar_sweep_list,
                                                               min_refl=args.dBZ_thresh,
                                                               max_refl=None)
 
-    print("Applying gate filter")
+    print("Applying gate filter")  # noqa: T201
     # Mask fields using the dBZ/RHV mask
     for field_name in [ZH_name, ZDR_name, RHV_name]:
         radar_obj.fields[field_name + '_filtered']['data'] = \
             np.ma.masked_where(rhoHV_ref_filter.gate_excluded,
                                radar_obj.fields[field_name + '_filtered']['data'])
 
+    # Add metadata to the radar object regarding the filtering
+    radar_obj.metadata['dBZ_threshold'] = args.dBZ_thresh
+    radar_obj.metadata['RHV_threshold'] = args.RHV_thresh
+    radar_obj.metadata['median_filter_footprint'] = repr(args.med_filter_footprint)
+
     # Now save the radar object to a new CFRadial file with the added filtered fields
-    print("Saving {}".format(radar_output_path))
+    print(f"Saving {radar_output_path}")  # noqa: T201
     pyart.io.write_cfradial(radar_output_path, radar_obj)

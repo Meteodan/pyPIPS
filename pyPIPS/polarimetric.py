@@ -1,6 +1,8 @@
 """
 polarimetric.py: a set of functions dealing with computing polarimetric radar variables for PSDs
 """
+from __future__ import annotations
+
 import numpy as np
 import xarray as xr
 
@@ -38,13 +40,13 @@ def calpolrain(wavelength, filename, Nd, intv):
        polarimetric variables for each bin."""
 
     d, far_b, fbr_b, far_f, fbr_f = readtmatrix(filename)
-    fa2, fb2, fab, fba, far = calbackscatterrain(far_b, fbr_b, far_f, fbr_f)
+    fa2, fb2, fab, fba, far = calbackscatterrain(far_b, fbr_b, far_f, fbr_f)  # noqa: F841
 
     # There may be more bins in the given Nd than are read in from the file.
     # This is because the Nd contains bins above the maximum size of rain (~9 mm).
     # Truncate the diameter dimension of Nd to account for this.
     # Also transpose Nd to allow for numpy broadcasting
-    Nd = Nd[:, :np.size(fa2)] # Nd[:np.size(fa2), :].T
+    Nd = Nd[:, :np.size(fa2)]  # Nd[:np.size(fa2), :].T
     intv = intv[:np.size(fa2)]
 
     lamda = wavelength * 10.  # Get radar wavelength in mm
@@ -82,7 +84,7 @@ def calpolrain(wavelength, filename, Nd, intv):
                     'RHO_bin': rhv_bin, 'ZH': Zh, 'ZV': Zv, 'ZHV': Zhv, 'REF': dBZ, 'ZDR': ZDR,
                     'KDP': Kdp, 'RHO': rhv, 'intv': intv, 'd': d, 'fa2': fa2, 'fb2': fb2}
 
-    return dualpol_dict
+    return dualpol_dict  # noqa: RET504
 
 
 def calpolrain_xr(wavelength, filename, Nd, intv):
@@ -90,7 +92,7 @@ def calpolrain_xr(wavelength, filename, Nd, intv):
        polarimetric variables for each bin."""
 
     d, far_b, fbr_b, far_f, fbr_f = readtmatrix(filename)
-    fa2, fb2, fab, fba, far = calbackscatterrain(far_b, fbr_b, far_f, fbr_f)
+    fa2, fb2, fab, fba, far = calbackscatterrain(far_b, fbr_b, far_f, fbr_f)  # noqa: F841
 
     # There may be more bins in the given Nd than are read in from the file.
     # This is because the Nd contains bins above the maximum size of rain (~9 mm).
@@ -118,8 +120,8 @@ def calpolrain_xr(wavelength, filename, Nd, intv):
     temp = Zh_bin * Zv_bin
     # Added by Jess (was temp > 0).  Find out why...
     rhv_bin = np.where(Zh_bin != Zv_bin, Zhv_bin / (np.sqrt(temp)), np.nan)
-    Zh = Zh_bin.sum(dim='diameter_bin') # np.sum(Zh_bin, axis=1)
-    Zv = Zv_bin.sum(dim='diameter_bin') # np.sum(Zv_bin, axis=1)
+    Zh = Zh_bin.sum(dim='diameter_bin')  # np.sum(Zh_bin, axis=1)
+    Zv = Zv_bin.sum(dim='diameter_bin')  # np.sum(Zv_bin, axis=1)
     Zhv = np.abs(Zhv_bin.sum(dim='diameter_bin'))
     Kdp = Kdp_bin.sum(dim='diameter_bin')
     dBZ = 10. * np.log10(Zh)
@@ -135,7 +137,7 @@ def calpolrain_xr(wavelength, filename, Nd, intv):
                     'RHO_bin': rhv_bin, 'ZH': Zh, 'ZV': Zv, 'ZHV': Zhv, 'REF': dBZ, 'ZDR': ZDR,
                     'KDP': Kdp, 'RHO': rhv, 'intv': intv, 'd': d, 'fa2': fa2, 'fb2': fb2}
 
-    return dualpol_dict
+    return dualpol_dict  # noqa: RET504
 
 
 def calpolrain_bulk_xr(wavelength, filename, Nd, intv, diameter_bin_name='diameter_bin'):
@@ -144,7 +146,7 @@ def calpolrain_bulk_xr(wavelength, filename, Nd, intv, diameter_bin_name='diamet
        returning bulk quantities summed over all diameter bins."""
 
     d, far_b, fbr_b, far_f, fbr_f = readtmatrix(filename)
-    fa2, fb2, fab, fba, far = calbackscatterrain(far_b, fbr_b, far_f, fbr_f)
+    fa2, fb2, fab, fba, far = calbackscatterrain(far_b, fbr_b, far_f, fbr_f)  # noqa: F841
 
     # There may be more bins in the given Nd than are read in from the file.
     # This is because the Nd contains bins above the maximum size of rain (~9 mm).
@@ -166,7 +168,7 @@ def calpolrain_bulk_xr(wavelength, filename, Nd, intv, diameter_bin_name='diamet
     rhv_list = []
 
     for t, Nd_1t in enumerate(Nd):
-        print("Working on time ", t)
+        print("Working on time ", t)  # noqa: T201
 
         sar_h = fa2 * Nd_1t * intv
         sar_v = fb2 * Nd_1t * intv
@@ -204,4 +206,4 @@ def calpolrain_bulk_xr(wavelength, filename, Nd, intv, diameter_bin_name='diamet
     dualpol_dict = {'ZH': Zh, 'ZV': Zv, 'ZHV': Zhv, 'REF': dBZ, 'ZDR': ZDR,
                     'KDP': Kdp, 'RHO': rhv, 'intv': intv, 'd': d, 'fa2': fa2, 'fb2': fb2}
 
-    return dualpol_dict
+    return dualpol_dict  # noqa: RET504

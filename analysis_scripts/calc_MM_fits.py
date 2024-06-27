@@ -50,6 +50,8 @@ moment_combo_help_string = ('list of moment combos in the form XY or XYZ\n'
                             'and truncated moment fits will be computed')
 parser.add_argument('--moment-combos', dest='moment_combos', nargs='*', default=['246'],
                     help=moment_combo_help_string)
+parser.add_argument('--time-dim', dest='time_dim', default='time',
+                    help='Name of the time dimension in the netCDF file')
 
 args = parser.parse_args()
 # if not args.ND_tag:
@@ -114,7 +116,7 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
             PIPS_name = parsivel_combined_ds.probe_name
             deployment_name = parsivel_combined_ds.deployment_name
             ND = parsivel_combined_ds['ND{}'.format(QC_tag)]
-            coord_to_combine = 'time'
+            coord_to_combine = args.time_dim
         else:
             if 'D0_idx' not in parsivel_combined_ds.coords:
                 parsivel_combined_ds = parsivel_combined_ds.rename({'D0_RR_level_0': 'D0_idx'})

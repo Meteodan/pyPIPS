@@ -1,7 +1,10 @@
 """pyPIPS.parsivel_params: contains several fixed parameters related to the Parsivel disdrometers
 """
+from __future__ import annotations
+
 import numpy as np
 import xarray as xr
+
 # Dictionaries containing some metadata for the various probes
 
 # length units: mm

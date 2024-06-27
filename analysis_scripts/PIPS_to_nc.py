@@ -8,27 +8,18 @@
     fallspeed spectrum. The script also adds some metadata to the netCDF files. The script also
     writes the conventional data to a separate netCDF file due to the different time resolution.
 """
+from __future__ import annotations
 
-import os
 import argparse
-from datetime import datetime, timedelta
+import os
+
 import numpy as np
-import pandas as pd
 import xarray as xr
-import matplotlib.ticker as ticker
-import matplotlib.dates as dates
-import matplotlib.pyplot as plt
+
 import pyPIPS.parsivel_params as pp
-import pyPIPS.radarmodule as radar
-import pyPIPS.plotmodule as pm
-import pyPIPS.pips_io as pipsio
-import pyPIPS.utils as utils
 import pyPIPS.PIPS as pips
-import pyPIPS.parsivel_qc as pqc
-import pyPIPS.timemodule as tm
-import pyPIPS.DSDlib as dsd
-import pyPIPS.polarimetric as dp
-import logging
+import pyPIPS.pips_io as pipsio
+from pyPIPS import utils
 
 # TODO: Figure out how to turn off the netCDF logging messages! Below doesn't work....
 # logging.getLogger("xarray").setLevel(logging.ERROR)
@@ -69,7 +60,7 @@ args = parser.parse_args()
 #     qc_tag = None
 
 # Dynamically import the case configuration file
-utils.log("Case config file is {}".format(args.case_config_path))
+utils.log(f"Case config file is {args.case_config_path}")
 config = utils.import_all_from(args.case_config_path)
 try:
     config = utils.import_all_from(args.case_config_path)
@@ -88,15 +79,12 @@ PIPS_names = config.PIPS_IO_dict.get('PIPS_names', None)
 PIPS_filenames = config.PIPS_IO_dict.get('PIPS_filenames', None)
 PIPS_filenames_nc = config.PIPS_IO_dict.get('PIPS_filenames_nc', None)
 conv_filenames_nc = config.PIPS_IO_dict.get('conv_filenames_nc', None)
-start_times = config.PIPS_IO_dict.get('start_times', [None]*len(PIPS_names))
-end_times = config.PIPS_IO_dict.get('end_times', [None]*len(PIPS_names))
-geo_locs = config.PIPS_IO_dict.get('geo_locs', [None]*len(PIPS_names))
+start_times = config.PIPS_IO_dict.get('start_times', [None] * len(PIPS_names))
+end_times = config.PIPS_IO_dict.get('end_times', [None] * len(PIPS_names))
+geo_locs = config.PIPS_IO_dict.get('geo_locs', [None] * len(PIPS_names))
 requested_interval = config.PIPS_IO_dict.get('requested_interval', 10.)
 
-if args.output_dir:
-    output_dir = args.output_dir
-else:
-    output_dir = PIPS_dir
+output_dir = args.output_dir if args.output_dir else PIPS_dir
 if not os.path.exists(output_dir):
     os.makedirs(output_dir)
 # Read in the PIPS data for the deployment
@@ -106,7 +94,7 @@ parsivel_df_list = []
 vd_matrix_da_list = []
 
 for index, PIPS_filename, PIPS_name, start_time, end_time, geo_loc, ptype, deployment_name, \
-    PIPS_filename_nc, conv_filename_nc in zip(range(0, len(PIPS_filenames)), PIPS_filenames,
+    PIPS_filename_nc, conv_filename_nc in zip(range(len(PIPS_filenames)), PIPS_filenames,
                                              PIPS_names, start_times, end_times, geo_locs,
                                              PIPS_types, deployment_names, PIPS_filenames_nc,
                                              conv_filenames_nc):
@@ -118,13 +106,13 @@ for index, PIPS_filename, PIPS_name, start_time, end_time, geo_loc, ptype, deplo
                                                           end_timestamp=end_time, tripips=tripips,
                                                           sort=args.sort_times,
                                                           check_order=args.check_order)
-
+    vd_matrix_da.attrs['units'] = 'count'
     # We need the disdrometer locations. If they aren't supplied in the input control file, find
     # them from the GPS data
     if not geo_loc:
         geo_locs[index] = pipsio.get_PIPS_loc(conv_df['GPS_status'], conv_df['GPS_lat'],
                                               conv_df['GPS_lon'], conv_df['GPS_alt'])
-    print("Lat/Lon/alt of {}: {}".format(PIPS_name, str(geo_locs[index])))
+    print(f"Lat/Lon/alt of {PIPS_name}: {geo_locs[index]!s}")  # noqa: T201
 
     # Calculate some additional thermodynamic parameters from the conventional data
     conv_df = pips.calc_thermo(conv_df)
@@ -194,6 +182,7 @@ for index, PIPS_filename, PIPS_name, start_time, end_time, geo_loc, ptype, deplo
         # TODO: Why am I doing the following line? Shouldn't I leave the zeros as zeros here?
         vd_matrix_da = vd_matrix_da.where(vd_matrix_da > 0.0)
         ND_raw = pips.calc_ND(vd_matrix_da, fallspeed_spectrum, DSD_interval)
+        ND_raw.attrs['units'] = 'number per cubic meter per millimeter'
         # if apply_qc:
         #     vd_matrix_qc_da = vd_matrix_qc_da.where(vd_matrix_qc_da > 0.0)
         #     ND = pips.calc_ND(vd_matrix_qc_da, fallspeed_spectrum, DSD_interval)
@@ -212,9 +201,9 @@ for index, PIPS_filename, PIPS_name, start_time, end_time, geo_loc, ptype, deplo
                                                             name='VD_matrix')
         parsivel_combined_ds = pipsio.combine_parsivel_data(parsivel_combined_ds, ND_raw, name='ND')
 
-            # Fill in time gaps with NaNs if desired
+        # Fill in time gaps with NaNs if desired
         if args.fill_gaps:
-            intervalstr = '{:d}S'.format(int(DSD_interval))
+            intervalstr = f'{int(DSD_interval):d}S'
             parsivel_starttime = parsivel_combined_ds['time'][0].values
             parsivel_endtime = parsivel_combined_ds['time'][-1].values
             all_parsivel_times = xr.date_range(parsivel_starttime, parsivel_endtime,
@@ -228,7 +217,6 @@ for index, PIPS_filename, PIPS_name, start_time, end_time, geo_loc, ptype, deplo
                                             dims=['time'])
             parsivel_combined_ds['missing_times'] = missing_times_da
             parsivel_combined_ds['missing_times'].attrs['description'] = '1 for missing data'
-
 
         # if qc_tag is not None:
         #     new_VD_name = 'VD_matrix_{}'.format(qc_tag)
@@ -258,10 +246,10 @@ for index, PIPS_filename, PIPS_name, start_time, end_time, geo_loc, ptype, deplo
         if PIPS_filename_nc:
             ncfile_name = PIPS_filename_nc
         else:
-            ncfile_name = 'parsivel_combined_{}_{}_{:d}s.nc'.format(deployment_name, PIPS_name,
-                                                                    int(DSD_interval))
+            ncfile_name = \
+                f'parsivel_combined_{deployment_name}_{PIPS_name}_{int(DSD_interval):d}s.nc'
         ncfile_path = os.path.join(output_dir, ncfile_name)
-        print("Dumping {}".format(ncfile_path))
+        print(f"Dumping {ncfile_path}")  # noqa: T201
         parsivel_combined_ds.to_netcdf(ncfile_path)
 
     # Convert conventional data pd.DataFrame to xr.Dataset and add some metadata
@@ -293,7 +281,7 @@ for index, PIPS_filename, PIPS_name, start_time, end_time, geo_loc, ptype, deplo
     if conv_filename_nc:
         ncfile_name = conv_filename_nc
     else:
-        ncfile_name = 'conventional_raw_{}_{}.nc'.format(deployment_name, PIPS_name)
+        ncfile_name = f'conventional_raw_{deployment_name}_{PIPS_name}.nc'
     ncfile_path = os.path.join(output_dir, ncfile_name)
-    print("Dumping {}".format(ncfile_path))
+    print(f"Dumping {ncfile_path}")  # noqa: T201
     conv_ds.to_netcdf(ncfile_path)

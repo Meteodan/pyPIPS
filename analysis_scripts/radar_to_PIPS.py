@@ -1,14 +1,18 @@
 # radar_to_PIPS.py
 #
 # This script interpolates radar observations to the PIPS locations and times
+from __future__ import annotations
+
+import argparse
 import os
 from glob import glob
-import argparse
+
 import xarray as xr
+
 import pyPIPS.parsivel_params as pp
-import pyPIPS.radarmodule as radar
 import pyPIPS.pips_io as pipsio
-import pyPIPS.utils as utils
+import pyPIPS.radarmodule as radar
+from pyPIPS import utils
 
 # NOTE: the following has *no effect* on this running script. Need to set the
 # environment variable prior to running the script for some reason.
@@ -48,7 +52,7 @@ parser.add_argument('--output-tag', dest='output_tag', default=None,
 args = parser.parse_args()
 
 # Dynamically import the case configuration file
-utils.log("Case config file is {}".format(args.case_config_path))
+utils.log(f"Case config file is {args.case_config_path}")
 config = utils.import_all_from(args.case_config_path)
 try:
     config = utils.import_all_from(args.case_config_path)
@@ -79,7 +83,7 @@ radar_dir = config.radar_config_dict.get('radar_dir', None)
 radar_fname_pattern = config.radar_config_dict.get('radar_fname_pattern', None)
 # Add the input filename tag to the pattern if needed
 if args.radar_input_tag:
-    radar_fname_pattern = radar_fname_pattern.replace('.', '_{}.'.format(args.radar_input_tag))
+    radar_fname_pattern = radar_fname_pattern.replace('.', f'_{args.radar_input_tag}.')
 field_names = config.radar_config_dict.get('field_names', ['REF'])
 if not calc_dualpol:
     field_names = ['REF']
@@ -92,9 +96,9 @@ wavelength = config.radar_config_dict.get('wavelength', 10.7)
 # Modify PIPS file names to account for an input tag (e.g., a variant version)
 if args.input_tag is not None:
     parsivel_combined_filenames = []
-    for parsivel_combined_filename in input_parsivel_combined_filenames:
+    for parsivel_combined_filename_temp in input_parsivel_combined_filenames:
         parsivel_combined_filename = \
-            parsivel_combined_filename.replace(".nc", "_{}.nc".format(args.input_tag))
+            parsivel_combined_filename_temp.replace(".nc", f"_{args.input_tag}.nc")
 else:
     parsivel_combined_filenames = input_parsivel_combined_filenames
 
@@ -106,9 +110,9 @@ parsivel_combined_filelist = [os.path.join(PIPS_dir, pcf) for pcf in parsivel_co
 # Read radar sweeps
 # First get a list of all potentially relevant radar files in the directory
 if args.radar_input_tag is None:
-    radar_paths = glob(radar_dir + '/*{}*{}.nc'.format(radar_name, args.fname_variant))
+    radar_paths = glob(radar_dir + f'/*{radar_name}*{args.fname_variant}.nc')
 else:
-    radar_paths = glob(radar_dir + '/*{}*_{}.nc'.format(radar_name, args.radar_input_tag))
+    radar_paths = glob(radar_dir + f'/*{radar_name}*_{args.radar_input_tag}.nc')
 # Then find only those between the requested times
 radar_path_dict = radar.get_radar_paths_between_times(radar_paths, radar_start_timestamp,
                                                       radar_end_timestamp, radar_type=radar_type,
@@ -133,37 +137,36 @@ for parsivel_combined_path in parsivel_combined_filelist:
     # version to "stick". This seems like a bug and doesn't make a lot of sense.
     # NOTE: looks like the addition of the "drop_dims" call fixed this issue. And looks like
     # I don't even need the next 2 calls but will leave them in there just in case.
-    if '{}_at_PIPS'.format(radar_name) in parsivel_combined_ds:
-        print(parsivel_combined_ds)
-        parsivel_combined_ds = parsivel_combined_ds.drop_dims(['fields_{}'.format(radar_name)],
+    if f'{radar_name}_at_PIPS' in parsivel_combined_ds:
+        parsivel_combined_ds = parsivel_combined_ds.drop_vars(f'{radar_name}_at_PIPS',
                                                               errors='ignore')
-        print(parsivel_combined_ds)
-        parsivel_combined_ds = parsivel_combined_ds.drop('{}_at_PIPS'.format(radar_name),
-                                                         errors='ignore')
-        parsivel_combined_ds = parsivel_combined_ds.drop('fields_{}'.format(radar_name),
-                                                         errors='ignore')
-    if '{}_beam_height_at_PIPS'.format(radar_name) in parsivel_combined_ds:
+        parsivel_combined_ds = parsivel_combined_ds.drop_vars(f'fields_{radar_name}',
+                                                              errors='ignore')
+    if f'{radar_name}_beam_height_at_PIPS' in parsivel_combined_ds:
         parsivel_combined_ds = \
-            parsivel_combined_ds.drop('{}_beam_height_at_PIPS'.format(radar_name), errors='ignore')
+            parsivel_combined_ds.drop_vars(f'{radar_name}_beam_height_at_PIPS', errors='ignore')
+    if f'fields_{radar_name}' in parsivel_combined_ds.dims:
+        parsivel_combined_ds = parsivel_combined_ds.drop_dims([f'fields_{radar_name}'],
+                                                              errors='ignore')
     # Interpolate radar fields to the PIPS times
     radar_fields_at_PIPS_da = radar_fields_at_PIPS_da.interp_like(parsivel_combined_ds)
     radar_fields_at_PIPS_da.attrs['elevation_angle'] = el_req
     parsivel_combined_ds = pipsio.combine_parsivel_data(parsivel_combined_ds,
                                                         radar_fields_at_PIPS_da,
-                                                        name='{}_at_PIPS'.format(radar_name))
+                                                        name=f'{radar_name}_at_PIPS')
     beam_height_da = beam_height_da.interp_like(parsivel_combined_ds)
     beam_height_da.attrs['elevation_angle'] = el_req
     parsivel_combined_ds = \
         pipsio.combine_parsivel_data(parsivel_combined_ds, beam_height_da,
-                                     name='{}_beam_height_at_PIPS'.format(radar_name))
+                                     name=f'{radar_name}_beam_height_at_PIPS')
     # parsivel_combined_ds.close()
     # Save updated dataset back to file
     # Add a new output name tag (variant) if requested
     if args.output_tag:
         parsivel_combined_filename = os.path.basename(parsivel_combined_path)
         parsivel_combined_filename = \
-            parsivel_combined_filename.replace(".nc", "_{}.nc".format(args.output_tag))
-        parsivel_combined_path = os.path.join(PIPS_dir, parsivel_combined_filename)
-        parsivel_combined_ds.to_netcdf(parsivel_combined_path)
+            parsivel_combined_filename.replace(".nc", f"_{args.output_tag}.nc")
+        parsivel_combined_path_new = os.path.join(PIPS_dir, parsivel_combined_filename)
+        parsivel_combined_ds.to_netcdf(parsivel_combined_path_new)
     else:
-        parsivel_combined_ds.to_netcdf(parsivel_combined_path, mode='a')
+        parsivel_combined_ds.to_netcdf(parsivel_combined_path)

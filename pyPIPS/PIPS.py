@@ -1,13 +1,16 @@
 """PIPS.py: a collection of functions to work with data from the PIPS and predecessors."""
+from __future__ import annotations
+
 import numpy as np
 import pandas as pd
 import xarray as xr
+from numba import jit  # noqa: F401
+
+import pyPIPS.parsivel_params as pp
+
 from . import thermolib as thermo
 from . import utils
-import pyPIPS.parsivel_params as pp
-from .parsivel_params import parsivel_parameters
 from .pips_io import combine_parsivel_data
-from numba import jit
 
 deg2rad = np.pi / 180.
 
@@ -82,7 +85,7 @@ def wind_dir_and_speed_from_u_and_v(u, v):
 # TODO: not used right now, but will eventually refactor everything to use xarray DataArrays
 # instead of pandas DataFrames
 def resample_wind_da(wind_dir, wind_spd, intervalstr, offset, gusts=True, gustintvstr='3S',
-                     center=False):
+                     center=False):  # noqa: ARG001
     offset_str = get_interval_str(offset)
     wind_spd_avg = wind_spd.resample(time=intervalstr, label='right', closed='right',
                                      offset=offset_str).mean()
@@ -130,11 +133,11 @@ def resample_wind_da(wind_dir, wind_spd, intervalstr, offset, gusts=True, gustin
 
     wind_ds = xr.Dataset(wind_dict)
 
-    return wind_ds
+    return wind_ds  # noqa: RET504
 
 
 def resample_wind(datetimes, offset, winddirs, windspds, intervalstr, gusts=True, gustintvstr='3S',
-                  center=False):
+                  center=False):  # noqa: ARG001
     """Given a timeseries of wind directions and speeds, and an interval for resampling,
        compute the vector and scalar average wind speed, and vector average wind direction.
        Optionally also compute gusts."""
@@ -208,7 +211,7 @@ def resample_wind(datetimes, offset, winddirs, windspds, intervalstr, gusts=True
 
     wind_df = pd.DataFrame(wind_dict)
 
-    return wind_df
+    return wind_df  # noqa: RET504
 
 
 def resample_compass_da(compass_dir, offset, intervalstr):
@@ -225,7 +228,7 @@ def resample_compass_da(compass_dir, offset, intervalstr):
     # Calculate averaged compass direction
     compass_dir_avg = (270.0 - (180. / np.pi) * np.arctan2(y_avg, x_avg)) % 360.
 
-    return compass_dir_avg
+    return compass_dir_avg  # noqa: RET504
 
 
 def resample_compass(datetimes, compass_dir, offset, intervalstr):
@@ -252,7 +255,7 @@ def resample_compass(datetimes, compass_dir, offset, intervalstr):
 
     # Need to use %360 to keep direction between 0 and 360 degrees
     compass_dir_avg = (270.0 - (180. / np.pi) * np.arctan2(y_avg, x_avg)) % 360.
-    return compass_dir_avg
+    return compass_dir_avg  # noqa: RET504
 
 
 def resample_conv_da(probe_type, resample_interval, sec_offset, conv_ds, gusts=False,
@@ -279,7 +282,7 @@ def resample_conv_da(probe_type, resample_interval, sec_offset, conv_ds, gusts=F
         windspdkey = 'swindspd'
         other_data = ['slowtemp', 'RH', 'pressure', 'dewpoint', 'rho', 'pt', 'qv']
 
-    intervalstr = '{:d}S'.format(int(resample_interval))
+    intervalstr = f'{int(resample_interval):d}S'
 
     # First, resample the winds
     conv_resampled_ds = resample_wind_da(conv_ds[winddirkey], conv_ds[windspdkey], intervalstr,
@@ -305,7 +308,7 @@ def resample_conv_da(probe_type, resample_interval, sec_offset, conv_ds, gusts=F
 
     conv_resampled_ds = xr.merge([conv_resampled_ds, other_resampled_ds])
 
-    return conv_resampled_ds
+    return conv_resampled_ds  # noqa: RET504
 
 
 def resample_conv(probe_type, resample_interval, sec_offset, conv_df, gusts=False, gustintvstr='3S',
@@ -332,7 +335,7 @@ def resample_conv(probe_type, resample_interval, sec_offset, conv_df, gusts=Fals
         windspdkey = 'swindspd'
         other_data = ['slowtemp', 'RH', 'pressure', 'dewpoint', 'rho', 'pt', 'qv']
 
-    intervalstr = '{:d}S'.format(int(resample_interval))
+    intervalstr = f'{int(resample_interval):d}S'
 
     # First, resample the winds
 
@@ -364,7 +367,7 @@ def resample_conv(probe_type, resample_interval, sec_offset, conv_df, gusts=Fals
 
     conv_resampled_df = conv_resampled_df.join(other_resampled_df)
 
-    return conv_resampled_df
+    return conv_resampled_df  # noqa: RET504
 
 
 def check_requested_resampling_interval(requested_interval, sampling_interval):
@@ -383,11 +386,11 @@ def check_requested_resampling_interval(requested_interval, sampling_interval):
         [description]
     """
     resample_index_interval = int(requested_interval / sampling_interval)
-    print("Requested DSD interval: {:.1f}. Actual DSD interval: {:.1f}".format(
-        requested_interval, resample_index_interval * sampling_interval))
+    print(f"Requested DSD interval: {requested_interval:.1f}. Actual DSD interval: "  # noqa: T201
+          f"{resample_index_interval * sampling_interval:.1f}")
     resample_interval = resample_index_interval * sampling_interval
 
-    return resample_interval
+    return resample_interval  # noqa: RET504
 
 
 def resample_vd_matrix(resample_interval, vd_matrix):
@@ -405,7 +408,7 @@ def resample_vd_matrix(resample_interval, vd_matrix):
     [type]
         [description]
     """
-    intervalstr = '{:d}S'.format(int(resample_interval))
+    intervalstr = f'{int(resample_interval):d}S'
 
     # We need to find the offset corresponding to the starting second and then
     # generate the frequency string. Seems like there should be an easier way...
@@ -415,7 +418,7 @@ def resample_vd_matrix(resample_interval, vd_matrix):
     vd_matrix = vd_matrix.resample(time=intervalstr, label='right', closed='right',
                                    offset=sec_offset_str).sum(dim='time').fillna(0)
 
-    return vd_matrix
+    return vd_matrix  # noqa: RET504
 
 
 def resample_parsivel(resample_interval, parsivel_df):
@@ -433,7 +436,7 @@ def resample_parsivel(resample_interval, parsivel_df):
     [type]
         [description]
     """
-    intervalstr = '{:d}S'.format(int(resample_interval))
+    intervalstr = f'{int(resample_interval):d}S'
     # We need to find the offset corresponding to the starting second and then
     # generate the frequency string. Seems like there should be an easier way...
     sec_offset = parsivel_df.index.to_pydatetime()[0].second
@@ -457,7 +460,7 @@ def resample_parsivel(resample_interval, parsivel_df):
                                    'sensor_temp': np.mean,
                                    'sample_interval': np.mean}).fillna(0)
 
-    return parsivel_df
+    return parsivel_df  # noqa: RET504
 
 
 def resample_ND(resample_interval, ND_df):
@@ -475,7 +478,7 @@ def resample_ND(resample_interval, ND_df):
     [type]
         [description]
     """
-    intervalstr = '{:d}S'.format(int(resample_interval))
+    intervalstr = f'{int(resample_interval):d}S'
     # We need to find the offset corresponding to the starting second and then
     # generate the frequency string. Seems like there should be an easier way...
     sec_offset = ND_df.index.to_pydatetime()[0].second
@@ -485,10 +488,11 @@ def resample_ND(resample_interval, ND_df):
     ND_df = ND_df.resample(intervalstr, label='right', closed='right',
                            offset=sec_offset_str).mean().fillna(0)
 
-    return ND_df
+    return ND_df  # noqa: RET504
 
 
-def calc_ND(vd_matrix, fallspeed_spectrum, sample_interval, use_measured_fallspeed=True):
+def calc_ND(vd_matrix, fallspeed_spectrum, sample_interval, use_measured_fallspeed=True,
+            num_PIPS=1):
     """Computes the binned number density from the disdrometer (m^-3 mm^-1)
 
     Parameters
@@ -499,6 +503,10 @@ def calc_ND(vd_matrix, fallspeed_spectrum, sample_interval, use_measured_fallspe
         Velocity spectrum
     sample_interval : array_like
         Time interval of DSD integration
+    use_measured_fallspeed : bool, optional
+        Use measured fallspeeds, by default True
+    num_PIPS : int, optional
+        Number of (collocated) PIPS probes, by default 1
 
     Returns
     -------
@@ -506,7 +514,7 @@ def calc_ND(vd_matrix, fallspeed_spectrum, sample_interval, use_measured_fallspe
         Binned number density (m^-3 mm^-1)
     """
     eff_sensor_area = xr.DataArray(pp.parsivel_parameters['eff_sensor_area_mm2'],
-                                   dims=['diameter_bin']) * 1.e-6  # Get to m2
+                                   dims=['diameter_bin']) * num_PIPS * 1.e-6  # Get to m2
     bin_width = xr.DataArray((pp.parsivel_parameters['max_diameter_bins_mm'] -
                               pp.parsivel_parameters['min_diameter_bins_mm']),
                              dims=['diameter_bin'])
@@ -520,21 +528,46 @@ def calc_ND(vd_matrix, fallspeed_spectrum, sample_interval, use_measured_fallspe
     return ND
 
 
-def calc_ND_onedrop(sample_interval, correct_rho=False, rho=None):
+def calc_ND_onedrop(sample_interval, correct_rho=False, rho=None, num_PIPS=1, time_dim='time'):
+    """
+    Calculate the number concentration for a single drop per bin for a given sample interval.
 
+    Parameters
+    ----------
+    sample_interval : float
+        The interval at which samples are taken.
+    correct_rho : bool, optional
+        Whether to correct the density, by default False.
+    rho : xarray.DataArray, optional
+        The density data, by default None.
+    num_PIPS : int, optional
+        The number of Parsivel disdrometers, by default 1.
+    time_dim : str, optional
+        The name of the time dimension, by default 'time'.
+
+    Returns
+    -------
+    xarray.DataArray
+        The number concentration of drops.
+
+    Notes
+    -----
+    The function calculates the fall speed spectrum and the velocity-diameter matrix.
+    It then calculates the number concentration using these values and the provided sample interval.
+    """
     diameter_bins = pp.parsivel_parameters['avg_diameter_bins_mm']
     fallspeed_bins = pp.parsivel_parameters['avg_fallspeed_bins_mps']
 
     fallspeed_spectrum = calc_fallspeed_spectrum(diameter_bins, fallspeed_bins,
                                                  correct_rho=correct_rho, rho=rho,
-                                                 use_measured_fallspeed=False)
-    if 'time' in rho.dims:
+                                                 use_measured_fallspeed=False, time_dim=time_dim)
+    if time_dim in rho.dims:
         vd_matrix_onedrop = np.ones((rho.size, 1, diameter_bins.size))
         coords = {
-            'time': rho['time'],
+            time_dim: rho[time_dim],
             'diameter': ('diameter_bin', diameter_bins),
         }
-        dims = ['time', 'fallspeed_bin', 'diameter_bin']
+        dims = [time_dim, 'fallspeed_bin', 'diameter_bin']
     else:
         vd_matrix_onedrop = np.ones((1, diameter_bins.size))
         coords = {
@@ -547,12 +580,14 @@ def calc_ND_onedrop(sample_interval, correct_rho=False, rho=None):
                      coords=coords,
                      dims=dims)
 
-    ND_onedrop = calc_ND(vd_matrix_onedrop_da, fallspeed_spectrum, sample_interval)
-    return ND_onedrop
+    ND_onedrop = calc_ND(vd_matrix_onedrop_da, fallspeed_spectrum, sample_interval,
+                         num_PIPS=num_PIPS)
+    return ND_onedrop  # noqa: RET504
 
 
 def calc_fallspeed_spectrum(diameter_bins, fallspeed_bins,
-                            correct_rho=False, rho=None, use_measured_fallspeed=True):
+                            correct_rho=False, rho=None, use_measured_fallspeed=True,
+                            time_dim='time'):
     """[summary]
 
     Parameters
@@ -567,6 +602,8 @@ def calc_fallspeed_spectrum(diameter_bins, fallspeed_bins,
         [description], by default None
     use_measured_fallspeed : bool, optional
         [description], by default True
+    time_dim : str, optional
+        Name of the time dimension, by default 'time'
 
     Returns
     -------
@@ -578,12 +615,12 @@ def calc_fallspeed_spectrum(diameter_bins, fallspeed_bins,
                                                       rho=rho)
         # print('rho', rho)
         # exit
-        if 'time' in rho.dims:
+        if time_dim in rho.dims:
             coords = {
-                'time': rho['time'],
+                time_dim: rho[time_dim],
                 'diameter': ('diameter_bin', diameter_bins),
             }
-            dims = ['time', 'diameter_bin']
+            dims = [time_dim, 'diameter_bin']
         else:
             coords = {
                 'diameter': ('diameter_bin', diameter_bins),
@@ -619,7 +656,7 @@ def calc_empirical_fallspeed(d, correct_rho=False, rho=None):
     # where rho0 = 1.204 kg/m^3 -- that corresponding to a T of 20 C and pressure of 1013 mb.
 
     if correct_rho and rho is not None:
-        v = v[:, None] * (1.204 / rho.values)**(0.4)
+        v = v[:, None] * (1.204 / rho.to_numpy())**(0.4)
         v = v.squeeze()
         v = np.atleast_1d(v)
         v = v.T
@@ -634,16 +671,16 @@ def avgwind(winddirs, windspds, avgintv, gusts=True, gustintv=3, center=True):
     windspdsavg = pd.Series(windspds).rolling(
         window=avgintv,
         center=center,
-        min_periods=1).mean().values
+        min_periods=1).mean().to_numpy()
     if gusts:
         windgusts = pd.Series(windspds).rolling(
             window=gustintv,
             center=center,
-            min_periods=1).mean().values
+            min_periods=1).mean().to_numpy()
         windgustsavg = pd.Series(windgusts).rolling(
             window=avgintv,
             center=center,
-            min_periods=1).max().values
+            min_periods=1).max().to_numpy()
     else:
         windgusts = None
         windgustsavg = None
@@ -660,11 +697,11 @@ def avgwind(winddirs, windspds, avgintv, gusts=True, gustintv=3, center=True):
     usavg = pd.Series(us).rolling(
         window=avgintv,
         center=center,
-        min_periods=1).mean().values
+        min_periods=1).mean().to_numpy()
     vsavg = pd.Series(vs).rolling(
         window=avgintv,
         center=center,
-        min_periods=1).mean().values
+        min_periods=1).mean().to_numpy()
     windspdsavgvec = np.sqrt(usavg**2. + vsavg**2.)
     winddirsavgvec = (270.0 - (180. / np.pi) * np.arctan2(vsavg, usavg)
                       ) % 360.  # Need to use %360 to keep wind dir between 0 and 360 degrees
@@ -682,7 +719,7 @@ def get_datetimes(PIPS_ds, dim_name='time'):
     return pd.to_datetime(PIPS_ds[dim_name].values).to_pydatetime()
 
 
-def get_conv_datetimes(conv_df, dim_name='time'):
+def get_conv_datetimes(conv_df, dim_name='time'):  # noqa: ARG001
     return conv_df.index.to_pydatetime()
 
 
@@ -693,28 +730,28 @@ def get_PSD_time_bins(PSD_datetimes):
     PSD_datetimes_edges = PSD_datetimes - PSD_interval_td
     last_edge = np.array(PSD_datetimes_edges[-1] + PSD_interval_td)
     PSD_datetimes_edges = np.append(PSD_datetimes_edges, last_edge)
-    PSD_datetimes_centers = PSD_datetimes - PSD_half_interval_td
+    PSD_datetimes_centers = np.array(PSD_datetimes - PSD_half_interval_td)
 
     return {'PSD_datetimes': PSD_datetimes, 'PSD_datetimes_edges': PSD_datetimes_edges,
             'PSD_datetimes_centers': PSD_datetimes_centers}
 
 
 def get_interval_str(interval):
-    return '{:d}S'.format(int(interval))
+    return f'{int(interval):d}S'
 
 
 def calc_parsivel_wind_angle(wind_dir, compass_dir, parsivel_angle):
     parsivel_true = np.mod(compass_dir + parsivel_angle, 360.)
     parsivel_wind_diff = wind_dir - parsivel_true
     parsivel_wind_diff = np.abs(np.rad2deg(np.arcsin(np.sin(np.deg2rad(parsivel_wind_diff)))))
-    return parsivel_wind_diff
+    return parsivel_wind_diff  # noqa: RET504
 
 
 def reindex_velocity_bins(VD_matrix, interval):
     # Set up new regularly spaced bin edges
     min_fallspeed = VD_matrix.coords['min_fallspeeds'][0]
     max_fallspeed = VD_matrix.coords['max_fallspeeds'][-1]
-    new_vt_bin_edges = np.arange(min_fallspeed, max_fallspeed+interval, interval)
+    new_vt_bin_edges = np.arange(min_fallspeed, max_fallspeed + interval, interval)
     new_min_vt_bins = np.delete(new_vt_bin_edges, -1)
     new_max_vt_bins = np.delete(new_vt_bin_edges, 0)
     new_center_vt_bins = 0.5 * (new_min_vt_bins + new_max_vt_bins)
@@ -750,7 +787,7 @@ def calc_mean_velocity(vd_matrix_rebinned):
         mean_vel_d = vel_weighted.mean('fallspeed_bin')
         mean_vels.append(mean_vel_d)
     mean_vel = xr.concat(mean_vels, dim='diameter_bin')
-    return mean_vel
+    return mean_vel  # noqa: RET504
 
 
 def shift_mean_velocity(vd_matrix_rebinned, vt_rain):
@@ -759,14 +796,14 @@ def shift_mean_velocity(vd_matrix_rebinned, vt_rain):
     # TODO: This is painfully slow and memory-intensive for large timeseries of DSDs.
     # Need to optimize!
     vel_interval = (vd_matrix_rebinned['fallspeed_bin'][1] -
-                    vd_matrix_rebinned['fallspeed_bin'][0].values)
+                    vd_matrix_rebinned['fallspeed_bin'][0].to_numpy())
     # print(vel_interval)
     mean_vel = calc_mean_velocity(vd_matrix_rebinned)
     time_flag = 'time' in vd_matrix_rebinned.dims
     if time_flag:
-        vt_rain = vt_rain.stack(stack_dim=['time', 'diameter_bin'])
-        mean_vel = mean_vel.stack(stack_dim=['time', 'diameter_bin'])
-        vd_matrix_rebinned = vd_matrix_rebinned.stack(stack_dim=['time', 'diameter_bin'])
+        vt_rain = vt_rain.stack(stack_dim=['time', 'diameter_bin'])  # noqa: PD013
+        mean_vel = mean_vel.stack(stack_dim=['time', 'diameter_bin'])  # noqa: PD013
+        vd_matrix_rebinned = vd_matrix_rebinned.stack(stack_dim=['time', 'diameter_bin'])  # noqa: PD013
         groupby_dims = 'stack_dim'
     else:
         groupby_dims = 'diameter_bin'
@@ -774,24 +811,21 @@ def shift_mean_velocity(vd_matrix_rebinned, vt_rain):
     mean_vel_d_groups = mean_vel.groupby(groupby_dims, squeeze=False)
     vel_da_groups = vd_matrix_rebinned.groupby(groupby_dims, squeeze=False)
     if time_flag:
-        vd_matrix_rebinned = vd_matrix_rebinned.unstack('stack_dim')
+        vd_matrix_rebinned = vd_matrix_rebinned.unstack('stack_dim')  # noqa: PD010
     for vt_l, mean_vel_l, vel_da_l in zip(list(vt_d_groups), list(mean_vel_d_groups),
                                           list(vel_da_groups)):
         vt_d = vt_l[1]
         mean_vel_d = mean_vel_l[1]
         vel_da = vel_da_l[1]
         vt_diff = vt_d - mean_vel_d
-        if np.isfinite(vt_diff.values):
-            vt_shift = int(vt_diff / vel_interval)
-        else:
-            vt_shift = 0
+        vt_shift = int(vt_diff / vel_interval) if np.isfinite(vt_diff.to_numpy()) else 0
         vel_da = vel_da.shift(fallspeed_bin=vt_shift)
         if time_flag:
-            vel_da = vel_da.unstack('stack_dim')
-            vd_matrix_rebinned.loc[dict(time=vel_da['time'].values,
-                                        diameter_bin=vel_da['diameter_bin'].values)] = vel_da
+            vel_da = vel_da.unstack('stack_dim')  # noqa: PD010
+            vd_matrix_rebinned.loc[{'time': vel_da['time'].to_numpy(),
+                                    'diameter_bin': vel_da['diameter_bin'].to_numpy()}] = vel_da
         else:
-            vd_matrix_rebinned.loc[dict(diameter_bin=vel_da['diameter_bin'])] = vel_da
+            vd_matrix_rebinned.loc[{'diameter_bin': vel_da['diameter_bin']}] = vel_da
     return vd_matrix_rebinned
 
 
@@ -808,7 +842,7 @@ def rebin_to_parsivel(vd_matrix_rebinned):
     vd_matrix.coords['fallspeed'] = ('fallspeed_bin', avg_fall_bins)
     # Get the dimensions back into their original order
     vd_matrix = vd_matrix.transpose('time', 'fallspeed_bin', 'diameter_bin')
-    return vd_matrix
+    return vd_matrix  # noqa: RET504
 
 
 def correct_ND_RB15(parsivel_ds, ND_name='ND_RB15_vshift_qc'):
@@ -836,6 +870,6 @@ def correct_ND_RB15(parsivel_ds, ND_name='ND_RB15_vshift_qc'):
 
 
 def calc_stats(ds, var_x, var_y):
-    bias = (100. * (ds[var_y] - ds[var_x]).mean() / ds[var_x].mean()).values
+    bias = (100. * (ds[var_y] - ds[var_x]).mean() / ds[var_x].mean()).to_numpy()
     cc = pd.DataFrame({'x': ds[var_x], 'y': ds[var_y]}).corr()
     return cc, bias

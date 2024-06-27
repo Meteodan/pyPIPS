@@ -1,13 +1,13 @@
 """pyPIPS.parsivel_qc: contains functions for QC of Parsivel data. Mainly based on IDL routines
    from Katja Friedrich (CU)
 """
+from __future__ import annotations
 
 import numpy as np
 from numpy import ma
-from . import parsivel_params
-from . import PIPS
-from .utils import enable_xarray_wrapper
 
+from . import PIPS, parsivel_params
+from .utils import enable_xarray_wrapper
 
 # This dictionary contains mappings of QC "groups" as keys with the values being
 # dictionaries of the appropriate QC flags for that group. Replaces the old way of using
@@ -54,8 +54,7 @@ bottom = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
           0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 top = [0, 1, 4, 7, 9, 11, 12, 13, 14, 14, 15, 16, 16, 0,
        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-splashingmask = [[True if bottom[j] <= i <= top[j]
-                  else False for i in range(32)] for j in range(32)]
+splashingmask = [[bottom[j] <= i <= top[j] for i in range(32)] for j in range(32)]
 splashingmask = np.array(splashingmask).T
 
 # Create mask for margin falls
@@ -64,7 +63,7 @@ bottom = [0, 8, 14, 17, 20, 21, 22, 23, 24, 25, 26, 26, 27, 27,
 top = np.arange((32), dtype='int')
 top[:] = 31
 top[23:32] = 0
-marginmask = [[True if bottom[j] <= i <= top[j] else False for i in range(32)] for j in range(32)]
+marginmask = [[bottom[j] <= i <= top[j] for i in range(32)] for j in range(32)]
 marginmask = np.array(marginmask).T
 
 # Create mask for non-raindrops
@@ -72,7 +71,7 @@ bottom = [0, 1, 4, 7, 9, 11, 12, 13, 14, 14, 15, 16, 16, 19, 19,
           20, 20, 21, 21, 21, 23, 24, 24, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 top = [0, 8, 14, 17, 20, 21, 22, 23, 24, 25, 26, 26, 27, 27, 28,
        28, 29, 29, 29, 30, 30, 30, 30, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-rainonlymask = [[False if bottom[j] < i < top[j] else True for i in range(32)] for j in range(32)]
+rainonlymask = [[not bottom[j] < i < top[j] for i in range(32)] for j in range(32)]
 rainonlymask = np.array(rainonlymask).T
 
 # Create mask for non-hail
@@ -80,7 +79,7 @@ bottom = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
           0, 0, 0, 15, 15, 16, 16, 17, 17, 18, 19, 19, 20, 20, 20]
 top = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
        0, 0, 0, 24, 25, 25, 31, 32, 32, 32, 32, 32, 32, 32, 32]
-hailonlymask = [[False if bottom[j] < i < top[j] else True for i in range(32)] for j in range(32)]
+hailonlymask = [[not bottom[j] < i < top[j] for i in range(32)] for j in range(32)]
 hailonlymask = np.array(hailonlymask).T
 
 # Create mask for strong wind conditions
@@ -124,9 +123,9 @@ def get_fallspeed_mask(diam_bins, fall_bins, masklow=True, maskhigh=True, fallto
     if maskhigh and masklow:
         fallspeedmask = np.where(np.abs((X - Y) / X) < falltol, False, True)
     elif masklow:     # Mask out speeds lower than tolerance
-        fallspeedmask = np.where((Y - X) / X < -falltol, True, False)
+        fallspeedmask = np.where((Y - X) / X < -falltol, True, False)  # noqa: SIM300
     elif maskhigh:               # Mask out speeds higher than tolerance
-        fallspeedmask = np.where((Y - X) / X > falltol, True, False)
+        fallspeedmask = np.where((Y - X) / X > falltol, True, False)  # noqa: SIM300
     else:
         fallspeedmask = None
 
@@ -139,7 +138,7 @@ def truncatedspectrumQC(countsMatrix):
        was truncated"""
     countsMatrix = ma.masked_array(countsMatrix, mask=np.where(countsMatrix == -999, True, False))
 
-    return countsMatrix
+    return countsMatrix  # noqa: RET504
 
 
 # FIXME: I can't get this function to work with allowing either xarray or regular numpy arrays,
@@ -153,7 +152,7 @@ def strongwindQC(countsMatrix):
        a low fall velocity (< 1 m/s)."""
 
     numtimes = np.size(countsMatrix, axis=0)
-    flaggedtimes = []
+    # flaggedtimes = []
 
     countsMatrix['flagged_times'] = ('time', range(numtimes))
     # Flag times that contain wind contamination
@@ -177,12 +176,12 @@ def strongwindQC(countsMatrix):
 #             flaggedtimes.append(0)
 
         if baddrops > 0:
-            print("Severe Wind contamination, masking entire PSD!")
-            countsMatrix[dict(time=t)] = np.nan  # [t, :] = np.nan
-            countsMatrix['flagged_times'][dict(time=t)] = 2
+            print("Severe Wind contamination, masking entire PSD!")  # noqa: T201
+            countsMatrix[{'time': t}] = np.nan  # [t, :] = np.nan
+            countsMatrix['flagged_times'][{'time': t}] = 2
             # flaggedtimes.append(2)
         else:
-            countsMatrix['flagged_times'][dict(time=t)] = 0
+            countsMatrix['flagged_times'][{'time': t}] = 0
             # flaggedtimes.append(0)
 
     # countsMatrix = ma.masked_array(countsMatrix, mask=np.where(countsMatrix == -999., True,
@@ -226,7 +225,6 @@ def rainonlyQC(countsMatrix):
        not raindrops"""
 
     numtimes = np.size(countsMatrix, axis=0)
-    print(numtimes)
     masktimes = np.zeros((numtimes, 32, 32), dtype=bool)
 
     # Remove particles that are probably not rain
@@ -235,7 +233,7 @@ def rainonlyQC(countsMatrix):
 
     countsMatrix = ma.masked_array(countsMatrix, mask=masktimes)
 
-    return countsMatrix
+    return countsMatrix  # noqa: RET504
 
 
 @enable_xarray_wrapper
@@ -269,7 +267,7 @@ def rainfallspeedQC(countsMatrix, fallspeedmask):
 
     countsMatrix = ma.masked_array(countsMatrix, mask=masktimes)
 
-    return countsMatrix
+    return countsMatrix  # noqa: RET504
 
 
 @enable_xarray_wrapper
@@ -284,7 +282,7 @@ def maskhighdiamQC(countsMatrix):
     mask[:, :, diamindex:] = 1
     countsMatrix = ma.masked_array(countsMatrix, mask=mask)
 
-    return countsMatrix
+    return countsMatrix  # noqa: RET504
 
 
 @enable_xarray_wrapper
@@ -299,7 +297,7 @@ def masklowdiamQC(countsMatrix):
     mask[:, :, :diamindex] = 1
     countsMatrix = ma.masked_array(countsMatrix, mask=mask)
 
-    return countsMatrix
+    return countsMatrix  # noqa: RET504
 
 
 def get_qr_mask(qr_thresh, qr_bin):

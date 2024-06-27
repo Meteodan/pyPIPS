@@ -1,12 +1,14 @@
-import matplotlib
+from __future__ import annotations
+
+import matplotlib as mpl
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-import modules.plotmodule as pm
+import plotmodule as pm
 from matplotlib.font_manager import FontProperties
 
 font = {'size': 10}
-matplotlib.rc('font', **font)
+mpl.rc('font', **font)
 
 fontP = FontProperties()
 fontP.set_size('small')
@@ -105,14 +107,12 @@ def retr_timeseries(obs, mm, retr_rad, retr_dis, pstartindex, pstopindex,
     ax1 = pm.plotmeteogram(ax1, xvals, fields, fieldparamdicts)
     axparamdicts = [axparamdict1]
     ax1, = pm.set_meteogram_axes([ax1], axparamdicts)
-    if (name == 'Nt' or name == 'R'):
+    if name in {'Nt', 'R'}:
         ax1.set_yscale('log')
-    ax1.text(0.05, 0.93, 'Dis Retr. Bias =%2.2f' % bias_dis + '%', transform=ax1.transAxes)
-    ax1.text(0.05, 0.86, 'Rad Retr. Bias =%2.2f' % bias_rad + '%', transform=ax1.transAxes)
-    ax1.text(0.05, 0.79, 'Dis Retr. Corr Coeff =%2.3f' %
-             cc_dis.iloc[0, 1], transform=ax1.transAxes)
-    ax1.text(0.05, 0.72, 'Rad Retr. Corr Coeff =%2.3f' %
-             cc_rad.iloc[0, 1], transform=ax1.transAxes)
+    ax1.text(0.05, 0.93, f'Dis Retr. Bias ={bias_dis:2.2f}' + '%', transform=ax1.transAxes)
+    ax1.text(0.05, 0.86, f'Rad Retr. Bias ={bias_rad:2.2f}' + '%', transform=ax1.transAxes)
+    ax1.text(0.05, 0.79, f'Dis Retr. Corr Coeff ={cc_dis.iloc[0, 1]:2.3f}', transform=ax1.transAxes)
+    ax1.text(0.05, 0.72, f'Rad Retr. Corr Coeff ={cc_rad.iloc[0, 1]:2.3f}', transform=ax1.transAxes)
     ax1.legend(
         bbox_to_anchor=(
             1.,
@@ -161,12 +161,10 @@ def dis_retr_timeseries(obs, retr_rad, retr_dis, pstartindex, pstopindex,
     ax1 = pm.plotmeteogram(ax1, xvals, fields, fieldparamdicts)
     axparamdicts = [axparamdict1]
     ax1, = pm.set_meteogram_axes([ax1], axparamdicts)
-    ax1.text(0.05, 0.93, 'Dis Retr. Bias =%2.2f' % bias_dis + '%', transform=ax1.transAxes)
-    ax1.text(0.05, 0.86, 'Rad Retr. Bias =%2.2f' % bias_rad + '%', transform=ax1.transAxes)
-    ax1.text(0.05, 0.79, 'Dis Retr. Corr Coeff =%2.3f' %
-             cc_dis.iloc[0, 1], transform=ax1.transAxes)
-    ax1.text(0.05, 0.72, 'Rad Retr. Corr Coeff =%2.3f' %
-             cc_rad.iloc[0, 1], transform=ax1.transAxes)
+    ax1.text(0.05, 0.93, f'Dis Retr. Bias ={bias_dis:2.2f}' + '%', transform=ax1.transAxes)
+    ax1.text(0.05, 0.86, f'Rad Retr. Bias ={bias_rad:2.2f}' + '%', transform=ax1.transAxes)
+    ax1.text(0.05, 0.79, f'Dis Retr. Corr Coeff ={cc_dis.iloc[0, 1]:2.3f}', transform=ax1.transAxes)
+    ax1.text(0.05, 0.72, f'Rad Retr. Corr Coeff ={cc_rad.iloc[0, 1]:2.3f}', transform=ax1.transAxes)
     ax1.legend(
         bbox_to_anchor=(
             1.,
@@ -205,8 +203,8 @@ def zh_zdr_timeseries(obs_rad, obs_dis, pstartindex, pstopindex,
     ax1 = pm.plotmeteogram(ax1, xvals, fields, fieldparamdicts)
     axparamdicts = [axparamdict1]
     ax1, = pm.set_meteogram_axes([ax1], axparamdicts)
-    ax1.text(0.05, 0.93, 'Bias =%2.2f' % bias + '%', transform=ax1.transAxes)
-    ax1.text(0.05, 0.86, 'Corr Coeff =%2.3f' % cc.iloc[0, 1], transform=ax1.transAxes)
+    ax1.text(0.05, 0.93, f'Bias ={bias:2.2f}' + '%', transform=ax1.transAxes)
+    ax1.text(0.05, 0.86, f'Corr Coeff ={cc.iloc[0, 1]:2.3f}', transform=ax1.transAxes)
     ax1.legend(
         bbox_to_anchor=(
             1.,
@@ -221,22 +219,22 @@ def zh_zdr_timeseries(obs_rad, obs_dis, pstartindex, pstopindex,
 
 
 def one2one(obs, mm, retr_dis, retr_rad, image_dir, dis_name, name, obs_rain):
-    if(name == 'R'):
+    if name == 'R':
         maxlim = 10**-1.
         minlim = 10**-4.
         yscale = 'log'
         label = 'R/Zh'
-    if(name == 'D0'):
+    if name == 'D0':
         maxlim = 4.0
         minlim = 0.0
         yscale = 'linear'
         label = 'D0'
-    if(name == 'Nt'):
+    if name == 'Nt':
         maxlim = 100.0
         minlim = 10**-3.
         yscale = 'log'
         label = 'Nt/Zh'
-    if(name == 'W'):
+    if name == 'W':
         maxlim = 10**-2.
         minlim = 10**-6.
         yscale = 'log'
@@ -262,10 +260,10 @@ def one2one(obs, mm, retr_dis, retr_rad, image_dir, dis_name, name, obs_rain):
     ax1.set_xlabel('Observed' + label)
     ax1.set_ylabel('Calculated' + label)
     ax1.plot(one_x, one_y, lw=2, color='k')
-    ax1.text(0.6, 0.20, 'Dis Retr. Bias =%2.2f' % bias_dis + '%', transform=ax1.transAxes)
-    ax1.text(0.6, 0.15, 'Rad Retr. Bias =%2.2f' % bias_rad + '%', transform=ax1.transAxes)
-    ax1.text(0.6, 0.10, 'Dis Retr. Corr Coeff =%2.3f' % cc_dis.iloc[0, 1], transform=ax1.transAxes)
-    ax1.text(0.6, 0.05, 'Rad Retr. Corr Coeff =%2.3f' % cc_rad.iloc[0, 1], transform=ax1.transAxes)
+    ax1.text(0.6, 0.20, f'Dis Retr. Bias ={bias_dis:2.2f}' + '%', transform=ax1.transAxes)
+    ax1.text(0.6, 0.15, f'Rad Retr. Bias ={bias_rad:2.2f}' + '%', transform=ax1.transAxes)
+    ax1.text(0.6, 0.10, f'Dis Retr. Corr Coeff ={cc_dis.iloc[0, 1]:2.3f}', transform=ax1.transAxes)
+    ax1.text(0.6, 0.05, f'Rad Retr. Corr Coeff ={cc_rad.iloc[0, 1]:2.3f}', transform=ax1.transAxes)
     plt.legend(loc='upper left', numpoints=1, ncol=1, fontsize=12.)
     plt.savefig(
         image_dir +
@@ -280,22 +278,22 @@ def one2one(obs, mm, retr_dis, retr_rad, image_dir, dis_name, name, obs_rain):
 
 
 def outer_one2one(obs, mm, retr_rad, image_dir, name, obs_rain):
-    if(name == 'R'):
+    if name == 'R':
         maxlim = 10**-1.
         minlim = 10**-4.
         yscale = 'log'
         label = 'R/Zh'
-    if(name == 'D0'):
+    if name == 'D0':
         maxlim = 5.0
         minlim = 0.0
         yscale = 'linear'
         label = 'D0'
-    if(name == 'Nt'):
+    if name == 'Nt':
         maxlim = 10**2.
         minlim = 10**-3.
         yscale = 'log'
         label = 'Nt/Zh'
-    if(name == 'W'):
+    if name == 'W':
         maxlim = 10**-2.
         minlim = 10**-6.
         yscale = 'log'
@@ -320,30 +318,30 @@ def outer_one2one(obs, mm, retr_rad, image_dir, name, obs_rain):
     ax1.set_xlabel('Observed' + label)
     ax1.set_ylabel('Calculated' + label)
     ax1.plot(one_x, one_y, lw=2, color='k')
-    ax1.text(0.6, 0.20, 'Retr Bias =%2.2f' % bias_retr + '%', transform=ax1.transAxes)
-    ax1.text(0.6, 0.15, 'Moments Bias =%2.2f' % bias_mm + '%', transform=ax1.transAxes)
-    ax1.text(0.6, 0.10, 'Retr Corr Coeff =%2.3f' % cc_retr.iloc[0, 1], transform=ax1.transAxes)
-    ax1.text(0.6, 0.05, 'Moments Corr Coeff =%2.3f' % cc_mm.iloc[0, 1], transform=ax1.transAxes)
+    ax1.text(0.6, 0.20, f'Retr Bias ={bias_retr:2.2f}' + '%', transform=ax1.transAxes)
+    ax1.text(0.6, 0.15, f'Moments Bias ={bias_mm:2.2f}' + '%', transform=ax1.transAxes)
+    ax1.text(0.6, 0.10, f'Retr Corr Coeff ={cc_retr.iloc[0, 1]:2.3f}', transform=ax1.transAxes)
+    ax1.text(0.6, 0.05, f'Moments Corr Coeff ={cc_mm.iloc[0, 1]:2.3f}', transform=ax1.transAxes)
     plt.legend(loc='upper left', numpoints=1, ncol=1, fontsize=12.)
     plt.savefig(image_dir + 'one-to-' + name + '.png', dpi=200, bbox_inches='tight')
     plt.close(fig1)
 
 
-def scatters(obs, mm, retr_dis, retr_rad, ZDR_rad, ZDR, DSDmidtimes, image_dir, dis_name, name):
+def scatters(obs, mm, retr_dis, retr_rad, ZDR_rad, ZDR, DSDmidtimes, image_dir, dis_name, name):  # noqa: ARG001
 
-    if(name == 'D0'):
+    if name == 'D0':
         ymin = 0.0
         ymax = 3.5
         ylabel = 'D0'
-    if(name == 'W'):
+    if name == 'W':
         ymin = -6.0
         ymax = -1.0
         ylabel = 'log(W/Zh)'
-    if(name == 'R'):
+    if name == 'R':
         ymin = -4.0
         ymax = -1.0
         ylabel = 'log(R/Zh)'
-    if(name == 'Nt'):
+    if name == 'Nt':
         ymin = -2.5
         ymax = 1.5
         ylabel = 'log(Nt/Zh)'
@@ -372,7 +370,7 @@ def scatters(obs, mm, retr_dis, retr_rad, ZDR_rad, ZDR, DSDmidtimes, image_dir, 
 
 
 def PIPS(obs_1A, obs_1B, obs_2A, obs_2B, ZDR_1A, ZDR_1B, ZDR_2A,
-         ZDR_2B, ymin, ymax, image_dir, dis_name, name, ylabel):
+         ZDR_2B, ymin, ymax, image_dir, dis_name, name, ylabel):  # noqa: ARG001
 
     fig1 = plt.figure(figsize=(8, 8))
     ax1 = fig1.add_subplot(111)

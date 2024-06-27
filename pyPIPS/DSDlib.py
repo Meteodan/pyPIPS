@@ -2,15 +2,21 @@
 DSDlib.py: This is a library of functions to calculate various DSD-related parameters
 Some of these were originally written in fortran but re-written using python and numpy
 """
+from __future__ import annotations
+
+import contextlib
 
 import numpy as np
-from scipy.special import gamma as gamma_, gammainc as gammap, gammaln as gammln
-from . import thermolib as thermo
-from . import PIPS as PIPS
-from . import radarmodule as radar
-from .utils import first_nonzero, last_nonzero, enable_xarray_wrapper
 import xarray as xr
 from numba import jit
+from scipy.special import gamma as gamma_
+from scipy.special import gammainc as gammap
+from scipy.special import gammaln as gammln
+
+from . import PIPS
+from . import radarmodule as radar
+from . import thermolib as thermo
+from .utils import enable_xarray_wrapper, first_nonzero, last_nonzero
 
 # Some physical constants
 rhol = 1000.  # density of liquid water (kg / m^3)
@@ -130,7 +136,7 @@ def calc_Zr_lin_gamma(rhoa, q, Nt, alpha):
     Gr = ((6. + alpha) * (5. + alpha) * (4. + alpha)) / \
         ((3. + alpha) * (2. + alpha) * (1. + alpha))
     Zr = ((1. / cmr)**2.) * Gr * ((rhoa * q)**2.) / Nt
-    return Zr
+    return Zr  # noqa: RET504
 
 
 def calc_Nt_gamma(rhoa, q, N0, cx, alpha):
@@ -159,7 +165,7 @@ def calc_Nt_gamma(rhoa, q, N0, cx, alpha):
     Ntx = (N0 * gamma1alp)**(3.0 / (4.0 + alpha)) * \
         ((gamma1alp / gamma4alp) * rhoa * q / cx)**((1.0 + alpha) / (4.0 + alpha))
 
-    return Ntx
+    return Ntx  # noqa: RET504
 
 
 @enable_xarray_wrapper
@@ -188,7 +194,7 @@ def calc_lamda_gamma(rhoa, q, Ntx, cx, alpha):
     lamda = ((gamma4alp / gamma1alp) * cx * Ntx / (rhoa * q))**(1.0 / 3.0)
     lamda = np.where(rhoa * q > 0.0, lamda, 0.0)
 
-    return lamda
+    return lamda  # noqa: RET504
 
 
 @enable_xarray_wrapper
@@ -222,15 +228,13 @@ def calc_N0_gamma(rhoa, q, Ntx, cx, alpha):
 
     lamda = calc_lamda_gamma(rhoa, q, Ntx, cx, alpha)
     lamda = lamda.astype(np.float64)
-    try:
+    with contextlib.suppress(AttributeError, TypeError, ValueError):
         alpha = alpha.astype(np.float64)
-    except Exception:
-        pass
 
     N0 = Ntx * lamda**(0.50 * (1.0 + alpha)) * \
         (1.0 / gamma1alp) * lamda**(0.50 * (1.0 + alpha))
     N0 = np.where(lamda >= 0.0, N0, 0.0)
-    return N0
+    return N0  # noqa: RET504
 
 
 @enable_xarray_wrapper
@@ -265,7 +269,7 @@ def calc_N0_norm_gamma(N0, alpha, lamda):
                     alpha) * gamma4alp * (128.0 / 3.0) / \
         ((4.0 + alpha)**(4.0 + alpha))
     N0_norm = np.where(lamda >= 0.0, N0_norm, 0.0)
-    return N0_norm
+    return N0_norm  # noqa: RET504
 
 
 @enable_xarray_wrapper
@@ -288,7 +292,7 @@ def calc_Dm_gamma(rhoa, q, Ntx, cx):
     Dm = (rhoa * q / (cx * Ntx))**(1. / 3.)
     Dm = np.where(Ntx > 0.0, Dm, 0.0)
 
-    return Dm
+    return Dm  # noqa: RET504
 
 
 @enable_xarray_wrapper
@@ -398,7 +402,7 @@ def calc_D0_bin(ND, diameter_dim_name='diameter_bin'):
     # a given bin bounded by Dl and Dr which contains the half-mass point
     D0 = b1 + ((0.5 - pro_cumsum_med_m1) / pro_med) * (b2 - b1)
     # Don't let D0 be any smaller than the midpoint of the smallest bin
-    D0 = D0.where(D0 >= Dm[0], other=Dm[0])
+    D0 = D0.where(D0 >= Dm[0], other=Dm[0])  # noqa: SIM300
     # Set to NaN whereever there is no DSD
     D0 = D0.where(M3 > 0.)
     # Finally remove coordinates that we don't need (there's some issue with xarray where
@@ -407,7 +411,7 @@ def calc_D0_bin(ND, diameter_dim_name='diameter_bin'):
     # TODO 05/12/2020. After above modifications to use where() instead of fancy indexing
     # this step doesn't appear to be needed anymore. Suspicious...
     # D0 = D0.reset_coords(names=['diameter', 'min_diameter', 'max_diameter'], drop=True)
-    return D0
+    return D0  # noqa: RET504
 
 
 @enable_xarray_wrapper
@@ -452,7 +456,7 @@ def diag_alpha(varid_qscalar, Dm):
 
     alpha = np.minimum(alpha, alphaMAX)
 
-    return alpha
+    return alpha  # noqa: RET504
 
 
 @enable_xarray_wrapper
@@ -481,7 +485,7 @@ def solve_alpha(rhoa, cx, q, Ntx, Z):
 
     tmp1 = cx / (rhoa * q)
     g = tmp1 * Z * tmp1 * Ntx
-    g = np.where((q > epsQ) & (Ntx > epsN) & (Z > epsZ), g, -99.0)
+    g = np.where((q > epsQ) & (Ntx > epsN) & (Z > epsZ), g, -99.0)  # noqa: SIM300
 
     a = np.empty_like(q)
     a = np.where(g == -99.0, 0.0, a)
@@ -499,7 +503,7 @@ def solve_alpha(rhoa, cx, q, Ntx, Z):
 
     alpha = np.maximum(0., np.minimum(a, alphaMax))
 
-    return alpha
+    return alpha  # noqa: RET504
 
 
 def calc_evap(rho, T, p, RH, N0, lamda, mu):
@@ -592,7 +596,7 @@ def calc_VQR_ferrier(rhoa, q, Ntx, cx, alpha):
     VQR = gamfact * ckQr1 * lamda**(0.5 * cexr2) / (lamda + ffr)**(0.5 * cexr1) * \
         lamda**(0.5 * cexr2) / (lamda + ffr)**(0.5 * cexr1)
 
-    return VQR
+    return VQR  # noqa: RET504
 
 
 def calc_VQR_gamvol(rhoa, q, Nt, nu):
@@ -610,10 +614,10 @@ def calc_VQR_gamvol(rhoa, q, Nt, nu):
                      gamma_(2.6666666666666667 + nu) +
                      8.584110982429507e7 * (1 + nu)**0.3333333333333333 * vr * gamma_(3 + nu) -
                      2.3303765697228556e9 * vr**1.3333333333333333 *
-                     gamma_(3.333333333333333 + nu)) /  \
+                     gamma_(3.333333333333333 + nu)) / \
                     ((1 + nu)**2.333333333333333 * gamma_(1 + nu))
 
-    return VQR
+    return VQR  # noqa: RET504
 
 
 def calc_VQR_gamdiam(rhoa, q, Nt, cx, alpha):
@@ -631,7 +635,7 @@ def calc_VQR_gamdiam(rhoa, q, Nt, cx, alpha):
 
     VQR = gamfact * arx * (1.0 - (1.0 + frx * Dn)**(-alpha - 4.0))
 
-    return VQR
+    return VQR  # noqa: RET504
 
 
 def calc_VQG(rhoa, ax, bx, q, Ntx, cx, alpha):
@@ -642,7 +646,7 @@ def calc_VQG(rhoa, ax, bx, q, Ntx, cx, alpha):
     gamfact = (1.204 / rhoa)**0.5
     VQG = gamfact * ax * (gamma_(4.0 + alpha + bx) / gamma_(4.0 + alpha)) * Dn**0.5
 
-    return VQG
+    return VQG  # noqa: RET504
 
 
 def calc_VNG(rhoa, ax, bx, q, Ntx, cx, alpha):
@@ -653,7 +657,7 @@ def calc_VNG(rhoa, ax, bx, q, Ntx, cx, alpha):
     gamfact = (1.204 / rhoa)**0.5
     VNG = gamfact * ax * (gamma_(1.0 + alpha + bx) / gamma_(1.0 + alpha)) * Dn**0.5
 
-    return VNG
+    return VNG  # noqa: RET504
 
 
 def power_mom(power, cx, t, q, moment):
@@ -683,13 +687,13 @@ def power_mom(power, cx, t, q, moment):
 
         a = 10.**log_a
 
-        b = 0.476221 - 0.015896 * T_c + 0.165977 * power + 0.007468 * T_c * power -   \
+        b = 0.476221 - 0.015896 * T_c + 0.165977 * power + 0.007468 * T_c * power - \
             0.000141 * (T_c**2) + 0.060366 * (power**2) + 0.000079 * (T_c**2) * power + \
             0.000594 * T_c * (power**2) + 0.000000 * (T_c**3) - 0.003577 * (power**3)
 
     moment = a * (second_moment)**b
 
-    return moment
+    return moment  # noqa: RET504
 
 
 def calc_gamma_DSD(rhoa, D, cx, q, Nt=None, N0=None, alpha=0):
@@ -803,7 +807,7 @@ def fit_DSD_MM24(M2, M4):
         the shape parameter is always zero.
     """
     # lamda = np.where(M4 == 0.0, 0.0, ((M2 * gamma5) / (M4 * gamma3))**(1./2.))
-    lamda = ((M2 * gamma5) / (M4 * gamma3))**(1./2.)
+    lamda = ((M2 * gamma5) / (M4 * gamma3))**(1. / 2.)
     N0 = (M2 * lamda**3.) / gamma3
     mu = lamda.copy(data=np.zeros_like(lamda.values))
     return N0, lamda, mu
@@ -827,7 +831,7 @@ def fit_DSD_MM36(M3, M6):
     """
     # lamda = np.where(M6 == 0.0, 0.0, ((M3 * gamma7) / (M6 * gamma4))
     #                  ** (1. / 3.))
-    lamda = ((M3 * gamma7) / (M6 * gamma4))** (1. / 3.)
+    lamda = ((M3 * gamma7) / (M6 * gamma4))**(1. / 3.)
     N0 = (M3 * lamda**4.) / gamma4
     mu = lamda.copy(data=np.zeros_like(lamda.values))
     return N0, lamda, mu
@@ -878,7 +882,7 @@ def fit_DSD_MM246_old(M2, M4, M6):
     3-tuple of array_like
         The intercept, slope, and shape parameters of the fitted gamma distribution.
     """
-    G = np.where((M2 == 0.0) | (M6 == 0.0), 0.0, (M4**2.) / (M2*M6))
+    G = np.where((M2 == 0.0) | (M6 == 0.0), 0.0, (M4**2.) / (M2 * M6))
     mu = np.where(G == 1.0, 0.0, ((7. - 11. * G) -
                                   ((7. - 11. * G)**2. -
                                    4. * (G - 1.) * (30. * G - 12.))**(1. / 2.)) /
@@ -887,12 +891,12 @@ def fit_DSD_MM246_old(M2, M4, M6):
     mu = np.where(mu > 30., 30., mu)
     mu = np.ma.masked_where(M4 is np.ma.masked, mu)
     lamda = np.where(M4 == 0.0, 0.0, ((M2 * (mu + 3.) * (mu + 4.)) / (M4))**(1. / 2.))
-    N0 = (M4*lamda**(mu + 5.))/(gamma_(mu + 5.))
+    N0 = (M4 * lamda**(mu + 5.)) / (gamma_(mu + 5.))
 
     return N0, lamda, mu
 
 
-def fit_DSD_MM246(M2, M4, M6, lamda_limit=20000., mu_limit=30.):
+def fit_DSD_MM246(M2, M4, M6, lamda_limit=20000., mu_limit=30.):  # noqa: ARG001
     """Uses the Method-of-Moments to fit a gamma distribution using M2, M4, and M6.
 
     Parameters
@@ -977,38 +981,35 @@ def fit_DSD_MMXYZ(moment_combo, moment_list):
     num_moments = len(moment_combo)
 
     if num_moments < 2 or num_moments > 3:
-        print("Incorrect number of moments. Must be 2 or 3!")
-        return
+        print("Incorrect number of moments. Must be 2 or 3!")  # noqa: T201
+        return None
     try:
         X = moment_list[0]
         Y = moment_list[1]
     except IndexError:
-        print("Not enough moments in list!")
-        return
+        print("Not enough moments in list!")  # noqa: T201
+        return None
 
     if num_moments == 2:
         if moment_combo == '24':
             return fit_DSD_MM24(X, Y)
-        elif moment_combo == '36':
+        if moment_combo == '36':
             return fit_DSD_MM36(X, Y)
-        else:
-            print("Sorry, {} not implemented yet!".format(moment_combo))
-            return
-    else:
-        try:
-            Z = moment_list[2]
-        except IndexError:
-            print("Not enough moments in list!")
-            return
-        if moment_combo == '234':
-            return fit_DSD_MM234(X, Y, Z)
-        elif moment_combo == '246':
-            return fit_DSD_MM246(X, Y, Z)   # Todo allow for lambda limits in here through kwargs
-        elif moment_combo == '346':
-            return fit_DSD_MM346(X, Y, Z)
-        else:
-            print("Sorry, {} not implemented yet!".format(moment_combo))
-            return
+        print(f"Sorry, {moment_combo} not implemented yet!")  # noqa: T201
+        return None
+    try:
+        Z = moment_list[2]
+    except IndexError:
+        print("Not enough moments in list!")  # noqa: T201
+        return None
+    if moment_combo == '234':
+        return fit_DSD_MM234(X, Y, Z)
+    if moment_combo == '246':
+        return fit_DSD_MM246(X, Y, Z)   # Todo allow for lambda limits in here through kwargs
+    if moment_combo == '346':
+        return fit_DSD_MM346(X, Y, Z)
+    print(f"Sorry, {moment_combo} not implemented yet!")  # noqa: T201
+    return None
 
 
 def get_max_min_diameters(ND, dim='time'):
@@ -1065,11 +1066,11 @@ def fit_DSD_TMM246_xr(M2, M4, M6, D_min, D_max):
     3-tuple of array_like
         The intercept, slope, and shape parameters of the fitted gamma distribution.
     """
-    M2_arr = M2.values
-    M4_arr = M4.values
-    M6_arr = M6.values
-    D_min_arr = D_min.values
-    D_max_arr = D_max.values
+    M2_arr = M2.to_numpy()
+    M4_arr = M4.to_numpy()
+    M6_arr = M6.to_numpy()
+    D_min_arr = D_min.to_numpy()
+    D_max_arr = D_max.to_numpy()
 
     N0, lamda, alpha = fit_DSD_TMM246(M2_arr, M4_arr, M6_arr, D_min_arr, D_max_arr)
 
@@ -1127,7 +1128,7 @@ def fit_DSD_TMM246(M2, M4, M6, D_min, D_max):
         # print("Working on time {:d}".format(t))
         if M2[t] > 0. and M4[t] > 0. and M6[t] > 0.:
             # print("D_max = ", D_max[t])
-            print("Working on time {:d}/{:d}".format(t, numtimes))
+            print(f"Working on time {t:d}/{numtimes:d}")  # noqa: T201
             LDmx = lamda_init[t] * D_max[t]
             LDmn = lamda_init[t] * D_min[t]
             for _ in range(10):
@@ -1212,7 +1213,7 @@ def fit_DSD_TMM234(M2, M3, M4, D_min, D_max):
         # print("Working on time {:d}".format(t))
         if M2[t] > 0. and M3[t] > 0. and M4[t] > 0.:
             # print("D_max = ", D_max[t])
-            print("Working on time {:d}/{:d}".format(t, numtimes))
+            print(f"Working on time {t:d}/{numtimes:d}")  # noqa: T201
             LDmx = lamda_init[t] * D_max[t]
             LDmn = lamda_init[t] * D_min[t]
             for _ in range(10):
@@ -1297,7 +1298,7 @@ def fit_DSD_TMM346(M3, M4, M6, D_min, D_max):
         # print("Working on time {:d}".format(t))
         if M3[t] > 0. and M4[t] > 0. and M6[t] > 0.:
             # print("D_max = ", D_max[t])
-            print("Working on time {:d}/{:d}".format(t, numtimes))
+            print(f"Working on time {t:d}/{numtimes:d}")  # noqa: T201
             LDmx = lamda_init[t] * D_max[t]
             LDmn = lamda_init[t] * D_min[t]
             for _ in range(10):
@@ -1355,59 +1356,53 @@ def fit_DSD_TMMXYZ(moment_combo, moment_list, D_min, D_max):
     """
 
     # TODO: make default D_min = 0?
-    D_min_arr = D_min.values
-    D_max_arr = D_max.values
+    D_min_arr = D_min.to_numpy()
+    D_max_arr = D_max.to_numpy()
 
     num_moments = len(moment_combo)
 
     if num_moments < 2 or num_moments > 3:
-        print("Incorrect number of moments. Must be 2 or 3!")
-        return
+        print("Incorrect number of moments. Must be 2 or 3!")  # noqa: T201
+        return None
     try:
         X = moment_list[0]
         Y = moment_list[1]
-        X_arr = X.values
-        Y_arr = Y.values
+        X_arr = X.to_numpy()
+        Y_arr = Y.to_numpy()
     except IndexError:
-        print("Not enough moments in list!")
-        return
+        print("Not enough moments in list!")  # noqa: T201
+        return None
 
     if num_moments == 2:
-        if moment_combo == '24':
-            print("Sorry, {} not implemented yet!".format(moment_combo))
-            return
-            # return fit_DSD_TMM24(X, Y)
-        elif moment_combo == '36':
-            print("Sorry, {} not implemented yet!".format(moment_combo))
-            return
+        if moment_combo in {'24', '36'}:
+            print(f"Sorry, {moment_combo} not implemented yet!")  # noqa: T201
+            return None
             # return fit_DSD_MM36(X, Y)
-        else:
-            print("Sorry, {} not implemented yet!".format(moment_combo))
-            return
+        print(f"Sorry, {moment_combo} not implemented yet!")  # noqa: T201
+        return None
+    try:
+        Z = moment_list[2]
+        Z_arr = Z.to_numpy()
+    except IndexError:
+        print("Not enough moments in list!")  # noqa: T201
+        return None
+
+    if moment_combo == '234':
+        N0, lamda, alpha = fit_DSD_TMM234(X_arr, Y_arr, Z_arr, D_min_arr, D_max_arr)
+    elif moment_combo == '246':
+        # TODO allow for lambda limits in here through kwargs
+        N0, lamda, alpha = fit_DSD_TMM246(X_arr, Y_arr, Z_arr, D_min_arr, D_max_arr)
+    elif moment_combo == '346':
+        N0, lamda, alpha = fit_DSD_TMM346(X_arr, Y_arr, Z_arr, D_min_arr, D_max_arr)
     else:
-        try:
-            Z = moment_list[2]
-            Z_arr = Z.values
-        except IndexError:
-            print("Not enough moments in list!")
-            return
+        print(f"Sorry, {moment_combo} not implemented yet!")  # noqa: T201
+        return None
 
-        if moment_combo == '234':
-            N0, lamda, alpha = fit_DSD_TMM234(X_arr, Y_arr, Z_arr, D_min_arr, D_max_arr)
-        elif moment_combo == '246':
-            # TODO allow for lambda limits in here through kwargs
-            N0, lamda, alpha = fit_DSD_TMM246(X_arr, Y_arr, Z_arr, D_min_arr, D_max_arr)
-        elif moment_combo == '346':
-            N0, lamda, alpha = fit_DSD_TMM346(X_arr, Y_arr, Z_arr, D_min_arr, D_max_arr)
-        else:
-            print("Sorry, {} not implemented yet!".format(moment_combo))
-            return
+    N0_da = X.copy(data=N0)
+    lamda_da = X.copy(data=lamda)
+    alpha_da = X.copy(data=alpha)
 
-        N0_da = X.copy(data=N0)
-        lamda_da = X.copy(data=lamda)
-        alpha_da = X.copy(data=alpha)
-
-        return N0_da, lamda_da, alpha_da
+    return N0_da, lamda_da, alpha_da
 
 
 def calc_binned_DSD_from_params(N0, lamda, alpha, D):
@@ -1454,15 +1449,15 @@ def calc_rain_axis_ratio(D, fit_name='Brandes_2002'):
         The array of axis ratios
     """
     if fit_name == 'Brandes_2002':
-        ar = 0.9951 + 0.0251*D - 0.03644*D**2. + 0.005303*D**3. - 0.0002492*D**4.
+        ar = 0.9951 + 0.0251 * D - 0.03644 * D**2. + 0.005303 * D**3. - 0.0002492 * D**4.
     elif fit_name == 'Green_1975_exact':
-        ar = 1.0148 - 0.020465*D - 0.020048*D**2. + 3.095e-3*D**3. - 1.453e-4*D**4.
+        ar = 1.0148 - 0.020465 * D - 0.020048 * D**2. + 3.095e-3 * D**3. - 1.453e-4 * D**4.
     elif fit_name == 'experimental':
-        ar = 1.0162 + 0.009714*D - 0.033*D**2. + 5.0424e-3*D**3. - 2.458e-4*D**4.
+        ar = 1.0162 + 0.009714 * D - 0.033 * D**2. + 5.0424e-3 * D**3. - 2.458e-4 * D**4.
     elif fit_name == 'experimental_no_beard':
-        ar = 1.0 + 0.01367*D - 0.03299*D**2. + 4.853e-3*D**3. - 2.26e-4*D**4.
+        ar = 1.0 + 0.01367 * D - 0.03299 * D**2. + 4.853e-3 * D**3. - 2.26e-4 * D**4.
     elif fit_name == 'Beard_Chuang_1987':
-        ar = 1.0048 + 5.7e-4*D - 2.628e-2*D**2. + 3.682e-3*D**3. - 1.627e-4*D**4.
+        ar = 1.0048 + 5.7e-4 * D - 2.628e-2 * D**2. + 3.682e-3 * D**3. - 1.627e-4 * D**4.
 
     return ar
 
@@ -1545,7 +1540,7 @@ def calc_rainrate_from_bins(ND, correct_rho=False, rho=None, diameter_dim_name='
     fallspeed = PIPS.calc_empirical_fallspeed(avg_diameter_mm, correct_rho=correct_rho, rho=rho)
     rainrate_bin = (6. * 10.**-4.) * np.pi * fallspeed * avg_diameter_mm**3. * ND * bin_width_mm
     rainrate = rainrate_bin.sum(dim=diameter_dim_name)
-    return rainrate
+    return rainrate  # noqa: RET504
 
 
 def calc_empirical_polyfit(var_x, var_y, order=3):
@@ -1607,37 +1602,46 @@ def calc_mu_lamda(lamda, coefficients):
     polynomial = np.polynomial.polynomial.Polynomial(coefficients)
     return polynomial(lamda)
 
+
 @jit
 def calc_W_Cao_empirical(ZH_lin, ZDR):
-    return ZH_lin * 10.**(-0.0493*ZDR**3. + 0.430*ZDR**2. - 1.524*ZDR - 3.019)
+    return ZH_lin * 10.**(-0.0493 * ZDR**3. + 0.430 * ZDR**2. - 1.524 * ZDR - 3.019)
+
 
 @jit
 def calc_D0_Cao_empirical(ZDR):
-    return 0.0436*ZDR**3. - 0.216*ZDR**2. + 1.076*ZDR + 0.659
+    return 0.0436 * ZDR**3. - 0.216 * ZDR**2. + 1.076 * ZDR + 0.659
+
 
 @jit
 def calc_Nt_Cao_empirical(ZH_lin, ZDR):
-    return ZH_lin * 10.**(-0.0837*ZDR**3. + 0.702*ZDR**2. - 2.062*ZDR + 0.794)
+    return ZH_lin * 10.**(-0.0837 * ZDR**3. + 0.702 * ZDR**2. - 2.062 * ZDR + 0.794)
+
 
 @jit
 def calc_RR_Cao_empirical(ZH_lin, ZDR):
-    return ZH_lin * 10.**(-0.0363*ZDR**3. + 0.316*ZDR**2. - 1.178*ZDR - 1.1964)
+    return ZH_lin * 10.**(-0.0363 * ZDR**3. + 0.316 * ZDR**2. - 1.178 * ZDR - 1.1964)
+
 
 @jit
 def calc_Nt_Brandes2004_empirical(ZH_lin, ZDR):
     return 2.085 * ZH_lin * 10.**(0.728 * ZDR**2. - 2.066 * ZDR)
 
+
 @jit
 def calc_W_Brandes2004_empirical(ZH_lin, ZDR):
     return 5.589 * 10**-4. * ZH_lin * 10.**(0.223 * ZDR**2. - 1.124 * ZDR)
+
 
 @jit
 def calc_RR_Brandes2004_empirical(ZH_lin, ZDR):
     return 7.6 * 10**-3 * ZH_lin * 10.**(0.165 * ZDR**2. - 0.897 * ZDR)
 
+
 @jit
 def calc_D0_Brandes2004_empirical(ZDR):
     return 0.717 + 1.479 * ZDR - 0.725 * ZDR**2. + 0.171 * ZDR**3.
+
 
 @jit
 def calc_sigma_Brandes2004_empirical(ZDR):
@@ -1658,12 +1662,12 @@ def retrieval_Cao_xr(ZH, ZDR, ND, D, dD, fa2, fb2, wavelength, mu_lamda_coeff, Z
     Dm_key = 'Dm43_retr_' + retrieval_tag
     ND_key = 'ND_retr_' + retrieval_tag
 
-    ZH_arr = ZH.values
-    ZDR_arr = ZDR.values
-    full_len = len(D.values)
+    ZH_arr = ZH.to_numpy()
+    ZDR_arr = ZDR.to_numpy()
+    full_len = len(D.to_numpy())
     trunc_len = len(fa2)
-    D_arr = D.values[:trunc_len]
-    dD_arr = dD.values[:trunc_len]
+    D_arr = D.to_numpy()[:trunc_len]
+    dD_arr = dD.to_numpy()[:trunc_len]
 
     ntimes = len(ZH)
     retr_dict_list = []
@@ -1688,20 +1692,20 @@ def retrieval_Cao_xr(ZH, ZDR, ND, D, dD, fa2, fb2, wavelength, mu_lamda_coeff, Z
         }
         # DTD: test weird numba error by temporarily removing ND from dictionary, so set it to
         # empty here
-        ND_retr = np.array(retr_dict['ND_retr_{}'.format(retrieval_tag)])
+        ND_retr = np.array(retr_dict[f'ND_retr_{retrieval_tag}'])
         # ND_retr = np.empty_like(D_arr)
-        #print(ND_retr)
+        # print(ND_retr)
         ND_retr = np.append(ND_retr, [np.nan] * (full_len - trunc_len))
 
-        retr_dict['ND_retr_{}'.format(retrieval_tag)] = ND_retr
+        retr_dict[f'ND_retr_{retrieval_tag}'] = ND_retr
         retr_dict_list.append(retr_dict)
 
     retr_dict_alltimes = {k: [dic[k] for dic in retr_dict_list] for k in retr_dict_list[0]}
-    ND_retr = retr_dict_alltimes['ND_retr_{}'.format(retrieval_tag)]
+    ND_retr = retr_dict_alltimes[f'ND_retr_{retrieval_tag}']
     ND_retr_da = ND.copy(data=ND_retr)
-    retr_dict_alltimes['ND_retr_{}'.format(retrieval_tag)] = ND_retr_da
+    retr_dict_alltimes[f'ND_retr_{retrieval_tag}'] = ND_retr_da
     for name, values in retr_dict_alltimes.items():
-        if name not in 'ND_retr_{}'.format(retrieval_tag):
+        if name not in f'ND_retr_{retrieval_tag}':
             retr_dict_alltimes[name] = ZH.copy(data=values)
     return retr_dict_alltimes
 
@@ -1709,7 +1713,7 @@ def retrieval_Cao_xr(ZH, ZDR, ND, D, dD, fa2, fb2, wavelength, mu_lamda_coeff, Z
 # @jit(parallel=True)
 # @jit
 def retrieval_Cao(ZH, ZDR, D, dD, fa2, fb2, wavelength, mu_lamda_coeff, ZDR_thresh=3.,
-                  retrieval_tag=''):
+                  retrieval_tag=''):  # noqa: ARG001
     Dmx = 9.     # maximum diameter of 9 mm
     wavelength_mm = wavelength * 10.    # radar wavelength in mm
     # TODO: think about allowing for correction of fallspeed based on air density
@@ -1738,7 +1742,7 @@ def retrieval_Cao(ZH, ZDR, D, dD, fa2, fb2, wavelength, mu_lamda_coeff, ZDR_thre
             lamda = np.nan
             N0 = np.nan
             sigma = np.nan
-        elif ZDR > ZDR_thresh:
+        elif ZDR > ZDR_thresh:  # noqa: SIM300
             W = np.nan
             D0 = np.nan
             Dm = np.nan
@@ -1753,34 +1757,33 @@ def retrieval_Cao(ZH, ZDR, D, dD, fa2, fb2, wavelength, mu_lamda_coeff, ZDR_thre
             for lamda in lamda_range:
                 tflag = 0
                 # Compute mu from mu_lamda relation
-                mu = mu_lamda_coeff[0] + mu_lamda_coeff[1]*lamda + \
+                mu = mu_lamda_coeff[0] + mu_lamda_coeff[1] * lamda + \
                      mu_lamda_coeff[2] * lamda**2.
-                #print(lamda, mu)
-                ND[:] = D**mu * np.exp(-lamda*D)
+                # print(lamda, mu)
+                ND[:] = D**mu * np.exp(-lamda * D)
                 for i in range(ND.shape[0]):
                     if D[i] > Dmx or D[i] < 0.3125:
                         ND[i] = 0.0
                 # ND[D > Dmx] = 0.0   # Zero out bins greater than Dmx
                 # Test removal of diameters less than lowest recorded parsivel bin:
                 # ND[D < 0.3125] = 0.0
-                ZH_lin_tmp = np.nansum(fa2*ND*dD)
-                ZV_lin_tmp = np.nansum(fb2*ND*dD)
+                ZH_lin_tmp = np.nansum(fa2 * ND * dD)
+                ZV_lin_tmp = np.nansum(fb2 * ND * dD)
                 if ZV_lin_tmp == 0.:
                     continue
                 ZDR_lin_tmp = ZH_lin_tmp / ZV_lin_tmp
                 ZDR_lin_diff = ZDR_lin - ZDR_lin_tmp
-                #print(ZDR_lin, ZDR_lin_tmp)
+                # print(ZDR_lin, ZDR_lin_tmp)
                 # if the observed linear zdr is greater than the calculated one, exit loop with
                 # these values
                 if ZDR_lin_diff * fp < 0:
-                    #print("Here!")
-                    lamda = lamda_1 - np.abs(fp / (ZDR_lin_diff - fp)) * delta_lamda
-                    #print(lamda)
+                    # print("Here!")
+                    lamda = lamda_1 - np.abs(fp / (ZDR_lin_diff - fp)) * delta_lamda  # noqa: PLW2901
+                    # print(lamda)
                     tflag = 1
                     break
-                else:
-                    fp = ZDR_lin_diff
-                    lamda_1 = lamda
+                fp = ZDR_lin_diff
+                lamda_1 = lamda
 
             # think this means a good lambda value was never found or that calculated zdr larger
             # than observed?
@@ -1803,28 +1806,28 @@ def retrieval_Cao(ZH, ZDR, D, dD, fa2, fb2, wavelength, mu_lamda_coeff, ZDR_thre
                     sigma = calc_sigma_Brandes2004_empirical(ZDR)
             else:
                 # Recompute mu from CG relation
-                mu = mu_lamda_coeff[0] + mu_lamda_coeff[1]*lamda + \
+                mu = mu_lamda_coeff[0] + mu_lamda_coeff[1] * lamda + \
                         mu_lamda_coeff[2] * lamda**2.
 
                 # TODO: below is transcription from Cao and Zhang's original code. Will clean up
                 # to make things clearer...
-                ND[:] = D**mu * np.exp(-lamda*D)   # N0 is multiplied here later... confusing
+                ND[:] = D**mu * np.exp(-lamda * D)   # N0 is multiplied here later... confusing
                 for i in range(ND.shape[0]):
                     if D[i] > Dmx or D[i] < 0.3125:
                         ND[i] = 0.0
                 # ND[D > Dmx] = 0.0
                 # Test removal of diameters less than lowest recorded parsivel bin:
                 # ND[D < 0.3125] = 0.0
-                ZH_0 = np.nansum(fa2*ND*dD)
-                M3 = np.nansum(ND*D**3.*dD)
-                M4 = np.nansum(ND*D**4.*dD)
-                RR_0 = np.nansum(np.pi*6.e-4*v_terminal*D**3.*ND*dD)
-                Dm_0 = np.nansum(ND*dD)
+                ZH_0 = np.nansum(fa2 * ND * dD)
+                M3 = np.nansum(ND * D**3. * dD)
+                M4 = np.nansum(ND * D**4. * dD)
+                RR_0 = np.nansum(np.pi * 6.e-4 * v_terminal * D**3. * ND * dD)
+                Dm_0 = np.nansum(ND * dD)
 
                 Dm = M4 / M3
                 sigma2 = np.nansum((D - Dm)**2. * ND * D**3. * dD)
                 sigma = np.sqrt(sigma2 / M3)
-                #print(ZH_lin, radar.K2, wavelength_mm, ZH_0)
+                # print(ZH_lin, radar.K2, wavelength_mm, ZH_0)
                 fhh2 = ZH_lin * np.pi**4. * radar.K2 / 4. / wavelength_mm**4.
                 N0 = fhh2 / ZH_0
                 Nt = Dm_0 * N0
@@ -1839,7 +1842,7 @@ def retrieval_Cao(ZH, ZDR, D, dD, fa2, fb2, wavelength, mu_lamda_coeff, ZDR_thre
                 # ND[D > Dmx] = 0.0
                 # Test removal of diameters less than lowest recorded parsivel bin:
                 # ND[D < 0.3125] = 0.0
-                M3_bin = ND*D**3.*dD
+                M3_bin = ND * D**3. * dD
                 mtp1 = np.nansum(M3_bin)
                 mtp2 = 0.
                 m = 0
