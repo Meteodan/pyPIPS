@@ -8,6 +8,7 @@ from __future__ import annotations
 import argparse
 import contextlib
 import os
+from datetime import datetime
 
 import numpy as np
 import xarray as xr
@@ -134,6 +135,15 @@ parser.add_argument('--gust-front-relative', dest='gust_front_relative', action=
 parser.add_argument('--keep-GPS-for', dest='keep_GPS_for', type=str, default=None,
                     help=('Keep the GPS data for the specified PIPS probe (if any) for the final'
                           ' dataset'))
+parser.add_argument('--window-size', dest='window_size', type=int, default=120,
+                    help=('Window size for smoothing the fasttemp data to determine gust front '
+                          'passage'))
+parser.add_argument('--temp-drop-threshold', dest='temp_drop_threshold', type=float,
+                    default=-0.0075,
+                    help=('Temperature drop threshold for determining gust front passage'))
+parser.add_argument('--reference-times', dest='reference_times', nargs='*', default=None,
+                    help=('Reference times for the gust front calculations. If not provided, they '
+                          'will be determined automatically'))
 
 args = parser.parse_args()
 
@@ -171,6 +181,10 @@ conv_filelist = [os.path.join(PIPS_dir, cf) for cf in conv_filenames_nc]
 parsivel_ds_dict = {}
 conv_ds_dict = {}
 
+if args.reference_times is not None:
+    reference_time_dict = {PIPS_name: args.reference_times[i]
+                           for i, PIPS_name in enumerate(PIPS_names)}
+
 for PIPS_name, parsivel_filepath, conv_filepath in zip(PIPS_names, parsivel_combined_filelist,
                                                        conv_filelist):
     parsivel_ds_dict[PIPS_name] = xr.load_dataset(parsivel_filepath)
@@ -188,19 +202,19 @@ for PIPS_name, parsivel_filepath, conv_filepath in zip(PIPS_names, parsivel_comb
         GPS_vars_parsivel = [parsivel_ds_dict[PIPS_name][var] for var in GPS_varnames_parsivel]
         GPS_vars_conv = [conv_ds_dict[PIPS_name][var] for var in GPS_varnames_conv]
 
-if args.gust_front_relative:
+if args.gust_front_relative and args.reference_times is None:
     # Compute the PIPS timing relative to the arrival of a gust front
     # This currently requires fine-tuning in the code but will be made more flexible in the
     # future
 
     # First smooth the fasttemp data to get rid of some of the noise
-    window_size = 12  # 2 minutes
+    window_size = args.window_size  # 2 minutes
     min_periods = 1
-    temp_drop_threshold = -0.06  # deg C. This is over one 10-s interval
+    temp_drop_threshold = args.temp_drop_threshold  # deg C. This is over one 1-s interval
     new_parsivel_ds_dict = {}
     new_conv_ds_dict = {}
     for PIPS_name in PIPS_names:
-        fasttemp = parsivel_ds_dict[PIPS_name]['fasttemp']
+        fasttemp = conv_ds_dict[PIPS_name][f'fasttemp']
         fasttemp_smoothed = fasttemp.rolling(time=window_size, center=True,
                                              min_periods=min_periods).mean()
         # parsivel_ds_dict[PIPS_name]['fasttemp_smoothed'] = fasttemp_smoothed
@@ -212,12 +226,34 @@ if args.gust_front_relative:
         # Now compute the gust front times based on a certain threshold of the temperature drop
         tindex = xr.where(fasttemp_diff < temp_drop_threshold,
                           True, False).argmax(dim='time').item()
-        gust_front_time = parsivel_ds_dict[PIPS_name]['time'].isel(time=tindex).to_numpy()
+        gust_front_time = conv_ds_dict[PIPS_name]['time'].isel(time=tindex).to_numpy()
+        gust_front_time_parsivel = \
+            parsivel_ds_dict[PIPS_name]['time'].sel(time=gust_front_time,
+                                                    method='nearest').to_numpy()
+
+        print(f"Gust front time for {PIPS_name}: {gust_front_time}")  # noqa: T201
+        print(f"Gust front time for {PIPS_name} (parsivel): {gust_front_time_parsivel}")  # noqa: T201
 
         new_conv_ds_dict[PIPS_name] = adjust_time_coordinate(conv_ds_dict[PIPS_name],
                                                              gust_front_time)
         new_parsivel_ds_dict[PIPS_name] = adjust_time_coordinate(parsivel_ds_dict[PIPS_name],
-                                                                 gust_front_time)
+                                                                 gust_front_time_parsivel)
+elif args.reference_times is not None:
+    new_parsivel_ds_dict = {}
+    new_conv_ds_dict = {}
+    for PIPS_name in PIPS_names:
+        gust_front_time_dt = datetime.strptime(reference_time_dict[PIPS_name], "%Y%m%d%H%M%S")
+        gust_front_time = conv_ds_dict[PIPS_name]['time'].sel(time=gust_front_time_dt)
+        gust_front_time_parsivel = \
+            parsivel_ds_dict[PIPS_name]['time'].sel(time=gust_front_time_dt, method='nearest')
+
+        print(f"Gust front time for {PIPS_name}: {gust_front_time}")  # noqa: T201
+        print(f"Gust front time for {PIPS_name} (parsivel): {gust_front_time_parsivel}")  # noqa: T201
+
+        new_conv_ds_dict[PIPS_name] = adjust_time_coordinate(conv_ds_dict[PIPS_name],
+                                                             gust_front_time)
+        new_parsivel_ds_dict[PIPS_name] = adjust_time_coordinate(parsivel_ds_dict[PIPS_name],
+                                                                 gust_front_time_parsivel)
 else:
     new_parsivel_ds_dict = parsivel_ds_dict
     new_conv_ds_dict = conv_ds_dict
