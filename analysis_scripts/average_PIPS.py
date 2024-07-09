@@ -34,24 +34,32 @@ def adjust_time_coordinate(ds, gust_front_time):
     return ds  # noqa: RET504
 
 
-def average_and_sum_for_PIPS_ds(ds, avg_vars, sum_vars, dim='PIPS_name'):
+def average_and_sum_for_PIPS_ds(ds, avg_vars, sum_vars, dim='PIPS_name', time_dim='time',
+                                interp_na=True):
 
     # First handle the wind and compass variables
-    result_vars = average_wind_and_compass(ds, dim=dim)
+    result_vars = average_wind_and_compass(ds, dim=dim, time_dim=time_dim, interp_na=interp_na)
 
     # Now handle the rest of the variables. Note that some of these will need to/should be
     # overwritten by running the "calc_derived_params" script on the resulting dataset.
     for var in ds.data_vars:
+        if interp_na:
+            ds[var] = ds[var].interpolate_na(dim=time_dim)
         if var in avg_vars:
-            result_vars[var] = ds[var].mean(dim=dim)
+            result_vars[var] = ds[var].mean(dim=dim, skipna=True)
         elif var in sum_vars:
-            result_vars[var] = ds[var].sum(dim=dim)
+            result_vars[var] = ds[var].sum(dim=dim, skipna=True)
 
     return xr.Dataset(result_vars, coords={coord: ds[coord] for coord in ds.coords if coord != dim})
 
 
-def average_wind_and_compass(ds, dim='PIPS_name'):
+def average_wind_and_compass(ds, dim='PIPS_name', time_dim='time', interp_na=True):
     var_da_dict = {}
+
+    if interp_na:
+        ds['windspd'] = ds['windspd'].interpolate_na(dim=time_dim)
+        with contextlib.suppress(KeyError):
+            ds['windgust'] = ds['windgust'].interpolate_na(dim=time_dim)
 
     var_da_dict['windspd'] = ds['windspd'].mean(dim=dim, skipna=True)
     # We have to do the following because the conventional data doesn't have a windgust variable
@@ -66,6 +74,9 @@ def average_wind_and_compass(ds, dim='PIPS_name'):
     if "uavg" in ds.data_vars and "vavg" in ds.data_vars:
         u = ds['uavg']
         v = ds['vavg']
+        if interp_na:
+            u = u.interpolate_na(dim=time_dim)
+            v = v.interpolate_na(dim=time_dim)
         var_da_dict['uavg'] = u.mean(dim=dim, skipna=True)
         var_da_dict['vavg'] = u.mean(dim=dim, skipna=True)
     else:
@@ -74,6 +85,9 @@ def average_wind_and_compass(ds, dim='PIPS_name'):
         # First compute the u and v wind components
         u = ds['windspd'] * np.cos(np.deg2rad(-ds['winddirabs'] + 270.))
         v = ds['windspd'] * np.sin(np.deg2rad(-ds['winddirabs'] + 270.))
+        if interp_na:
+            u = u.interpolate_na(dim=time_dim)
+            v = v.interpolate_na(dim=time_dim)
         # Compute the averages
         var_da_dict['uavg'] = u.mean(dim=dim, skipna=True)
         var_da_dict['vavg'] = v.mean(dim=dim, skipna=True)
@@ -106,6 +120,10 @@ def average_wind_and_compass(ds, dim='PIPS_name'):
     # Compute x- and y-components of compass direction
     x = np.cos(np.deg2rad(-ds['compass_dir'] + 270.))
     y = np.sin(np.deg2rad(-ds['compass_dir'] + 270.))
+
+    if interp_na:
+        x = x.interpolate_na(dim=time_dim)
+        y = y.interpolate_na(dim=time_dim)
 
     # Compute averaged x- and y-components of compass direction
     x_avg = x.mean(dim=dim, skipna=True)
@@ -214,7 +232,7 @@ if args.gust_front_relative and args.reference_times is None:
     new_parsivel_ds_dict = {}
     new_conv_ds_dict = {}
     for PIPS_name in PIPS_names:
-        fasttemp = conv_ds_dict[PIPS_name][f'fasttemp']
+        fasttemp = conv_ds_dict[PIPS_name]['fasttemp']
         fasttemp_smoothed = fasttemp.rolling(time=window_size, center=True,
                                              min_periods=min_periods).mean()
         # parsivel_ds_dict[PIPS_name]['fasttemp_smoothed'] = fasttemp_smoothed
@@ -262,6 +280,8 @@ aligned_conv_ds_list = xr.align(*new_conv_ds_dict.values(), join='inner')
 aggregated_conv_ds = xr.concat(aligned_conv_ds_list, dim='PIPS_name')
 aggregated_conv_ds['PIPS_name'] = PIPS_names
 
+# TODO: below may not work for straight-up averaging because the parsivel data don't necessarily
+# line up in time.
 aligned_parsivel_ds_list = xr.align(*new_parsivel_ds_dict.values(), join='inner')
 aggregated_parsivel_ds = xr.concat(aligned_parsivel_ds_list, dim='PIPS_name')
 aggregated_parsivel_ds['PIPS_name'] = PIPS_names
@@ -301,10 +321,11 @@ for var in aggregated_parsivel_ds.data_vars:
 
 # Handle the wind and compass variables separately
 
+time_dim = 'relative_time' if args.gust_front_relative else 'time'
 conv_average_ds = average_and_sum_for_PIPS_ds(aggregated_conv_ds, vars_to_average, vars_to_sum,
-                                              dim='PIPS_name')
+                                              dim='PIPS_name', time_dim=time_dim)
 parsivel_average_ds = average_and_sum_for_PIPS_ds(aggregated_parsivel_ds, vars_to_average,
-                                                  vars_to_sum, dim='PIPS_name')
+                                                  vars_to_sum, dim='PIPS_name', time_dim=time_dim)
 
 # conv_average_ds = aggregated_conv_ds.mean(dim='PIPS_name')
 # parsivel_average_ds = aggregated_parsivel_ds.mean(dim='PIPS_name')

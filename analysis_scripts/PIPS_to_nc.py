@@ -48,6 +48,13 @@ parser.add_argument('--sort-times', dest='sort_times', action='store_true',
                     help='Sort dataset by time')
 parser.add_argument('--fill-gaps', dest='fill_gaps', action='store_true',
                     help='fill in gaps in time with missing values (NaNs)')
+parser.add_argument('--output-conv', dest='output_conv', action='store_true',
+                    help='output 1-s conventional data to netCDF?')
+parser.add_argument('--output-combined-parsivel', dest='output_combined_parsivel',
+                    action='store_true',
+                    help='output combined parsivel and conventional data to netCDF?')
+parser.add_argument('--requested-interval', dest='requested_interval', type=float, default=None,
+                    help='Requested resampling interval in seconds. Overrides case config file.')
 # parser.add_argument('--apply-qc', dest='apply_qc', action='store_true', help='apply QC to DSDs?')
 # parser.add_argument('--qc-tag', dest='qc_tag', default=None,
 #                     help='name of QC tag for DSD variables')
@@ -82,7 +89,10 @@ conv_filenames_nc = config.PIPS_IO_dict.get('conv_filenames_nc', None)
 start_times = config.PIPS_IO_dict.get('start_times', [None] * len(PIPS_names))
 end_times = config.PIPS_IO_dict.get('end_times', [None] * len(PIPS_names))
 geo_locs = config.PIPS_IO_dict.get('geo_locs', [None] * len(PIPS_names))
-requested_interval = config.PIPS_IO_dict.get('requested_interval', 10.)
+if not args.requested_interval:
+    requested_interval = config.PIPS_IO_dict.get('requested_interval', 10.)
+else:
+    requested_interval = args.requested_interval
 
 output_dir = args.output_dir if args.output_dir else PIPS_dir
 if not os.path.exists(output_dir):
@@ -120,7 +130,7 @@ for index, PIPS_filename, PIPS_name, start_time, end_time, geo_loc, ptype, deplo
     # Only do the following if we have parsivel data. Need to clean this up to make it more
     # graceful.
 
-    if parsivel_df is not None and vd_matrix_da is not None:
+    if parsivel_df is not None and vd_matrix_da is not None and args.output_combined_parsivel:
 
         # if apply_qc:
         #     # Do some QC on the V-D matrix. This will make a copy of the raw matrix. The netCDF
@@ -252,36 +262,37 @@ for index, PIPS_filename, PIPS_name, start_time, end_time, geo_loc, ptype, deplo
         print(f"Dumping {ncfile_path}")  # noqa: T201
         parsivel_combined_ds.to_netcdf(ncfile_path)
 
-    # Convert conventional data pd.DataFrame to xr.Dataset and add some metadata
-    conv_ds = pipsio.conv_df_to_ds(conv_df)
+    if args.output_conv:
+        # Convert conventional data pd.DataFrame to xr.Dataset and add some metadata
+        conv_ds = pipsio.conv_df_to_ds(conv_df)
 
-    # Fill in time gaps with NaNs if desired
-    if args.fill_gaps:
-        conv_starttime = conv_ds['time'][0].values
-        conv_endtime = conv_ds['time'][-1].values
-        all_conv_times = xr.date_range(conv_starttime, conv_endtime, freq='1S')
-        missing_times = np.array([0 if time in conv_ds.indexes['time']
-                                  else 1 for time in all_conv_times])
-        conv_ds = conv_ds.reindex({'time': all_conv_times})
-        missing_times_da = xr.DataArray(missing_times,
-                                        coords={'time': conv_ds['time'].values},
-                                        dims=['time'])
-        conv_ds['missing_times'] = missing_times_da
-        conv_ds['missing_times'].attrs['description'] = '1 for missing data'
+        # Fill in time gaps with NaNs if desired
+        if args.fill_gaps:
+            conv_starttime = conv_ds['time'][0].values
+            conv_endtime = conv_ds['time'][-1].values
+            all_conv_times = xr.date_range(conv_starttime, conv_endtime, freq='1S')
+            missing_times = np.array([0 if time in conv_ds.indexes['time']
+                                    else 1 for time in all_conv_times])
+            conv_ds = conv_ds.reindex({'time': all_conv_times})
+            missing_times_da = xr.DataArray(missing_times,
+                                            coords={'time': conv_ds['time'].values},
+                                            dims=['time'])
+            conv_ds['missing_times'] = missing_times_da
+            conv_ds['missing_times'].attrs['description'] = '1 for missing data'
 
-    # Now do the same for the 1-s conventional data (put in a separate Dataset and netCDF file
-    # due to different time resolution)
-    conv_ds.attrs['probe_name'] = PIPS_name
-    conv_ds.attrs['parsivel_angle'] = pp.probe_info[PIPS_name]['parsivel_angle']
-    conv_ds.attrs['deployment_name'] = deployment_name
-    conv_ds.attrs['location'] = str(geo_locs[index])
-    conv_ds.attrs['starting_time'] = start_time
-    conv_ds.attrs['ending_time'] = end_time
+        # Now do the same for the 1-s conventional data (put in a separate Dataset and netCDF file
+        # due to different time resolution)
+        conv_ds.attrs['probe_name'] = PIPS_name
+        conv_ds.attrs['parsivel_angle'] = pp.probe_info[PIPS_name]['parsivel_angle']
+        conv_ds.attrs['deployment_name'] = deployment_name
+        conv_ds.attrs['location'] = str(geo_locs[index])
+        conv_ds.attrs['starting_time'] = start_time
+        conv_ds.attrs['ending_time'] = end_time
 
-    if conv_filename_nc:
-        ncfile_name = conv_filename_nc
-    else:
-        ncfile_name = f'conventional_raw_{deployment_name}_{PIPS_name}.nc'
-    ncfile_path = os.path.join(output_dir, ncfile_name)
-    print(f"Dumping {ncfile_path}")  # noqa: T201
-    conv_ds.to_netcdf(ncfile_path)
+        if conv_filename_nc:
+            ncfile_name = conv_filename_nc
+        else:
+            ncfile_name = f'conventional_raw_{deployment_name}_{PIPS_name}.nc'
+        ncfile_path = os.path.join(output_dir, ncfile_name)
+        print(f"Dumping {ncfile_path}")  # noqa: T201
+        conv_ds.to_netcdf(ncfile_path)

@@ -463,6 +463,28 @@ def resample_parsivel(resample_interval, parsivel_df):
     return parsivel_df  # noqa: RET504
 
 
+def resample_parsivel_ds(resample_interval, parsivel_ds):
+    intervalstr = f'{int(resample_interval):d}S'
+    sec_offset = parsivel_ds.time[0].dt.second.to_numpy()
+    sec_offset_str = get_interval_str(sec_offset)
+
+    parsivel_rs = parsivel_ds.resample(time=intervalstr, label='right', closed='right',
+                                       offset=sec_offset_str)
+
+    parsivel_ds = parsivel_rs.agg({
+        'precipintensity': np.mean,
+        'precipaccum': np.sum,
+        'parsivel_dBZ': np.mean,
+        'pcount': np.sum,
+        'signal_amplitude': np.mean,
+        'pvoltage': np.mean,
+        'sensor_temp': np.mean,
+        'sample_interval': np.mean
+    }).fillna(0)
+
+    return parsivel_ds  # noqa: RET504
+
+
 def resample_ND(resample_interval, ND_df):
     """[summary]
 
