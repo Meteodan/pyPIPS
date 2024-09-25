@@ -114,6 +114,7 @@ RB15_correction_array = np.array([[1.00, 1.00, 0.02, 0.03, 0.11, 0.20, 0.36, 0.5
                                    1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00],
                                   [1.00] * 32])
 avg_diameter = parsivel_parameters['avg_diameter_bins_mm']
+avg_fallspeed = parsivel_parameters['avg_fallspeed_bins_mps']
 RB15_correction_factors = xr.DataArray(RB15_correction_array, name='RB15_correction_factors',
                                        coords={'rainrate': ('rainrate', RB15_RR_min),
                                                'RR_min': ('rainrate', RB15_RR_min),

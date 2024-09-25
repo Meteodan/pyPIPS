@@ -140,16 +140,24 @@ def calpolrain_xr(wavelength, filename, Nd, intv):
     return dualpol_dict  # noqa: RET504
 
 
-def calpolrain_bulk_xr(wavelength, filename, Nd, intv, diameter_bin_name='diameter_bin'):
+def calpolrain_bulk_xr(wavelength, filename, Nd, intv, diameter_bin_name='diameter_bin',
+                       D_min_index=None, D_max_index=None):
     """Given backscattering amplitudes and a discrete distribution N(D) (m^-4), compute
        polarimetric variables for each bin. This version saves memory by only computing and
        returning bulk quantities summed over all diameter bins."""
 
     d, far_b, fbr_b, far_f, fbr_f = readtmatrix(filename)
+    # TODO: fix this
+    # if D_min_index and D_max_index:
+    #     d = d[D_min_index:D_max_index]
+    #     far_b = far_b[D_min_index:D_max_index]
+    #     fbr_b = fbr_b[D_min_index:D_max_index]
+    #     far_f = far_f[D_min_index:D_max_index]
+    #     fbr_f = fbr_f[D_min_index:D_max_index]
     fa2, fb2, fab, fba, far = calbackscatterrain(far_b, fbr_b, far_f, fbr_f)  # noqa: F841
 
     # There may be more bins in the given Nd than are read in from the file.
-    # This is because the Nd contains bins above the maximum size of rain (~9 mm).
+    # This is because the Nd may contain bins above the maximum size of rain (~9 mm).
     # Truncate the diameter dimension of Nd to account for this.
     # Also transpose Nd to allow for numpy broadcasting
     # Nd = Nd[:, :np.size(fa2)] # Nd[:np.size(fa2), :].T

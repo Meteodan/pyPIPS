@@ -534,7 +534,8 @@ def calc_evap(rho, T, p, RH, N0, lamda, mu):
     Cdiff = (2.2157e-5 + 0.0155e-5 * (T - 273.15)) * 1e5 / p
 
     # Dynamic viscosity
-    MUdyn = 1.72e-5 * (393. / (T + 120.)) * (T / 273.16)**1.5
+    # MUdyn = 1.72e-5 * (393. / (T + 120.)) * (T / 273.16)**1.5
+    MUdyn = 1.7153e-5 + 0.005e-5 * (T - 273.15)
     # Kinematic viscosity
     MUkin = MUdyn / rho
     # Scorer parameter to the one-third power
@@ -548,7 +549,7 @@ def calc_evap(rho, T, p, RH, N0, lamda, mu):
 
     # Now we can calculate the bulk ventilation coefficient for rain (Woohoo!)
     VENTr = Avx * GR16 / (lamda**cexr5) + Bvx * ScTHRD * \
-        np.sqrt(gamma_factor * afr / MUkin) * GR17 / (lamda + ffr)**cexr6
+        np.sqrt(gamma_factor * afr / MUkin) * GR17 / (lamda + 0.5 * ffr)**cexr6
 
     # Calculate the thermodynamic function in the denominator of the bulk evaporation rate
     # Thermal conductivity of air
@@ -567,7 +568,7 @@ def calc_evap(rho, T, p, RH, N0, lamda, mu):
     S = qv / QSS - 1.0
 
     # With the above quantities, we can calculate the bulk evaporation rate (Yay!)
-    QREVP = 2. * np.pi * S * N0 * VENTr / ABw
+    QREVP = (1. / rho) * 2. * np.pi * S * N0 * VENTr / ABw
 
     # With QREVP we can calculate the latent cooling rate
     COOL_RATE = (Lv / cp) * QREVP
