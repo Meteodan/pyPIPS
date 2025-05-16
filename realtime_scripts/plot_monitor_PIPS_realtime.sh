@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# python plot_PIPS_real_time.py PIPS1A --netcdf-dir-url stormlab.eaps.purdue.edu/realtime/perils_realtime/netcdf --image-output-dir /Users/dawson29/sshfs_mounts/stormlab_web/perils_realtime/images &> PIPS1A_plot.log &
-# python plot_PIPS_real_time.py PIPS1B --netcdf-dir-url stormlab.eaps.purdue.edu/realtime/perils_realtime/netcdf --image-output-dir /Users/dawson29/sshfs_mounts/stormlab_web/perils_realtime/images &> PIPS1B_plot.log &
-# python plot_PIPS_real_time.py PIPS2A --netcdf-dir-url stormlab.eaps.purdue.edu/realtime/perils_realtime/netcdf --image-output-dir /Users/dawson29/sshfs_mounts/stormlab_web/perils_realtime/images &> PIPS2A_plot.log &
-# python plot_PIPS_real_time.py PIPS2B --netcdf-dir-url stormlab.eaps.purdue.edu/realtime/perils_realtime/netcdf --image-output-dir /Users/dawson29/sshfs_mounts/stormlab_web/perils_realtime/images &> PIPS2B_plot.log &
-# python plot_PIPS_real_time.py PIPS3A --netcdf-dir-url stormlab.eaps.purdue.edu/realtime/perils_realtime/netcdf --image-output-dir /Users/dawson29/sshfs_mounts/stormlab_web/perils_realtime/images &> PIPS3A_plot.log &
-# python plot_PIPS_real_time.py PIPS3B --netcdf-dir-url stormlab.eaps.purdue.edu/realtime/perils_realtime/netcdf --image-output-dir /Users/dawson29/sshfs_mounts/stormlab_web/perils_realtime/images &> PIPS3B_plot.log &
+# python plot_PIPS_real_time.py PIPS1A --netcdf-dir-url stormlab.eaps.purdue.edu/realtime/icechip_realtime/netcdf --image-output-dir /Users/dawson29/sshfs_mounts/stormlab_web/icechip_realtime/images &> PIPS1A_plot.log &
+# python plot_PIPS_real_time.py PIPS1B --netcdf-dir-url stormlab.eaps.purdue.edu/realtime/icechip_realtime/netcdf --image-output-dir /Users/dawson29/sshfs_mounts/stormlab_web/icechip_realtime/images &> PIPS1B_plot.log &
+# python plot_PIPS_real_time.py PIPS2A --netcdf-dir-url stormlab.eaps.purdue.edu/realtime/icechip_realtime/netcdf --image-output-dir /Users/dawson29/sshfs_mounts/stormlab_web/icechip_realtime/images &> PIPS2A_plot.log &
+# python plot_PIPS_real_time.py PIPS2B --netcdf-dir-url stormlab.eaps.purdue.edu/realtime/icechip_realtime/netcdf --image-output-dir /Users/dawson29/sshfs_mounts/stormlab_web/icechip_realtime/images &> PIPS2B_plot.log &
+# python plot_PIPS_real_time.py PIPS3A --netcdf-dir-url stormlab.eaps.purdue.edu/realtime/icechip_realtime/netcdf --image-output-dir /Users/dawson29/sshfs_mounts/stormlab_web/icechip_realtime/images &> PIPS3A_plot.log &
+# python plot_PIPS_real_time.py PIPS3B --netcdf-dir-url stormlab.eaps.purdue.edu/realtime/icechip_realtime/netcdf --image-output-dir /Users/dawson29/sshfs_mounts/stormlab_web/icechip_realtime/images &> PIPS3B_plot.log &
 
 # Path to your Python script
 PYTHON_SCRIPT="plot_PIPS_real_time.py"
@@ -13,13 +13,19 @@ PYTHON_SCRIPT="plot_PIPS_real_time.py"
 # Array of command-line arguments for each script instance
 # Each set of arguments for an instance should be a single string
 # For example, if your script takes two arguments, an instance might look like: "arg1 arg2"
-ARGUMENTS=("PIPS2B --netcdf-dir-url stormlab.eaps.purdue.edu/realtime/perils_realtime/netcdf --image-output-dir /Users/dawson29/sshfs_mounts/stormlab_web/perils_realtime/images"
-           "PIPS3A --netcdf-dir-url stormlab.eaps.purdue.edu/realtime/perils_realtime/netcdf --image-output-dir /Users/dawson29/sshfs_mounts/stormlab_web/perils_realtime/images"
-           "PIPS3B --netcdf-dir-url stormlab.eaps.purdue.edu/realtime/perils_realtime/netcdf --image-output-dir /Users/dawson29/sshfs_mounts/stormlab_web/perils_realtime/images"
+ARGUMENTS=("PIPS1A --netcdf-dir-url stormlab.eaps.purdue.edu/realtime/icechip_realtime/netcdf --image-output-dir /Users/dawson29/sshfs_mounts/stormlab_web/icechip_realtime/images"
+           "PIPS1B --netcdf-dir-url stormlab.eaps.purdue.edu/realtime/icechip_realtime/netcdf --image-output-dir /Users/dawson29/sshfs_mounts/stormlab_web/icechip_realtime/images"
+           "PIPS2A --netcdf-dir-url stormlab.eaps.purdue.edu/realtime/icechip_realtime/netcdf --image-output-dir /Users/dawson29/sshfs_mounts/stormlab_web/icechip_realtime/images"
+           "PIPS2B --netcdf-dir-url stormlab.eaps.purdue.edu/realtime/icechip_realtime/netcdf --image-output-dir /Users/dawson29/sshfs_mounts/stormlab_web/icechip_realtime/images"
+           "PIPS3A --netcdf-dir-url stormlab.eaps.purdue.edu/realtime/icechip_realtime/netcdf --image-output-dir /Users/dawson29/sshfs_mounts/stormlab_web/icechip_realtime/images"
+           "PIPS3B --netcdf-dir-url stormlab.eaps.purdue.edu/realtime/icechip_realtime/netcdf --image-output-dir /Users/dawson29/sshfs_mounts/stormlab_web/icechip_realtime/images"
 )
 
 # Array of PID files for each script instance
-PIDFILES=("/Users/dawson29/temp/pidfiles/PIPS2B_plot.pid"
+PIDFILES=("/Users/dawson29/temp/pidfiles/PIPS1A_plot.pid"
+          "/Users/dawson29/temp/pidfiles/PIPS1B_plot.pid"
+          "/Users/dawson29/temp/pidfiles/PIPS2A_plot.pid"
+          "/Users/dawson29/temp/pidfiles/PIPS2B_plot.pid"
           "/Users/dawson29/temp/pidfiles/PIPS3A_plot.pid"
           "/Users/dawson29/temp/pidfiles/PIPS3B_plot.pid"
 )

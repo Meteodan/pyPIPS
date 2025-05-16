@@ -14,13 +14,19 @@ PYTHON_SCRIPT="read_PIPS_real_time.py"
 # Array of command-line arguments for each script instance
 # Each set of arguments for an instance should be a single string
 # For example, if your script takes two arguments, an instance might look like: "arg1 arg2"
-ARGUMENTS=("PIPS2B --base-output-dir /Users/dawson29/sshfs_mounts/stormlab_web/perils_realtime"
-           "PIPS3A --base-output-dir /Users/dawson29/sshfs_mounts/stormlab_web/perils_realtime"
-           "PIPS3B --base-output-dir /Users/dawson29/sshfs_mounts/stormlab_web/perils_realtime"
+ARGUMENTS=("PIPS1A --base-output-dir /Users/dawson29/sshfs_mounts/stormlab_web/icechip_realtime"
+           "PIPS1B --base-output-dir /Users/dawson29/sshfs_mounts/stormlab_web/icechip_realtime"
+           "PIPS2A --base-output-dir /Users/dawson29/sshfs_mounts/stormlab_web/icechip_realtime"
+           "PIPS2B --base-output-dir /Users/dawson29/sshfs_mounts/stormlab_web/icechip_realtime"
+           "PIPS3A --base-output-dir /Users/dawson29/sshfs_mounts/stormlab_web/icechip_realtime"
+           "PIPS3B --base-output-dir /Users/dawson29/sshfs_mounts/stormlab_web/icechip_realtime"
 )
 
 # Array of PID files for each script instance
-PIDFILES=("/Users/dawson29/temp/pidfiles/PIPS2B_read.pid"
+PIDFILES=("/Users/dawson29/temp/pidfiles/PIPS1A_read.pid"
+          "/Users/dawson29/temp/pidfiles/PIPS1B_read.pid"
+          "/Users/dawson29/temp/pidfiles/PIPS2A_read.pid"
+          "/Users/dawson29/temp/pidfiles/PIPS2B_read.pid"
           "/Users/dawson29/temp/pidfiles/PIPS3A_read.pid"
           "/Users/dawson29/temp/pidfiles/PIPS3B_read.pid"
 )

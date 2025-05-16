@@ -154,7 +154,7 @@ base_url = f"http://{pips_ip}/?command=TableDisplay&table="
 url_onesec = f"{base_url}One_Hz"
 url_tensec = f"{base_url}Ten_Hz"
 
-http = urllib3.PoolManager()
+http = urllib3.PoolManager(cert_reqs='CERT_NONE')
 
 meteogram_duration = 3600  # Length of meteogram plot in seconds
 plot_update_interval = 60  # number of seconds between plotting activity

@@ -74,7 +74,7 @@ if not os.path.exists(csv_output_dir):
     os.makedirs(csv_output_dir)
 
 # Construct the URL for the PIPS
-pips_ip = prc.PIPS_PERiLS_IPs[args.PIPS_name]
+pips_ip = prc.PIPS_ICECHIP_IPs[args.PIPS_name]
 base_url = f"http://{pips_ip}/?command=TableDisplay&table="
 url_onesec = f"{base_url}One_Hz"
 print(url_onesec)
