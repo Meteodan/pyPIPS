@@ -564,7 +564,7 @@ def calc_evap(rho, T, p, RH, N0, lamda, mu):
     RH_frac = RH / 100.0
 
     # Calculate water vapor mixing ratio
-    qv = thermo.calqv(RH_frac, p, T)
+    qv = thermo.calw(RH_frac, p, T)
     S = qv / QSS - 1.0
 
     # With the above quantities, we can calculate the bulk evaporation rate (Yay!)
