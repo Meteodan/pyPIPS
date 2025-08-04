@@ -281,7 +281,7 @@ def get_PIPS_GPS_offset(filename, field_indices, tripips=False):  # noqa: ARG001
     return GPS_offset
 
 
-def parse_parsivel_telegram(parsivel_telegram, logger_datetime):
+def parse_parsivel_telegram(parsivel_telegram, logger_datetime, probe_set='ICECHIP_2025_A'):
     """[summary]
 
     Parameters
@@ -298,7 +298,15 @@ def parse_parsivel_telegram(parsivel_telegram, logger_datetime):
     """
     parsivel_tokens = parsivel_telegram.strip().split(';')
     serialnum = parsivel_tokens[0]
-    valid_serial_nums = [v['serialnum'] for k, v in parsivel_params.probe_info.items()]
+    if probe_set == 'ICECHIP_2025_A':
+        valid_serial_nums = [v['serialnum'] for
+                             k, v in parsivel_params.probe_info_ICECHIP_2025_A.items()]
+    elif probe_set == 'ICECHIP_2025_B':
+        valid_serial_nums = [v['serialnum'] for
+                             k, v in parsivel_params.probe_info_ICECHIP_2025_B.items()]
+    else:
+        valid_serial_nums = [v['serialnum'] for
+                             k, v in parsivel_params.probe_info_pre_ICECHIP.items()]
     if serialnum in valid_serial_nums and len(parsivel_tokens) >= 11:
         precipintensity = float(parsivel_tokens[1])
         precipaccum = float(parsivel_tokens[2])
@@ -344,7 +352,7 @@ def parse_parsivel_telegram(parsivel_telegram, logger_datetime):
 
 
 def read_PIPS(filename, start_timestamp=None, end_timestamp=None, tripips=False,
-              correct_logger_time=True, sort=False, check_order=False):
+              correct_logger_time=True, sort=False, check_order=False, probe_set='ICECHIP_2025_A'):
     """[summary]
 
     Parameters
@@ -401,7 +409,8 @@ def read_PIPS(filename, start_timestamp=None, end_timestamp=None, tripips=False,
                 continue
 
             parsivel_dict, vd_matrix = parse_parsivel_telegram(record_dict['parsivel_telegram'],
-                                                               record_dict['logger_datetime'])
+                                                               record_dict['logger_datetime'],
+                                                               probe_set=probe_set)
             conv_dict = record_dict
             conv_dict.pop('parsivel_telegram')
             conv_dict_list.append(conv_dict)

@@ -60,7 +60,7 @@ parsivel_parameters['avg_fallspeed_bins_mps'] = (parsivel_parameters['min_fallsp
 parsivel_parameters['eff_sensor_area_mm2'] = \
     (180. * (30. - parsivel_parameters['avg_diameter_bins_mm'] / 2.))
 
-probe_info = {
+probe_info_pre_ICECHIP = {
     'PIPS1A': {
         'serialnum': '304545',
         'parsivel_angle': -45.,
@@ -75,6 +75,68 @@ probe_info = {
     },
     'PIPS2B': {
         'serialnum': '304543',
+        'parsivel_angle': 45.,
+    },
+    'PIPS3A': {
+        'serialnum': '450991',
+        'parsivel_angle': 45.,
+    },
+    'PIPS3B': {
+        'serialnum': '450990',
+        'parsivel_angle': 45.,
+    },
+    'TriPIPS': {
+        'serialnum': '390654',
+        'parsivel_angle': 90.,
+    }
+}
+
+probe_info_ICECHIP_2025_A = {
+    'PIPS1A': {
+        'serialnum': '452538',
+        'parsivel_angle': -45.,
+    },
+    'PIPS1B': {
+        'serialnum': '452537',
+        'parsivel_angle': 45.,
+    },
+    'PIPS2A': {
+        'serialnum': '452783',
+        'parsivel_angle': -45.,
+    },
+    'PIPS2B': {
+        'serialnum': '304543',
+        'parsivel_angle': 45.,
+    },
+    'PIPS3A': {
+        'serialnum': '450991',
+        'parsivel_angle': 45.,
+    },
+    'PIPS3B': {
+        'serialnum': '450990',
+        'parsivel_angle': 45.,
+    },
+    'TriPIPS': {
+        'serialnum': '390654',
+        'parsivel_angle': 90.,
+    }
+}
+
+probe_info_ICECHIP_2025_B = {
+    'PIPS1A': {
+        'serialnum': '390654',
+        'parsivel_angle': -45.,
+    },
+    'PIPS1B': {
+        'serialnum': '452537',
+        'parsivel_angle': 45.,
+    },
+    'PIPS2A': {
+        'serialnum': '452783',
+        'parsivel_angle': -45.,
+    },
+    'PIPS2B': {
+        'serialnum': '452538',
         'parsivel_angle': 45.,
     },
     'PIPS3A': {
