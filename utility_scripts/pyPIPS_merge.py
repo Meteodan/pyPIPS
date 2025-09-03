@@ -212,7 +212,7 @@ def readData(data_dir):
     dict_onesec = {}
     for filename in filelist_onesec:
         print("Reading 1-s data file: ", os.path.basename(filename))
-        with open(filename) as f:
+        with open(filename, encoding='latin-1') as f:
             try:
                 next(f)  # Read and discard first header line
             except Exception:
@@ -251,6 +251,7 @@ def readData(data_dir):
             # https://stackoverflow.com/questions/14091387/creating-a-dictionary-from-a-csv-file
             reader = csv.DictReader(f, fieldnames=fieldnames)
             for row in reader:
+                # print(row)
                 # Process the dictionary of values in each row
                 row = process_onesec_record(row)
                 for column, value in row.items():

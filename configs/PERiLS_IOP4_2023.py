@@ -3,9 +3,9 @@
 PIPS_IO_dict = {
     'dataset_name': 'IOP4_033123',
     'deployment_names': ['IOP4_033123'] * 6,
-    'input_txt_dir': '/Users/dawson29/Projects/PERiLS/obsdata/2023/PIPS_data/IOP4_033123/csv',
-    'PIPS_dir': '/Users/dawson29/Projects/PERiLS/obsdata/2023/PIPS_data/IOP4_033123/netcdf',
-    'plot_dir': '/Users/dawson29/Projects/PERiLS/obsdata/2023/PIPS_data/IOP4_033123/plots/10s',
+    'input_txt_dir': '/Users/dawson29/Dropbox/Projects/PERiLS/obsdata/2023/IOP4_033123/csv',
+    'PIPS_dir': '/Users/dawson29/Dropbox/Projects/PERiLS/obsdata/2023/IOP4_033123/netcdf',
+    'plot_dir': '/Users/dawson29/Dropbox/Projects/PERiLS/obsdata/2023/IOP4_033123/plots/10s',
     'PIPS_types': ['PIPS'] * 6,
     'PIPS_names': ['PIPS1A', 'PIPS1B', 'PIPS2A', 'PIPS2B', 'PIPS3A', 'PIPS3B'],
     'PIPS_filenames': ['PIPS1A_IOP4_033123_merged.txt',
@@ -26,8 +26,10 @@ PIPS_IO_dict = {
                           'conventional_raw_IOP4_033123_PIPS2B.nc',
                           'conventional_raw_IOP4_033123_PIPS3A.nc',
                           'conventional_raw_IOP4_033123_PIPS3B.nc'],
-    'start_times': ['20230401070700'] * 6,
-    'end_times': ['20230401084200'] * 6,
+    'start_times': ['20230401073932', '20230401071202', '20230401073852',
+                    '20230401071202', '20230401072319', '20230401072519'],
+    'end_times': ['20230401083002', '20230401083622', '20230401082352',
+                  '20230401083622', '20230401084139', '20230401082509'],
     'requested_interval': 10.
 }
 
@@ -54,6 +56,6 @@ radar_config_dict = {
     'el_req': 0.5,
     'radar_start_timestamp': '20220330234000',
     'radar_end_timestamp': '20220331014500',
-    'scatt_dir': '/depot/dawson29/apps/Projects/pyPIPS/tmatrix/S-Band/',
+    'scatt_dir': '/Users/dawson29/Projects/pyPIPS/tmatrix/S-Band/',
     'wavelength': 10.7
 }

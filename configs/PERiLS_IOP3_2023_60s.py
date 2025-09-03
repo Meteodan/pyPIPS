@@ -38,7 +38,7 @@ radar_config_dict = {
     'radar_type': 'NEXRAD',
     'radar_dir': '/Users/dawson29/Projects/PERiLS/obsdata/2023/NEXRAD/IOP3/DGX/CFRadial',
     'radar_fname_pattern': '{rad_name}{year:04d}{month:02d}{day:02d}_{hour:02d}{min:02d}{sec:02d}_V06.nc',
-    'field_names': ['REF', 'ZDR', 'RHO'], # , 'Dm_Z01', 'sigma_Z01', 'RR_Z01', 'mu_Z01', 'lamda_Z01'],
+    'field_names': ['VEL'], # ['REF', 'ZDR', 'RHO'], # , 'Dm_Z01', 'sigma_Z01', 'RR_Z01', 'mu_Z01', 'lamda_Z01'],
     'el_req': 0.3,  # DGX seems to have a lower first tilt
     'radar_start_timestamp': '20230324233000',
     'radar_end_timestamp': '20230325030000',

@@ -16,6 +16,11 @@ PIPS_plotting_dict = {
     'avgwindow': 180.,
     'plot_diagnostics': True,
     'T_Td_range': (5., 30.),
+    # For wind plotting
+    'avgwind': True,
+    'maskbadwind': True,
+    'windavgintv': 60,
+    'windgustintv': 3,
     'ws_range': (0.0, 25.0),
     # Axis locating and formatting parameters
     'majorxformatter': dates.DateFormatter('%H:%M'),

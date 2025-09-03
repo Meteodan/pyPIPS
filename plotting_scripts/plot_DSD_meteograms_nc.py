@@ -1,21 +1,24 @@
 # pyPIPS_meteograms.py
 #
 # This script plots meteograms from the Portable Integrated Precipitation Stations (PIPS)
-import os
+from __future__ import annotations
+
 import argparse
+import os
 from datetime import datetime
+
 import numpy as np
 import pandas as pd
 import xarray as xr
-import matplotlib.ticker as ticker
-import matplotlib.dates as dates
+from matplotlib import dates, ticker
+
 import pyPIPS.parsivel_params as pp
-import pyPIPS.radarmodule as radar
-import pyPIPS.plotmodule as pm
-import pyPIPS.utils as utils
 import pyPIPS.PIPS as pips
+import pyPIPS.plotmodule as pm
 import pyPIPS.polarimetric as dp
+import pyPIPS.radarmodule as radar
 import pyPIPS.timemodule as tm
+from pyPIPS import utils
 
 min_diameter = pp.parsivel_parameters['min_diameter_bins_mm']
 diameter_bin_edges = pp.parsivel_parameters['diameter_bin_edges_mm']
@@ -32,8 +35,8 @@ parser.add_argument('case_config_path', metavar='<path/to/case/config/file.py>',
                     help='The path to the case configuration file')
 parser.add_argument('--plot-config-path', dest='plot_config_path',
                     default='plot_config.py', help='Location of the plot configuration file')
-parser.add_argument('--ND-tag', dest='ND_tag', default=None,
-                    help='Tag for ND variable in file (i.e., qc, RB15_vshift_qc, RB15_qc).')
+parser.add_argument('--QC-tag', dest='QC_tag', default=None,
+                    help='QC tag for DSD variables in file (i.e., qc, RB15_vshift_qc, RB15_qc).')
 parser.add_argument('--use-filtered-fields', dest='use_filtered_fields', default=False,
                     action='store_true',
                     help='Whether to use previously filtered dBZ and ZDR fields for the retrieval')
@@ -52,16 +55,21 @@ parser.add_argument('--use-parsivel-params', dest='use_parsivel_params', action=
                     default=False, help='Use parsivel RR and counts instead of computed')
 parser.add_argument('--plot-radar', dest='plot_radar', type=str, default=None,
                     help='Whether to plot derived/observed radar variables (yes/no)')
+parser.add_argument('--plot-start-time', metavar='YYYYmmDDHHMMSS', dest='plot_start_time',
+                    default=None, help='start time for plotting (overrides those in config file)')
+parser.add_argument('--plot-end-time', metavar='YYYYmmDDHHMMSS', dest='plot_end_time',
+                    default=None, help='end time for plotting (overrides those in config file)')
+parser.add_argument('--time-dim', dest='time_dim', default='time',
+                    help='Name of the time dimension in the netCDF file')
 
 args = parser.parse_args()
 
-if not args.ND_tag:
-    ND_tag = ''
-else:
-    ND_tag = '_{}'.format(args.ND_tag)
+use_plot_date = args.time_dim != 'relative_time'
+
+QC_tag = '' if not args.QC_tag else f'_{args.QC_tag}'
 
 # Dynamically import the case configuration file
-utils.log("Case config file is {}".format(args.case_config_path))
+utils.log(f"Case config file is {args.case_config_path}")
 config = utils.import_all_from(args.case_config_path)
 try:
     config = utils.import_all_from(args.case_config_path)
@@ -71,7 +79,7 @@ except Exception:
         "Unable to import case configuration parameters! Aborting!")
 
 # Dynamically import the plotting configuration file
-utils.log("Plotting configuration file is {}".format(args.plot_config_path))
+utils.log(f"Plotting configuration file is {args.plot_config_path}")
 try:
     pc = utils.import_all_from(args.plot_config_path)
     utils.log("Successfully imported pyPIPS control parameters!")
@@ -89,8 +97,14 @@ PIPS_types = config.PIPS_IO_dict.get('PIPS_types', None)
 PIPS_names = config.PIPS_IO_dict.get('PIPS_names', None)
 PIPS_filenames = config.PIPS_IO_dict.get('PIPS_filenames', None)
 parsivel_combined_filenames = config.PIPS_IO_dict['PIPS_filenames_nc']
-start_times = config.PIPS_IO_dict.get('start_times', [None] * len(PIPS_names))
-end_times = config.PIPS_IO_dict.get('end_times', [None] * len(PIPS_names))
+if args.plot_start_time:
+    start_times = [args.plot_start_time] * len(PIPS_names)
+else:
+    start_times = config.PIPS_IO_dict.get('start_times', [None] * len(PIPS_names))
+if args.plot_end_time:
+    end_times = [args.plot_end_time] * len(PIPS_names)
+else:
+    end_times = config.PIPS_IO_dict.get('end_times', [None] * len(PIPS_names))
 geo_locs = config.PIPS_IO_dict.get('geo_locs', [None] * len(PIPS_names))
 requested_interval = config.PIPS_IO_dict.get('requested_interval', 10.)
 
@@ -128,7 +142,7 @@ if not os.path.exists(meteogram_image_dir):
 parsivel_combined_filelist = [os.path.join(PIPS_dir, pcf) for pcf in parsivel_combined_filenames]
 
 for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
-    print("Reading {}".format(parsivel_combined_file))
+    print(f"Reading {parsivel_combined_file}")  # noqa: T201
     parsivel_combined_ds = xr.load_dataset(parsivel_combined_file)
     DSD_interval = parsivel_combined_ds.DSD_interval
     PIPS_name = parsivel_combined_ds.probe_name
@@ -136,10 +150,10 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
     image_dir = os.path.join(meteogram_image_dir, deployment_name)
     if not os.path.exists(image_dir):
         os.makedirs(image_dir)
-    fname_tag = ND_tag
+    fname_tag = QC_tag
     if comp_radar:
-        radar_fields_at_PIPS_da = parsivel_combined_ds['{}_at_PIPS'.format(radar_name)]
-        fname_tag = ND_tag + '_{}'.format(radar_name)
+        radar_fields_at_PIPS_da = parsivel_combined_ds[f'{radar_name}_at_PIPS']
+        fname_tag = QC_tag + f'_{radar_name}'
 
     start_time = start_times[index]
     end_time = end_times[index]
@@ -149,28 +163,35 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
         if args.use_parsivel_params:
             rainrate_key = 'precipintensity'
         else:
-            rainrate_key = 'rainrate_derived{}'.format(ND_tag)
+            rainrate_key = f'rainrate_derived{QC_tag}'
         parsivel_combined_ds = parsivel_combined_ds.where(
             parsivel_combined_ds[rainrate_key] >= args.filter_RR)
     if args.filter_counts:
-        if args.use_parsivel_params:
-            counts_key = 'pcount'
-        else:
-            counts_key = 'pcount_derived{}'.format(ND_tag)
+        counts_key = 'pcount' if args.use_parsivel_params else f'pcount_derived{QC_tag}'
         parsivel_combined_ds = parsivel_combined_ds.where(
             parsivel_combined_ds[counts_key] >= args.filter_counts)
 
-    ND = parsivel_combined_ds['ND{}'.format(ND_tag)]
+    ND = parsivel_combined_ds[f'ND{QC_tag}']
     logND = np.log10(ND)
 
     # Get times for PIPS meteogram plotting
-    PSD_datetimes = pips.get_PSD_datetimes(parsivel_combined_ds['VD_matrix'])
+    if args.time_dim == 'relative_time':
+        PSD_datetimes = parsivel_combined_ds['relative_time']
+    else:
+        PSD_datetimes = pips.get_PSD_datetimes(parsivel_combined_ds['VD_matrix'],
+                                               dim_name=args.time_dim)
+
     PSD_datetimes_dict = pips.get_PSD_time_bins(PSD_datetimes)
 
     # PSD_edgetimes = dates.date2num(PSD_datetimes_dict['PSD_datetimes_edges'])
     PSD_edgetimes = PSD_datetimes_dict['PSD_datetimes_edges']
     # PSD_centertimes = dates.date2num(PSD_datetimes_dict['PSD_datetimes_centers'])
     PSD_centertimes = PSD_datetimes_dict['PSD_datetimes_centers']
+
+    # Special treatment if we are dealing with relative time. Need to make this more flexible
+    if args.time_dim == 'relative_time':
+        PSD_edgetimes = PSD_edgetimes.astype('timedelta64[s]').astype(int)
+        PSD_centertimes = PSD_centertimes.astype('timedelta64[s]').astype(int)
 
     # Pack plotting variables into dictionary
     disvars = {
@@ -183,7 +204,7 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
 
     # Compute additional derived parameters
     # disvars['D_0'] = dsd.calc_D0_bin(ND) * 1000.  # Get to mm
-    disvars['D_m'] = parsivel_combined_ds['Dm43{}'.format(ND_tag)] * 1000.  # Get to mm
+    disvars['D_m'] = parsivel_combined_ds[f'Dm43{QC_tag}'] * 1000.  # Get to mm
     if calc_dualpol and plot_radar:
         # Calculate polarimetric variables using the T-matrix technique
         # Note, may try to use pyDSD for this purpose.
@@ -191,29 +212,34 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
         # Observed DSD
         dualpol_dis = dp.calpolrain(wavelength, scattfile, ND, bin_width)
         for varname in ['REF', 'ZDR', 'KDP', 'RHO']:
-            var = dualpol_dis.get(varname, np.empty((0)))
+            var = dualpol_dis.get(varname, np.empty(0))
             if var.size:
                 # If desired, perform centered running averages. NOTE: disabled for now
                 if pc.PIPS_plotting_dict['avgwindow'] and False:
                     window = int(pc.PIPS_plotting_dict['avgwindow'] / DSD_interval)
                     var = pd.Series(var).rolling(
                         window=window, center=True, win_type='triang',
-                        min_periods=1).mean().values
+                        min_periods=1).mean().to_numpy()
                 disvars[varname] = var
     # Set up axis parameters
-    try:
-        start_datetime = datetime.strptime(start_time, tm.timefmt3)
-        print('start_datetime', start_datetime)
-    except (ValueError, TypeError):
+    if args.time_dim == 'relative_time':
         start_datetime = PSD_edgetimes[0]
-    try:
-        end_datetime = datetime.strptime(end_time, tm.timefmt3)
-        print('end_datetime', end_datetime)
-    except (ValueError, TypeError):
         end_datetime = PSD_edgetimes[-1]
+        start_time_string = str(start_datetime)
+        end_time_string = str(end_datetime)
+    else:
+        try:
+            start_datetime = datetime.strptime(start_time, tm.timefmt3)
+        except (ValueError, TypeError):
+            start_datetime = PSD_edgetimes[0]
+        try:
+            end_datetime = datetime.strptime(end_time, tm.timefmt3)
+        except (ValueError, TypeError):
+            end_datetime = PSD_edgetimes[-1]
+        start_time_string = start_datetime.strftime(tm.timefmt3)
+        end_time_string = end_datetime.strftime(tm.timefmt3)
+
     timelimits = [start_datetime, end_datetime]
-    start_time_string = start_datetime.strftime(tm.timefmt3)
-    end_time_string = end_datetime.strftime(tm.timefmt3)
     try:
         diamlimits = pc.PIPS_plotting_dict['DSD_D_range']
         diamytick = pc.PIPS_plotting_dict['DSD_D_ytick']
@@ -251,13 +277,13 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
         # print(radar_fields_at_PIPS_da)
         # At least add the reflectivity
         # First get list of radar fields in DataArray
-        dim_name = 'fields_{}'.format(radar_name)
-        radar_fields = radar_fields_at_PIPS_da.coords[dim_name].values
+        dim_name = f'fields_{radar_name}'
+        radar_fields = radar_fields_at_PIPS_da.coords[dim_name].to_numpy()
         # Then find which one corresponds to reflectivity
         # ref_name = next((fname for fname in radar_fields if fname in radar.REF_aliases))
         ref_name = radar.find_radar_field_name(radar_fields, radar.REF_aliases)
         if args.use_filtered_fields:
-            ref_name = ref_name + '_filtered'
+            ref_name += '_filtered'
         dBZ_D_plt = radar_fields_at_PIPS_da.loc[{dim_name: ref_name}]
         # indexrad = sb.outfieldnames.index('dBZ')
         # dBZ_D_plt = sb.fields_D_tarr[:, index, indexrad]
@@ -268,8 +294,8 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
                                                    [radar.ZDR_aliases, radar.RHV_aliases,
                                                     radar.KDP_aliases]):
                 radvar_name_in_file = radar.find_radar_field_name(radar_fields, radvar_aliases)
-                if radvar_name in ['ZDR', 'RHO'] and args.use_filtered_fields:
-                    radvar_name_in_file = radvar_name_in_file + '_filtered'
+                if radvar_name in {'ZDR', 'RHO'} and args.use_filtered_fields:
+                    radvar_name_in_file += '_filtered'
                 if radvar_name_in_file:
                     dualpol_rad_var = radar_fields_at_PIPS_da.loc[{dim_name: radvar_name_in_file}]
                     if dualpol_rad_var.size:
@@ -282,9 +308,9 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
             # TODO: allow for selection of retrievals to plot on command line
             try:
                 radvars['D_m_rad_SATP'] = radar_fields_at_PIPS_da.loc[{
-                    dim_name: 'Dm_SATP_TMM{}'.format(ND_tag)}]
+                    dim_name: f'Dm_SATP_TMM{QC_tag}'}]
                 radvars['D_m_rad_TMM_F'] = radar_fields_at_PIPS_da.loc[{
-                    dim_name: 'Dm_TMM_F{}'.format(ND_tag)}]
+                    dim_name: f'Dm_TMM_F{QC_tag}'}]
             except KeyError:
                 radvars['D_m_rad_SATP'] = radar_fields_at_PIPS_da.loc[{
                     dim_name: 'Dm_SATP'}]
@@ -315,6 +341,7 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
                     disvars[disvarname] = np.ma.masked_array(disvars[disvarname], mask=mask)
 
     # Make the plot
-    PIPS_plot_name = '{}_{}_{}_{}_{}{}'.format(PIPS_name, deployment_name, start_time_string,
-                                               end_time_string, DSDtype, fname_tag)
-    pm.plotDSDmeteograms(PIPS_plot_name, image_dir, axparams, disvars, radvars.copy())
+    PIPS_plot_name = \
+        f'{PIPS_name}_{deployment_name}_{start_time_string}_{end_time_string}_{DSDtype}{fname_tag}'
+    pm.plotDSDmeteograms(PIPS_plot_name, image_dir, axparams, disvars, radvars.copy(),
+                         use_plot_date=use_plot_date)

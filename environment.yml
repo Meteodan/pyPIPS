@@ -7,6 +7,7 @@ dependencies:
   - bottleneck
   - cartopy
   - cftime
+  - cmocean
   - dask
   - flake8
   - gfortran

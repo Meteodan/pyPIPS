@@ -1,14 +1,18 @@
 # pyPIPS_meteograms.py
 #
 # This script calculates dereived parameters from the PIPS DSDs (netCDF version)
-import os
+from __future__ import annotations
+
 import argparse
+import os
+
 import numpy as np
 import xarray as xr
-import pyPIPS.parsivel_params as pp
-import pyPIPS.utils as utils
-import pyPIPS.PIPS as pips
+
 import pyPIPS.DSDlib as dsd
+import pyPIPS.parsivel_params as pp
+import pyPIPS.PIPS as pips
+from pyPIPS import utils
 
 min_diameter = pp.parsivel_parameters['min_diameter_bins_mm']
 max_diameter = pp.parsivel_parameters['max_diameter_bins_mm']
@@ -48,7 +52,7 @@ for QC_tag in QC_tags:
     VD_tags.append(VD_tag)
 
 # Dynamically import the case configuration file
-utils.log("Case config file is {}".format(args.case_config_path))
+utils.log(f"Case config file is {args.case_config_path}")
 config = utils.import_all_from(args.case_config_path)
 try:
     config = utils.import_all_from(args.case_config_path)
@@ -67,30 +71,34 @@ PIPS_types = config.PIPS_IO_dict.get('PIPS_types', None)
 PIPS_names = config.PIPS_IO_dict.get('PIPS_names', None)
 PIPS_filenames = config.PIPS_IO_dict.get('PIPS_filenames', None)
 parsivel_combined_filenames = config.PIPS_IO_dict['PIPS_filenames_nc']
-start_times = config.PIPS_IO_dict.get('start_times', [None]*len(PIPS_names))
-end_times = config.PIPS_IO_dict.get('end_times', [None]*len(PIPS_names))
-geo_locs = config.PIPS_IO_dict.get('geo_locs', [None]*len(PIPS_names))
+start_times = config.PIPS_IO_dict.get('start_times', [None] * len(PIPS_names))
+end_times = config.PIPS_IO_dict.get('end_times', [None] * len(PIPS_names))
+geo_locs = config.PIPS_IO_dict.get('geo_locs', [None] * len(PIPS_names))
 requested_interval = config.PIPS_IO_dict.get('requested_interval', 10.)
 
 # Get a list of the combined parsivel netCDF data files that are present in the PIPS directory
 parsivel_combined_filelist = [os.path.join(PIPS_dir, pcf) for pcf in parsivel_combined_filenames]
 
-for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
-    print("Reading {}".format(parsivel_combined_file))
+for parsivel_combined_file in parsivel_combined_filelist:
+    print(f"Reading {parsivel_combined_file}")  # noqa: T201
     parsivel_combined_ds = xr.load_dataset(parsivel_combined_file)
 
     DSD_interval = parsivel_combined_ds.DSD_interval
     PIPS_name = parsivel_combined_ds.probe_name
     deployment_name = parsivel_combined_ds.deployment_name
 
-    for QC_tag, VD_tag in zip(QC_tags, VD_tags):
-        if QC_tag != '':
-            QC_tag = '_{}'.format(QC_tag)
-        if VD_tag != '':
-            VD_tag = '_{}'.format(VD_tag)
+    for QC_tag_tmp, VD_tag_tmp in zip(QC_tags, VD_tags):
+        if QC_tag_tmp != '':  # noqa: PLC1901, SIM108
+            QC_tag = f'_{QC_tag_tmp}'
+        else:
+            QC_tag = QC_tag_tmp
+        if VD_tag_tmp != '':  # noqa: PLC1901, SIM108
+            VD_tag = f'_{VD_tag_tmp}'
+        else:
+            VD_tag = VD_tag_tmp
 
-        ND = parsivel_combined_ds['ND{}'.format(QC_tag)]
-        vd_matrix = parsivel_combined_ds['VD_matrix{}'.format(VD_tag)]
+        ND = parsivel_combined_ds[f'ND{QC_tag}']
+        vd_matrix = parsivel_combined_ds[f'VD_matrix{VD_tag}']
         coord_to_combine = 'time'
 
         vd_matrix = vd_matrix.where(vd_matrix > 0.)
@@ -102,23 +110,23 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
                                                        rho=parsivel_combined_ds['rho'])
         rainrate_bin = (6. * 10.**-4.) * np.pi * fallspeeds_emp * avg_diameter**3. * ND * bin_width
         rainrate = rainrate_bin.sum(dim='diameter_bin')
-        parsivel_combined_ds['rainrate_derived{}'.format(QC_tag)] = rainrate
-        parsivel_combined_ds['rainrate_derived{}'.format(QC_tag)].attrs['units'] = \
+        parsivel_combined_ds[f'rainrate_derived{QC_tag}'] = rainrate
+        parsivel_combined_ds[f'rainrate_derived{QC_tag}'].attrs['units'] = \
             'millimeters per hour'
 
         # Compute particle counts from raw or QC'ed VD matrix
         pcount = vd_matrix.sum(dim=['fallspeed_bin', 'diameter_bin'])
-        parsivel_combined_ds['pcount_derived{}'.format(QC_tag)] = pcount
+        parsivel_combined_ds[f'pcount_derived{QC_tag}'] = pcount
 
         # Compute (Rayleigh) radar reflectivity from raw or QC'ed ND
         reflectivity = dsd.calc_dBZ_from_bins(ND)
-        parsivel_combined_ds['reflectivity_derived{}'.format(QC_tag)] = reflectivity
-        parsivel_combined_ds['reflectivity_derived{}'.format(QC_tag)].attrs['units'] = 'dBZ'
+        parsivel_combined_ds[f'reflectivity_derived{QC_tag}'] = reflectivity
+        parsivel_combined_ds[f'reflectivity_derived{QC_tag}'].attrs['units'] = 'dBZ'
 
         # Compute median volume diameter D0 (m)
         D0 = dsd.calc_D0_bin(ND)
-        parsivel_combined_ds['D0{}'.format(QC_tag)] = D0
-        parsivel_combined_ds['D0{}'.format(QC_tag)].attrs['units'] = 'meters'
+        parsivel_combined_ds[f'D0{QC_tag}'] = D0
+        parsivel_combined_ds[f'D0{QC_tag}'].attrs['units'] = 'meters'
 
         # Compute mass weighted mean diameter and spectral width
         D = ND['diameter']
@@ -127,12 +135,12 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
         Dm = dsd.calc_Dmpq_binned(4, 3, ND)
         sigma = dsd.calc_sigma(D, dD, ND)
 
-        parsivel_combined_ds['Dm43{}'.format(QC_tag)] = Dm
-        parsivel_combined_ds['Dm43{}'.format(QC_tag)].attrs['units'] = 'meters'
+        parsivel_combined_ds[f'Dm43{QC_tag}'] = Dm
+        parsivel_combined_ds[f'Dm43{QC_tag}'].attrs['units'] = 'meters'
 
-        parsivel_combined_ds['sigma{}'.format(QC_tag)] = sigma
-        parsivel_combined_ds['sigma{}'.format(QC_tag)].attrs['units'] = 'meters'
+        parsivel_combined_ds[f'sigma{QC_tag}'] = sigma
+        parsivel_combined_ds[f'sigma{QC_tag}'].attrs['units'] = 'meters'
 
     parsivel_combined_output_file = parsivel_combined_file + args.output_tag
-    print("Dumping {}".format(parsivel_combined_output_file))
+    print(f"Dumping {parsivel_combined_output_file}")  # noqa: T201
     parsivel_combined_ds.to_netcdf(parsivel_combined_output_file)

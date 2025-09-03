@@ -1,0 +1,34 @@
+name: pyPIPS
+channels:
+  - conda-forge
+dependencies:
+  - arm_pyart
+  - autopep8
+  - beautifulsoup4
+  - bottleneck
+  - cartopy
+  - cftime
+  - dask
+  - flake8
+  - h5py
+  - h5netcdf
+  - ipykernel
+  - joblib
+  - lxml
+  - matplotlib
+  - metpy
+  - nbdime
+  - netcdf4
+  - numba
+  - numpy
+  - pandas
+  - parse
+  - pip
+  - pylint
+  - pytz
+  - python=3.10
+  - scipy
+  - urllib3
+  - xarray
+#  - pip:
+#    - "--editable=git+https://github.itap.purdue.edu/STorMLab/pyCRMtools.git@master#egg=pyCRMtools"

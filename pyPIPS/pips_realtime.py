@@ -1,23 +1,26 @@
 """Module for real-time monitoring functionality"""
-import os, shutil
+from __future__ import annotations
+
 import csv
-from datetime import datetime, timedelta
+import locale
+import os
+import shutil
+from datetime import datetime
+
 import bs4
-import urllib3
-import pandas as pd
-import xarray as xr
 import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.dates as dates
-import matplotlib.ticker as ticker
-from mpl_toolkits.axes_grid1 import make_axes_locatable
-from pyPIPS.PIPS import avg_diameter, avg_fall_bins, max_diameter, \
-    min_diameter, min_fall_bins, diameter_edges, fall_bins_edges
-from pyPIPS.parsivel_params import parsivel_parameters
-from pyPIPS import thermolib as thermo
-from pyPIPS import timemodule as tm
+import pandas as pd
+import urllib3
+import xarray as xr
+
 from pyPIPS import pips_io as pipsio
-import pyPIPS.plotmodule as pm
+from pyPIPS.parsivel_params import parsivel_parameters
+from pyPIPS.PIPS import (
+    avg_diameter,
+    avg_fall_bins,
+    max_diameter,
+    min_diameter,
+)
 
 eff_sensor_area = parsivel_parameters['eff_sensor_area_mm2'] * 1.e-6
 # Function definitions
@@ -26,7 +29,7 @@ eff_sensor_area = parsivel_parameters['eff_sensor_area_mm2'] * 1.e-6
 def get_data_table(http, url, numrecords=3600):
     """Grabs the data table from the PIPS http server given the requested http pool manager,
        requested URL, and desired number of records. Uses urlib3 and beautifulsoup4"""
-    content = http.request('GET', url + '&records={:d}'.format(numrecords), retries=False,
+    content = http.request('GET', url + f'&records={numrecords:d}', retries=False,
                            timeout=10.0)
     soup = bs4.BeautifulSoup(content.data, "lxml")
     table = soup.find('table')
@@ -49,8 +52,6 @@ def scrape_onesec_data(url, http=None, numrecords=3600, tripips=False):
         tokens = row.find_all('td')
         tokens = [token.string.strip(' "') for token in tokens]
 
-
-
         token_dict = pipsio.parse_PIPS_record(tokens, field_indices, tripips=tripips,
                                               include_parsivel_string=False)
 
@@ -59,12 +60,12 @@ def scrape_onesec_data(url, http=None, numrecords=3600, tripips=False):
         # the bad fields when needed.
 
         if token_dict['GPS_status'] == "A":
-            GPS_keys = [key for key in token_dict.keys() if "GPS" in key]
+            GPS_keys = [key for key in token_dict if "GPS" in key]
             for key in GPS_keys:
                 last_good_gps_dict[key] = token_dict[key]
         elif token_dict['GPS_status'] != 'V' and last_good_gps_dict:
-            for key in last_good_gps_dict.keys():
-                token_dict[key] = last_good_gps_dict[key]
+            for key, last_good_gps in last_good_gps_dict.items():
+                token_dict[key] = last_good_gps
 
         # timestamp = token_dict['logger_datetime']
         # token_dict['logger_datetime'] = pd.to_datetime(timestamp, format='%Y-%m-%d %H:%M:%S')
@@ -77,9 +78,9 @@ def scrape_onesec_data(url, http=None, numrecords=3600, tripips=False):
         # timestamps.append(timestamp)
     # index = pd.to_datetime(timestamps, format='%Y-%m-%d %H:%M:%S')
     # df = pd.DataFrame(data, columns=headers, index=index)
-    df = pd.DataFrame(onesec_dict_list)
-    df = df.set_index('logger_datetime')
-    return df
+    onesec_df = pd.DataFrame(onesec_dict_list)
+    onesec_df = onesec_df.set_index('logger_datetime')
+    return onesec_df  # noqa: RET504
 
 
 def scrape_tensec_data(url, http=None, numrecords=360):
@@ -105,9 +106,11 @@ def scrape_tensec_data(url, http=None, numrecords=360):
             spectrum_list.append(spectrum)
             timestamps.append(timestamp)
         except ValueError:
-            print("Bad Parsivel string detected. Ignoring this record!")
-
-    index = pd.to_datetime(timestamps, format='%Y-%m-%d %H:%M:%S')
+            print("Bad Parsivel string detected. Ignoring this record!")  # noqa: T201
+    try:
+        index = pd.to_datetime(timestamps, format='%Y-%m-%d %H:%M:%S')
+    except ValueError:  # Sometimes the timestring has microseconds
+        index = pd.to_datetime(timestamps, format='%Y-%m-%d %H:%M:%S.%f')
     df_telegram = pd.DataFrame(telegrams, index=index)
     # print(np.array(spectrum_list).shape)
     da_spectrum = xr.DataArray(spectrum_list, coords=[index, avg_fall_bins,
@@ -138,16 +141,16 @@ def read_parsivel_telegram(parsivel_string):
         'sensor time': parsivel_tokens[9],
         'sensor date': parsivel_tokens[10]
     }
-    return parsivel_telegram_dict
+    return parsivel_telegram_dict  # noqa: RET504
 
 
 def read_parsivel_spectrum(parsivel_string):
     """Given a raw string of Parsivel data, extract the DSD spectrum from it."""
     parsivel_tokens = parsivel_string.strip(' "').split(';')
     # parsivel_tokens = parsivel_tokens.strip('"')
-    spectrum = [float(x) if ('' or '\n' or '\r') not in x else 0 for x in parsivel_tokens[11:]]
+    spectrum = [float(x) if ('' or '\n' or '\r') not in x else 0 for x in parsivel_tokens[11:]]  # noqa: SIM222
     try:
-        spectrum = [float(x) if ('' or '\n' or '\r') not in x else 0 for x in parsivel_tokens[11:]]
+        spectrum = [float(x) if ('' or '\n' or '\r') not in x else 0 for x in parsivel_tokens[11:]]  # noqa: SIM222
     except ValueError:
         spectrum = [-999 for i in range(1025)]
     # Strip off bogus final value (why is it there?)
@@ -167,12 +170,12 @@ def read_parsivel_spectrum(parsivel_string):
 def timestamp2datetime(timestamp):
     """Construct a datetime object from a timestamp of the form YYYY-MM-DD HH:MM:SS.XXX"""
     date, time = timestamp.strip().split()
-    year = np.int(date[:4])
-    month = np.int(date[5:7])
-    day = np.int(date[8:])
-    hour = np.int(time[:2])
-    minute = np.int(time[3:5])
-    sec = np.int(time[6:8])
+    year = int(date[:4])
+    month = int(date[5:7])
+    day = int(date[8:])
+    hour = int(time[:2])
+    minute = int(time[3:5])
+    sec = int(time[6:8])
 
     return datetime(year, month, day, hour, minute, sec)
 
@@ -181,19 +184,19 @@ def calc_ND_da(spectrum_da, interval=10, use_measured_fs=True):
     """Computes the number concentration from the 32x32 spectrum"""
     # index = spectrum_da.coords['time'].values
     if not use_measured_fs:
-        raise NotImplementedError('Not yet implemented: use measured fall speed for now!')
-    else:
-        ND_da = spectrum_da.groupby('time').apply(calc_ND, interval=interval,
-                                                  use_measured_fs=use_measured_fs)
+        msg = 'Not yet implemented: use measured fall speed for now!'
+        raise NotImplementedError(msg)
+    ND_da = spectrum_da.groupby('time').apply(calc_ND, interval=interval,
+                                              use_measured_fs=use_measured_fs)
 
     # ND_df = pd.DataFrame(ND_arr, columns=avg_diameter, index=index)
-    return ND_da
+    return ND_da  # noqa: RET504
 
 
-def calc_ND_list(spectrum_list, interval=10, use_measured_fs=True):
+def calc_ND_list(spectrum_list, interval=10, use_measured_fs=True):  # noqa: ARG001
     ND_list = [calc_ND(spectrum, interval=interval) for spectrum in spectrum_list]
     ND_arr = np.array(ND_list)
-    return ND_arr
+    return ND_arr  # noqa: RET504
 
 
 def calc_ND(spectrum, interval=10, use_measured_fs=True):
@@ -218,7 +221,7 @@ def dump_real_time_csv_for_SASSI(state_dict, csv_output_dir, PIPS_name, timestam
     filepath = os.path.join(csv_output_dir, filename)
     field_names = ['ID', 'lon', 'lat', 'elev', 'FastTemp', 'SlowTemp', 'RH', 'p', 'dir', 'spd']
 
-    with open(filepath, 'w', newline='') as csvfile:
+    with open(filepath, 'w', newline='', encoding=locale.getpreferredencoding(False)) as csvfile:
         writer = csv.DictWriter(csvfile, fieldnames=field_names)
 
         # writer.writeheader()

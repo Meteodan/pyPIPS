@@ -2,28 +2,35 @@
 #
 # This script calculates radar retrievals for entire radar sweeps. Reads in from previously created
 # lookup tables
-import os
-from pathlib import Path
+from __future__ import annotations
+
 import argparse
+import os
 from glob import glob
+from pathlib import Path
+
 # from datetime import datetime, timedelta
 import numpy as np
 import pandas as pd
+
+# import pyPIPS.DSDlib as dsd
+# import pyPIPS.polarimetric as dp
+import pyart
+
 # import xarray as xr
 # import matplotlib.ticker as ticker
 # import matplotlib.dates as dates
 # import matplotlib.pyplot as plt
 import pyPIPS.parsivel_params as pp
 import pyPIPS.radarmodule as radar
-# import pyPIPS.plotmodule as pm
-# import pyPIPS.pips_io as pipsio
-import pyPIPS.utils as utils
+
 # import pyPIPS.PIPS as pips
 # import pyPIPS.parsivel_qc as pqc
 import pyPIPS.timemodule as tm
-# import pyPIPS.DSDlib as dsd
-# import pyPIPS.polarimetric as dp
-import pyart
+
+# import pyPIPS.plotmodule as pm
+# import pyPIPS.pips_io as pipsio
+from pyPIPS import utils
 
 
 def roundPartial(value, resolution, decimals=4):
@@ -60,7 +67,7 @@ parser.add_argument('--output-tag', dest='output_tag', default=None,
 args = parser.parse_args()
 
 # Dynamically import the case configuration file
-utils.log("Case config file is {}".format(args.case_config_path))
+utils.log(f"Case config file is {args.case_config_path}")
 config = utils.import_all_from(args.case_config_path)
 try:
     config = utils.import_all_from(args.case_config_path)
@@ -92,14 +99,11 @@ radar_dir = config.radar_config_dict.get('radar_dir', None)
 radar_fname_pattern = config.radar_config_dict.get('radar_fname_pattern', None)
 # Add the input filename tag to the pattern if needed
 if args.input_tag:
-    radar_fname_pattern = radar_fname_pattern.replace('.', '_{}.'.format(args.input_tag))
+    radar_fname_pattern = radar_fname_pattern.replace('.', f'_{args.input_tag}.')
 field_names = config.radar_config_dict.get('field_names', ['REF'])
 if not calc_dualpol:
     field_names = ['REF']
-if args.el_req_cl:
-    el_req = args.el_req_cl
-else:
-    el_req = config.radar_config_dict.get('el_req', 0.5)
+el_req = args.el_req_cl if args.el_req_cl else config.radar_config_dict.get('el_req', 0.5)
 radar_start_timestamp = config.radar_config_dict.get('radar_start_timestamp', None)
 radar_end_timestamp = config.radar_config_dict.get('radar_end_timestamp', None)
 scatt_dir = config.radar_config_dict.get('scatt_dir', None)
@@ -108,9 +112,9 @@ wavelength = config.radar_config_dict.get('wavelength', 10.7)
 # Get a list of radar paths between the start and stop times and containing the elevation
 # angle requested
 if args.input_tag is None:
-    radar_paths = glob(radar_dir + '/*{}*.nc'.format(radar_name))
+    radar_paths = glob(radar_dir + f'/*{radar_name}*.nc')
 else:
-    radar_paths = glob(radar_dir + '/*{}*_{}.nc'.format(radar_name, args.input_tag))
+    radar_paths = glob(radar_dir + f'/*{radar_name}*_{args.input_tag}.nc')
 
 # Then find only those between the requested times
 radar_dict = radar.get_radar_paths_between_times(radar_paths, radar_start_timestamp,
@@ -171,17 +175,14 @@ else:
         radar_output_fname_list.append(radar_sweep_fname)
     radar_output_paths = [os.path.join(radar_dir, rof) for rof in radar_output_fname_list]
 
-if args.use_filtered_fields:
-    tag = '_filtered'
-else:
-    tag = None
+tag = '_filtered' if args.use_filtered_fields else None
 
 for radar_obj, radar_sweep_time, radar_output_path in zip(radar_sweep_list,
                                                           radar_sweep_time_list,
                                                           radar_output_paths):
-    print("Working on time {}".format(radar_sweep_time.strftime(tm.timefmt2)))
-    print("Output filename will be {}".format(os.path.basename(radar_output_path)))
-    print("Getting ZH and ZDR fields")
+    print(f"Working on time {radar_sweep_time.strftime(tm.timefmt2)}")  # noqa: T201
+    print(f"Output filename will be {os.path.basename(radar_output_path)}")  # noqa: T201
+    print("Getting ZH and ZDR fields")  # noqa: T201
     # Get the ZH and ZDR fields from the radar object
     ZH_rad_tuple = radar.get_field_to_plot(radar_obj, radar.REF_aliases, tag=tag)
     ZDR_rad_tuple = radar.get_field_to_plot(radar_obj, radar.ZDR_aliases, tag=tag)
@@ -224,10 +225,10 @@ for radar_obj, radar_sweep_time, radar_output_path in zip(radar_sweep_list,
     ZDR_flat = ZDR_round.flatten()
 
     for lookup_dir, retrieval_tag in zip(args.lookup_dirs, args.retrieval_tags):
-        print("Retrieving using {}".format(retrieval_tag))
-        for retr_varname in radar.retrieval_metadata.keys():
-            print("Retrieving {} using lookup tables".format(retr_varname))
-            lookup_path = os.path.join(lookup_dir, '{}.csv'.format(retr_varname))
+        print(f"Retrieving using {retrieval_tag}")  # noqa: T201
+        for retr_varname in radar.retrieval_metadata:
+            print(f"Retrieving {retr_varname} using lookup tables")  # noqa: T201
+            lookup_path = os.path.join(lookup_dir, f'{retr_varname}.csv')
             retr_table = pd.read_csv(lookup_path, sep=',', header=0, index_col='dBZ')
             # Round the indices and columns of the DataFrame (i.e. the dBZ values) to some sane
             # number of decimal places to facilitate using it as a lookup table. The floating point
@@ -263,11 +264,11 @@ for radar_obj, radar_sweep_time, radar_output_path in zip(radar_sweep_list,
             # very weird.
             retr_val_dict['data'] = retr_vals_data
             # Save the retrieved array as a new field in the radar sweep object
-            retr_varname_out = '{}_{}'.format(retr_varname, retrieval_tag)
+            retr_varname_out = f'{retr_varname}_{retrieval_tag}'
             radar_obj.add_field(retr_varname_out, retr_val_dict, replace_existing=True)
             # Now mask the retrieved values using the original combined mask of ZH and ZDR
             radar_obj.fields[retr_varname_out]['data'].mask = full_mask
 
     # Now save the radar object to a new CFRadial file with the added retrieved fields
-    print("Saving {}".format(radar_output_path))
+    print(f"Saving {radar_output_path}")  # noqa: T201
     pyart.io.write_cfradial(radar_output_path, radar_obj)

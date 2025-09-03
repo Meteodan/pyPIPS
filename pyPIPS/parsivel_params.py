@@ -1,7 +1,10 @@
 """pyPIPS.parsivel_params: contains several fixed parameters related to the Parsivel disdrometers
 """
+from __future__ import annotations
+
 import numpy as np
 import xarray as xr
+
 # Dictionaries containing some metadata for the various probes
 
 # length units: mm
@@ -57,7 +60,7 @@ parsivel_parameters['avg_fallspeed_bins_mps'] = (parsivel_parameters['min_fallsp
 parsivel_parameters['eff_sensor_area_mm2'] = \
     (180. * (30. - parsivel_parameters['avg_diameter_bins_mm'] / 2.))
 
-probe_info = {
+probe_info_pre_ICECHIP = {
     'PIPS1A': {
         'serialnum': '304545',
         'parsivel_angle': -45.,
@@ -72,6 +75,68 @@ probe_info = {
     },
     'PIPS2B': {
         'serialnum': '304543',
+        'parsivel_angle': 45.,
+    },
+    'PIPS3A': {
+        'serialnum': '450991',
+        'parsivel_angle': 45.,
+    },
+    'PIPS3B': {
+        'serialnum': '450990',
+        'parsivel_angle': 45.,
+    },
+    'TriPIPS': {
+        'serialnum': '390654',
+        'parsivel_angle': 90.,
+    }
+}
+
+probe_info_ICECHIP_2025_A = {
+    'PIPS1A': {
+        'serialnum': '452538',
+        'parsivel_angle': -45.,
+    },
+    'PIPS1B': {
+        'serialnum': '452537',
+        'parsivel_angle': 45.,
+    },
+    'PIPS2A': {
+        'serialnum': '452783',
+        'parsivel_angle': -45.,
+    },
+    'PIPS2B': {
+        'serialnum': '304543',
+        'parsivel_angle': 45.,
+    },
+    'PIPS3A': {
+        'serialnum': '450991',
+        'parsivel_angle': 45.,
+    },
+    'PIPS3B': {
+        'serialnum': '450990',
+        'parsivel_angle': 45.,
+    },
+    'TriPIPS': {
+        'serialnum': '390654',
+        'parsivel_angle': 90.,
+    }
+}
+
+probe_info_ICECHIP_2025_B = {
+    'PIPS1A': {
+        'serialnum': '390654',
+        'parsivel_angle': -45.,
+    },
+    'PIPS1B': {
+        'serialnum': '452537',
+        'parsivel_angle': 45.,
+    },
+    'PIPS2A': {
+        'serialnum': '452783',
+        'parsivel_angle': -45.,
+    },
+    'PIPS2B': {
+        'serialnum': '452538',
         'parsivel_angle': 45.,
     },
     'PIPS3A': {
@@ -111,6 +176,7 @@ RB15_correction_array = np.array([[1.00, 1.00, 0.02, 0.03, 0.11, 0.20, 0.36, 0.5
                                    1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00],
                                   [1.00] * 32])
 avg_diameter = parsivel_parameters['avg_diameter_bins_mm']
+avg_fallspeed = parsivel_parameters['avg_fallspeed_bins_mps']
 RB15_correction_factors = xr.DataArray(RB15_correction_array, name='RB15_correction_factors',
                                        coords={'rainrate': ('rainrate', RB15_RR_min),
                                                'RR_min': ('rainrate', RB15_RR_min),

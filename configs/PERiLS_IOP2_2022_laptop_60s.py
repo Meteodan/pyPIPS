@@ -3,9 +3,9 @@
 PIPS_IO_dict = {
     'dataset_name': 'IOP2_033022',
     'deployment_names': ['IOP2_033022'] * 4,
-    'input_txt_dir': '/Users/dawson29/sshfs_mounts/depot/data/Projects/PERiLS/obsdata/2022/PIPS_data/IOP2_033022/csv/',
-    'PIPS_dir': '/Users/dawson29/Projects/PERiLS/obsdata/2022/PIPS_data/IOP2_033022/netcdf',
-    'plot_dir': '/Users/dawson29/sshfs_mounts/depot/data/Projects/PERiLS/obsdata/2022/PIPS_data/IOP2_033022/plots',
+    'input_txt_dir': '/Users/dawson29/Projects/PERiLS/obsdata/2022/PIPS_data/IOP2_033022/csv/',
+    'PIPS_dir': '/Users/dawson29/Projects/PERiLS/obsdata/2022/PIPS_data/IOP2_033022/netcdf_60s/',
+    'plot_dir': '/Users/dawson29/Projects/PERiLS/obsdata/2022/PIPS_data/IOP2_033022/plots/60s',
     'PIPS_types': ['PIPS'] * 4,
     'PIPS_names': ['PIPS1A', 'PIPS1B', 'PIPS2A', 'PIPS3B'],
     'PIPS_filenames': ['PIPS1A_IOP2_033022_merged.txt', 'PIPS1B_IOP2_033022_merged.txt',
@@ -14,8 +14,12 @@ PIPS_IO_dict = {
                           'parsivel_combined_IOP2_033022_PIPS1B_60s.nc',
                           'parsivel_combined_IOP2_033022_PIPS2A_60s.nc',
                           'parsivel_combined_IOP2_033022_PIPS3B_60s.nc'],
-    'start_times': ['20220330234000'] * 4,
-    'end_times': ['20220331014500'] * 4,
+    'conv_filenames_nc': ['conventional_raw_IOP2_033022_PIPS1A.nc',
+                          'conventional_raw_IOP2_033022_PIPS1B.nc',
+                          'conventional_raw_IOP2_033022_PIPS2A.nc',
+                          'conventional_raw_IOP2_033022_PIPS3B.nc'],
+    'start_times': [None] * 4,
+    'end_times': [None] * 4,
     'requested_interval': 60.
 }
 
@@ -31,7 +35,7 @@ PIPS_qc_dict = {
 }
 
 radar_config_dict = {
-    'comp_radar': False,
+    'comp_radar': True,
     'calc_dualpol': True,
     'plot_retrieval': False,
     'radar_name': 'KGWX',
@@ -42,6 +46,6 @@ radar_config_dict = {
     'el_req': 0.5,
     'radar_start_timestamp': '20220330234000',
     'radar_end_timestamp': '20220331014500',
-    'scatt_dir': '/Users/dawson29/sshfs_mounts/depot/apps/Projects/pyPIPS/tmatrix/S-Band/',
+    'scatt_dir': '/Users/dawson29/Projects/pyPIPS/tmatrix/S-Band/',
     'wavelength': 10.7
 }
