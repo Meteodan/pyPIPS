@@ -27,7 +27,7 @@ MODULE DUALPARA
 !           General code cleanup. Removed unneeded/unused functions and subroutines.
 !
 !           Youngsun Jung, 3/20/2017
-!           Several bugs were found and fixed in the Thompson snow operator that 
+!           Several bugs were found and fixed in the Thompson snow operator that
 !           produces too high reflectivity for dry snow.
 !
 !-----------------------------------------------------------------------
@@ -94,7 +94,7 @@ MODULE DUALPARA
   REAL,PARAMETER :: tlamdas2 = 3.29 ! 2nd snow slope parameter
   REAL,PARAMETER :: talphas2 = 0.6357 ! 2nd snow shape parameter (1st is always 0)
 
-  REAL,PARAMETER :: unit_factor = 1.e-2  ! Unit conversion factor not addressed 
+  REAL,PARAMETER :: unit_factor = 1.e-2  ! Unit conversion factor not addressed
                                          ! in the T-matrix scattering amplitude (size D in cm in T-matrix)
 
 ! The following parameters are for the KMA implementation of the UM microphysics of snow
@@ -106,7 +106,7 @@ MODULE DUALPARA
   REAL,PARAMETER :: umlamdas1 = 16.8  ! 1st snow slope parameter
   REAL,PARAMETER :: umlamdas2 = 4.82  ! 2nd snow slope parameter
 
-! The following parameters are for the KMA implementation of the UM microphysics for 
+! The following parameters are for the KMA implementation of the UM microphysics for
 ! rain and graupel diagnostic N0
 
   REAL,PARAMETER :: nar = 0.22
@@ -120,11 +120,11 @@ MODULE DUALPARA
 ! Missing value
   REAL,PARAMETER :: missing = -9999.0
   REAL :: grpl_miss
-  REAL :: hl_miss 
-  
+  REAL :: hl_miss
+
   LOGICAL :: firstcall = .true.
   INTEGER :: grpl_ON
-  INTEGER :: hl_ON 
+  INTEGER :: hl_ON
   INTEGER :: qgh_opt
 
 !-----------------------------------------------------------------------
@@ -210,7 +210,7 @@ MODULE DUALPARA
 
 !-----------------------------------------------------------------------
 ! Scattering matrix coefficient for graupel
-! 
+!
 ! phi=0.     (Mean orientation)
 ! sigmag=pi/3*(1-sf*fw)
 ! Ag=1/8*(3+4*cos(2*phi)*exp(-2*sigmag**2)+cos(4*phi)*exp(-8*sigmag**2))
@@ -218,17 +218,17 @@ MODULE DUALPARA
 ! Cg=1/8*(1-cos(4*phi)*exp(-8*sigmag**2))
 ! Dg=1/8*(3+cos(4*phi)*exp(-8*sigmag**2))
 ! Ckg=cos(2*phi)*exp(-2*sigmag**2)
-! 
+!
 ! corresponding coefficient for dry graupel: Agd, Bgd, Cgd, Dgd, Ckgd
 !-----------------------------------------------------------------------
-  
+
   REAL,PARAMETER :: sigmagd = 1.0472
   REAL,PARAMETER :: Agd = 0.4308
   REAL,PARAMETER :: Bgd = 0.3192
   REAL,PARAMETER :: Cgd = 0.1250
   REAL,PARAMETER :: Dgd = 0.3750
   REAL,PARAMETER :: Ckgd = 0.1116
-  
+
   REAL :: sigmag, Ag, Bg, Cg, Dg, Ckg
 
 !-----------------------------------------------------------------------
@@ -260,7 +260,7 @@ MODULE DUALPARA
 !-----------------------------------------------------------------------
 
   REAL :: wgfac ! Reduction factor for water shell for wet growth conditions (valid for MFflg = 1)
-  
+
 !@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 ! SUBROUTINES AND FUNCTIONS
 !@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
@@ -310,7 +310,7 @@ MODULE DUALPARA
   IMPLICIT NONE
 
 !-----------------------------------------------------------------------
-! Variables can vary depend on whether graupel/hail exists. 
+! Variables can vary depend on whether graupel/hail exists.
 !-----------------------------------------------------------------------
   fos = 0.35             ! Maximum fraction of rain-snow mixture
   foh = 0.2              ! Maximum fraction of rain-hail mixture
@@ -324,7 +324,7 @@ MODULE DUALPARA
 !
 ! PURPOSE:
 !
-! Setup default maximum fraction of water in the melting ice 
+! Setup default maximum fraction of water in the melting ice
 ! when graupel is suppressed.
 !
 !-----------------------------------------------------------------------
@@ -343,30 +343,30 @@ MODULE DUALPARA
   fos = 0.5              ! Maximum fraction of rain-snow mixture
   foh = 0.3              ! Maximum fraction of rain-hail mixture
   fog = 0.0              ! Maximum fraction of rain-graupel mixture
-      
+
   END SUBROUTINE init_fox_no_grpl
 
-  SUBROUTINE init_fox_no_hail() 
+  SUBROUTINE init_fox_no_hail()
 
 !-----------------------------------------------------------------------
 !
-! PURPOSE:  
+! PURPOSE:
 !
-!  Setup default maximum fraction of water in the melting ice 
-!  when hail is suppressed. 
+!  Setup default maximum fraction of water in the melting ice
+!  when hail is suppressed.
 !
 !-----------------------------------------------------------------------
 !
 ! AUTHOR: Bryan Putnam, 12/14/10
 !
 !-----------------------------------------------------------------------
-! Force explicit declarations. 
+! Force explicit declarations.
 !-----------------------------------------------------------------------
 
-  IMPLICIT NONE 
+  IMPLICIT NONE
 
 !-----------------------------------------------------------------------
-! Variables can be changed by parameter retrieval 
+! Variables can be changed by parameter retrieval
 !-----------------------------------------------------------------------
 
   fos = 0.5             ! Maximum fraction of rain-snow mixture
@@ -507,16 +507,16 @@ MODULE DUALPARA
 !	ELSE
 !		sigmah = pi/3.
 !	ENDIF
-	
+
 ! The following curve is used for the ZDR paper:
-	
+
   IF(fw > 0.5) THEN
     sigmah = 0.
   ELSE
     sigmah = pi/3.*(1.-2.*sf*fw)
   ENDIF
-	
-	
+
+
   !sigmah=pi/3.*max(0.4,1.-sf*fw)
   !sigmah = 0.0
   Ah=.125*(3+4*exp(-2*sigmah**2)+exp(-8*sigmah**2))
@@ -526,7 +526,7 @@ MODULE DUALPARA
   Ckh=exp(-2*sigmah**2)
 
   END SUBROUTINE coeff_hail
-    
+
   SUBROUTINE coeff_grpl(fw,qml)
 
 !-----------------------------------------------------------------------
@@ -562,7 +562,7 @@ MODULE DUALPARA
      sf = 1.0
      !sf = 1.2
 !  ENDIF
-    
+
 !  sigmag=pi/3.*(1-sf*fw)
 !	IF(fw > 0.5) THEN
 !		sigmag = 0. ! pi/24. ! 0.
@@ -571,16 +571,16 @@ MODULE DUALPARA
 !	ELSE
 !		sigmag = pi/3.
 !	ENDIF
-	
+
 ! The following curve is used for the ZDR paper:
-	
+
   IF(fw > 0.5) THEN
     sigmag = 0.
   ELSE
     sigmag = pi/3.*(1.-2.*sf*fw)
   ENDIF
 
-	
+
   !sigmag=pi/3.*max(0.4,1.-sf*fw)
   Ag=.125*(3+4*exp(-2*sigmag**2)+exp(-8*sigmag**2))
   Bg=.125*(3-4*exp(-2*sigmag**2)+exp(-8*sigmag**2))
@@ -617,7 +617,7 @@ SUBROUTINE cal_N0(rhoa,q,Ntx,rhox,alpha,N0,mu)
 !  the form N(D) = N0*D^alpha*exp(-lambda*D^3mu).  Setting mu to 1/3
 !  retrieves the original formulation for the standard gamma distribution.
 !  This value assumes that the mass diameter relationship for the hydrometeor
-!  distribution in question is of the form m(D) = c*D^3 and won't be 
+!  distribution in question is of the form m(D) = c*D^3 and won't be
 !  correct for other values of the exponent.
 !
 !-----------------------------------------------------------------------
@@ -678,7 +678,7 @@ SUBROUTINE cal_lamda(rhoa,q,Ntx,rhox,alpha,lamda,mu)
 !  the form N(D) = N0*D^alpha*exp(-lambda*D^3mu).  Setting mu to 1/3
 !  retrieves the original formulation for the standard gamma distribution.
 !  This value assumes that the mass diameter relationship for the hydrometeor
-!  distribution in question is of the form m(D) = c*D^3 and won't be 
+!  distribution in question is of the form m(D) = c*D^3 and won't be
 !  correct for other values of the exponent.
 !
 !-----------------------------------------------------------------------
@@ -709,16 +709,16 @@ END SUBROUTINE cal_lamda
 
 SUBROUTINE cal_Nt(rhoa,q,N0,cx,alpha,Ntx,mu)
 
-!   
+!
 !-----------------------------------------------------------------------
 !  PURPOSE:  Calculates number concentration at scalar points
 !-----------------------------------------------------------------------
 !
-!  AUTHOR: Dan Dawson 
-!  (02/06/2008) 
-!   
+!  AUTHOR: Dan Dawson
+!  (02/06/2008)
+!
 !  MODIFICATION HISTORY:
-!  
+!
 !  03/31/08 - converted intermediate calculations to double precision
 !             as well as a few of the input arguments.
 !
@@ -727,13 +727,13 @@ SUBROUTINE cal_Nt(rhoa,q,N0,cx,alpha,Ntx,mu)
 !  the form N(D) = N0*D^alpha*exp(-lambda*D^3mu).  Setting mu to 1/3
 !  retrieves the original formulation for the standard gamma distribution.
 !  This value assumes that the mass diameter relationship for the hydrometeor
-!  distribution in question is of the form m(D) = c*D^3 and won't be 
+!  distribution in question is of the form m(D) = c*D^3 and won't be
 !  correct for other values of the exponent.
-! 
+!
 !-----------------------------------------------------------------------
 !  Variable Declarations:
 !-----------------------------------------------------------------------
-!     
+!
 
   REAL :: rhoa,q
   REAL*8 :: N0,alpha,mu
@@ -768,7 +768,7 @@ SUBROUTINE power_mom(MPflg,power,cx,t_c,rhoa,q,moment)
 !           to Field et al. 2007 version for use with "global version"
 !           of UM microphysics for aggregates in the KMA model.
 !
-!           Dan Dawson, 09/18/2014.  Added MPflg to switch between Field et al. 
+!           Dan Dawson, 09/18/2014.  Added MPflg to switch between Field et al.
 !           (2005) for Thompson scheme and Field et al. (2007) for UM scheme.
 !
 !-----------------------------------------------------------------------
@@ -816,7 +816,7 @@ SUBROUTINE power_mom(MPflg,power,cx,t_c,rhoa,q,moment)
       d = exp(13.6 - 7.76*power + 0.479*power**2.)
       e = -0.0361 + 0.0151*power + 0.00149*power**2.
       f = 0.807 + 0.00581*power + 0.0457*power**2.
-     
+
       moment = d*exp(e*t_c)*second_moment**f
     CASE(4) ! Thompson scheme
       log_a = dble(5.065339-.062659*t_c - 3.032362*power +                 &
@@ -830,7 +830,7 @@ SUBROUTINE power_mom(MPflg,power,cx,t_c,rhoa,q,moment)
       b = 0.476221 - 0.015896*t_c + 0.165977*power + 0.007468*t_c*power -   &
         0.000141*(t_c**2) + 0.060366*(power**2) + 0.000079*(t_c**2)*power + &
         0.000594*t_c*(power**2) + 0.000000*(t_c**3) - 0.003577*(power**3)
-        
+
       moment = a*(second_moment)**b
     END SELECT
   END IF
@@ -838,27 +838,27 @@ SUBROUTINE power_mom(MPflg,power,cx,t_c,rhoa,q,moment)
 END SUBROUTINE
 
 SUBROUTINE cal_D0(rhoa,q,Ntx,rhox,alpha,D0)
-  !   
+  !
   !-----------------------------------------------------------------------
   !  PURPOSE:  Calculates median volume diameter (m) for a gamma distribution
   !            Note, assumes spherical particles.
   !-----------------------------------------------------------------------
   !
-  !  AUTHOR: Dan Dawson 
-  !  (02/06/2008) 
-  !   
+  !  AUTHOR: Dan Dawson
+  !  (02/06/2008)
+  !
   !  MODIFICATION HISTORY:
-  !   
+  !
   !-----------------------------------------------------------------------
   !  Variable Declarations:
   !-----------------------------------------------------------------------
-  !    
-  
+  !
+
   REAL :: rhoa,q,Ntx,rhox,D0
   REAL*8 :: alpha,lamda,mu
-  
+
   mu = 1./3. ! Assumes standard gamma distribution!
-  
+
   ! Compute lamda
   CALL cal_lamda(rhoa,q,Ntx,rhox,alpha,lamda,mu)
   IF(lamda > 0) THEN
@@ -870,22 +870,22 @@ SUBROUTINE cal_D0(rhoa,q,Ntx,rhox,alpha,D0)
 END SUBROUTINE cal_D0
 
 SUBROUTINE calN0g_Thompson(tair,rhoa,qg,cg,alphag,rhog,qr,mvd_r,N0g)
-!   
+!
 !-----------------------------------------------------------------------
-!  PURPOSE:  Calculates intercept parameter for graupel in the 
-!            Thompson scheme. Based on code from module_mp_thompson.F 
+!  PURPOSE:  Calculates intercept parameter for graupel in the
+!            Thompson scheme. Based on code from module_mp_thompson.F
 !            in WRFV3.
 !-----------------------------------------------------------------------
 !
-!  AUTHOR: Dan Dawson 
-!  (02/04/2015) 
-!   
+!  AUTHOR: Dan Dawson
+!  (02/04/2015)
+!
 !  MODIFICATION HISTORY:
-!  
+!
 !-----------------------------------------------------------------------
 !  Variable Declarations:
 !-----------------------------------------------------------------------
-!     
+!
   IMPLICIT NONE
 
   REAL :: tair,rhoa,qg,cg,rhog,qr,mvd_r
@@ -924,60 +924,60 @@ SUBROUTINE calN0g_Thompson(tair,rhoa,qg,cg,alphag,rhog,qr,mvd_r,N0g)
   lam_exp = (N0_exp*am_g*cgg_1/rg)**oge1
   lamg = lam_exp*(cgg_3*ogg2*ogg1)**obmg
   ilamg = 1./lamg
-    
+
   N0g = N0_exp/(cgg_2*lam_exp)*lamg**cge_2
 
 END SUBROUTINE calN0g_Thompson
 
 SUBROUTINE callamda_UM(rhoa,q,cx,na,nb,alpha,lamda)
-!   
+!
 !-----------------------------------------------------------------------
-!  PURPOSE:  Calculates slope parameter for graupel in the 
-!            UM scheme. 
+!  PURPOSE:  Calculates slope parameter for graupel in the
+!            UM scheme.
 !-----------------------------------------------------------------------
 !
-!  AUTHOR: Dan Dawson 
-!  (02/04/2015) 
-!   
+!  AUTHOR: Dan Dawson
+!  (02/04/2015)
+!
 !  MODIFICATION HISTORY:
-!  
+!
 !-----------------------------------------------------------------------
 !  Variable Declarations:
 !-----------------------------------------------------------------------
-!     
+!
   IMPLICIT NONE
 
   REAL :: rhoa,q,cx,na,nb
   REAL*8 :: alpha, lamda,gamma4
 
   REAL*8 :: gamma
-  
+
   gamma4 = gamma(4.+alpha)
   lamda = (gamma4*cx*na/(rhoa*q))**(1./(4.-nb+alpha))
 
 END SUBROUTINE callamda_UM
 
 SUBROUTINE calN0_UM(na,nb,lamda,N0)
-!   
+!
 !-----------------------------------------------------------------------
-!  PURPOSE:  Calculates intercept parameter for graupel or rain in the 
-!            UM scheme. 
+!  PURPOSE:  Calculates intercept parameter for graupel or rain in the
+!            UM scheme.
 !-----------------------------------------------------------------------
 !
-!  AUTHOR: Dan Dawson 
-!  (02/04/2015) 
-!   
+!  AUTHOR: Dan Dawson
+!  (02/04/2015)
+!
 !  MODIFICATION HISTORY:
-!  
+!
 !-----------------------------------------------------------------------
 !  Variable Declarations:
 !-----------------------------------------------------------------------
-!     
+!
   IMPLICIT NONE
 
   REAL :: na,nb
   REAL*8 :: lamda,N0
-  
+
   REAL*8 :: gamma
 
   N0 = na*lamda**nb
@@ -1105,7 +1105,7 @@ SUBROUTINE fractionWater_temperature(qr,qi,density_ice,fm,fw,rhom,tair_C)
 ! PURPOSE:
 !
 ! This subroutine calculates the fractions of water, dry ice (snow or
-! hail), the mixture based on the air temperature. 
+! hail), the mixture based on the air temperature.
 ! It also calculate the density of mixture.
 !
 !-----------------------------------------------------------------------
@@ -1189,7 +1189,7 @@ SUBROUTINE fractionWaterD14(MPflg,ii,jj,kk,fos,rhoa,tairC,qr,qs,qg,qh,ntr,nts,nt
 ! with the available water from the rainfield.  The minimum of the available
 ! water and the critical water fraction is then used for graupel and hail.  This requires
 ! an iterative technique using a first guess for the wet graupel/hail mass.
-! Any excess, which should be slight, is added back to the rain field later in the 
+! Any excess, which should be slight, is added back to the rain field later in the
 ! code.  For snow, we are just punting for now and allowing up to a maximum of 75%
 ! water fraction distributed evenly amongst sizes.  NOTE, this is the version used
 ! in Dawson et al. (2014)
@@ -1199,14 +1199,14 @@ SUBROUTINE fractionWaterD14(MPflg,ii,jj,kk,fos,rhoa,tairC,qr,qs,qg,qh,ntr,nts,nt
 ! Changed method for how much rain is transferred to graupel and hail.  Instead of
 ! adding almost all the rain to the graupel/hail and then iterating until convergence,
 ! the graupel/hail distribution is modified "in place" to determine how much water is
-! needed to "saturate".  This is then compared with the available water from the rain 
+! needed to "saturate".  This is then compared with the available water from the rain
 ! field.  If there's enough, the appropriate amount is subtracted from rain.  If not, the
 ! amount of water in each graupel/hail bin is reduced by the appropriate factor.
 !
 ! In the future we may want to do this in mass space and convert back to diameter afterwards.
 !
 ! MODIFIED: Dan Dawson Fall 2014
-! 
+!
 ! Further updates to fix some bugs and some conceptual errors. An iteration like the original is performed but is based on
 ! a first guess that starts with the amount of rain needed to saturate the initial graupel distribution.  Also reverted to original
 ! Jung et al. (2008) method for snow only.
@@ -1221,7 +1221,7 @@ SUBROUTINE fractionWaterD14(MPflg,ii,jj,kk,fos,rhoa,tairC,qr,qs,qg,qh,ntr,nts,nt
 !-----------------------------------------------------------------------
   USE rsa_table
   IMPLICIT NONE
- 
+
 !-----------------------------------------------------------------------
 ! Declare variables.
 !-----------------------------------------------------------------------
@@ -1234,7 +1234,7 @@ SUBROUTINE fractionWaterD14(MPflg,ii,jj,kk,fos,rhoa,tairC,qr,qs,qg,qh,ntr,nts,nt
   REAL,INTENT(INOUT) :: fwgbin(:),fwhbin(:),rhomgbin(:),rhomhbin(:)
   REAL*8, INTENT(INOUT) :: Ndrg(:)
   REAL*8, INTENT(INOUT) :: Ndrh(:)
-  
+
   REAL :: qgwfac,qhwfac
   REAL :: frs,frg,frh
   REAL :: qti ! Total ice mixing ratio (sum of snow, graupel, and hail)
@@ -1247,7 +1247,7 @@ SUBROUTINE fractionWaterD14(MPflg,ii,jj,kk,fos,rhoa,tairC,qr,qs,qg,qh,ntr,nts,nt
   LOGICAL :: adjustNt
   LOGICAL :: stopflag
   LOGICAL :: tosoak, freezesoak,conserveice
-    
+
   REAL, PARAMETER :: qmin = 1.e-12 ! Threshold for minimum mixing ratio for diagnostic water routine
   REAL :: lwscoeff ! Liquid water shell coefficient: set to 1 above freezing, to wgfac below freezing.
 
@@ -1264,9 +1264,9 @@ SUBROUTINE fractionWaterD14(MPflg,ii,jj,kk,fos,rhoa,tairC,qr,qs,qg,qh,ntr,nts,nt
   freezesoak=.true. ! Assume soaked water is frozen?  Recommended true for now since fractional water lookup table
                     ! assumes axis ratios are as if the water is all on the shell
   conserveice=.true. ! Conserve ice mass during shell iteration? (If false, liquid water mass is still conserved)
-    
+
   IF(MPflg >= 3) adjustNt = .false. ! Don't maintain mean volume diameter for single-moment schemes
-  
+
   frs = 0.
   frg = 0.
   frh = 0.
@@ -1316,16 +1316,16 @@ SUBROUTINE fractionWaterD14(MPflg,ii,jj,kk,fos,rhoa,tairC,qr,qs,qg,qh,ntr,nts,nt
 
   qti = qs
   IF(grpl_ON == 1) qti = qti+qg
-  IF(hl_ON == 1) qti = qti+qh 
+  IF(hl_ON == 1) qti = qti+qh
   !qti = qs+qg+qh
-  
+
 !-----------------------------------------------------------------------
-! Calculate the first guess fraction of rain water to be transfered to the ice 
+! Calculate the first guess fraction of rain water to be transfered to the ice
 ! surface (fr), based on the ratio of qs/qg/qh and qti up to a maximum of 100%
 ! of the rain.
 !-----------------------------------------------------------------------
 
-  IF (qr > qmin .AND. qti > qmin) THEN   
+  IF (qr > qmin .AND. qti > qmin) THEN
     frs = qs/qti
     IF(grpl_ON == 1) frg = qg/qti
     IF(hl_ON == 1) frh = qh/qti
@@ -1454,9 +1454,9 @@ SUBROUTINE fractionWaterD14(MPflg,ii,jj,kk,fos,rhoa,tairC,qr,qs,qg,qh,ntr,nts,nt
         volg = (1./6.)*pi*(dsg(i)*1.0e-3)**3.
         mice = volg*rhog   ! Mass of original dry ice sphere
         miced = volg*rhogd ! Mass of "dry" ice sphere after soaking (if any, otherwise will be equal to mice)
-        mices = volg*rhogs ! Mass of "dry" ice sphere as if it were soaked 
-        micesw = miced-mice ! Mass of soaked water in ice sphere (if any, otherwise will be 0) 
-      
+        mices = volg*rhogs ! Mass of "dry" ice sphere as if it were soaked
+        micesw = miced-mice ! Mass of soaked water in ice sphere (if any, otherwise will be 0)
+
         IF(dsg(i) <= 8.0) THEN ! Try to completely melt graupel less than or equal to 8 mm (EDIT: Now do so up to factor set by lwscoeff)
           mwcrit = lwscoeff*1000.*volg
           miced = rhogd*(volg-mwcrit/1000.)
@@ -1473,30 +1473,30 @@ SUBROUTINE fractionWaterD14(MPflg,ii,jj,kk,fos,rhoa,tairC,qr,qs,qg,qh,ntr,nts,nt
         tmp2 = miced/rhogd ! Volume of ice assuming 910 density
         tmp2 = MAX(0.0,volg-tmp2) ! New volume of water
         mwcrit = tmp2*1000. ! Adjusted water mass
-        
+
         rhomgbin(i) = MAX(0.0,(miced+mwcrit)/volg) ! New bulk density
-        mtot = mwcrit+miced ! New total mass 
+        mtot = mwcrit+miced ! New total mass
         IF(tosoak .and. .not. freezesoak) THEN
           tmpfwg = (mwcrit+micesw)/mtot
         ELSE
           tmpfwg = mwcrit/mtot
         ENDIF
-        
+
         Ndrg(i) = db_N0*(dsg(i)*1.e-3)**alfg*exp(-lamrg*(dsg(i)*1.e-3)**(3.0*mug))*intv
         Ntw = Ntw - Ndrg(i)
-        if(Ntw <= 0.d0) Ndrg(i) = 0.d0 
+        if(Ntw <= 0.d0) Ndrg(i) = 0.d0
         fwgbin(i) = tmpfwg
         rhomgtmp = rhomgtmp + Ndrg(i)*rhomgbin(i)
         tmp3 = tmp3 + Ndrg(i)
-        qgwcrit = qgwcrit + mwcrit*Ndrg(i)/rhoa ! tmpfwg*Ndrg(i)*volg*rhomgbin(i)/rhoa ! 2nd term is mass mixing ratio of liquid water 
-                                                           ! in current diameter bin    
+        qgwcrit = qgwcrit + mwcrit*Ndrg(i)/rhoa ! tmpfwg*Ndrg(i)*volg*rhomgbin(i)/rhoa ! 2nd term is mass mixing ratio of liquid water
+                                                           ! in current diameter bin
         IF(qgwcrit > qra) THEN
           stopflag = .true.
           qgwcrit = qra
           EXIT
         ENDIF
         IF(Ntw <= 0.0) EXIT
-            
+
       ENDDO
       ! Compute new rhomg and update qg/ntg
       rhomg = rhomgtmp/tmp3
@@ -1526,7 +1526,7 @@ SUBROUTINE fractionWaterD14(MPflg,ii,jj,kk,fos,rhoa,tairC,qr,qs,qg,qh,ntr,nts,nt
       IF(iter > 1000) stopflag = .true. ! Catchall condition to avoid infinite loop from lack of convergence
     ENDDO
     qsoakg = tmp1
-    
+
     ! Recompute graupel distribution
     if(tmpntg > 0.0 .and. MPflg < 3) then ! Multi-moment case, MPflg >= 3 have single-moment graupel
       CALL cal_N0(rhoa,fmg,tmpntg,rhomg,alfg,db_N0,mug)
@@ -1558,7 +1558,7 @@ SUBROUTINE fractionWaterD14(MPflg,ii,jj,kk,fos,rhoa,tairC,qr,qs,qg,qh,ntr,nts,nt
     DO i = 1,nd_g
       Ndrg(i) = db_N0*(dsg(i)*1.e-3)**alfg*exp(-lamrg*(dsg(i)*1.e-3)**(3.0*mug))*intv
       Ntw = Ntw - Ndrg(i)
-      if(Ntw <= 0.d0) Ndrg(i) = 0.d0 
+      if(Ntw <= 0.d0) Ndrg(i) = 0.d0
       tmp2 = tmp2 + Ndrg(i)
       if(tmp1 <= 0.) THEN
         fwgbin(i) = 0.
@@ -1569,7 +1569,7 @@ SUBROUTINE fractionWaterD14(MPflg,ii,jj,kk,fos,rhoa,tairC,qr,qs,qg,qh,ntr,nts,nt
     ENDDO
     rhomg = rhomgtmp/tmp2 ! New average bulk density for distribution
   ENDIF
-  
+
   IF(qh > qmin .and. frh > 0. .and. hl_ON == 1) THEN ! Iterate to find the water fraction on hail
     dmr = (6.*rhoa*qr/(pi*1000.*ntr))**(1./3.)
     dmh = (6.*rhoa*qh/(pi*rhoh*nth))**(1./3.)
@@ -1666,9 +1666,9 @@ SUBROUTINE fractionWaterD14(MPflg,ii,jj,kk,fos,rhoa,tairC,qr,qs,qg,qh,ntr,nts,nt
         volh = (1./6.)*pi*(dsh(i)*1.0e-3)**3.
         mice = volh*rhoh   ! Mass of original dry ice sphere
         miced = volh*rhohd ! Mass of "dry" ice sphere after soaking (if any, otherwise will be equal to mice)
-        mices = volh*rhohs ! Mass of "dry" ice sphere as if it were soaked 
-        micesw = miced-mice ! Mass of soaked water in ice sphere (if any, otherwise will be 0) 
-      
+        mices = volh*rhohs ! Mass of "dry" ice sphere as if it were soaked
+        micesw = miced-mice ! Mass of soaked water in ice sphere (if any, otherwise will be 0)
+
         IF(dsh(i) <= 8.0) THEN ! Try to completely melt hail less than or equal to 8 mm (EDIT: Now do so up to factor set by lwscoeff)
           mwcrit = lwscoeff*1000.*volh
           miced = rhohd*(volh-mwcrit/1000.)
@@ -1685,30 +1685,30 @@ SUBROUTINE fractionWaterD14(MPflg,ii,jj,kk,fos,rhoa,tairC,qr,qs,qg,qh,ntr,nts,nt
         tmp2 = miced/rhohd ! Volume of ice assuming 910 density
         tmp2 = MAX(0.0,volh-tmp2) ! New volume of water
         mwcrit = tmp2*1000. ! Adjusted water mass
-        
+
         rhomhbin(i) = MAX(0.0,(miced+mwcrit)/volh) ! New bulk density
-        mtot = mwcrit+miced ! New total mass 
+        mtot = mwcrit+miced ! New total mass
         IF(tosoak .and. .not. freezesoak) THEN
           tmpfwh = (mwcrit+micesw)/mtot
         ELSE
           tmpfwh = mwcrit/mtot
         ENDIF
-        
+
         Ndrh(i) = db_N0*(dsh(i)*1.e-3)**alfh*exp(-lamrh*(dsh(i)*1.e-3)**(3.0*muh))*intv
         Ntw = Ntw - Ndrh(i)
-        if(Ntw <= 0.d0) Ndrh(i) = 0.d0 
+        if(Ntw <= 0.d0) Ndrh(i) = 0.d0
         fwhbin(i) = tmpfwh
         rhomhtmp = rhomhtmp + Ndrh(i)*rhomhbin(i)
         tmp3 = tmp3 + Ndrh(i)
-        qhwcrit = qhwcrit + mwcrit*Ndrh(i)/rhoa ! tmpfwh*Ndrh(i)*volh*rhomhbin(i)/rhoa ! 2nd term is mass mixing ratio of liquid water 
-                                                           ! in current diameter bin    
+        qhwcrit = qhwcrit + mwcrit*Ndrh(i)/rhoa ! tmpfwh*Ndrh(i)*volh*rhomhbin(i)/rhoa ! 2nd term is mass mixing ratio of liquid water
+                                                           ! in current diameter bin
         IF(qhwcrit > qra) THEN
           stopflag = .true.
           qhwcrit = qra
           EXIT
         ENDIF
         IF(Ntw <= 0.0) EXIT
-            
+
       ENDDO
       ! Compute new rhomh and update qh/nth
       rhomh = rhomhtmp/tmp3
@@ -1738,7 +1738,7 @@ SUBROUTINE fractionWaterD14(MPflg,ii,jj,kk,fos,rhoa,tairC,qr,qs,qg,qh,ntr,nts,nt
       IF(iter > 1000) stopflag = .true. ! Catchall condition to avoid infinite loop from lack of convergence
     ENDDO
     qsoakh = tmp1
-    
+
     ! Recompute hail distribution
     if(tmpnth > 0.0 .and. MPflg < 3) then ! Multi-moment case, MPflg >= 3 have single-moment hail
       CALL cal_N0(rhoa,fmh,tmpnth,rhomh,alfh,db_N0,muh)
@@ -1762,7 +1762,7 @@ SUBROUTINE fractionWaterD14(MPflg,ii,jj,kk,fos,rhoa,tairC,qr,qs,qg,qh,ntr,nts,nt
     DO i = 1,nd_h
       Ndrh(i) = db_N0*(dsh(i)*1.e-3)**alfh*exp(-lamrh*(dsh(i)*1.e-3)**(3.0*muh))*intv
       Ntw = Ntw - Ndrh(i)
-      if(Ntw <= 0.d0) Ndrh(i) = 0.d0 
+      if(Ntw <= 0.d0) Ndrh(i) = 0.d0
       tmp2 = tmp2 + Ndrh(i)
       if(tmp1 <= 0.) THEN
         fwhbin(i) = 0.
@@ -1773,9 +1773,9 @@ SUBROUTINE fractionWaterD14(MPflg,ii,jj,kk,fos,rhoa,tairC,qr,qs,qg,qh,ntr,nts,nt
     ENDDO
     rhomh = rhomhtmp/tmp2 ! New average bulk density for distribution
   ENDIF
-  
+
   IF(grpl_ON == 1) THEN
-  	IF(conserveice) THEN 
+  	IF(conserveice) THEN
   	  fmg = qg+fracqrg
   	ELSE
   	  fmg = qg
@@ -1833,7 +1833,7 @@ SUBROUTINE adjustWater(ii,jj,kk,rhoa,qr,qs,qg,qh,ntr,nts,ntg,nth,alfg,alfh,mug,m
 !-----------------------------------------------------------------------
   USE rsa_table
   IMPLICIT NONE
- 
+
 !-----------------------------------------------------------------------
 ! Declare variables.
 !-----------------------------------------------------------------------
@@ -1847,7 +1847,7 @@ SUBROUTINE adjustWater(ii,jj,kk,rhoa,qr,qs,qg,qh,ntr,nts,ntg,nth,alfg,alfh,mug,m
   REAL,INTENT(INOUT) :: ntr,nts,ntg,nth,fracqrs,fracqrg,fracqrh
   REAL,INTENT(INOUT) :: fms,fmg,fmh,fws,fwg,fwh
   REAL:: fwgbin(:),fwhbin(:)
-  
+
   REAL :: qgwfac,qhwfac
   REAL :: frs,frg,frh
   REAL :: qti ! Total ice mixing ratio (sum of snow, graupel, and hail)
@@ -1856,7 +1856,7 @@ SUBROUTINE adjustWater(ii,jj,kk,rhoa,qr,qs,qg,qh,ntr,nts,ntg,nth,alfg,alfh,mug,m
   REAL :: intv,cx,mtot,mice,mwcrit,tmpfwg,diff,tmpntg,tmpnth
   INTEGER :: i,iter
 !  INTEGER, PARAMETER :: nd_r = 112 ! 100
-!  INTEGER, PARAMETER :: nd_s = 112 
+!  INTEGER, PARAMETER :: nd_s = 112
 !  INTEGER, PARAMETER :: nd_g = 112 ! 625
 !  INTEGER, PARAMETER :: nd_h = 112 ! 875
   !REAL*8, DIMENSION (nd) :: Ndr, Nds, Ndh, Ndg, Ndrs, Ndrh, Ndrg
@@ -1902,7 +1902,7 @@ SUBROUTINE adjustWater(ii,jj,kk,rhoa,qr,qs,qg,qh,ntr,nts,ntg,nth,alfg,alfh,mug,m
   IF(qg > 0.0 .and. fwg == 1.0) THEN
     fwgbin(:) = 1.0
   ELSEIF(qg > 0.0 .and. grpl_ON == 1) THEN ! Iterate to find the water fraction on graupel
-  
+
     ! First recompute qg as the mass of dry graupel.  This will be shortly added back during the iteration, which precedes identically to fractionWater3
     qg = qg - fracqrg ! fracqrg is the *original predicted* water fraction here
     ntg = ntg - ntg*fracqrg/fmg ! Adjust ntg to maintain mean diameter
@@ -1936,7 +1936,7 @@ SUBROUTINE adjustWater(ii,jj,kk,rhoa,qr,qs,qg,qh,ntr,nts,ntg,nth,alfg,alfh,mug,m
       Do i = 1,nd_g
         if(dsg(i) <= 8.0) THEN ! Try to completely melt graupel less than or equal to 8 mm
           !tmpfwg = fwh
-          tmpfwg = 1.0	
+          tmpfwg = 1.0
         else ! Use the Rasmussen and Heymsfield (1987) critical water mass on ice formula
           ! Mwcrit = 0.268 + 0.1389*Mice in grams, where 0.268 g is the mass of an 8mm spherical water drop
           mtot = (1./6.)*pi*(dsg(i)*1.0e-3)**3.*MAX(910.,rhomg) ! Mass of wet hailstone of diameter dsg(i): treat it as high density even if it isn't
@@ -1948,11 +1948,11 @@ SUBROUTINE adjustWater(ii,jj,kk,rhoa,qr,qs,qg,qh,ntr,nts,ntg,nth,alfg,alfh,mug,m
         endif
         Ndrg(i) = db_N0*(dsg(i)*1.e-3)**alfg*exp(-lamrg*(dsg(i)*1.e-3)**(3.0*mug))*intv
         Ntw = Ntw - Ndrg(i)
-        if(Ntw <= 0.d0) Ndrg(i) = 0.d0 
-        qgwcrit = qgwcrit + tmpfwg*Ndrg(i)*(1./6.)*pi*(dsg(i)*1.0e-3)**3.*rhomg/rhoa ! rhomg ! 2nd term is mass mixing ratio of liquid water in 
+        if(Ntw <= 0.d0) Ndrg(i) = 0.d0
+        qgwcrit = qgwcrit + tmpfwg*Ndrg(i)*(1./6.)*pi*(dsg(i)*1.0e-3)**3.*rhomg/rhoa ! rhomg ! 2nd term is mass mixing ratio of liquid water in
                                                                   ! current diameter bin
         fwgbin(i) = tmpfwg
-      ENDDO 
+      ENDDO
       diff = fracqrg-qgwcrit
 !     IF(ii == 28 .and. jj == 54 .and. kk == 1) THEN
 !       print*,'iter,fracqrg,qgwcrit,fwg',iter,fracqrg,qgwcrit,fwg
@@ -1970,15 +1970,15 @@ SUBROUTINE adjustWater(ii,jj,kk,rhoa,qr,qs,qg,qh,ntr,nts,ntg,nth,alfg,alfh,mug,m
     	if(tmp1 <= 0.) fwgbin(i) = 0.
     	tmp1 = tmp1 - fwgbin(i)*Ndrg(i)*(1./6.)*pi*(dsg(i)*1.0e-3)**3.*rhomg/rhoa
     ENDDO
-    
+
     qgwfac = MIN(fracqrg/qgwcrit,1.0)
-    
+
     fmg = qg+fracqrg
     ntg = tmpntg
     qg = fmg ! Now qg is just fmg again (full mass of dry+wet graupel)
-    
+
   ENDIF
-  
+
   IF(fmh > 0.) THEN
     fwh = fracqrh/fmh
   ELSE
@@ -2035,14 +2035,14 @@ SUBROUTINE adjustWater(ii,jj,kk,rhoa,qr,qs,qg,qh,ntr,nts,ntg,nth,alfg,alfh,mug,m
         endif
         Ndrh(i) = db_N0*(dble(dsh(i)*1.e-3))**alfh*exp(-lamrh*(dble(dsh(i)*1.e-3))**(3.d0*muh))*dble(intv)
         Ntw = Ntw - Ndrh(i)
-        if(Ntw <= 0.d0) Ndrh(i) = 0.d0 
-        qhwcrit = qhwcrit + tmpfwg*sngl(Ndrh(i))*(1./6.)*pi*(dsh(i)*1.0e-3)**3.*rhomh/rhoa ! rhomh ! 2nd term is mass mixing ratio of liquid water in 
+        if(Ntw <= 0.d0) Ndrh(i) = 0.d0
+        qhwcrit = qhwcrit + tmpfwg*sngl(Ndrh(i))*(1./6.)*pi*(dsh(i)*1.0e-3)**3.*rhomh/rhoa ! rhomh ! 2nd term is mass mixing ratio of liquid water in
                                                                   ! current diameter bin
-!        IF(kk == 1 .and. ii == 45 .and. jj == 62) THEN                 
+!        IF(kk == 1 .and. ii == 45 .and. jj == 62) THEN
 !          	print*,'i,dsh(i),Ndrh(i),tmpfwg,qhwcrit',i,dsh(i),Ndrh(i),tmpfwg,qhwcrit
 !        ENDIF
 				fwhbin(i) = tmpfwg
-      ENDDO 
+      ENDDO
       diff = fracqrh-qhwcrit
 !      IF(kk == 1 .and. ii == 45 .and. jj == 62) THEN
 !        print*,'iter,fracqrh,qhwcrit,fwh',iter,fracqrh,qhwcrit,fwh
@@ -2054,20 +2054,20 @@ SUBROUTINE adjustWater(ii,jj,kk,rhoa,qr,qs,qg,qh,ntr,nts,ntg,nth,alfg,alfh,mug,m
         fracqrh = qhwcrit
         iter=iter+1
       ENDIF
-    ENDDO 
+    ENDDO
     ! Loop through the bins one more time and set fwgbin to 0 for those beyond which we have water.
     tmp1 = fracqrh
     DO i = 1,nd_h
     	if(tmp1 <= 0.) fwhbin(i) = 0.
     	tmp1 = tmp1 - fwhbin(i)*Ndrh(i)*(1./6.)*pi*(dsh(i)*1.0e-3)**3.*rhomh/rhoa
     ENDDO
-    
+
     qhwfac = MIN(fracqrh/qhwcrit,1.0)
-    
+
     fmh = qh+fracqrh
     nth = tmpnth
     qh = fmh ! Now qh is just fmh again (full mass of dry+wet hail)
-    
+
   ENDIF
 
   IF(grpl_ON == 1) THEN
@@ -2083,7 +2083,7 @@ SUBROUTINE adjustWater(ii,jj,kk,rhoa,qr,qs,qg,qh,ntr,nts,ntg,nth,alfg,alfh,mug,m
 
   ! Check water fraction of graupel, hail, and snow. If it is nearly 100% add everything
   ! to the rain field, preserving the mean size.
-  
+
 !  IF(fws >= 0.90) THEN
 !    fws = 0.0
 !    fms = 0.0
@@ -2092,7 +2092,7 @@ SUBROUTINE adjustWater(ii,jj,kk,rhoa,qr,qs,qg,qh,ntr,nts,ntg,nth,alfg,alfh,mug,m
 !    qr = qr+qs
 !    ntr = ntr+qs*ntr/qr
 !  ENDIF
-!  
+!
 !  IF(fwg >= 0.90) THEN
 !    fwg = 0.0
 !    fmg = 0.0
@@ -2101,7 +2101,7 @@ SUBROUTINE adjustWater(ii,jj,kk,rhoa,qr,qs,qg,qh,ntr,nts,ntg,nth,alfg,alfh,mug,m
 !    qr = qr+qg
 !    ntr = ntr+qg*ntr/qr
 !  ENDIF
-!  
+!
 !  IF(fwh >= 0.999) THEN
 !    fwh = 0.0
 !    fmh = 0.0
@@ -2109,7 +2109,7 @@ SUBROUTINE adjustWater(ii,jj,kk,rhoa,qr,qs,qg,qh,ntr,nts,ntg,nth,alfg,alfh,mug,m
 !    fracqrh = 0.0
 !    qr = qr+qh
 !    ntr = ntr+qh*ntr/qr
-!  ENDIF 
+!  ENDIF
 
 
 END SUBROUTINE adjustWater
@@ -2143,7 +2143,7 @@ SUBROUTINE fractionWaterTAK(ii,jj,kk,rhoa,qr,qs,qg,qh,Ndr_in,Nds_in,Ndg_in,Ndh_i
 ! with the available water from the rainfield.  The minimum of the available
 ! water and the critical water fraction is then used for graupel and hail.  This requires
 ! an iterative technique using a first guess for the wet graupel/hail mass.
-! Any excess, which should be slight, is added back to the rain field later in the 
+! Any excess, which should be slight, is added back to the rain field later in the
 ! code.  For snow, we are just punting for now and allowing up to a maximum of 75%
 ! water fraction distributed evenly amongst sizes.
 !
@@ -2166,7 +2166,7 @@ SUBROUTINE fractionWaterTAK(ii,jj,kk,rhoa,qr,qs,qg,qh,Ndr_in,Nds_in,Ndg_in,Ndh_i
 !-----------------------------------------------------------------------
   USE rsa_table
   IMPLICIT NONE
- 
+
 !-----------------------------------------------------------------------
 ! Declare variables.
 !-----------------------------------------------------------------------
@@ -2178,20 +2178,20 @@ SUBROUTINE fractionWaterTAK(ii,jj,kk,rhoa,qr,qs,qg,qh,Ndr_in,Nds_in,Ndg_in,Ndh_i
   INTEGER, PARAMETER :: nk_tak_s =  5         ! Number of thickness categories for ice/snow category (not used currently)
   INTEGER, PARAMETER :: nd_tak_g = 45         ! Number of bins in Takahashi graupel category
   INTEGER, PARAMETER :: nd_tak_h = 45         ! Number of bins in Takahashi hail category
-  REAL*8, DIMENSION (nd_tak_r) :: Ndr_in 
+  REAL*8, DIMENSION (nd_tak_r) :: Ndr_in
   REAL*8, DIMENSION (nk_tak_s,nd_tak_s) :: Nds_in
   REAL*8, DIMENSION (nd_tak_g) :: Ndg_in
   REAL*8, DIMENSION (nd_tak_h) :: Ndh_in
-  
+
   REAL*8, DIMENSION (nd_tak_r) :: Ndrtmp
   REAL*8, DIMENSION (nk_tak_s,nd_tak_s) :: Ndstmp
   REAL*8, DIMENSION (nd_tak_g) :: Ndgtmp
   REAL*8, DIMENSION (nd_tak_h) :: Ndhtmp
-  
+
   REAL,INTENT(OUT) :: fracqrs,fracqrg,fracqrh,fms,fmg,fmh,fws,fwg,fwh,rhoms,rhomg,rhomh
   REAL :: qgwfac,qhwfac
   REAL,INTENT(OUT) :: fwgbin(nd_tak_g),fwhbin(nd_tak_h)
-  
+
   REAL :: frs,frg,frh
   REAL :: qti ! Total ice mixing ratio (sum of snow, graupel, and hail)
   REAL :: qswcrit,qgwcrit,qhwcrit,qtwcrit,tmp1
@@ -2228,14 +2228,14 @@ SUBROUTINE fractionWaterTAK(ii,jj,kk,rhoa,qr,qs,qg,qh,Ndr_in,Nds_in,Ndg_in,Ndh_i
   Ndgtmp = 0.0
 
   qti = qs+qg+qh
- 
+
 !-----------------------------------------------------------------------
-! Calculate the first guess fraction of rain water to be transfered to the ice 
+! Calculate the first guess fraction of rain water to be transfered to the ice
 ! surface (fr), based on the ratio of qs/qg/qh and qti up to a maximum of 100%
 ! of the rain.
 !-----------------------------------------------------------------------
 
-  IF (qr > 0. .AND. qti > 0.0) THEN   
+  IF (qr > 0. .AND. qti > 0.0) THEN
     frs = qs/qti
     frg = qg/qti
     frh = qh/qti
@@ -2250,7 +2250,7 @@ SUBROUTINE fractionWaterTAK(ii,jj,kk,rhoa,qr,qs,qg,qh,Ndr_in,Nds_in,Ndg_in,Ndh_i
 ! rhom   : density of mixture
 !-----------------------------------------------------------------------
   IF(qs > 0.) fracqrs = MIN(frs*qr,3.*frs*qs) ! This gives a maximum of 75% water fraction for snow
-  
+
   IF(qg > 0.0 .and. frg > 0.) THEN ! Iterate to find the water fraction on graupel
     fracqrg = frg*qr
     qgwcrit = 0.0
@@ -2283,9 +2283,9 @@ SUBROUTINE fractionWaterTAK(ii,jj,kk,rhoa,qr,qs,qg,qh,Ndr_in,Nds_in,Ndg_in,Ndh_i
         else
         	fwgbin(i) = 0.1
         endif
-        qgwcrit = qgwcrit + intv*fwgbin(i)*Ndgtmp(i)*(1./6.)*pi*(dsg(i)*1.0e-3)**3.*1000./rhoa ! 2nd term is mass mixing ratio of liquid water in 
+        qgwcrit = qgwcrit + intv*fwgbin(i)*Ndgtmp(i)*(1./6.)*pi*(dsg(i)*1.0e-3)**3.*1000./rhoa ! 2nd term is mass mixing ratio of liquid water in
                                                                                        ! current diameter bin
-      ENDDO 
+      ENDDO
       diff = fracqrg-qgwcrit
       !IF(ii == 60 .and. jj == 7) THEN
       !  print*,'iter,fracqrg,qgwcrit,fwg',iter,fracqrg,qgwcrit,fwg
@@ -2294,7 +2294,7 @@ SUBROUTINE fractionWaterTAK(ii,jj,kk,rhoa,qr,qs,qg,qh,Ndr_in,Nds_in,Ndg_in,Ndh_i
         ! Redistribute available water evenly across diameter bins
         qgwfac = fracqrg/qgwcrit
         DO i = 1,nd_tak_g
-          fwgbin(i) = qgwfac*fwgbin(i) 
+          fwgbin(i) = qgwfac*fwgbin(i)
         ENDDO
         EXIT
       ELSE
@@ -2307,7 +2307,7 @@ SUBROUTINE fractionWaterTAK(ii,jj,kk,rhoa,qr,qs,qg,qh,Ndr_in,Nds_in,Ndg_in,Ndh_i
       Ndg_in(i) = Ndgtmp(i)
     ENDDO
   ENDIF
-  
+
   IF(qh > 0. .and. frh > 0.) THEN ! Iterate to find the water fraction on hail
     fracqrh = frh*qr
     qhwcrit = 0.0
@@ -2337,9 +2337,9 @@ SUBROUTINE fractionWaterTAK(ii,jj,kk,rhoa,qr,qs,qg,qh,Ndr_in,Nds_in,Ndg_in,Ndh_i
           mwcrit = (0.268e-3 + 0.1389*mtot)/1.1389  ! Critical water mass before shedding
           fwhbin(i) = mwcrit/mtot ! Max water fraction for wet hailstone of diameter dsg(i)
         endif
-        qhwcrit = qhwcrit + intv*fwhbin(i)*Ndhtmp(i)*(1./6.)*pi*(dsh(i)*1.0e-3)**3.*1000./rhoa ! rhomh ! 2nd term is mass mixing ratio of liquid water in 
+        qhwcrit = qhwcrit + intv*fwhbin(i)*Ndhtmp(i)*(1./6.)*pi*(dsh(i)*1.0e-3)**3.*1000./rhoa ! rhomh ! 2nd term is mass mixing ratio of liquid water in
                                                                                           ! current diameter bin
-      ENDDO 
+      ENDDO
       diff = fracqrh-qhwcrit
 !     IF(diff > 0.0) THEN
 !       print*,'iter,fracqrg,qgwcrit,fwg',iter,fracqrg,qgwcrit,fwg
@@ -2355,7 +2355,7 @@ SUBROUTINE fractionWaterTAK(ii,jj,kk,rhoa,qr,qs,qg,qh,Ndr_in,Nds_in,Ndg_in,Ndh_i
         fracqrh = qhwcrit
         iter=iter+1
       ENDIF
-    ENDDO 
+    ENDDO
     qhwfac = MIN(fracqrh/qhwcrit,1.0)
     DO i = 1,nd_tak_h
       Ndh_in(i) = Ndhtmp(i)
@@ -2364,19 +2364,19 @@ SUBROUTINE fractionWaterTAK(ii,jj,kk,rhoa,qr,qs,qg,qh,Ndr_in,Nds_in,Ndg_in,Ndh_i
   fms = qs+fracqrs
   fmg = qg+fracqrg
   fmh = qh+fracqrh
-  
+
   IF(fms > 0.) THEN
     fws = fracqrs/fms
   ELSE
     fws = 0.
   ENDIF
-  
+
   IF(fmg > 0.) THEN
     fwg = fracqrg/fmg
   ELSE
     fwg = 0.0
   END IF
-  
+
   IF(fmh > 0.) THEN
     fwh = fracqrh/fmh
   ELSE
@@ -2384,33 +2384,33 @@ SUBROUTINE fractionWaterTAK(ii,jj,kk,rhoa,qr,qs,qg,qh,Ndr_in,Nds_in,Ndg_in,Ndh_i
   ENDIF
 
   ! Remove water that was added above to snow,graupel, and hail from rain
-  
+
   DO i = 1,nd_tak_r
     Ndr_in(i) = Ndr_in(i) - Ndr_in(i)*(fracqrs+fracqrg+fracqrh)/qr
   ENDDO
-  
+
   qr = qr-fracqrs-fracqrg-fracqrh
 
   ! Check water fraction of graupel, hail, and snow in each diameter bin shared with rain.  If it is (nearly) 100%
   ! add that bin to the corresponding rain bin
-  
+
 ! DO i = 1,nd_tak_r
 !   IF(fwgbin(i) > 0.99) THEN
-!     intv = (dsg(i)*1.0e-3)/4.329 
+!     intv = (dsg(i)*1.0e-3)/4.329
 !     Ndr_in(i) = Ndr_in(i) + Ndg_in(i)
 !     fmg = fmg - intv*Ndg_in(i)*(1./6.)*pi*(dsg(i)*1.0e-3)**3.*1000./rhoa
 !     qr = qr + intv*Ndg_in(i)*(1./6.)*pi*(dsg(i)*1.0e-3)**3.*1000./rhoa
 !     Ndg_in(i) = 0.0
 !   ENDIF
 !   IF(fwhbin(i) > 0.99) THEN
-!     intv = (dsh(i)*1.0e-3)/4.329 
+!     intv = (dsh(i)*1.0e-3)/4.329
 !     Ndr_in(i) = Ndr_in(i) + Ndh_in(i)
 !     Ndh_in(i) = 0.0
 !     fmh = fmh - intv*Ndh_in(i)*(1./6.)*pi*(dsh(i)*1.0e-3)**3.*1000.
 !     qr = qr + intv*Ndh_in(i)*(1./6.)*pi*(dsh(i)*1.0e-3)**3.*1000.
 !   ENDIF
 ! END DO
-  
+
   rhoms = 1000.*fws**2. + (1.-fws**2.)*rhos
   rhomg = 1000.*fwg**2. + (1.-fwg**2.)*rhog
   rhomh = 1000.*fwh**2. + (1.-fwh**2.)*rhoh
@@ -2448,7 +2448,7 @@ SUBROUTINE refl_rsa (addtorain,ii,jj,kk,MPflg,MFflg,rhoa,fws,fwg,fwh,qs,qg,qh,qr
 ! MODIFIED: Dan Dawson, 2/08/2011
 !           Changed from a function to a subroutine.
 !           Put derived type variables explicitly in argument list.
-!           Removed references to derived type and instead refer 
+!           Removed references to derived type and instead refer
 !           explicitly to the variables within (this is done because f2py doesn't
 !           work with fortran derived types).
 !
@@ -2458,14 +2458,14 @@ SUBROUTINE refl_rsa (addtorain,ii,jj,kk,MPflg,MFflg,rhoa,fws,fwg,fwh,qs,qg,qh,qr
 !           that is, an additional shape parameter, mu, as in the ZVD
 !           scheme. Also included the case (through the MFflg variable)
 !           where the melted water fraction on ice is explicitly predicted
-!           (the ZVDM scheme variants).  
+!           (the ZVDM scheme variants).
 !
 !           Dan Dawson, 01/17/2012
 !           Added MFhail flag to allow for special treatment of small melting
 !           hail, by converting it to rain.
 !
 !           Dan Dawson, 12/04/2012
-!           Removed MFhail flag and associated parameters and code, modified MFflg 
+!           Removed MFhail flag and associated parameters and code, modified MFflg
 !           to control the method by which water fraction is diagnosed:
 !             MFflg = 0: Water fraction on snow, graupel, and hail is diagnosed
 !                        using the original method of Jung et al. (2008)
@@ -2478,19 +2478,19 @@ SUBROUTINE refl_rsa (addtorain,ii,jj,kk,MPflg,MFflg,rhoa,fws,fwg,fwh,qs,qg,qh,qr
 !           Youngsun Jung, 8/12/2014
 !           Added temperature-based melting layer option (MFflg = 3 and 4)
 !             MFflg = 3 Water fraction on snow, graupel, and hail are diagnosed
-!                       based on the air temperature. 
+!                       based on the air temperature.
 !                       See subroutine fractionWater_temperature for details.
 !             MFflg = 4 Similar to MFflg = 3 but dry and wet scattering amplitudes
 !                       are averaged as a quadratic function of fractionWater.
 !
 !           Dan Dawson, 01/26/2015-02/05/2015
 !           More modifications to fractionWater4.  Also renamed to fractionWater14, and
-!           removed fractionWater2.  Renamed fractionWater3 to fractionWaterD14_old.  
-!           Added several optional output arrays holding binned PSD information for diagnostics. WIP.  
+!           removed fractionWater2.  Renamed fractionWater3 to fractionWaterD14_old.
+!           Added several optional output arrays holding binned PSD information for diagnostics. WIP.
 !
 !           Dan Dawson, 05/13/2015
 !           General code cleanup
-!    
+!
 !-----------------------------------------------------------------------
 ! Force explicit declarations.
 !-----------------------------------------------------------------------
@@ -2504,9 +2504,9 @@ SUBROUTINE refl_rsa (addtorain,ii,jj,kk,MPflg,MFflg,rhoa,fws,fwg,fwh,qs,qg,qh,qr
   INTEGER :: ii,jj,kk     ! Grid indices for debugging/diagnostics
   INTEGER :: MPflg,MFflg
   REAL, PARAMETER :: pi4 = 97.409           ! pi^4
-  REAL*8, DIMENSION (nd_r) :: Ndr, Ndrtmp 
-  REAL*8, DIMENSION (nd_s) :: Nds, Ndrs 
-  REAL*8, DIMENSION (nd_h) :: Ndh, Ndrh  
+  REAL*8, DIMENSION (nd_r) :: Ndr, Ndrtmp
+  REAL*8, DIMENSION (nd_s) :: Nds, Ndrs
+  REAL*8, DIMENSION (nd_h) :: Ndh, Ndrh
   REAL*8, DIMENSION (nd_g) :: Ndg, Ndrg
 	REAL :: fwgbin(nd_g),rhomgbin(nd_g)
   REAL :: fwhbin(nd_h),rhomhbin(nd_h)
@@ -2540,18 +2540,18 @@ SUBROUTINE refl_rsa (addtorain,ii,jj,kk,MPflg,MFflg,rhoa,fws,fwg,fwh,qs,qg,qh,qr
   REAL :: tempAhh,tempAvv
   REAL :: Ar_h,As_h,Ag_h,Ah_h,Ars_h,Arg_h,Arh_h
   REAL :: Ar_v,As_v,Ag_v,Ah_v,Ars_v,Arg_v,Arh_v
-  
+
   REAL :: tem1,tem2,tem3,D0r
   REAL :: midsize
   REAL*8 :: term_exp, term_gam
 
   LOGICAL :: ranout, samesizebinsg, samesizebinsh, addtorain, adjustNt
-  
+
   ! New optional output arrays containing binned PSD information
   REAL, OPTIONAL, INTENT(INOUT) :: nrbin(:,:),nsbin(:,:),ngbin(:,:),nhbin(:,:)
   REAL, OPTIONAL, INTENT(INOUT) :: rhosbin(:,:),rhogbin(:,:),rhohbin(:,:)
   REAL, OPTIONAL, INTENT(INOUT) :: fwsbinout(:),fwgbinout(:),fwhbinout(:)
-  
+
 !@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 !
 ! Beginning of executable code...
@@ -2578,7 +2578,7 @@ SUBROUTINE refl_rsa (addtorain,ii,jj,kk,MPflg,MFflg,rhoa,fws,fwg,fwh,qs,qg,qh,qr
        CALL init_fox()
     END SELECT
 
-    firstcall = .false. 
+    firstcall = .false.
   END IF
 
   lambda4 = lambda**4.
@@ -2636,11 +2636,11 @@ SUBROUTINE refl_rsa (addtorain,ii,jj,kk,MPflg,MFflg,rhoa,fws,fwg,fwh,qs,qg,qh,qr
   temp1 = (dsg(2)-dsg(1))*1.0e-3
   temp2 = (dsr(2)-dsr(1))*1.0e-3
   samesizebinsg = (temp1 == temp2)
-	
+
   temp1 = (dsh(2)-dsh(1))*1.0e-3
   temp2 = (dsr(2)-dsr(1))*1.0e-3
   samesizebinsh = (temp1 == temp2)
-  
+
   fwgbin = 0.
   fwhbin = 0.
   rhomgbin = 0.
@@ -2674,12 +2674,12 @@ SUBROUTINE refl_rsa (addtorain,ii,jj,kk,MPflg,MFflg,rhoa,fws,fwg,fwh,qs,qg,qh,qr
     if(qhf < 0.0) qhf = 0.0
     qgf = qg - fracqg
     if(qgf < 0.0) qgf = 0.0
-    
+
     qr = qrf
     qs = qsf+fms
     qg = qgf+fmg
     qh = qhf+fmh
-    
+
     fwgbin(:) = fwg
     fwhbin(:) = fwh
     rhomgbin(:) = rhomg
@@ -2687,7 +2687,7 @@ SUBROUTINE refl_rsa (addtorain,ii,jj,kk,MPflg,MFflg,rhoa,fws,fwg,fwh,qs,qg,qh,qr
 
   ELSEIF (MFflg == 1) THEN       ! New diagnostic method by DTD (06/27/2012) as used in
                                  ! Dawson et al. (2014)
-    
+
     ! First store "untouched" graupel and hail PSD bin numbers and densities (rain is handled later)
     IF(present(ngbin)) THEN ! Graupel
       ngbin = 0.0
@@ -2713,7 +2713,7 @@ SUBROUTINE refl_rsa (addtorain,ii,jj,kk,MPflg,MFflg,rhoa,fws,fwg,fwh,qs,qg,qh,qr
         ENDDO
       endif
     ENDIF
-    
+
     IF(present(nhbin)) THEN ! Hail
       nhbin = 0.0
       if(qh > 0.) then
@@ -2738,16 +2738,16 @@ SUBROUTINE refl_rsa (addtorain,ii,jj,kk,MPflg,MFflg,rhoa,fws,fwg,fwh,qs,qg,qh,qr
         ENDDO
       endif
     ENDIF
-        
+
     CALL fractionWaterD14(MPflg,ii,jj,kk,fos,rhoa,tair_C,qr,qs,qg,qh,ntr,nts,ntg,nth,alfr,alfg,alfh,mug,muh,rhos,rhog,rhoh, &
                           fracqrs,fracqs,fracqrg,fracqrh,qsoakg,qsoakh,fms,fmg,fmh,fws,fwg,fwh,rhoms,rhomg,   &
                           rhomh,Ndrg,Ndrh,fwgbin,fwhbin,rhomgbin,rhomhbin)
 
     qrfold = qr ! Save old mixing ratio and number conc. of rain in case it gets wiped out and needs
                 ! to be added back later, else we lose the mean diameter information
-    if(ntr > 0.0) ntrold = ntr 
+    if(ntr > 0.0) ntrold = ntr
     qrf = qr - fracqrs - fracqrg - fracqrh - qsoakg - qsoakh
-    if(qrf <= 0.0) then 
+    if(qrf <= 0.0) then
       qrf = 0.0
       ntr = 0.0
     endif
@@ -2755,12 +2755,12 @@ SUBROUTINE refl_rsa (addtorain,ii,jj,kk,MPflg,MFflg,rhoa,fws,fwg,fwh,qs,qg,qh,qr
     IF(ntr > 0.0) then
       ntr = ntr - ntr*(fracqrs+fracqrh+fracqrg+qsoakg+qsoakh)/qr
     endif
- 
+
     ! Now reverting to Jung et al. (2008) method for snow only
     qsf = qs - fracqs
     if(qsf < 0.0) qsf = 0.0
     qs = qsf+fms
- 
+
     if(fwg == 0.0) then
       qgf = fmg
       fmg = 0.0
@@ -2781,7 +2781,7 @@ SUBROUTINE refl_rsa (addtorain,ii,jj,kk,MPflg,MFflg,rhoa,fws,fwg,fwh,qs,qg,qh,qr
 
 
   ELSEIF (MFflg == 3) THEN      ! Temperature-based melting.
-    
+
     CALL fractionWater_temperature(qr,qs,rhos,fms,fws,rhoms,tair_C)
     IF(hl_ON == 1)  &
     CALL fractionWater_temperature(qr,qh,rhoh,fmh,fwh,rhomh,tair_C)
@@ -2792,7 +2792,7 @@ SUBROUTINE refl_rsa (addtorain,ii,jj,kk,MPflg,MFflg,rhoa,fws,fwg,fwh,qs,qg,qh,qr
     qsf = qs-fms
     qhf = qh-fmh
     qgf = qg-fmg
-    
+
     fwgbin(:) = fwg
     fwhbin(:) = fwh
     rhomgbin(:) = rhomg
@@ -2810,14 +2810,14 @@ SUBROUTINE refl_rsa (addtorain,ii,jj,kk,MPflg,MFflg,rhoa,fws,fwg,fwh,qs,qg,qh,qr
     qsf = qs
     qhf = qh
     qgf = qg
-    
+
     fwgbin(:) = fwg
     fwhbin(:) = fwh
     rhomgbin(:) = rhomg
     rhomhbin(:) = rhomh
 
   ELSE  ! Melted fraction explicitly predicted (passed into subroutine)
-   
+
     ! Note, the handling of this case is somewhat different than the above
     ! Above, there is an explicit mixing ratio of a rain/snow mixture = fms
     ! while qsf represents the mixing ratio of the nonmelting dry snow.  In the ZVD
@@ -2837,7 +2837,7 @@ SUBROUTINE refl_rsa (addtorain,ii,jj,kk,MPflg,MFflg,rhoa,fws,fwg,fwh,qs,qg,qh,qr
 
     qrfold = qr ! Save old mixing ratio and number conc. of rain in case it gets wiped out and needs
                 ! to be added back later, else we lose the mean diameter information
-    if(ntr > 0.0) ntrold = ntr 
+    if(ntr > 0.0) ntrold = ntr
 
     IF(qsw > 0.0) THEN
       qsf = 0.0
@@ -2846,11 +2846,11 @@ SUBROUTINE refl_rsa (addtorain,ii,jj,kk,MPflg,MFflg,rhoa,fws,fwg,fwh,qs,qg,qh,qr
       fracqs = qs-qsw
       IF(qs > 0.0) THEN
         fws = qsw/qs
-      ELSE 
+      ELSE
         fws = 0.0
       END IF
       ! For now just assume rhoms is the same as original dry snow (i.e. constant)
-      rhoms = rhos        
+      rhoms = rhos
     ELSE
       qsf = qs
       fms = 0.0
@@ -2899,15 +2899,15 @@ SUBROUTINE refl_rsa (addtorain,ii,jj,kk,MPflg,MFflg,rhoa,fws,fwg,fwh,qs,qg,qh,qr
       fwh = 0.0
       rhomh = rhoh
     END IF
-    
+
     qrtmp = 0.0 ! Will hold excess water mixing ratio
     temp1 = fracqrg
     temp2 = fracqrh
-    
+
 
     addtorain = .false. ! Yields incorrect answers at the moment.  Need to fix, but turn off addtorain for now.
 
-    IF(addtorain) THEN    
+    IF(addtorain) THEN
       CALL adjustWater(ii,jj,kk,rhoa,qr,qs,qg,qh,ntr,nts,ntg,nth,alfg,alfh,mug,muh,rhos,rhog,rhoh, &
                           fracqrs,fracqrg,fracqrh,fms,fmg,fmh,fws,fwg,fwh,rhoms,rhomg,   &
                           rhomh,fwgbin(:),fwhbin(:))
@@ -2915,15 +2915,15 @@ SUBROUTINE refl_rsa (addtorain,ii,jj,kk,MPflg,MFflg,rhoa,fws,fwg,fwh,qs,qg,qh,qr
     	fwgbin(:) = fwg
     	fwhbin(:) = fwh
     ENDIF
-    
+
     rhomgbin(:) = rhomg
     rhomhbin(:) = rhomh
-    
+
     ! Add up excess water from wet graupel and hail.  We'll deal with it later.
     ! The mixing ratio/number concentration of graupel/hail should already have been adjusted in adjustWater
     qrtmp = temp1-fracqrg
     qrtmp = qrtmp+(temp2-fracqrh)
-    
+
   END IF
 
 !-----------------------------------------------------------------------
@@ -2952,16 +2952,16 @@ SUBROUTINE refl_rsa (addtorain,ii,jj,kk,MPflg,MFflg,rhoa,fws,fwg,fwh,qs,qg,qh,qr
       CALL power_mom(MPflg,0,cx,tair_C,rhoa,qsf,tem3)
 !      Ntd = sngl((db_N0/lamdas1) + (db_N02/(lamdas2**tmpalphas2))*gamma(1.+tmpalphas2))    !YJ: power of lamdas2 is wrong
       Ntd = (db_N0/lamdas1) + (db_N02/(lamdas2**(1.d0+tmpalphas2))*gamma(1.d0+tmpalphas2))
-      nts = Ntd 
+      nts = Ntd
       DO i = 1,nd
         midsize = dss(i)*1.e-3
         term_exp = db_N0*exp(-lamdas1*(midsize))*intv*unit_factor
         term_gam = db_N02*(midsize)**tmpalphas2*exp(-lamdas2*(midsize))*intv*unit_factor
         Nds(i) = term_exp + term_gam
         Ntd = Ntd - Nds(i)
-        if(Ntd <= 0) Nds(i) = 0. 
+        if(Ntd <= 0) Nds(i) = 0.
      enddo
-    else 
+    else
       if(nts > 0.0) then
         CALL cal_N0(rhoa,qsf,nts,rhos,alfs,db_N0,mus)
         CALL cal_lamda(rhoa,qsf,nts,rhos,alfs,lams,mus)
@@ -2999,16 +2999,16 @@ SUBROUTINE refl_rsa (addtorain,ii,jj,kk,MPflg,MFflg,rhoa,fws,fwg,fwh,qs,qg,qh,qr
                   ((dble(tem1)/dble(tem2))**dble(tmpalphas2)))
       db_N0 = dble(N0s1)
       db_N02 = dble(N0s2)
-      Ntw = sngl((db_N0/lamdas1) + (db_N02/(lamdas2**tmpalphas2))*gamma(1.+tmpalphas2))
-      nts = Ntw 
+      Ntw = sngl((db_N0/lamdas1) + (db_N02/(lamdas2**tmpalphas2))*gamma(1.d0+tmpalphas2))
+      nts = Ntw
       DO i = 1,nd
         Ndrs(i) = db_N0*exp(-lamdas1*(dss(i)*1.e-3))*  &
                     intv + db_N02*(dss(i)*1.e-3)**tmpalphas2*exp(-lamdas2*       &
                     (dss(i)*1.e-3))*intv
         Ntw = Ntw - Ndrs(i)
-        if(Ntw <= 0) Ndrs(i) = 0. 
+        if(Ntw <= 0) Ndrs(i) = 0.
      enddo
-    else 
+    else
       if(nts > 0.0) then
         CALL cal_N0(rhoa,fms,nts,rhoms,alfs,db_N0,mus)
         CALL cal_lamda(rhoa,fms,nts,rhoms,alfs,lamrs,mus)
@@ -3028,7 +3028,7 @@ SUBROUTINE refl_rsa (addtorain,ii,jj,kk,MPflg,MFflg,rhoa,fws,fwg,fwh,qs,qg,qh,qr
     endif
   endif
 
-  IF(hl_ON == 1) THEN  
+  IF(hl_ON == 1) THEN
     db_N0 = 0.d0
 
     ! Dry hail
@@ -3077,16 +3077,16 @@ SUBROUTINE refl_rsa (addtorain,ii,jj,kk,MPflg,MFflg,rhoa,fws,fwg,fwh,qs,qg,qh,qr
           Ntw = Ntw - Ndrh(i)
           if(Ntw <= 0.d0) Ndrh(i) = 0.d0
         ENDIF
-        
+
         temp = sngl(Ndrh(i))*(1./6.)*pi*(dsh(i)*1.0e-3)**3.*rhomhbin(i)/rhoa ! Mass mixing ratio of bin
-        
+
         ! Now figure out what to do with 100% water bins
         IF(addtorain .and. samesizebinsh .and. dsh(i) <= 8.0 .and. fwhbin(i) == 1.0) THEN ! Add directly to corresponding rain bin
         	Ndrtmp(i) = Ndrtmp(i) + Ndrh(i)
         ELSEIF(addtorain .and. fwhbin(i) == 1.0) THEN ! Add to excess water mixing ratio
         	qrtmp = qrtmp + temp
         ENDIF
-        
+
         IF(fwhbin(i) == 1.0 .and. addtorain) THEN ! Zero out this bin since we just added it to rain
         	! Adjust number concentration and mixing ratio to account for this
         	nth = nth-Ndrh(i)
@@ -3094,22 +3094,22 @@ SUBROUTINE refl_rsa (addtorain,ii,jj,kk,MPflg,MFflg,rhoa,fws,fwg,fwh,qs,qg,qh,qr
         	fmh = fmh-temp
         	qh = fmh
         ENDIF
-        
+
         ! Now store the adjusted wet hail distribution
-    
+
         IF(present(nhbin) .and. MFflg == 1) THEN
           nhbin(2,i) = Ndrh(i)
           IF(present(fwhbinout)) fwhbinout(i) = fwhbin(i)
           rhohbin(2,i) = rhomhbin(i)
         ENDIF
-        
+
       ENDDO
       ! If we have Ntw left over, add it to the last bin to preserve total number concentration
 !    	if(Ntw > 0.) then
 !    		Ndrh(nd_h) = Ndrh(nd_h) + dble(Ntw)
 !    	endif
     endif
-  ENDIF 
+  ENDIF
 
   IF(grpl_ON == 1) THEN
     db_N0 = 0.d0
@@ -3169,22 +3169,22 @@ SUBROUTINE refl_rsa (addtorain,ii,jj,kk,MPflg,MFflg,rhoa,fws,fwg,fwh,qs,qg,qh,qr
         endif
       ENDIF
       Ntw = ntg
-      DO i = 1,nd_g 
-        IF(MFflg /= 1) THEN 
+      DO i = 1,nd_g
+        IF(MFflg /= 1) THEN
           Ndrg(i) = db_N0*(dsg(i)*1.e-3)**alfg*exp(-lamrg*(dsg(i)*1.e-3)**(3.0*mug))*intv
           Ntw = Ntw - Ndrg(i)
-          if(Ntw <= 0.d0) Ndrg(i) = 0.d0 
+          if(Ntw <= 0.d0) Ndrg(i) = 0.d0
         ENDIF
- 	  
+
         temp = sngl(Ndrg(i))*(1./6.)*pi*(dsg(i)*1.0e-3)**3.*rhomgbin(i)/rhoa ! Mass mixing ratio of bin
-        
+
         ! Now figure out what to do with 100% water bins
         IF(addtorain .and. samesizebinsg .and. dsg(i) <= 8.0 .and. fwgbin(i) == 1.0) THEN ! Add directly to corresponding rain bin
         	Ndrtmp(i) = Ndrtmp(i) + Ndrg(i)
         ELSEIF(addtorain .and. fwgbin(i) == 1.0) THEN ! Add to excess water mixing ratio
         	qrtmp = qrtmp + temp
         ENDIF
-        
+
         IF(fwgbin(i) == 1.0 .and. addtorain) THEN ! Zero out this bin since we just added it to rain
         	! Adjust number concentration and mixing ratio to account for this
         	ntg = ntg-Ndrg(i)
@@ -3193,34 +3193,34 @@ SUBROUTINE refl_rsa (addtorain,ii,jj,kk,MPflg,MFflg,rhoa,fws,fwg,fwh,qs,qg,qh,qr
         	qg = fmg
         	!print*,'ii,jj,kk,qg',ii,jj,kk,qg
         ENDIF
-        
+
         ! Now store the adjusted wet graupel distribution
-    
+
         IF(present(ngbin) .and. MFflg == 1) THEN
           ngbin(2,i) = Ndrg(i)
           IF(present(fwgbinout)) fwgbinout(i) = fwgbin(i)
           rhogbin(2,i) = rhomgbin(i)
         ENDIF
-        
+
       ENDDO
       ! If we have Ntw left over, add it to the last bin to preserve total number concentration
 !   	if(Ntw > 0.) then
 !   		Ndrg(nd_g) = Ndrg(nd_g) + Ntw
 !   	endif
-		
+
     endif
   ENDIF
-  
+
   lamr = 0.d0; lams = 0.d0; lamh = 0.d0; lamrs = 0.d0; lamrh = 0.d0;
   db_N0 = 0.d0
 
   ! Compute rain N(d)
-  
+
   ! First deal with the case with no existing rain at a grid point but potentially
   ! excess water to add to rain.
   ! We'll build the rain distribution using the 100%-water graupel and hail bins
   ! if they exist at this point.
-    
+
   if(qrf == 0. .and. ntr == 0) then
     temp1 = 0.0
     DO i=1,nd_r
@@ -3262,7 +3262,7 @@ SUBROUTINE refl_rsa (addtorain,ii,jj,kk,MPflg,MFflg,rhoa,fws,fwg,fwh,qs,qg,qh,qr
       ELSE
         db_N0 = dble(N0r)
       ENDIF
-      CALL cal_Nt(rhoa,qrf,db_N0,cx,alfr,ntr,mur)  
+      CALL cal_Nt(rhoa,qrf,db_N0,cx,alfr,ntr,mur)
       CALL cal_lamda(rhoa,qrf,ntr,rhor,alfr,lamr,mur)
       Ntw = ntr
     endif
@@ -3292,7 +3292,7 @@ SUBROUTINE refl_rsa (addtorain,ii,jj,kk,MPflg,MFflg,rhoa,fws,fwg,fwh,qs,qg,qh,qr
   endif
 
   ! Now store the adjusted rain distribution
-  
+
   IF(present(nrbin) .and. MFflg == 1) THEN
     DO i=1,nd_r
       nrbin(2,i) = Ndr(i)
@@ -3411,10 +3411,10 @@ SUBROUTINE refl_rsa (addtorain,ii,jj,kk,MPflg,MFflg,rhoa,fws,fwg,fwh,qs,qg,qh,qr
     fa2=0.; fb2=0.; fab=0.; far=0.
     ! Wet hail
     if(fmh > 0.) then
-      do i=1,nd_h  
+      do i=1,nd_h
         idx = INT(fwhbin(i) * 20 + 0.5) + 1
-        CALL coeff_hail(fwhbin(i),fmh)      
-              
+        CALL coeff_hail(fwhbin(i),fmh)
+
         fa2 = ABS(A_jdxlow*fah_b(i,idx,jdxlow)+A_jdxhigh*fah_b(i,idx,jdxhigh))**2
         fb2 = ABS(A_jdxlow*fbh_b(i,idx,jdxlow)+A_jdxhigh*fbh_b(i,idx,jdxhigh))**2
         fab = (A_jdxlow*fah_b(i,idx,jdxlow)+A_jdxhigh*fah_b(i,idx,jdxhigh))*CONJG((A_jdxlow*fbh_b(i,idx,jdxlow)+A_jdxhigh*fbh_b(i,idx,jdxhigh)))
@@ -3429,7 +3429,7 @@ SUBROUTINE refl_rsa (addtorain,ii,jj,kk,MPflg,MFflg,rhoa,fws,fwg,fwh,qs,qg,qh,qr
         tfsarh = tfsarh + far*sngl(Ndrh(i))
       enddo
     endif
-  ENDIF 
+  ENDIF
 
   IF(grpl_ON == 1) THEN
 
@@ -3487,7 +3487,7 @@ SUBROUTINE refl_rsa (addtorain,ii,jj,kk,MPflg,MFflg,rhoa,fws,fwg,fwh,qs,qg,qh,qr
       do i=1,nd_g
         idx = INT(fwgbin(i) * 20 + 0.5) + 1
         CALL coeff_grpl(fwgbin(i),fmg)
-                
+
         fa2 = ABS(A_jdxlow*fag_b(i,idx,jdxlow)+A_jdxhigh*fag_b(i,idx,jdxhigh))**2
         fb2 = ABS(A_jdxlow*fbg_b(i,idx,jdxlow)+A_jdxhigh*fbg_b(i,idx,jdxhigh))**2
         fab = (A_jdxlow*fag_b(i,idx,jdxlow)+A_jdxhigh*fag_b(i,idx,jdxhigh))*CONJG((A_jdxlow*fbg_b(i,idx,jdxlow)+A_jdxhigh*fbg_b(i,idx,jdxhigh)))
@@ -3548,11 +3548,11 @@ SUBROUTINE refl_rsa (addtorain,ii,jj,kk,MPflg,MFflg,rhoa,fws,fwg,fwh,qs,qg,qh,qr
 
   temph = 4*lambda4/(pi4*Kw2)*(tsar_h+tsas_h+tsah_h+tsag_h+tsars_h+tsarh_h+tsarg_h)
   tempv = 4*lambda4/(pi4*Kw2)*(tsar_v+tsas_v+tsah_v+tsag_v+tsars_v+tsarh_v+tsarg_v)
-  
+
   T_sum_ref_h = temph
   T_sum_ref_v = tempv
 
-  temphv = 4*lambda4/(pi4*Kw2)*ABS(tsar_hv+tsas_hv+tsah_hv+tsag_hv+tsars_hv+tsarh_hv+tsarg_hv) 
+  temphv = 4*lambda4/(pi4*Kw2)*ABS(tsar_hv+tsas_hv+tsah_hv+tsag_hv+tsars_hv+tsarh_hv+tsarg_hv)
   T_sum_ref_hv = temphv
 
   if(temph > 0.) T_log_ref = 10*log10(temph)
@@ -3561,20 +3561,20 @@ SUBROUTINE refl_rsa (addtorain,ii,jj,kk,MPflg,MFflg,rhoa,fws,fwg,fwh,qs,qg,qh,qr
   if(tempv > 0.) then
     T_log_zdr = 10.*LOG10(MAX(1.0,temph/tempv))
   endif
-  
+
 !JYS  if(tempk < 0.) tempk = 0.0
   tempk = 180.*lambda/pi*(tfsar+tfsas+tfsah+tfsag+tfsars+tfsarh+tfsarg)*1.e-3
   T_kdp = tempk
 
-  ! For Jung et al. 2008 melting, adjust water fractions so that they represent the 
-  ! water fraction with respect to the total ice, and not just the "melting ice", for 
+  ! For Jung et al. 2008 melting, adjust water fractions so that they represent the
+  ! water fraction with respect to the total ice, and not just the "melting ice", for
   ! consistency of interpretation with the Dawson et al. 2014 formulation (MFflg = 1)
   fws = fws*fms/qs
-  IF(MFflg == 0) THEN 
+  IF(MFflg == 0) THEN
     fwg = fwg*fmg/qg
     fwh = fwh*fmh/qh
   ENDIF
-  
+
 END SUBROUTINE refl_rsa
 
 SUBROUTINE refl_rsa_tak (ii,jj,kk,MFflg,rhoa,fws,fwg,fwh,qs,qg,qh,qrf,   &
@@ -3594,7 +3594,7 @@ SUBROUTINE refl_rsa_tak (ii,jj,kk,MFflg,rhoa,fws,fwg,fwh,qs,qg,qh,qrf,   &
 ! MODIFIED: Dan Dawson, 2/08/2011
 !           Changed from a function to a subroutine.
 !           Put derived type variables explicitly in argument list.
-!           Removed references to derived type and instead refer 
+!           Removed references to derived type and instead refer
 !           explicitly to the variables within (this is done because f2py doesn't
 !           work with fortran derived types).
 !
@@ -3604,14 +3604,14 @@ SUBROUTINE refl_rsa_tak (ii,jj,kk,MFflg,rhoa,fws,fwg,fwh,qs,qg,qh,qrf,   &
 !           that is, an additional shape parameter, mu, as in the ZVD
 !           scheme. Also included the case (through the MFflg variable)
 !           where the melted water fraction on ice is explicitly predicted
-!           (the ZVDM scheme variants).  
+!           (the ZVDM scheme variants).
 !
 !           Dan Dawson, 01/17/2012
 !           Added MFhail flag to allow for special treatment of small melting
 !           hail, by converting it to rain.
 !
 !           Dan Dawson, 12/04/2012
-!           Removed MFhail flag and associated parameters and code, modified MFflg 
+!           Removed MFhail flag and associated parameters and code, modified MFflg
 !           to control the method by which water fraction is diagnosed:
 !             MFflg = 0: Water fraction on snow, graupel, and hail is diagnosed
 !                        using the original method of Jung et al. (2008)
@@ -3624,7 +3624,7 @@ SUBROUTINE refl_rsa_tak (ii,jj,kk,MFflg,rhoa,fws,fwg,fwh,qs,qg,qh,qrf,   &
 !           Dan Dawson, 12/12/2012
 !           Split off from subroutine refl_rsa.  This version handles specifically
 !           the Takahashi bin scheme
-!    
+!
 !-----------------------------------------------------------------------
 ! Force explicit declarations.
 !-----------------------------------------------------------------------
@@ -3643,11 +3643,11 @@ SUBROUTINE refl_rsa_tak (ii,jj,kk,MFflg,rhoa,fws,fwg,fwh,qs,qg,qh,qrf,   &
   INTEGER, PARAMETER :: nd_tak_g = 45         ! Number of bins in Takahashi graupel category
   INTEGER, PARAMETER :: nd_tak_h = 45         ! Number of bins in Takahashi hail category
   REAL, PARAMETER :: pi4 = 97.409           ! pi^4
-  REAL*8, DIMENSION (nd_tak_r) :: Ndr_in, Ndr 
+  REAL*8, DIMENSION (nd_tak_r) :: Ndr_in, Ndr
   REAL*8, DIMENSION (nk_tak_s,nd_tak_s) :: Nds_in ! , Nds, Ndrs Not using these at the moment, but later need to update the code below
-  REAL*8, DIMENSION (nd_tak_s) :: Nds,Ndrs        ! For now keep them as 1D 
-  REAL*8, DIMENSION (nd_tak_g) :: Ndg_in, Ndg, Ndrg 
-  REAL*8, DIMENSION (nd_tak_h) :: Ndh_in, Ndh, Ndrh 
+  REAL*8, DIMENSION (nd_tak_s) :: Nds,Ndrs        ! For now keep them as 1D
+  REAL*8, DIMENSION (nd_tak_g) :: Ndg_in, Ndg, Ndrg
+  REAL*8, DIMENSION (nd_tak_h) :: Ndh_in, Ndh, Ndrh
   REAL, DIMENSION (nd_tak_g) :: fwgbin
   REAL, DIMENSION (nd_tak_h) :: fwhbin
 !  REAL*8, EXTERNAL :: gamma
@@ -3711,7 +3711,7 @@ SUBROUTINE refl_rsa_tak (ii,jj,kk,MFflg,rhoa,fws,fwg,fwh,qs,qg,qh,qrf,   &
        CALL init_fox()
     END SELECT
 
-    firstcall = .false. 
+    firstcall = .false.
   END IF
 
   lambda4 = lambda**4.
@@ -3845,7 +3845,7 @@ ELSE
   CALL fractionWaterTAK(ii,jj,kk,rhoa,qrf,qs,qg,qh,Ndr_in,Nds_in,Ndg_in,Ndh_in,rhos,rhog,rhoh, &
                           fracqrs,fracqrg,fracqrh,fms,fmg,fmh,fws,fwg,fwh,rhoms,rhomg,   &
                           rhomh,fwgbin,fwhbin)
-    
+
   IF(ii == 60 .and. jj == 42) THEN
     print*,'After, qr,qg',qrf,fmg
     temp = 0.0
@@ -3873,7 +3873,7 @@ ELSE
     print*,'fmh',fmh
     print*,'rhomg,rhomh',rhomg,rhomh
   ENDIF
-    
+
   if(fws == 0.0) then
     qsf = fms
     fms = 0.0
@@ -3983,7 +3983,7 @@ ENDIF
   if(qrf > 0.) then
     do i=1,nd_tak_r
     	IF(ii == 60 .and. jj == 42) THEN
-        print*,'i,dsr(i),Ndr(i)',i,dsg(i)*1.0e-3,Ndr(i) 
+        print*,'i,dsr(i),Ndr(i)',i,dsg(i)*1.0e-3,Ndr(i)
       ENDIF
       fa2 = ABS(far_b(i))**2
       fb2 = ABS(fbr_b(i))**2
@@ -4066,12 +4066,12 @@ ENDIF
       ! is done.  This approach will be applied soon to the bulk scheme version (refl_rsa and fractionwater3)
       do i=1,nd_tak_h
         idx = INT(fwhbin(i) * 20 + 0.5) + 1
-        
-        CALL coeff_hail(fwhbin(i),fmh)      
+
+        CALL coeff_hail(fwhbin(i),fmh)
         IF(ii == 60 .and. jj == 42) THEN
-          print*,'i,dsh(i),fwhbin(i),Ndrh(i)',i,dsh(i)*1.0e-3,fwhbin(i),Ndrh(i) 
+          print*,'i,dsh(i),fwhbin(i),Ndrh(i)',i,dsh(i)*1.0e-3,fwhbin(i),Ndrh(i)
         ENDIF
-        
+
         fa2 = ABS(fah_b(i,idx,18))**2
         fb2 = ABS(fbh_b(i,idx,18))**2
         fab = fah_b(i,idx,18)*CONJG(fbh_b(i,idx,18))
@@ -4086,7 +4086,7 @@ ENDIF
         tfsarh = tfsarh + far*Ndrh(i)
       enddo
     endif
-  ENDIF 
+  ENDIF
 
   IF(grpl_ON == 1) THEN
     fa2=0.; fb2=0.; fab=0.; far=0.
@@ -4121,7 +4121,7 @@ ENDIF
         idx = INT(fwgbin(i) * 20 + 0.5) + 1
         CALL coeff_grpl(fwgbin(i),fmg)
         IF(ii == 60 .and. jj == 42) THEN
-          print*,'i,dsg(i),fwgbin(i),Ndrg(i)',i,dsg(i)*1.0e-3,fwgbin(i),Ndrg(i) 
+          print*,'i,dsg(i),fwgbin(i),Ndrg(i)',i,dsg(i)*1.0e-3,fwgbin(i),Ndrg(i)
         ENDIF
         fa2 = ABS(fag_b(i,idx,6))**2
         fb2 = ABS(fbg_b(i,idx,6))**2
@@ -4149,12 +4149,12 @@ ENDIF
   !print*,'temph',temph
   !print*,'tempv',tempv
 
-  temphv = 4*lambda4/(pi4*Kw2)*ABS(tsar_hv+tsas_hv+tsah_hv+tsag_hv+tsars_hv+tsarh_hv+tsarg_hv) 
+  temphv = 4*lambda4/(pi4*Kw2)*ABS(tsar_hv+tsas_hv+tsah_hv+tsag_hv+tsars_hv+tsarh_hv+tsarg_hv)
   !refl_rsa%T_sum_ref_hv = temphv
   T_sum_ref_hv = temphv
 
   if(temph > 0.) T_log_ref = 10*log10(temph)
-  
+
   if(tempv > 0.) then
 !    refl_rsa%T_log_zdr = 10.*LOG10(MAX(1.0,temph/tempv))
     T_log_zdr = 10.*LOG10(MAX(1.0,temph/tempv))
@@ -4162,12 +4162,12 @@ ENDIF
 !     print*,'T_log_zdr',T_log_zdr
 !    endif
   endif
-  
+
 !JYS  if(tempk < 0.) tempk = 0.0
   tempk = 180.*lambda/pi*(tfsar+tfsas+tfsah+tfsag+tfsars+tfsarh+tfsarg)*1.e-3
   !refl_rsa%T_kdp = tempk
   T_kdp = tempk
-    
+
 END SUBROUTINE refl_rsa_tak
 
 END MODULE DUALPARA
@@ -4179,7 +4179,7 @@ SUBROUTINE refl_rsa_array_takahashi(MFflg,nx,ny,nz,ibgn,iend,jbgn,jend,kbgn,kend
 !
 ! PURPOSE:
 !
-! This is a wrapper subroutine for the subroutine refl_rsa_tak 
+! This is a wrapper subroutine for the subroutine refl_rsa_tak
 !
 !-----------------------------------------------------------------------
 !
@@ -4204,10 +4204,10 @@ SUBROUTINE refl_rsa_array_takahashi(MFflg,nx,ny,nz,ibgn,iend,jbgn,jend,kbgn,kend
   INTEGER, PARAMETER :: nk_tak_s =  5         ! Number of thickness categories for ice/snow category (not used currently)
   INTEGER, PARAMETER :: nd_tak_g = 45         ! Number of bins in Takahashi graupel category
   INTEGER, PARAMETER :: nd_tak_h = 45         ! Number of bins in Takahashi hail category
-  REAL :: Ndr_in_arr(nd_tak_r,nx,ny,nz) 
+  REAL :: Ndr_in_arr(nd_tak_r,nx,ny,nz)
   REAL :: Nds_in_arr(nk_tak_s,nd_tak_s,nx,ny,nz)
   REAL :: Ndg_in_arr(nd_tak_g,nx,ny,nz)
-  REAL :: Ndh_in_arr(nd_tak_h,nx,ny,nz) 
+  REAL :: Ndh_in_arr(nd_tak_h,nx,ny,nz)
   REAL*8 :: Ndr_in(nd_tak_r),Nds_in(nk_tak_s,nd_tak_s),Ndg_in(nd_tak_g),Ndh_in(nd_tak_h)
   REAL, INTENT(INOUT) :: qsw(nx,ny,nz),qgw(nx,ny,nz),qhw(nx,ny,nz)
   REAL, INTENT(IN) :: rhogrpl(nx,ny,nz),rhohail(nx,ny,nz)
@@ -4218,8 +4218,8 @@ SUBROUTINE refl_rsa_array_takahashi(MFflg,nx,ny,nz,ibgn,iend,jbgn,jend,kbgn,kend
   REAL :: rhoa
   INTEGER :: i,j,k,a,b
   INTEGER :: bin_opt
-  
-  
+
+
 ! DTD: STOPPED HERE 12/12/12!
 
 ! Initialize radar wavelength
@@ -4236,7 +4236,7 @@ SUBROUTINE refl_rsa_array_takahashi(MFflg,nx,ny,nz,ibgn,iend,jbgn,jend,kbgn,kend
   CALL read_table(rsafndir,vardendir,nd_tak_r,nd_tak_s,nd_tak_g,nd_tak_h,bin_opt)
 
   ! Set variables to zero that aren't needed
-  
+
   T_mur = 0.0
   T_mus = 0.0
   T_mug = 0.0
@@ -4263,57 +4263,57 @@ SUBROUTINE refl_rsa_array_takahashi(MFflg,nx,ny,nz,ibgn,iend,jbgn,jend,kbgn,kend
 
         ! Assign input variables
         T_qr = qr(i,j,k)
-        T_qs = qs(i,j,k) 
+        T_qs = qs(i,j,k)
         T_qh = qh(i,j,k)
         T_qg = qg(i,j,k)
-        
+
         rhog = rhogrpl(i,j,k)
         rhoh = rhohail(i,j,k)
         rhoa = rhoa_arr(i,j,k)
-        
+
         DO b=1,nd_tak_r
           Ndr_in(b) = dble(Ndr_in_arr(b,i,j,k))
           !print*,'Ndr_in(b)',b,Ndr_in(b)
         ENDDO
-        
+
         DO a=1,nk_tak_s
           DO b=1,nd_tak_s
             Nds_in(a,b) = dble(Nds_in_arr(a,b,i,j,k))
             !print*,'Nds_in(a,b)',a,b,Nds_in(a,b)
           ENDDO
         ENDDO
-        
+
         DO b=1,nd_tak_g
           Ndg_in(b) = dble(Ndg_in_arr(b,i,j,k))
           !print*,'Ndg_in(b)',b,Ndg_in(b)
         ENDDO
-        
+
         DO b=1,nd_tak_h
           Ndh_in(b) = dble(Ndh_in_arr(b,i,j,k))
           !print*,'Ndh_in(b)',b,Ndh_in(b)
         ENDDO
-        
+
         !print*,'i,j,k',i,j,k
-        
+
         ! Compute the polarimetric variables
-      
+
         CALL refl_rsa_tak (i,j,k,MFflg,rhoa,fws,fwg,fwh,qsout,qgout,qhout,qrout,   &
                      Nds_in,Ndg_in,Ndh_in,Ndr_in,rhomsout,rhomgout,rhomhout)
-        
-        
+
+
         IF(MFflg < 2) THEN ! Compute water fraction mixing ratios from those calculated with fractionWater subroutine
           if(i == 60 .and. j == 7) print*,'fwg,qg',fwg,qgout
           !print*,'i,j,k,fwh',i,j,k,fwh
           qsw(i,j,k) = fws*qsout
           qgw(i,j,k) = fwg*qgout
           qhw(i,j,k) = fwh*qhout
-          
+
           ! Also adjust qr, qs, qg, qh appropriately EDIT: This is not needed because they are recalculated later in the python code
           qr(i,j,k) = qrout
           qs(i,j,k) = qsout
           qg(i,j,k) = qgout
           qh(i,j,k) = qhout
-          
+
           rhoms(i,j,k) = rhomsout
           rhomg(i,j,k) = rhomgout
           rhomh(i,j,k) = rhomhout
@@ -4328,11 +4328,11 @@ SUBROUTINE refl_rsa_array_takahashi(MFflg,nx,ny,nz,ibgn,iend,jbgn,jend,kbgn,kend
         Kdp(i,j,k) = T_kdp
         Ahh(i,j,k) = T_Ahh
         Avv(i,j,k) = T_Avv
-        
+
       END DO
     END DO
   END DO
-      
+
   RETURN
 
 END SUBROUTINE refl_rsa_array_takahashi
@@ -4377,7 +4377,7 @@ SUBROUTINE refl_rsa_array(addtorain,MPflg,MFflg,nx,ny,nz,rsafndir,vardendir,wave
   REAL :: Ntr(nx,ny,nz),Nts(nx,ny,nz),Ntg(nx,ny,nz),Nth(nx,ny,nz)
   REAL :: alphar(nx,ny,nz),alphas(nx,ny,nz),alphag(nx,ny,nz),alphah(nx,ny,nz)
   REAL :: qsw(nx,ny,nz),qgw(nx,ny,nz),qhw(nx,ny,nz)
-!f2py intent(in,out) qr,qs,qg,qh,Ntr,Nts,Ntg,Nth,alphar,alphas,alphag,alphah,qsw,qgw,qhw  
+!f2py intent(in,out) qr,qs,qg,qh,Ntr,Nts,Ntg,Nth,alphar,alphas,alphag,alphah,qsw,qgw,qhw
   REAL, INTENT(OUT) :: logZ(nx,ny,nz),sumZh(nx,ny,nz),sumZv(nx,ny,nz),logZdr(nx,ny,nz)
   REAL, INTENT(OUT) :: sumZhv(nx,ny,nz),Kdp(nx,ny,nz),Ahh(nx,ny,nz),Avv(nx,ny,nz),rhv(nx,ny,nz)
   REAL, INTENT(OUT) :: rhoms(nx,ny,nz),rhomg(nx,ny,nz),rhomh(nx,ny,nz)
@@ -4410,7 +4410,7 @@ SUBROUTINE refl_rsa_array(addtorain,MPflg,MFflg,nx,ny,nz,rsafndir,vardendir,wave
     T_mus = 1.0d0       ! Only poor snow is still gamma volume!
     T_mug = 1.0d0/3.0d0
     T_muh = 1.0d0/3.0d0
-    
+
   ELSEIF(MPflg == 1) THEN ! We are using the ZVD scheme, which has an additional shape parameter mu for
                        ! the gamma distribution (setting it to 1/3 simplifies it to the standard gamma)
     T_mur = 1.0d0
@@ -4433,7 +4433,7 @@ SUBROUTINE refl_rsa_array(addtorain,MPflg,MFflg,nx,ny,nz,rsafndir,vardendir,wave
 
         ! Assign input variables
         T_qr = qr(i,j,k)
-        T_qs = qs(i,j,k) 
+        T_qs = qs(i,j,k)
         T_qh = qh(i,j,k)
         T_qg = qg(i,j,k)
         T_Ntr = Ntr(i,j,k)
@@ -4463,12 +4463,12 @@ SUBROUTINE refl_rsa_array(addtorain,MPflg,MFflg,nx,ny,nz,rsafndir,vardendir,wave
         ! Compute the polarimetric variables
         CALL refl_rsa(addtorain,i,j,k,MPflg,MFflg,rhoa,fws,fwg,fwh,qsout,qgout,     &
                       qhout,qrout,nsout,ngout,nhout,nrout,alfrout,alfsout,alfgout,alfhout,rhomsout,rhomgout,rhomhout,tair_C)
-        
+
         IF(MFflg <= 4) THEN ! Compute water fraction mixing ratios from those calculated with fractionWater subroutine
           qsw(i,j,k) = fws*qsout
           qgw(i,j,k) = fwg*qgout
           qhw(i,j,k) = fwh*qhout
-          
+
           ! Also adjust qr, qs, qg, qh, nr, ns, ng, and nh appropriately
           qr(i,j,k) = qrout
           qs(i,j,k) = qsout
@@ -4485,7 +4485,7 @@ SUBROUTINE refl_rsa_array(addtorain,MPflg,MFflg,nx,ny,nz,rsafndir,vardendir,wave
           rhoms(i,j,k) = rhomsout
           rhomg(i,j,k) = rhomgout
           rhomh(i,j,k) = rhomhout
-          
+
         END IF
 
         ! Store result in arrays for output
@@ -4504,7 +4504,7 @@ SUBROUTINE refl_rsa_array(addtorain,MPflg,MFflg,nx,ny,nz,rsafndir,vardendir,wave
         ELSE
           rhv(i,j,k) = 0.0
         ENDIF
-        
+
       END DO
     END DO
   END DO
@@ -4617,7 +4617,7 @@ SUBROUTINE solve_alpha_iter(nx,ny,nz,rhoa,mu,q,Ntx,Z,rhox,alpha)
             alpha(i,j,k) = max(alpmin,min(alpmax,3.*alpha(i,j,k)+2.))
           ELSE
             alpha(i,j,k) = 0.0
-          END IF   
+          END IF
         END DO
       END DO
     END DO
@@ -4664,9 +4664,9 @@ INTEGER FUNCTION get_qgh_opt (graupel_ON, hail_ON)
     get_qgh_opt = 2
   ELSE IF(graupel_ON == 1 .and. hail_ON == 0) THEN
     get_qgh_opt = 3
-  ELSE IF(graupel_ON == 1 .and. hail_ON == 1) THEN 
+  ELSE IF(graupel_ON == 1 .and. hail_ON == 1) THEN
     get_qgh_opt = 4
-  ENDIF 
+  ENDIF
 
 END FUNCTION get_qgh_opt
 
