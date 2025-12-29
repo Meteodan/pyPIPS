@@ -96,7 +96,7 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
     for output_QC_tag in args.output_QC_tags:
         if output_QC_tag not in pqc.PIPS_qc_dict:
             continue
-        
+
         strongwindQC = pqc.PIPS_qc_dict[output_QC_tag]['strongwindQC']
         splashingQC = pqc.PIPS_qc_dict[output_QC_tag]['splashingQC']
         marginQC = pqc.PIPS_qc_dict[output_QC_tag]['marginQC']
@@ -105,7 +105,7 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
         hailonlyQC = pqc.PIPS_qc_dict[output_QC_tag]['hailonlyQC']
         graupelonlyQC = pqc.PIPS_qc_dict[output_QC_tag]['graupelonlyQC']
 
-        vd_matrix_qc_da = vd_matrix_da.copy()
+        vd_matrix_qc_da = vd_matrix_da.copy(deep=True)
         if strongwindQC:
             vd_matrix_qc_da = pqc.strongwindQC(vd_matrix_qc_da)
         if splashingQC:
@@ -120,8 +120,8 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
         if hailonlyQC:
             vd_matrix_qc_da = pqc.hailonlyQC(vd_matrix_qc_da)
 
-        fallspeed_spectrum = pips.calc_fallspeed_spectrum(avg_diameter, avg_fall_bins, 
-                                                          correct_rho=True, 
+        fallspeed_spectrum = pips.calc_fallspeed_spectrum(avg_diameter, avg_fall_bins,
+                                                          correct_rho=True,
                                                           rho=parsivel_combined_ds['rho'])
 
         vd_matrix_qc_da = vd_matrix_qc_da.where(vd_matrix_qc_da > 0.0)

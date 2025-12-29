@@ -32,7 +32,16 @@ PIPS_qc_dict = {
         'rainonlyQC': True,
         'hailonlyQC': False,
         'graupelonlyQC': False,
-    }
+    },
+    'hoqc': {
+        'strongwindQC': True,
+        'splashingQC': True,
+        'marginQC': True,
+        'rainfallQC': False,
+        'rainonlyQC': False,
+        'hailonlyQC': True,
+        'graupelonlyQC': False,
+    },
 }
 
 
@@ -237,9 +246,9 @@ def rainonlyQC(countsMatrix):
 
 
 @enable_xarray_wrapper
-def hailonlyQC(countsMatrix, returnmasked=True):
+def hailonlyQC(countsMatrix):
     """Based on Katja Friedrich's IDL QC subroutine. Removes particles that are probably
-       not hail. Also returns number of particles remaining"""
+       not hail."""
 
     numtimes = np.size(countsMatrix, axis=0)
     masktimes = np.zeros((numtimes, 32, 32), dtype=bool)
@@ -248,11 +257,27 @@ def hailonlyQC(countsMatrix, returnmasked=True):
     for t in range(numtimes):
         masktimes[t, :] = hailonlymask
 
-    masked = ma.masked_array(countsMatrix, mask=masktimes)
-    if returnmasked:
-        countsMatrix = masked
-    total = masked.sum(axis=2).sum(axis=1)
-    return countsMatrix, total
+    countsMatrix = ma.masked_array(countsMatrix, mask=masktimes)
+
+    return countsMatrix
+
+# @enable_xarray_wrapper
+# def hailonlyQC(countsMatrix, returnmasked=True):
+#     """Based on Katja Friedrich's IDL QC subroutine. Removes particles that are probably
+#        not hail. Also returns number of particles remaining"""
+
+#     numtimes = np.size(countsMatrix, axis=0)
+#     masktimes = np.zeros((numtimes, 32, 32), dtype=bool)
+
+#     # Remove particles that are probably not hail
+#     for t in range(numtimes):
+#         masktimes[t, :] = hailonlymask
+
+#     masked = ma.masked_array(countsMatrix, mask=masktimes)
+#     if returnmasked:
+#         countsMatrix = masked
+#     total = masked.sum(axis=2).sum(axis=1)
+#     return countsMatrix, total
 
 
 @enable_xarray_wrapper
