@@ -17,8 +17,8 @@ PIPS_IO_dict = {
     'conv_filenames_nc': ['conventional_raw_IOP7_052925_PIPS1A.nc',
                           'conventional_raw_IOP7_052925_PIPS3A.nc',
                           'conventional_raw_IOP7_052925_PIPS3B.nc'],
-    'start_times': [None] * 3,
-    'end_times': [None] * 3,
+    'start_times': ['20250529213000'] * 3,
+    'end_times': ['20250529233500'] * 3,
     'requested_interval': 10.
 }
 

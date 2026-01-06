@@ -407,7 +407,6 @@ def read_PIPS(filename, start_timestamp=None, end_timestamp=None, tripips=False,
                 continue
             if stoptime is not None and record_dict['logger_datetime'] > stoptime:
                 continue
-
             parsivel_dict, vd_matrix = parse_parsivel_telegram(record_dict['parsivel_telegram'],
                                                                record_dict['logger_datetime'],
                                                                probe_set=probe_set)
