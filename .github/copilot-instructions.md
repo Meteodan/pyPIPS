@@ -82,3 +82,43 @@ import pyPIPS.pips_io as pipsio
 - QC tags propagate through analysis chain to maintain data provenance
 
 When implementing new features, follow the config-driven pattern, maintain xarray compatibility for scientific datasets, and preserve QC tag conventions for traceability.
+
+## Progress Tracking
+
+### Update Progress Command
+When the user says "Update progress", update the `.github/progress.md` file with a new session entry documenting:
+
+1. **Session metadata**: Date range and session theme/focus
+2. **Key code updates**: Specific files modified, problems solved, and solutions implemented
+3. **Lessons learned**: Technical insights, best practices discovered, and patterns established
+4. **Technical context**: Architecture decisions, integration patterns, and development workflows
+5. **Next priorities**: Suggested future development directions
+
+**Progress Entry Format**:
+```markdown
+## Session: [Date Range] - [Session Theme]
+
+### Key Code Updates
+#### [Update Category]
+**Problem**: [Brief problem description]
+**Solution**: [Key solution points as bullets]
+**Files Modified**: [List of files]
+
+### Key Lessons Learned
+#### [Lesson Category]
+**Lesson**: [Specific lesson or insight]
+**Impact**: [Why this matters for future development]
+
+### Technical Context for Future Development
+[Architecture notes, patterns, workflow context]
+
+### Next Development Priorities
+[Suggested next steps or improvements]
+```
+
+**Session Tracking Guidelines**:
+- Document significant code changes, not minor edits
+- Focus on lessons that inform future development decisions
+- Include context that helps new agent sessions understand current state
+- Update existing entries if work continues on same topics
+- Maintain chronological order with most recent sessions at top

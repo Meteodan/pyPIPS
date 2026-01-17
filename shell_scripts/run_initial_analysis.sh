@@ -12,6 +12,7 @@ set -e  # Exit on any error
 
 # Default settings - toggle individual analysis steps on/off
 RUN_CSV_TO_NC=1
+RUN_MERGE_REALTIME=1
 RUN_APPLY_QC=1
 RUN_CALC_DERIVED=1
 RUN_MM_FITS=1
@@ -21,6 +22,7 @@ RUN_RADAR_INTERP=0  # Optional - disabled by default
 QC_TAGS="qc roqc hoqc"
 MM_MOMENT_COMBOS="24 234 246 346"
 OUTPUT_TAG=""
+REALTIME_DIR=""
 VERBOSE=0
 ENABLE_LOGGING=0
 LOG_DIR=""
@@ -62,6 +64,7 @@ Required Arguments:
 
 Options:
     --skip-csv2nc       Skip CSV to netCDF conversion
+    --skip-merge        Skip real-time/card data merging
     --skip-qc           Skip quality control application
     --skip-derived      Skip derived parameter calculation
     --skip-mm-fits      Skip method of moments fitting
@@ -70,9 +73,10 @@ Options:
     --qc-tags TAGS      Space-separated QC tags to process (default: "qc")
     --mm-combos COMBOS  Space-separated moment combinations (default: "23 34 246")
     --output-tag TAG    Output file tag to distinguish from originals
+    --realtime-dir DIR  Directory containing real-time netCDF files (required for merge step)
 
     --log-dir DIR       Enable logging and specify directory for log files
-    By default, runs: CSV→netCDF → QC → derived params → MM fits
+    By default, runs: CSV→netCDF → merge realtime → QC → derived params → MM fits
     Radar interpolation is optional and must be enabled with --enable-radar
 
 Examples:
@@ -87,6 +91,9 @@ Examples:
 
     # Full analysis including radar interpolation
     $0 configs/IOP1_2016.py --enable-radar --output-tag "with_radar"
+
+    # Analysis with real-time data merging
+    $0 configs/IOP1_2016.py --realtime-dir /path/to/realtime/data
 
 EOF
 }
@@ -112,6 +119,10 @@ while [[ $# -gt 0 ]]; do
     case $1 in
         --skip-csv2nc)
             RUN_CSV_TO_NC=0
+            shift
+            ;;
+        --skip-merge)
+            RUN_MERGE_REALTIME=0
             shift
             ;;
         --skip-qc)
@@ -140,6 +151,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --output-tag)
             OUTPUT_TAG="$2"
+            shift 2
+            ;;
+        --realtime-dir)
+            REALTIME_DIR="$2"
             shift 2
             ;;
         --log-dir)
@@ -171,6 +186,18 @@ else
     OUTPUT_ARG=""
 fi
 
+# Validate realtime-dir if merge step is enabled
+if [ $RUN_MERGE_REALTIME -eq 1 ] && [ -z "$REALTIME_DIR" ]; then
+    print_error "--realtime-dir is required when merge step is enabled"
+    print_error "Use --skip-merge to disable merging or provide --realtime-dir path"
+    exit 1
+fi
+
+if [ $RUN_MERGE_REALTIME -eq 1 ] && [ ! -d "$REALTIME_DIR" ]; then
+    print_error "Real-time directory not found: $REALTIME_DIR"
+    exit 1
+fi
+
 # Set up logging if enabled
 if [ $ENABLE_LOGGING -eq 1 ]; then
     # Create log directory if it doesn't exist
@@ -197,6 +224,7 @@ echo "==============================================="
 echo "Config file: $CASE_CONFIG_PATH"
 echo "Steps to run:"
 [ $RUN_CSV_TO_NC -eq 1 ] && echo "  ✓ CSV to netCDF conversion"
+[ $RUN_MERGE_REALTIME -eq 1 ] && echo "  ✓ Real-time/card data merging"
 [ $RUN_APPLY_QC -eq 1 ] && echo "  ✓ Quality control application"
 [ $RUN_CALC_DERIVED -eq 1 ] && echo "  ✓ Derived parameter calculation"
 [ $RUN_MM_FITS -eq 1 ] && echo "  ✓ Method of moments fitting"
@@ -204,6 +232,7 @@ echo "Steps to run:"
 echo "QC tags: $QC_TAGS"
 echo "MM moment combinations: $MM_MOMENT_COMBOS"
 [ -n "$OUTPUT_TAG" ] && echo "Output tag: $OUTPUT_TAG"
+[ $RUN_MERGE_REALTIME -eq 1 ] && [ -n "$REALTIME_DIR" ] && echo "Real-time directory: $REALTIME_DIR"
 [ $ENABLE_LOGGING -eq 1 ] && echo "Logging directory: $LOG_DIR"
 echo "==============================================="
 echo
@@ -237,7 +266,36 @@ if [ $RUN_CSV_TO_NC -eq 1 ]; then
     echo
 fi
 
-# Step 2: Apply Quality Control
+# Step 2: Merge real-time and card data
+if [ $RUN_MERGE_REALTIME -eq 1 ]; then
+    print_step "Merging real-time and card-based data..."
+
+    cmd="python ${ANALYSIS_DIR}/merge_PIPS_realtime.py $COMMON_ARGS --realtime-dir $REALTIME_DIR --diagnostic-plots $OUTPUT_ARG"
+    [ $VERBOSE -eq 1 ] && echo "Command: $cmd"
+
+    if [ $ENABLE_LOGGING -eq 1 ]; then
+        LOG_STDOUT="${LOG_DIR}/${CONFIG_NAME}_${TIMESTAMP}_merge.stdout"
+        LOG_STDERR="${LOG_DIR}/${CONFIG_NAME}_${TIMESTAMP}_merge.stderr"
+        print_step "Logs: $LOG_STDOUT, $LOG_STDERR"
+
+        if eval "$cmd" > "$LOG_STDOUT" 2> "$LOG_STDERR"; then
+            print_success "Real-time/card data merging completed"
+        else
+            print_error "Real-time/card data merging failed (see logs)"
+            exit 1
+        fi
+    else
+        if eval $cmd; then
+            print_success "Real-time/card data merging completed"
+        else
+            print_error "Real-time/card data merging failed"
+            exit 1
+        fi
+    fi
+    echo
+fi
+
+# Step 3: Apply Quality Control
 if [ $RUN_APPLY_QC -eq 1 ]; then
     print_step "Applying quality control filters..."
 
@@ -266,7 +324,7 @@ if [ $RUN_APPLY_QC -eq 1 ]; then
     echo
 fi
 
-# Step 3: Calculate derived parameters
+# Step 4: Calculate derived parameters
 if [ $RUN_CALC_DERIVED -eq 1 ]; then
     print_step "Calculating derived parameters..."
 
@@ -295,7 +353,7 @@ if [ $RUN_CALC_DERIVED -eq 1 ]; then
     echo
 fi
 
-# Step 4: Calculate method of moments fits
+# Step 5: Calculate method of moments fits
 if [ $RUN_MM_FITS -eq 1 ]; then
     print_step "Calculating method of moments DSD fits..."
 

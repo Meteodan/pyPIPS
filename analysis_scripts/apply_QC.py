@@ -89,6 +89,7 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
     VD_name = 'VD_matrix{}'.format(VD_tag)
     vd_matrix_da = parsivel_combined_ds[VD_name]
     coord_to_combine = 'time'
+    flagged_times = None
 
     # Do some QC on the V-D matrix. This will make a copy of the raw matrix. The netCDF file
     # will contain the original raw VD matrix and the new QC'ed matrix with the appropriate
@@ -107,7 +108,7 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
 
         vd_matrix_qc_da = vd_matrix_da.copy(deep=True)
         if strongwindQC:
-            vd_matrix_qc_da = pqc.strongwindQC(vd_matrix_qc_da)
+            vd_matrix_qc_da, flagged_times = pqc.strongwindQC(vd_matrix_qc_da)
         if splashingQC:
             vd_matrix_qc_da = pqc.splashingQC(vd_matrix_qc_da)
         if marginQC:
@@ -147,6 +148,13 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
             parsivel_combined_ds[varname].attrs['rainonlyQC'] = int(rainonlyQC)
             parsivel_combined_ds[varname].attrs['hailonlyQC'] = int(hailonlyQC)
             parsivel_combined_ds[varname].attrs['graupelonlyQC'] = int(graupelonlyQC)
+
+        # Add flagged times variable if available
+        if flagged_times is not None:
+            parsivel_combined_ds['flagged_times_{}'.format(output_QC_tag)] = (
+                ('time',), flagged_times)
+            parsivel_combined_ds['flagged_times_{}'.format(output_QC_tag)].attrs['description'] = (
+                'Flagged times from QC: 0=good, 2=severe wind contamination')
 
     parsivel_combined_output_file = parsivel_combined_file + args.output_file_tag
     print("Dumping {}".format(parsivel_combined_output_file))
