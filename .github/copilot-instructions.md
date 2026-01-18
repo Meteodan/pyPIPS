@@ -1,5 +1,16 @@
 # pyPIPS AI Coding Assistant Instructions
 
+## Initial Session Setup
+
+### Read Progress File First
+**IMPORTANT**: At the start of every new chat session, ALWAYS read the `.github/progress.md` file to understand:
+- Recent development activities and code changes
+- Lessons learned and best practices established
+- Current development priorities and context
+- Technical patterns and workflows already implemented
+
+Use: `read_file('/Users/dawson29/Projects/pyPIPS/.github/progress.md', 1, 50)` to get recent session overview, then read more if needed to understand current development state.
+
 ## Project Overview
 pyPIPS analyzes precipitation data from Portable In-situ Precipitation Stations (PIPS) - disdrometer networks collecting Drop Size Distribution (DSD) measurements. This is a scientific computing project combining Python, Fortran, and real-time data processing.
 

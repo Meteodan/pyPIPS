@@ -523,6 +523,9 @@ def process_single_pips(PIPS_name, deployment_name, PIPS_dir, realtime_dir, outp
 
     utils.log(f"Loading card onesec file: {onesec_path}")
     onesec_card_ds = xr.open_dataset(onesec_path, decode_timedelta=False)
+    # Load into memory and close file to prevent permission issues when saving
+    onesec_card_ds = onesec_card_ds.load()
+    onesec_card_ds.close()
 
     # Read time range from conventional netCDF attributes
     try:
@@ -560,6 +563,9 @@ def process_single_pips(PIPS_name, deployment_name, PIPS_dir, realtime_dir, outp
 
     utils.log(f"Loading card parsivel file: {parsivel_combined_path}")
     parsivel_combined_card_ds = xr.open_dataset(parsivel_combined_path, decode_timedelta=False)
+    # Load into memory and close file to prevent permission issues when saving
+    parsivel_combined_card_ds = parsivel_combined_card_ds.load()
+    parsivel_combined_card_ds.close()
 
     utils.log(f"Finding real-time files for {PIPS_name}...")
     file_path_list_onePIPS = glob.glob(os.path.join(realtime_dir, f'*{PIPS_name}*nc'))
@@ -797,10 +803,22 @@ def process_single_pips(PIPS_name, deployment_name, PIPS_dir, realtime_dir, outp
     onesec_output_path = os.path.join(output_dir, onesec_output_filename)
 
     utils.log(f"Saving {onesec_output_path}")
-    onesec_merged_full_ds.to_netcdf(onesec_output_path)
+    try:
+        onesec_merged_full_ds.to_netcdf(onesec_output_path)
+    except PermissionError as e:
+        utils.fatal(f"Permission denied when saving {onesec_output_path}: {e}. "
+                   f"File may still be open or locked. Aborting.")
+    except Exception as e:
+        utils.fatal(f"Error saving {onesec_output_path}: {e}. Aborting.")
 
     utils.log(f"Saving {parsivel_combined_output_path}")
-    parsivel_combined_merged_full_ds.to_netcdf(parsivel_combined_output_path)
+    try:
+        parsivel_combined_merged_full_ds.to_netcdf(parsivel_combined_output_path)
+    except PermissionError as e:
+        utils.fatal(f"Permission denied when saving {parsivel_combined_output_path}: {e}. "
+                   f"File may still be open or locked. Aborting.")
+    except Exception as e:
+        utils.fatal(f"Error saving {parsivel_combined_output_path}: {e}. Aborting.")
 
     utils.log(f"Merge completed successfully for {PIPS_name}!")
 

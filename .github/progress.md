@@ -2,6 +2,239 @@
 
 This file tracks significant development progress, lessons learned, and agent activities for pyPIPS development sessions.
 
+## Session: January 18, 2026 - Compass QC Enhancement and Deployment Trimming
+
+### Key Code Updates
+
+#### 1. Restructured Data Flow Pattern in apply_QC.py
+**Problem**: Complex file loading logic with multiple reads/writes of conventional dataset scattered throughout processing loop
+**Solution**:
+- Load `conv_ds` once at start of main loop if compass QC or trimming requested
+- Process all operations (trimming, compass QC) on in-memory dataset
+- Save both conventional and parsivel datasets together at end of loop
+- Eliminated redundant file existence checks and intermediate file I/O operations
+
+**Files Modified**: `analysis_scripts/apply_QC.py`
+
+#### 2. Fixed Logging for Time Dimension Operations
+**Problem**: Dataset trimming logged total dataset size instead of time dimension length
+**Solution**:
+- Changed from `len(conv_ds)` to `len(conv_ds.time)` for accurate record counts
+- Updated `update_time_attributes()` to show both original and new time ranges
+- Format: "Original: START to END" / "New: START to END" for clear comparison
+- Logs time coordinate encoding updates (e.g., "seconds since YYYY-MM-DD HH:MM:SS")
+
+**Files Modified**: `analysis_scripts/apply_QC.py`
+
+#### 3. Updated netCDF Time Coordinate Encoding
+**Problem**: Trimmed datasets still referenced original start time in netCDF time coordinate units
+**Solution**:
+- Added time coordinate encoding update in `update_time_attributes()` function
+- Sets `dataset['time'].encoding['units']` to "seconds since [new_start_time]"
+- Sets `dataset['time'].encoding['calendar']` to 'proleptic_gregorian'
+- Ensures netCDF files serialize with correct temporal reference after trimming
+
+**Files Modified**: `analysis_scripts/apply_QC.py`
+
+#### 4. Implemented Circular Statistics for Compass QC
+**Problem**: Z-score outlier detection with regular statistics over-cleaned stable compass data (very small std dev → large z-scores for tiny fluctuations)
+**Solution**:
+- Created `circular_mean_deg()` function using vector averaging (arctan2 of mean sin/cos components)
+- Created `circular_std_deg()` function using resultant vector length: `sqrt(-2 * ln(R))`
+- Compute circular deviations handling 360°/0° wrap (e.g., 350° - 10° = -20°, not 340°)
+- Calculate z-scores using circular std instead of regular std
+
+**Files Modified**: `analysis_scripts/apply_QC.py`
+
+#### 5. Implemented Dual Threshold Compass Outlier Detection
+**Problem**: Single z-score threshold flagged legitimate data in stable compass readings as outliers
+**Solution**:
+- Require BOTH conditions for outlier flagging:
+  - Z-score > threshold (default: 3.0, increased from 0.5)
+  - AND absolute deviation > threshold (default: 20.0°, adjusted from initial 5.0°)
+- Prevents over-cleaning when std is very small (stable data)
+- Still catches genuine large deviations (deployment/retrieval periods)
+- Added `--compass-abs-threshold` command-line argument
+
+**Files Modified**: `analysis_scripts/apply_QC.py`
+
+#### 6. Reordered Compass QC Before Deployment Trimming
+**Problem**: Deployment period detection used noisy compass data, potentially missing or misidentifying unstable periods
+**Solution**:
+- Moved compass QC section before deployment trimming section
+- Cleaned compass data fed into `detect_deployment_periods()` for more reliable circular std dev calculations
+- Processing order: Load → Compass QC → Deployment Trimming → Save
+- Improved detection accuracy by removing outliers that could mask deployment patterns
+
+**Files Modified**: `analysis_scripts/apply_QC.py`
+
+#### 7. Enhanced Logging and Metadata Storage
+**Problem**: Insufficient diagnostics about QC operations and parameter values
+**Solution**:
+- Log original circular mean, circular std, and QC'd mean
+- Log number and percentage of outliers removed
+- Store both `qc_zscore_threshold` and `qc_abs_threshold` in dataset attributes
+- Store `circular_std` and `n_outliers_removed` in compass_dir attributes
+- Apply same attributes to resampled parsivel compass data
+
+**Files Modified**: `analysis_scripts/apply_QC.py`
+
+### Key Lessons Learned
+
+#### Dual Threshold Approach for Stable Compass Data
+**Lesson**: Single z-score thresholding fails for very stable data because small std dev makes tiny fluctuations produce large z-scores. Require both statistical significance (z-score) AND practical significance (absolute deviation >20°) to flag true outliers.
+**Impact**: Preserves legitimate stable compass readings while still catching genuine outliers. Critical for datasets like PIPS 1A, 1B, 2A, 2B with very stable compass behavior.
+
+#### Circular Statistics Essential for Directional Data
+**Lesson**: Regular statistics (mean, std) fail for circular data due to 360°/0° discontinuity. Must use vector averaging for mean (arctan2 of sin/cos components) and resultant vector length for std (sqrt(-2*ln(R))).
+**Impact**: Proper handling of compass/wind direction data prevents incorrect outlier flagging and ensures accurate QC. Establishes pattern for all future directional data analysis.
+
+#### Processing Order Matters for Dependent Operations
+**Lesson**: Compass QC should precede deployment trimming because trimming relies on circular std dev calculations. Cleaning outliers first improves detection algorithm performance.
+**Impact**: Sequential dependency must be considered when organizing QC operations. Cleaner input data leads to more reliable automated detection.
+
+#### Time Coordinate Encoding Requires Explicit Update
+**Lesson**: When trimming xarray datasets, the time coordinate encoding (units string) must be explicitly updated to reference the new start time. Otherwise netCDF files contain misleading temporal reference.
+**Impact**: Critical for data provenance and correct time interpretation by downstream tools. Must update `dataset['time'].encoding['units']` whenever time range changes.
+
+### Technical Context for Future Development
+
+#### Circular Statistics Functions
+- `circular_mean_deg(angles_deg)`: Computes vector-averaged mean for 0-360° data, handles NaN values
+- `circular_std_deg(angles_deg)`: Uses resultant vector length R = sqrt(C² + S²), returns std in degrees
+- Both functions handle wrap-around: ensure results in 0-360° range, properly compute deviations across 360°/0° boundary
+
+#### Dual Threshold QC Pattern
+```python
+is_outlier = (np.abs(zscores) > zscore_threshold) & (abs_deviations > abs_threshold)
+```
+- Prevents false positives in stable data while maintaining sensitivity to real outliers
+- Tunable via command-line: `--compass-zscore-threshold` (3.0) and `--compass-abs-threshold` (20.0)
+- Apply same pattern to parsivel resampled data for consistency
+
+#### Data Flow Pattern in apply_QC.py
+1. Load conventional dataset once at loop start if needed
+2. Apply compass QC (outlier removal, wind recomputation)
+3. Apply deployment trimming (detect periods, trim both datasets, update time attributes)
+4. Save both conventional and parsivel datasets at loop end
+- In-memory processing avoids repeated file I/O
+- Maintains synchronization between conventional and parsivel datasets
+
+#### Time Encoding Update Pattern
+```python
+time_units = f"seconds since {start_time.strftime('%Y-%m-%d %H:%M:%S')}"
+dataset['time'].encoding['units'] = time_units
+dataset['time'].encoding['calendar'] = 'proleptic_gregorian'
+```
+- Apply whenever time range changes (trimming, subsetting)
+- Ensures netCDF temporal reference matches actual data extent
+
+### Next Development Priorities
+- Test dual threshold parameters across diverse field campaigns to validate 20° threshold
+- Consider adaptive thresholding based on deployment history (stable vs mobile platforms)
+- Evaluate if MAD-based outliers (Median Absolute Deviation) would provide additional robustness
+- Add compass QC diagnostic plots to show circular mean/std and outlier distribution
+- Document circular statistics functions for use with other directional variables (wind direction)
+
+---
+
+## Session: January 17, 2026 - Diagnostic Plotting Infrastructure and File Handling
+
+### Key Code Updates
+
+#### 1. Created Comprehensive Diagnostic Plotting Script
+**Problem**: Need systematic visualization of diagnostic variables from PIPS netCDF files
+**Solution**:
+- Created `plot_PIPS_diag.py` with support for both conventional and parsivel diagnostic variables
+- Implemented conventional diagnostics: GPS variables (lat/lon/alt/speed), battery voltage, compass direction, wind diagnostic
+- Implemented parsivel diagnostics: particle counts (log scale), reflectivity, rain rate, sensor temp/voltage, signal amplitude, accumulated precipitation, sample interval
+- Added command-line flags for selective plotting (`--plot-conv`, `--plot-parsivel`)
+- Organized output into separate subdirectories for conventional vs parsivel data
+
+**Files Modified**: `plotting_scripts/plot_PIPS_diag.py`
+
+#### 2. Refactored Plotting Functions to plotmodule.py
+**Problem**: Need to centralize plotting logic and follow established patterns
+**Solution**:
+- Moved 9 diagnostic plotting functions from script to `plotmodule.py` module
+- Implemented proper `axparams` dictionary pattern matching existing meteogram functions
+- Added `set_meteogram_axes()` integration for consistent axis formatting
+- Eliminated redundant wrapper functions by calling existing plotmodule functions directly
+- Functions use `global_plot_config_dict` for locators, formatters, and labels
+
+**Files Modified**: `pyPIPS/plotmodule.py`, `plotting_scripts/plot_PIPS_diag.py`
+
+#### 3. Fixed plotmeteogram Array Passing Pattern
+**Problem**: TypeError due to incorrect data structure - single arrays passed instead of lists
+**Solution**:
+- Corrected all plotting functions to pass `[plottimes]` (list) instead of `plottimes` (array)
+- Changed data passing to `fields = [data.to_numpy()]` pattern
+- Follows established pattern from `plot_voltage_meteogram` and other existing functions
+- Resolved "vertices must be 2D with shape (N, 2)" error
+
+**Files Modified**: `plotting_scripts/plot_PIPS_diag.py`, `pyPIPS/plotmodule.py`
+
+#### 4. Fixed plot_date() Format Argument Conflicts
+**Problem**: TypeError - "got multiple values for argument 'fmt'" in matplotlib plot_date calls
+**Solution**:
+- Converted positional format strings (e.g., `'b-'`) to explicit keyword arguments (`ls='-', color='b'`)
+- Maintained `fmt=""` keyword for all plot_date calls
+- Applied fix to 7 different plot_date invocations across GPS, temperature, voltage, and other plots
+- Consistent with matplotlib API requirements
+
+**Files Modified**: `pyPIPS/plotmodule.py`
+
+#### 5. Resolved File Locking Issues in merge_PIPS_realtime.py
+**Problem**: PermissionError when saving datasets - files still open in memory when attempting to overwrite
+**Solution**:
+- Added `.load()` and `.close()` calls after opening both conventional and parsivel datasets
+- Loads data into memory and releases file handles before saving operations
+- Implemented try-except blocks with specific `PermissionError` handling
+- Uses `utils.fatal()` to exit script with descriptive error messages on save failures
+- Handles both output files (conventional and parsivel combined) with proper error reporting
+
+**Files Modified**: `analysis_scripts/merge_PIPS_realtime.py`
+
+### Key Lessons Learned
+
+#### Plotting Function Organization Patterns
+**Lesson**: Diagnostic plotting functions should be centralized in `plotmodule.py` rather than duplicated across scripts, with consistent use of axparams dictionaries and `set_meteogram_axes()`.
+**Impact**: Enables code reuse, maintains consistency across all plotting scripts, and simplifies future modifications to plotting behavior.
+
+#### Data Structure Requirements for plotmeteogram
+**Lesson**: The `plotmeteogram()` function expects lists of arrays for both `xvals` and `zvals` parameters, even when plotting single variables. This enables multi-variable overlays on same plot.
+**Impact**: Critical pattern to follow when creating new plotting functions - always wrap time and data arrays in lists: `[plottimes]`, `[data.to_numpy()]`.
+
+#### matplotlib plot_date() API Constraints
+**Lesson**: Cannot pass format strings both positionally and via `fmt` keyword argument. Must use either positional format OR explicit keyword arguments (ls, color, marker) with `fmt=""`.
+**Impact**: Establishes clear pattern for datetime plotting that avoids API conflicts while maintaining backward compatibility.
+
+#### xarray File Handle Management
+**Lesson**: `xr.open_dataset()` keeps file handles open by default. When overwriting input files, must explicitly `.load()` into memory and `.close()` handles before saving. Always wrap `.to_netcdf()` in try-except with PermissionError handling.
+**Impact**: Prevents file locking issues and provides clear error messages when files cannot be saved. Essential for any script that might overwrite its input files.
+
+### Technical Context for Future Development
+
+#### Diagnostic Plotting Architecture
+- New functions in plotmodule.py: `plot_GPS_variables`, `plot_winddiag_meteogram`, `plot_parsivel_counts_meteogram`, `plot_parsivel_reflectivity_meteogram`, `plot_parsivel_rainrate_meteogram`, `plot_parsivel_temp_voltage_meteogram`, `plot_parsivel_signal_amplitude_meteogram`, `plot_parsivel_accumulation_meteogram`, `plot_parsivel_sample_interval_meteogram`
+- All follow pattern: accept `global_plot_config_dict`, create `axparamdict` with locators/formatters/limits/labels, call `set_meteogram_axes()`
+- Variable names from pips_io.py: `conv_df_to_ds()` and `parsivel_df_to_ds()` provide authoritative variable naming
+
+#### File Handling Best Practices
+- Load datasets into memory with `.load()` before closing file handles
+- Always close datasets with `.close()` after loading
+- Wrap all `.to_netcdf()` calls in try-except blocks
+- Catch `PermissionError` separately from general exceptions
+- Use `utils.fatal()` for script termination with error messages
+
+### Next Development Priorities
+- Consider adding flagged_times visualization (quality control flags)
+- Implement missing_times diagnostic plotting in plot_PIPS_diag.py
+- Add optional derived variable overlays (e.g., computed vs observed values)
+- Create summary statistics output for diagnostic variables
+
+---
+
 ## Session: Early 2026 - AI Development Infrastructure and Shell Workflow Creation
 
 ### Key Code Updates

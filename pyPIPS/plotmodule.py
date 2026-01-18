@@ -905,6 +905,427 @@ def plot_GPS_speed_meteogram(plottimes, conv_plot_ds, global_plot_config_dict,
         return None
 
 
+def plot_GPS_variables(plottimes, conv_plot_ds, global_plot_config_dict, xlimits=None,
+                       ptype='PIPS', use_plot_date=True):  # noqa: ARG001
+    """
+    Plot GPS diagnostic variables (lat, lon, alt, speed, direction).
+
+    Parameters:
+        plottimes (array): Array of plot times.
+        conv_plot_ds (xarray.Dataset): Dataset containing the GPS data.
+        global_plot_config_dict (dict): Global plot configuration dictionary.
+        xlimits (list, optional): List of x-axis limits. Defaults to None.
+        ptype (str, optional): Type of probe. Defaults to 'PIPS'.
+        use_plot_date (bool, optional): Whether to use plot_date. Defaults to True.
+
+    Returns:
+        tuple: Figure and axes objects (fig, (ax1, ax2, ax3)).
+    """
+    fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(10, 9), sharex=True)
+
+    # GPS Latitude and Longitude
+    if 'GPS_lat' in conv_plot_ds and 'GPS_lon' in conv_plot_ds:
+        ax1_twin = ax1.twinx()
+        if use_plot_date:
+            ax1.plot_date(plottimes, conv_plot_ds['GPS_lat'], ls='-', color='b',
+                         label='Latitude', linewidth=0.5, fmt="")
+            ax1_twin.plot_date(plottimes, conv_plot_ds['GPS_lon'], ls='-', color='r',
+                              label='Longitude', linewidth=0.5, fmt="")
+        else:
+            ax1.plot(plottimes, conv_plot_ds['GPS_lat'], 'b-', label='Latitude', linewidth=0.5)
+            ax1_twin.plot(plottimes, conv_plot_ds['GPS_lon'], 'r-', label='Longitude',
+                         linewidth=0.5)
+        ax1.set_ylabel('Latitude (degrees N)', color='b')
+        ax1_twin.set_ylabel('Longitude (degrees E)', color='r')
+        ax1.tick_params(axis='y', labelcolor='b')
+        ax1_twin.tick_params(axis='y', labelcolor='r')
+        ax1.grid(True, alpha=0.3)
+        ax1.set_title('GPS Position')
+
+    # GPS Altitude
+    if 'GPS_alt' in conv_plot_ds:
+        if use_plot_date:
+            ax2.plot_date(plottimes, conv_plot_ds['GPS_alt'], ls='-', color='g',
+                         linewidth=0.5, fmt="")
+        else:
+            ax2.plot(plottimes, conv_plot_ds['GPS_alt'], 'g-', linewidth=0.5)
+        ax2.set_ylabel('GPS Altitude (m)')
+        ax2.grid(True, alpha=0.3)
+        ax2.set_title('GPS Altitude')
+
+    # GPS Speed
+    if 'GPS_spd' in conv_plot_ds:
+        if use_plot_date:
+            ax3.plot_date(plottimes, conv_plot_ds['GPS_spd'], ls='-', color='purple',
+                         linewidth=0.5, fmt="")
+        else:
+            ax3.plot(plottimes, conv_plot_ds['GPS_spd'], 'purple', linewidth=0.5)
+        ax3.set_ylabel('GPS Speed (m/s)')
+        ax3.grid(True, alpha=0.3)
+        ax3.set_title('GPS Speed')
+
+    # Set axes parameters
+    axparamdict1 = {
+        'majorxlocator': global_plot_config_dict.get('majorxlocator', None),
+        'majorxformatter': global_plot_config_dict.get('majorxformatter', None),
+        'minorxlocator': global_plot_config_dict.get('minorxlocator', None),
+        'axeslimits': [xlimits, None],
+        'axeslabels': [None, None]
+    }
+    axparamdict2 = {
+        'majorxlocator': global_plot_config_dict.get('majorxlocator', None),
+        'majorxformatter': global_plot_config_dict.get('majorxformatter', None),
+        'minorxlocator': global_plot_config_dict.get('minorxlocator', None),
+        'axeslimits': [xlimits, None],
+        'axeslabels': [None, None]
+    }
+    axparamdict3 = {
+        'majorxlocator': global_plot_config_dict.get('majorxlocator', None),
+        'majorxformatter': global_plot_config_dict.get('majorxformatter', None),
+        'minorxlocator': global_plot_config_dict.get('minorxlocator', None),
+        'axeslimits': [xlimits, [0, None]],
+        'axeslabels': [global_plot_config_dict.get('xlabel', 'Time'), None]
+    }
+    axparamdicts = [axparamdict1, axparamdict2, axparamdict3]
+    ax1, ax2, ax3 = set_meteogram_axes([ax1, ax2, ax3], axparamdicts)
+
+    plt.tight_layout()
+    return fig, (ax1, ax2, ax3)
+
+
+def plot_winddiag_meteogram(plottimes, conv_plot_ds, global_plot_config_dict, xlimits=None,
+                            ptype='PIPS', use_plot_date=True):  # noqa: ARG001
+    """
+    Plot wind diagnostic variable meteogram.
+
+    Parameters:
+        plottimes (array): Array of plot times.
+        conv_plot_ds (xarray.Dataset): Dataset containing the wind diagnostic data.
+        global_plot_config_dict (dict): Global plot configuration dictionary.
+        xlimits (list, optional): List of x-axis limits. Defaults to None.
+        ptype (str, optional): Type of probe. Defaults to 'PIPS'.
+        use_plot_date (bool, optional): Whether to use plot_date. Defaults to True.
+
+    Returns:
+        tuple: Figure and axis objects.
+    """
+    fig = plt.figure(figsize=(10, 3))
+    ax = fig.add_subplot(111)
+
+    if 'winddiag' in conv_plot_ds:
+        fields = [conv_plot_ds['winddiag'].to_numpy()]
+        fieldparamdicts = [winddiag_params]
+        ax = plotmeteogram(ax, [plottimes], fields, fieldparamdicts, use_plot_date=use_plot_date)
+
+        axparamdict = {
+            'majorxlocator': global_plot_config_dict.get('majorxlocator', None),
+            'majorxformatter': global_plot_config_dict.get('majorxformatter', None),
+            'minorxlocator': global_plot_config_dict.get('minorxlocator', None),
+            'axeslimits': [xlimits, None],
+            'axeslabels': [global_plot_config_dict.get('xlabel', 'Time'), 'Wind Diagnostic']
+        }
+        axparamdicts = [axparamdict]
+        ax, = set_meteogram_axes([ax], axparamdicts)
+
+    plt.tight_layout()
+    return fig, ax
+
+
+def plot_parsivel_counts_meteogram(plottimes, parsivel_ds, global_plot_config_dict,
+                                   xlimits=None, use_plot_date=True):
+    """
+    Plot particle count variables meteogram.
+
+    Parameters:
+        plottimes (array): Array of plot times.
+        parsivel_ds (xarray.Dataset): Dataset containing the particle count data.
+        global_plot_config_dict (dict): Global plot configuration dictionary.
+        xlimits (list, optional): List of x-axis limits. Defaults to None.
+        use_plot_date (bool, optional): Whether to use plot_date. Defaults to True.
+
+    Returns:
+        tuple: Figure and axis objects.
+    """
+    fig = plt.figure(figsize=(10, 4))
+    ax = fig.add_subplot(111)
+
+    if 'pcount' in parsivel_ds:
+        fields = [parsivel_ds['pcount'].to_numpy()]
+        fieldparamdicts = [pcount_params]
+        ax = plotmeteogram(ax, [plottimes], fields, fieldparamdicts,
+                          plot_data_bounds=False, use_plot_date=use_plot_date)
+        ax.set_yscale('log')
+
+        axparamdict = {
+            'majorxlocator': global_plot_config_dict.get('majorxlocator', None),
+            'majorxformatter': global_plot_config_dict.get('majorxformatter', None),
+            'minorxlocator': global_plot_config_dict.get('minorxlocator', None),
+            'axeslimits': [xlimits, [0.1, None]],
+            'axeslabels': [global_plot_config_dict.get('xlabel', 'Time'), 'Particle Count']
+        }
+        axparamdicts = [axparamdict]
+        ax, = set_meteogram_axes([ax], axparamdicts)
+
+    plt.tight_layout()
+    return fig, ax
+
+
+def plot_parsivel_reflectivity_meteogram(plottimes, parsivel_ds, global_plot_config_dict,
+                                         xlimits=None, use_plot_date=True):
+    """
+    Plot reflectivity from Parsivel meteogram.
+
+    Parameters:
+        plottimes (array): Array of plot times.
+        parsivel_ds (xarray.Dataset): Dataset containing the reflectivity data.
+        global_plot_config_dict (dict): Global plot configuration dictionary.
+        xlimits (list, optional): List of x-axis limits. Defaults to None.
+        use_plot_date (bool, optional): Whether to use plot_date. Defaults to True.
+
+    Returns:
+        tuple: Figure and axis objects.
+    """
+    fig = plt.figure(figsize=(10, 4))
+    ax = fig.add_subplot(111)
+
+    if 'parsivel_dBZ' in parsivel_ds:
+        fields = [parsivel_ds['parsivel_dBZ'].to_numpy()]
+        fieldparamdicts = [reflectivity_params]
+        ax = plotmeteogram(ax, [plottimes], fields, fieldparamdicts,
+                          plot_data_bounds=False, use_plot_date=use_plot_date)
+
+        axparamdict = {
+            'majorxlocator': global_plot_config_dict.get('majorxlocator', None),
+            'majorxformatter': global_plot_config_dict.get('majorxformatter', None),
+            'minorxlocator': global_plot_config_dict.get('minorxlocator', None),
+            'axeslimits': [xlimits, [0, None]],
+            'axeslabels': [global_plot_config_dict.get('xlabel', 'Time'), 'Reflectivity (dBZ)']
+        }
+        axparamdicts = [axparamdict]
+        ax, = set_meteogram_axes([ax], axparamdicts)
+
+    plt.tight_layout()
+    return fig, ax
+
+
+def plot_parsivel_rainrate_meteogram(plottimes, parsivel_ds, global_plot_config_dict,
+                                     xlimits=None, use_plot_date=True):
+    """
+    Plot rain rate (precipitation intensity) from Parsivel meteogram.
+
+    Parameters:
+        plottimes (array): Array of plot times.
+        parsivel_ds (xarray.Dataset): Dataset containing the rain rate data.
+        global_plot_config_dict (dict): Global plot configuration dictionary.
+        xlimits (list, optional): List of x-axis limits. Defaults to None.
+        use_plot_date (bool, optional): Whether to use plot_date. Defaults to True.
+
+    Returns:
+        tuple: Figure and axis objects.
+    """
+    fig = plt.figure(figsize=(10, 4))
+    ax = fig.add_subplot(111)
+
+    if 'precipintensity' in parsivel_ds:
+        fields = [parsivel_ds['precipintensity'].to_numpy()]
+        fieldparamdicts = [rainrate_params]
+        ax = plotmeteogram(ax, [plottimes], fields, fieldparamdicts,
+                          plot_data_bounds=False, use_plot_date=use_plot_date)
+
+        axparamdict = {
+            'majorxlocator': global_plot_config_dict.get('majorxlocator', None),
+            'majorxformatter': global_plot_config_dict.get('majorxformatter', None),
+            'minorxlocator': global_plot_config_dict.get('minorxlocator', None),
+            'axeslimits': [xlimits, [0, None]],
+            'axeslabels': [global_plot_config_dict.get('xlabel', 'Time'), 'Rain Rate (mm/hr)']
+        }
+        axparamdicts = [axparamdict]
+        ax, = set_meteogram_axes([ax], axparamdicts)
+
+    plt.tight_layout()
+    return fig, ax
+
+
+def plot_parsivel_temp_voltage_meteogram(plottimes, parsivel_ds, global_plot_config_dict,
+                                         xlimits=None, use_plot_date=True):
+    """
+    Plot sensor temperature and Parsivel voltage meteogram.
+
+    Parameters:
+        plottimes (array): Array of plot times.
+        parsivel_ds (xarray.Dataset): Dataset containing the sensor temp and voltage data.
+        global_plot_config_dict (dict): Global plot configuration dictionary.
+        xlimits (list, optional): List of x-axis limits. Defaults to None.
+        use_plot_date (bool, optional): Whether to use plot_date. Defaults to True.
+
+    Returns:
+        tuple: Figure and axes objects.
+    """
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 6), sharex=True)
+
+    # Sensor Temperature
+    if 'sensor_temp' in parsivel_ds:
+        if use_plot_date:
+            ax1.plot_date(plottimes, parsivel_ds['sensor_temp'], ls='-', color='r',
+                         linewidth=0.5, fmt="")
+        else:
+            ax1.plot(plottimes, parsivel_ds['sensor_temp'], 'r-', linewidth=0.5)
+        ax1.set_title('Parsivel Sensor Temperature')
+        ax1.grid(True, alpha=0.3)
+
+    # Parsivel Voltage
+    if 'pvoltage' in parsivel_ds:
+        if use_plot_date:
+            ax2.plot_date(plottimes, parsivel_ds['pvoltage'], ls='-', color='b',
+                         linewidth=0.5, fmt="")
+        else:
+            ax2.plot(plottimes, parsivel_ds['pvoltage'], 'b-', linewidth=0.5)
+        ax2.set_title('Parsivel Voltage')
+        ax2.grid(True, alpha=0.3)
+
+    # Set axes parameters
+    axparamdict1 = {
+        'majorxlocator': global_plot_config_dict.get('majorxlocator', None),
+        'majorxformatter': global_plot_config_dict.get('majorxformatter', None),
+        'minorxlocator': global_plot_config_dict.get('minorxlocator', None),
+        'axeslimits': [xlimits, None],
+        'axeslabels': [None, 'Temperature (°C)']
+    }
+    axparamdict2 = {
+        'majorxlocator': global_plot_config_dict.get('majorxlocator', None),
+        'majorxformatter': global_plot_config_dict.get('majorxformatter', None),
+        'minorxlocator': global_plot_config_dict.get('minorxlocator', None),
+        'axeslimits': [xlimits, None],
+        'axeslabels': [global_plot_config_dict.get('xlabel', 'Time'), 'Voltage (V)']
+    }
+    axparamdicts = [axparamdict1, axparamdict2]
+    ax1, ax2 = set_meteogram_axes([ax1, ax2], axparamdicts)
+
+    plt.tight_layout()
+    return fig, (ax1, ax2)
+
+
+def plot_parsivel_signal_amplitude_meteogram(plottimes, parsivel_ds, global_plot_config_dict,
+                                             xlimits=None, use_plot_date=True):
+    """
+    Plot signal amplitude meteogram.
+
+    Parameters:
+        plottimes (array): Array of plot times.
+        parsivel_ds (xarray.Dataset): Dataset containing the signal amplitude data.
+        global_plot_config_dict (dict): Global plot configuration dictionary.
+        xlimits (list, optional): List of x-axis limits. Defaults to None.
+        use_plot_date (bool, optional): Whether to use plot_date. Defaults to True.
+
+    Returns:
+        tuple: Figure and axis objects.
+    """
+    fig = plt.figure(figsize=(10, 4))
+    ax = fig.add_subplot(111)
+
+    if 'signal_amplitude' in parsivel_ds:
+        fields = [parsivel_ds['signal_amplitude'].to_numpy()]
+        fieldparamdicts = [amplitude_params]
+        ax = plotmeteogram(ax, [plottimes], fields, fieldparamdicts,
+                          plot_data_bounds=False, use_plot_date=use_plot_date)
+
+        axparamdict = {
+            'majorxlocator': global_plot_config_dict.get('majorxlocator', None),
+            'majorxformatter': global_plot_config_dict.get('majorxformatter', None),
+            'minorxlocator': global_plot_config_dict.get('minorxlocator', None),
+            'axeslimits': [xlimits, [0, None]],
+            'axeslabels': [global_plot_config_dict.get('xlabel', 'Time'), 'Signal Amplitude']
+        }
+        axparamdicts = [axparamdict]
+        ax, = set_meteogram_axes([ax], axparamdicts)
+
+    plt.tight_layout()
+    return fig, ax
+
+
+def plot_parsivel_accumulation_meteogram(plottimes, parsivel_ds, global_plot_config_dict,
+                                         xlimits=None, use_plot_date=True):
+    """
+    Plot accumulated precipitation meteogram.
+
+    Parameters:
+        plottimes (array): Array of plot times.
+        parsivel_ds (xarray.Dataset): Dataset containing the accumulated precipitation data.
+        global_plot_config_dict (dict): Global plot configuration dictionary.
+        xlimits (list, optional): List of x-axis limits. Defaults to None.
+        use_plot_date (bool, optional): Whether to use plot_date. Defaults to True.
+
+    Returns:
+        tuple: Figure and axis objects.
+    """
+    fig = plt.figure(figsize=(10, 4))
+    ax = fig.add_subplot(111)
+
+    if 'precipaccum' in parsivel_ds:
+        if use_plot_date:
+            ax.plot_date(plottimes, parsivel_ds['precipaccum'], ls='-', color='b',
+                        linewidth=0.5, fmt="")
+        else:
+            ax.plot(plottimes, parsivel_ds['precipaccum'], 'b-', linewidth=0.5)
+        ax.set_title('Parsivel Accumulated Precipitation')
+        ax.grid(True, alpha=0.3)
+
+        axparamdict = {
+            'majorxlocator': global_plot_config_dict.get('majorxlocator', None),
+            'majorxformatter': global_plot_config_dict.get('majorxformatter', None),
+            'minorxlocator': global_plot_config_dict.get('minorxlocator', None),
+            'axeslimits': [xlimits, [0, None]],
+            'axeslabels': [global_plot_config_dict.get('xlabel', 'Time'),
+                          'Accumulated Precip (mm)']
+        }
+        axparamdicts = [axparamdict]
+        ax, = set_meteogram_axes([ax], axparamdicts)
+
+    plt.tight_layout()
+    return fig, ax
+
+
+def plot_parsivel_sample_interval_meteogram(plottimes, parsivel_ds, global_plot_config_dict,
+                                            xlimits=None, use_plot_date=True):
+    """
+    Plot sample interval meteogram.
+
+    Parameters:
+        plottimes (array): Array of plot times.
+        parsivel_ds (xarray.Dataset): Dataset containing the sample interval data.
+        global_plot_config_dict (dict): Global plot configuration dictionary.
+        xlimits (list, optional): List of x-axis limits. Defaults to None.
+        use_plot_date (bool, optional): Whether to use plot_date. Defaults to True.
+
+    Returns:
+        tuple: Figure and axis objects.
+    """
+    fig = plt.figure(figsize=(10, 4))
+    ax = fig.add_subplot(111)
+
+    if 'sample_interval' in parsivel_ds:
+        if use_plot_date:
+            ax.plot_date(plottimes, parsivel_ds['sample_interval'], ls='-', color='g',
+                        linewidth=0.5, fmt="")
+        else:
+            ax.plot(plottimes, parsivel_ds['sample_interval'], 'g-', linewidth=0.5)
+        ax.set_title('Parsivel Sample Interval')
+        ax.grid(True, alpha=0.3)
+
+        axparamdict = {
+            'majorxlocator': global_plot_config_dict.get('majorxlocator', None),
+            'majorxformatter': global_plot_config_dict.get('majorxformatter', None),
+            'minorxlocator': global_plot_config_dict.get('minorxlocator', None),
+            'axeslimits': [xlimits, [0, None]],
+            'axeslabels': [global_plot_config_dict.get('xlabel', 'Time'), 'Sample Interval (s)']
+        }
+        axparamdicts = [axparamdict]
+        ax, = set_meteogram_axes([ax], axparamdicts)
+
+    plt.tight_layout()
+    return fig, ax
+
+
 def plotDSDderivedmeteograms(PIPS_index, pc, ib, use_plot_date=True, **PSDderiveddict):
     """
     Plot DSD-derived meteograms.
