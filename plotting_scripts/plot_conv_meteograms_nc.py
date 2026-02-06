@@ -186,51 +186,102 @@ for index, conv_file in enumerate(conv_filelist):
     # pm.plotconvmeteograms(index, pc, ib, convmeteodict, plot_diagnostics=False, )
 
     # Plot wind meteogram
-    fig, ax1, ax2 = pm.plot_wind_meteogram(conv_datetimes, conv_ds, pc.PIPS_plotting_dict,
-                                           avgwind=avgwind, windavgintv=windavgintv,
-                                           windgustintv=windgustintv, xlimits=timelimits,
-                                           ptype=ptype, use_plot_date=use_plot_date)
-    PIPS_plot_name = f'{PIPS_name}_{deployment_name}_{start_time_string}_{end_time_string}_wind.png'
-    plot_path = os.path.join(image_dir, PIPS_plot_name)
-    fig.savefig(plot_path, dpi=300)
-    plt.close(fig)
+    try:
+        fig, ax1, ax2 = pm.plot_wind_meteogram(conv_datetimes, conv_ds, pc.PIPS_plotting_dict,
+                                               avgwind=avgwind, windavgintv=windavgintv,
+                                               windgustintv=windgustintv, xlimits=timelimits,
+                                               ptype=ptype, use_plot_date=use_plot_date)
+        PIPS_plot_name = f'{PIPS_name}_{deployment_name}_{start_time_string}_{end_time_string}_wind.png'
+        plot_path = os.path.join(image_dir, PIPS_plot_name)
+        fig.savefig(plot_path, dpi=300)
+        plt.close(fig)
+    except Exception as e:
+        utils.warning(f"Failed to plot wind meteogram for {PIPS_name}: {e}")
 
     # Plot temperature and dewpoint meteogram
-    fig, ax1 = pm.plot_temperature_dewpoint_meteogram(conv_datetimes, conv_ds,
-                                                      pc.PIPS_plotting_dict, xlimits=timelimits,
-                                                      ptype=ptype, use_plot_date=use_plot_date)
-    PIPS_plot_name = f'{PIPS_name}_{deployment_name}_{start_time_string}_{end_time_string}_T_Td.png'
-    plot_path = os.path.join(image_dir, PIPS_plot_name)
-    fig.savefig(plot_path, dpi=300)
-    plt.close(fig)
+    try:
+        fig, ax1 = pm.plot_temperature_dewpoint_meteogram(conv_datetimes, conv_ds,
+                                                          pc.PIPS_plotting_dict, xlimits=timelimits,
+                                                          ptype=ptype, use_plot_date=use_plot_date)
+        PIPS_plot_name = f'{PIPS_name}_{deployment_name}_{start_time_string}_{end_time_string}_T_Td.png'
+        plot_path = os.path.join(image_dir, PIPS_plot_name)
+        fig.savefig(plot_path, dpi=300)
+        plt.close(fig)
+    except Exception as e:
+        utils.warning(f"Failed to plot temperature/dewpoint meteogram for {PIPS_name}: {e}")
 
     # Plot relative humidity meteogram
-    fig, ax1 = pm.plot_RH_meteogram(conv_datetimes, conv_ds,
-                                    pc.PIPS_plotting_dict, xlimits=timelimits, ptype=ptype,
-                                    use_plot_date=use_plot_date)
+    try:
+        fig, ax1 = pm.plot_RH_meteogram(conv_datetimes, conv_ds,
+                                        pc.PIPS_plotting_dict, xlimits=timelimits, ptype=ptype,
+                                        use_plot_date=use_plot_date)
 
-    PIPS_plot_name = f'{PIPS_name}_{deployment_name}_{start_time_string}_{end_time_string}_RH.png'
-    plot_path = os.path.join(image_dir, PIPS_plot_name)
-    fig.savefig(plot_path, dpi=300)
-    plt.close(fig)
+        PIPS_plot_name = f'{PIPS_name}_{deployment_name}_{start_time_string}_{end_time_string}_RH.png'
+        plot_path = os.path.join(image_dir, PIPS_plot_name)
+        fig.savefig(plot_path, dpi=300)
+        plt.close(fig)
+    except Exception as e:
+        utils.warning(f"Failed to plot RH meteogram for {PIPS_name}: {e}")
+
+    # Plot fasttemp meteogram
+    try:
+        fig, ax1 = pm.plot_fasttemp_meteogram(conv_datetimes, conv_ds,
+                                              pc.PIPS_plotting_dict, xlimits=timelimits,
+                                              ptype=ptype, use_plot_date=use_plot_date)
+        PIPS_plot_name = f'{PIPS_name}_{deployment_name}_{start_time_string}_{end_time_string}_fasttemp.png'
+        plot_path = os.path.join(image_dir, PIPS_plot_name)
+        fig.savefig(plot_path, dpi=300)
+        plt.close(fig)
+    except Exception as e:
+        utils.warning(f"Failed to plot fasttemp meteogram for {PIPS_name}: {e}")
+
+    # Plot slowtemp meteogram
+    try:
+        fig, ax1 = pm.plot_slowtemp_meteogram(conv_datetimes, conv_ds,
+                                              pc.PIPS_plotting_dict, xlimits=timelimits,
+                                              ptype=ptype, use_plot_date=use_plot_date)
+        PIPS_plot_name = f'{PIPS_name}_{deployment_name}_{start_time_string}_{end_time_string}_slowtemp.png'
+        plot_path = os.path.join(image_dir, PIPS_plot_name)
+        fig.savefig(plot_path, dpi=300)
+        plt.close(fig)
+    except Exception as e:
+        utils.warning(f"Failed to plot slowtemp meteogram for {PIPS_name}: {e}")
+
+    # Plot original RH meteogram
+    try:
+        fig, ax1 = pm.plot_RH_original_meteogram(conv_datetimes, conv_ds,
+                                                 pc.PIPS_plotting_dict, xlimits=timelimits,
+                                                 ptype=ptype, use_plot_date=use_plot_date)
+        PIPS_plot_name = f'{PIPS_name}_{deployment_name}_{start_time_string}_{end_time_string}_RH_original.png'
+        plot_path = os.path.join(image_dir, PIPS_plot_name)
+        fig.savefig(plot_path, dpi=300)
+        plt.close(fig)
+    except Exception as e:
+        utils.warning(f"Failed to plot original RH meteogram for {PIPS_name}: {e}")
 
     # Plot pressure meteogram
-    fig, ax1 = pm.plot_pressure_meteogram(conv_datetimes, conv_ds,
-                                          pc.PIPS_plotting_dict, xlimits=timelimits, ptype=ptype,
-                                          use_plot_date=use_plot_date)
-    PIPS_plot_name = \
-        f'{PIPS_name}_{deployment_name}_{start_time_string}_{end_time_string}_pressure.png'
-    plot_path = os.path.join(image_dir, PIPS_plot_name)
-    fig.savefig(plot_path, dpi=300)
-    plt.close(fig)
+    try:
+        fig, ax1 = pm.plot_pressure_meteogram(conv_datetimes, conv_ds,
+                                              pc.PIPS_plotting_dict, xlimits=timelimits, ptype=ptype,
+                                              use_plot_date=use_plot_date)
+        PIPS_plot_name = \
+            f'{PIPS_name}_{deployment_name}_{start_time_string}_{end_time_string}_pressure.png'
+        plot_path = os.path.join(image_dir, PIPS_plot_name)
+        fig.savefig(plot_path, dpi=300)
+        plt.close(fig)
+    except Exception as e:
+        utils.warning(f"Failed to plot pressure meteogram for {PIPS_name}: {e}")
 
     # Plot compass direction meteogram
-    fig, ax1 = pm.plot_compass_dir_meteogram(conv_datetimes, conv_ds,
-                                             pc.PIPS_plotting_dict, xlimits=timelimits, ptype=ptype,
-                                             use_plot_date=use_plot_date)
-    PIPS_plot_name = \
-        f'{PIPS_name}_{deployment_name}_{start_time_string}_{end_time_string}_compass.png'
-    plot_path = os.path.join(image_dir, PIPS_plot_name)
-    fig.savefig(plot_path, dpi=300)
-    plt.close(fig)
+    try:
+        fig, ax1 = pm.plot_compass_dir_meteogram(conv_datetimes, conv_ds,
+                                                 pc.PIPS_plotting_dict, xlimits=timelimits, ptype=ptype,
+                                                 use_plot_date=use_plot_date)
+        PIPS_plot_name = \
+            f'{PIPS_name}_{deployment_name}_{start_time_string}_{end_time_string}_compass.png'
+        plot_path = os.path.join(image_dir, PIPS_plot_name)
+        fig.savefig(plot_path, dpi=300)
+        plt.close(fig)
+    except Exception as e:
+        utils.warning(f"Failed to plot compass direction meteogram for {PIPS_name}: {e}")
 

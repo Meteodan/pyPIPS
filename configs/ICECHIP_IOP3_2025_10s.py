@@ -7,6 +7,7 @@ PIPS_IO_dict = {
     'PIPS_dir': '/Users/dawson29/Dropbox/Projects/ICECHIP/obsdata/PIPS_data/IOP3_052325/netcdf/',
     'plot_dir': '/Users/dawson29/Dropbox/Projects/ICECHIP/obsdata/PIPS_data/IOP3_052325/plots/10s/',
     'PIPS_types': ['PIPS'] * 6,
+    'probe_set': 'ICECHIP_2025_B',
     'PIPS_names': ['PIPS1A', 'PIPS1B', 'PIPS2A', 'PIPS2B', 'PIPS3A', 'PIPS3B'],
     'PIPS_filenames': ['PIPS1A_IOP3_052325_merged.txt', 'PIPS1B_IOP3_052325_merged.txt',
                        'PIPS2A_IOP3_052325_merged.txt', 'PIPS2B_IOP3_052325_merged.txt',

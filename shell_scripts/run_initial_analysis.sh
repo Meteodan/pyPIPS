@@ -57,10 +57,11 @@ print_error() {
 
 print_usage() {
     cat << EOF
-Usage: $0 <case_config_path> [options]
+Usage: $0 <case_config_path_or_glob> [options]
 
 Required Arguments:
-    case_config_path    Path to case configuration file (e.g., configs/my_deployment.py)
+    case_config_path_or_glob    Path to case configuration file or glob pattern
+                                (e.g., configs/my_deployment.py or configs/ICECHIP_IOP*.py)
 
 Options:
     --skip-csv2nc       Skip CSV to netCDF conversion
@@ -80,20 +81,28 @@ Options:
     Radar interpolation is optional and must be enabled with --enable-radar
 
 Examples:
-    # Standard full analysis
+    # Standard full analysis (single config)
     $0 configs/IOP1_2016.py
+
+    # Process all ICECHIP IOPs sequentially
+    $0 "configs/ICECHIP_IOP*.py"
+
+    # Process specific IOP range
+    $0 "configs/ICECHIP_IOP[1-5]*.py"
 
     # Skip CSV conversion (already have netCDF files)
     $0 configs/IOP1_2016.py --skip-csv2nc
 
-    # Only run QC and derived parameters
-    $0 configs/IOP1_2016.py --skip-csv2nc --skip-mm-fits
+    # Only run QC and derived parameters on multiple configs
+    $0 "configs/ICECHIP_*.py" --skip-csv2nc --skip-mm-fits
 
     # Full analysis including radar interpolation
     $0 configs/IOP1_2016.py --enable-radar --output-tag "with_radar"
 
-    # Analysis with real-time data merging
-    $0 configs/IOP1_2016.py --realtime-dir /path/to/realtime/data
+    # Analysis with real-time data merging on multiple configs
+    $0 "configs/ICECHIP_IOP*.py" --realtime-dir /path/to/realtime/data
+
+Note: When using glob patterns, enclose them in quotes to prevent premature shell expansion.
 
 EOF
 }
@@ -105,13 +114,26 @@ if [ $# -eq 0 ]; then
     exit 1
 fi
 
-CASE_CONFIG_PATH="$1"
+CASE_CONFIG_PATTERN="$1"
 shift
 
-# Check if config file exists
-if [ ! -f "$CASE_CONFIG_PATH" ]; then
-    print_error "Config file not found: $CASE_CONFIG_PATH"
+# Expand glob pattern to get list of config files
+shopt -s nullglob  # Make glob return empty array if no matches
+CONFIG_FILES=($CASE_CONFIG_PATTERN)
+shopt -u nullglob
+
+# Check if any config files were found
+if [ ${#CONFIG_FILES[@]} -eq 0 ]; then
+    print_error "No config files found matching: $CASE_CONFIG_PATTERN"
     exit 1
+fi
+
+# Report number of configs found
+NUM_CONFIGS=${#CONFIG_FILES[@]}
+if [ $NUM_CONFIGS -eq 1 ]; then
+    print_step "Found 1 config file: ${CONFIG_FILES[0]}"
+else
+    print_step "Found $NUM_CONFIGS config files matching pattern: $CASE_CONFIG_PATTERN"
 fi
 
 # Parse remaining options
@@ -178,6 +200,32 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+# Arrays to track results across all configs
+declare -a SUCCESSFUL_CONFIGS
+declare -a FAILED_CONFIGS
+
+# Main processing loop - iterate through all matching config files
+for CASE_CONFIG_PATH in "${CONFIG_FILES[@]}"; do
+
+# Validate that the config file exists (should always be true after glob expansion)
+if [ ! -f "$CASE_CONFIG_PATH" ]; then
+    print_error "Config file not found: $CASE_CONFIG_PATH"
+    FAILED_CONFIGS+=("$CASE_CONFIG_PATH (file not found)")
+    continue
+fi
+
+# Extract config name for display and logging
+CONFIG_NAME=$(basename "$CASE_CONFIG_PATH" .py)
+
+# Print header for this config (especially important when processing multiple)
+if [ $NUM_CONFIGS -gt 1 ]; then
+    echo
+    echo "###############################################"
+    echo "# Processing config [$((${#SUCCESSFUL_CONFIGS[@]} + ${#FAILED_CONFIGS[@]} + 1))/$NUM_CONFIGS]: $CONFIG_NAME"
+    echo "###############################################"
+    echo
+fi
+
 # Construct common arguments
 COMMON_ARGS="$CASE_CONFIG_PATH"
 if [ -n "$OUTPUT_TAG" ]; then
@@ -205,16 +253,18 @@ if [ $ENABLE_LOGGING -eq 1 ]; then
         mkdir -p "$LOG_DIR"
         if [ $? -ne 0 ]; then
             print_error "Failed to create log directory: $LOG_DIR"
-            exit 1
+            FAILED_CONFIGS+=("$CASE_CONFIG_PATH (log directory creation failed)")
+            continue
         fi
     fi
 
     # Generate timestamp for log files
     TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
-    CONFIG_NAME=$(basename "$CASE_CONFIG_PATH" .py)
 
-    print_step "Logging enabled. Log files will be saved to: $LOG_DIR"
-    print_step "Log file prefix: ${CONFIG_NAME}_${TIMESTAMP}"
+    if [ $NUM_CONFIGS -eq 1 ]; then
+        print_step "Logging enabled. Log files will be saved to: $LOG_DIR"
+        print_step "Log file prefix: ${CONFIG_NAME}_${TIMESTAMP}"
+    fi
 fi
 
 # Print analysis plan
@@ -237,6 +287,9 @@ echo "MM moment combinations: $MM_MOMENT_COMBOS"
 echo "==============================================="
 echo
 
+# Flag to track if this config succeeds
+CONFIG_SUCCESS=1
+
 # Step 1: Convert CSV to netCDF
 if [ $RUN_CSV_TO_NC -eq 1 ]; then
     print_step "Converting CSV files to netCDF format..."
@@ -253,21 +306,21 @@ if [ $RUN_CSV_TO_NC -eq 1 ]; then
             print_success "CSV to netCDF conversion completed"
         else
             print_error "CSV to netCDF conversion failed (see logs)"
-            exit 1
+            CONFIG_SUCCESS=0
         fi
     else
         if eval $cmd; then
             print_success "CSV to netCDF conversion completed"
         else
             print_error "CSV to netCDF conversion failed"
-            exit 1
+            CONFIG_SUCCESS=0
         fi
     fi
     echo
 fi
 
 # Step 2: Merge real-time and card data
-if [ $RUN_MERGE_REALTIME -eq 1 ]; then
+if [ $RUN_MERGE_REALTIME -eq 1 ] && [ $CONFIG_SUCCESS -eq 1 ]; then
     print_step "Merging real-time and card-based data..."
 
     cmd="python ${ANALYSIS_DIR}/merge_PIPS_realtime.py $COMMON_ARGS --realtime-dir $REALTIME_DIR --diagnostic-plots $OUTPUT_ARG"
@@ -282,24 +335,24 @@ if [ $RUN_MERGE_REALTIME -eq 1 ]; then
             print_success "Real-time/card data merging completed"
         else
             print_error "Real-time/card data merging failed (see logs)"
-            exit 1
+            CONFIG_SUCCESS=0
         fi
     else
         if eval $cmd; then
             print_success "Real-time/card data merging completed"
         else
             print_error "Real-time/card data merging failed"
-            exit 1
+            CONFIG_SUCCESS=0
         fi
     fi
     echo
 fi
 
 # Step 3: Apply Quality Control
-if [ $RUN_APPLY_QC -eq 1 ]; then
+if [ $RUN_APPLY_QC -eq 1 ] && [ $CONFIG_SUCCESS -eq 1 ]; then
     print_step "Applying quality control filters..."
 
-    cmd="python ${ANALYSIS_DIR}/apply_QC.py $COMMON_ARGS --output-QC-tags $QC_TAGS $OUTPUT_ARG"
+    cmd="python ${ANALYSIS_DIR}/apply_QC.py $COMMON_ARGS --compass-qc --plot-compass-qc --slowtemp-qc --slowtemp-diff-threshold 5.0 --plot-slowtemp-qc --recompute-dewpoint-with-fallback --output-QC-tags $QC_TAGS $OUTPUT_ARG"
     [ $VERBOSE -eq 1 ] && echo "Command: $cmd"
 
     if [ $ENABLE_LOGGING -eq 1 ]; then
@@ -311,21 +364,21 @@ if [ $RUN_APPLY_QC -eq 1 ]; then
             print_success "Quality control application completed"
         else
             print_error "Quality control application failed (see logs)"
-            exit 1
+            CONFIG_SUCCESS=0
         fi
     else
         if eval $cmd; then
             print_success "Quality control application completed"
         else
             print_error "Quality control application failed"
-            exit 1
+            CONFIG_SUCCESS=0
         fi
     fi
     echo
 fi
 
 # Step 4: Calculate derived parameters
-if [ $RUN_CALC_DERIVED -eq 1 ]; then
+if [ $RUN_CALC_DERIVED -eq 1 ] && [ $CONFIG_SUCCESS -eq 1 ]; then
     print_step "Calculating derived parameters..."
 
     cmd="python ${ANALYSIS_DIR}/calc_derived_params.py $COMMON_ARGS --QC-tags $QC_TAGS $OUTPUT_ARG"
@@ -340,21 +393,21 @@ if [ $RUN_CALC_DERIVED -eq 1 ]; then
             print_success "Derived parameter calculation completed"
         else
             print_error "Derived parameter calculation failed (see logs)"
-            exit 1
+            CONFIG_SUCCESS=0
         fi
     else
         if eval $cmd; then
             print_success "Derived parameter calculation completed"
         else
             print_error "Derived parameter calculation failed"
-            exit 1
+            CONFIG_SUCCESS=0
         fi
     fi
     echo
 fi
 
 # Step 5: Calculate method of moments fits
-if [ $RUN_MM_FITS -eq 1 ]; then
+if [ $RUN_MM_FITS -eq 1 ] && [ $CONFIG_SUCCESS -eq 1 ]; then
     print_step "Calculating method of moments DSD fits..."
 
     cmd="python ${ANALYSIS_DIR}/calc_MM_fits.py $COMMON_ARGS --QC-tags $QC_TAGS --moment-combos $MM_MOMENT_COMBOS"
@@ -369,21 +422,21 @@ if [ $RUN_MM_FITS -eq 1 ]; then
             print_success "Method of moments fitting completed"
         else
             print_error "Method of moments fitting failed (see logs)"
-            exit 1
+            CONFIG_SUCCESS=0
         fi
     else
         if eval $cmd; then
             print_success "Method of moments fitting completed"
         else
             print_error "Method of moments fitting failed"
-            exit 1
+            CONFIG_SUCCESS=0
         fi
     fi
     echo
 fi
 
-# Step 5: Radar interpolation (optional)
-if [ $RUN_RADAR_INTERP -eq 1 ]; then
+# Step 6: Radar interpolation (optional)
+if [ $RUN_RADAR_INTERP -eq 1 ] && [ $CONFIG_SUCCESS -eq 1 ]; then
     print_step "Interpolating radar observations to PIPS locations..."
 
     cmd="python ${ANALYSIS_DIR}/radar_to_PIPS.py $COMMON_ARGS $OUTPUT_ARG"
@@ -409,10 +462,56 @@ if [ $RUN_RADAR_INTERP -eq 1 ]; then
     echo
 fi
 
+# Track result for this config
+if [ $CONFIG_SUCCESS -eq 1 ]; then
+    SUCCESSFUL_CONFIGS+=("$CONFIG_NAME")
+else
+    FAILED_CONFIGS+=("$CONFIG_NAME")
+fi
+
+done  # End of config loop
+
+# Final summary
+echo
 echo "==============================================="
-print_success "pyPIPS initial analysis workflow completed!"
-echo "==============================================="
-echo "Config file: $CASE_CONFIG_PATH"
+if [ $NUM_CONFIGS -eq 1 ]; then
+    if [ $CONFIG_SUCCESS -eq 1 ]; then
+        print_success "pyPIPS initial analysis workflow completed!"
+    else
+        print_error "pyPIPS initial analysis workflow failed!"
+    fi
+    echo "==============================================="
+    echo "Config file: $CASE_CONFIG_PATH"
+else
+    echo "pyPIPS Batch Analysis Summary"
+    echo "==============================================="
+    echo "Total configs processed: $NUM_CONFIGS"
+    echo "Successful: ${#SUCCESSFUL_CONFIGS[@]}"
+    echo "Failed: ${#FAILED_CONFIGS[@]}"
+    echo
+
+    if [ ${#SUCCESSFUL_CONFIGS[@]} -gt 0 ]; then
+        print_success "Successfully processed configs:"
+        for config in "${SUCCESSFUL_CONFIGS[@]}"; do
+            echo "  ✓ $config"
+        done
+    fi
+
+    if [ ${#FAILED_CONFIGS[@]} -gt 0 ]; then
+        echo
+        print_error "Failed configs:"
+        for config in "${FAILED_CONFIGS[@]}"; do
+            echo "  ✗ $config"
+        done
+    fi
+    echo "==============================================="
+fi
+
 echo "Output files should be in the directory specified in your config file"
 [ -n "$OUTPUT_TAG" ] && echo "Look for files with tag: $OUTPUT_TAG"
 echo
+
+# Exit with error if any configs failed
+if [ ${#FAILED_CONFIGS[@]} -gt 0 ]; then
+    exit 1
+fi

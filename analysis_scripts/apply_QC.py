@@ -12,6 +12,7 @@ import pyPIPS.utils as utils
 import pyPIPS.PIPS as pips
 import pyPIPS.DSDlib as dsd
 import pyPIPS.pips_io as pipsio
+import pyPIPS.thermolib as thermo
 import matplotlib.pyplot as plt
 from scipy.stats.mstats import zscore
 
@@ -203,6 +204,41 @@ def detect_deployment_periods(compass_dir, window_size=30, std_threshold=2.0, ma
     return trim_start, trim_end
 
 
+def trim_fixed_deployment_periods(conv_ds, trim_duration=30):
+    """
+    Trim a fixed duration from the beginning and end of the conventional dataset timeseries.
+    This removes deployment/retrieval periods without relying on compass variability detection.
+
+    Parameters
+    ----------
+    conv_ds : xarray.Dataset
+        Conventional dataset (1-Hz data)
+    trim_duration : int or float
+        Duration in seconds to trim from start and end (default: 30)
+
+    Returns
+    -------
+    trim_start : pd.Timestamp or None
+        First timestamp to keep (None if dataset too short for trimming)
+    trim_end : pd.Timestamp or None
+        Last timestamp to keep (None if dataset too short for trimming)
+    """
+    # Skip if dataset is too short
+    if len(conv_ds.time) < trim_duration * 2:
+        utils.log(f"    Dataset too short ({len(conv_ds.time)} records) for {trim_duration}s trimming")
+        return None, None
+
+    # Calculate trim timestamps
+    trim_start = conv_ds.time.values[int(trim_duration)]
+    trim_end = conv_ds.time.values[-int(trim_duration)]
+
+    utils.log(f"    Trimming fixed duration: {trim_duration}s from start and end")
+    utils.log(f"    Start: {pd.to_datetime(conv_ds.time.values[0])} -> {pd.to_datetime(trim_start)}")
+    utils.log(f"    End: {pd.to_datetime(trim_end)} -> {pd.to_datetime(conv_ds.time.values[-1])}")
+
+    return trim_start, trim_end
+
+
 def trim_datasets_by_time(conv_ds, parsivel_ds, trim_start=None, trim_end=None):
     """
     Trim conventional and parsivel datasets to specified time range and ensure alignment.
@@ -362,6 +398,173 @@ def apply_compass_qc(conv_ds, zscore_threshold=3.0, abs_threshold=20.0):
     return cleaned_compass_dir, avg_compass_dir, circ_std, n_outliers
 
 
+def apply_slowtemp_qc(conv_ds, diff_threshold=2.0):
+    """
+    Apply quality control to slow temperature observations by removing data points
+    where the difference between slowtemp and fasttemp exceeds a threshold.
+
+    Large differences between the two temperature sensors may indicate sensor
+    malfunctions, contamination, or rapid temperature changes where the sensors'
+    different response times cause systematic bias.
+
+    Parameters
+    ----------
+    conv_ds : xarray.Dataset
+        Conventional dataset with slowtemp and fasttemp variables
+    diff_threshold : float
+        Maximum allowed absolute difference in °C (default: 2.0)
+
+    Returns
+    -------
+    cleaned_slowtemp : xarray.DataArray
+        Slow temperature with outliers replaced by NaN
+    n_flagged : int
+        Number of observations flagged
+    mean_diff : float
+        Mean difference (slowtemp - fasttemp) before filtering
+    """
+    slowtemp_data = conv_ds['slowtemp'].values
+    fasttemp_data = conv_ds['fasttemp'].values
+
+    # Calculate temperature differences
+    temp_diff = np.abs(slowtemp_data - fasttemp_data)
+
+    # Calculate mean difference before filtering (for diagnostics)
+    mean_diff = np.nanmean(slowtemp_data - fasttemp_data)
+
+    # Flag observations exceeding threshold
+    is_outlier = temp_diff > diff_threshold
+    n_flagged = np.sum(is_outlier)
+
+    # Create cleaned version with outliers set to NaN
+    cleaned_slowtemp = conv_ds['slowtemp'].copy()
+    cleaned_slowtemp.values[is_outlier] = np.nan
+
+    return cleaned_slowtemp, n_flagged, mean_diff
+
+
+def recompute_dewpoint_RH_with_fallback(conv_ds, reason=''):
+    """
+    Recompute dewpoint and RH_derived using slowtemp with fasttemp fallback.
+
+    For dewpoint calculation: uses slowtemp where available, fasttemp where slowtemp is NaN.
+    For RH_derived calculation: uses fasttemp and the newly computed dewpoint.
+
+    This handles cases where slowtemp has been set to NaN by QC or manual editing,
+    ensuring thermodynamic consistency by falling back to fasttemp.
+
+    Parameters
+    ----------
+    conv_ds : xarray.Dataset
+        Conventional dataset with slowtemp, fasttemp, pressure, and RH variables
+    reason : str, optional
+        Reason for recomputation (added to variable attributes)
+
+    Returns
+    -------
+    conv_ds : xarray.Dataset
+        Dataset with recomputed dewpoint and RH_derived
+    n_fallback : int
+        Number of times fasttemp was used as fallback
+    """
+    # Check if required variables exist
+    required_vars = ['slowtemp', 'fasttemp', 'pressure', 'RH', 'dewpoint', 'RH_derived']
+    missing_vars = [var for var in required_vars if var not in conv_ds]
+    if missing_vars:
+        utils.log(f"  Warning: Cannot recompute dewpoint/RH, missing variables: {missing_vars}")
+        return conv_ds, 0
+
+    pressure = conv_ds['pressure']  # hPa
+    slowtemp = conv_ds['slowtemp']  # °C
+    fasttemp = conv_ds['fasttemp']  # °C
+    RH = conv_ds['RH']  # %
+
+    # Create temperature array for dewpoint calculation:
+    # Use slowtemp where available, fasttemp where slowtemp is NaN
+    temp_for_dewpoint = slowtemp.where(~np.isnan(slowtemp), fasttemp)
+
+    # Count how many times fasttemp is used as fallback
+    n_fallback = int(np.sum(np.isnan(slowtemp.values) & ~np.isnan(fasttemp.values)))
+
+    # Calculate dewpoint from RH and temperature
+    # thermo.calTdfromRH expects: pressure (Pa), temperature (K), RH (fraction)
+    dewpoint = thermo.calTdfromRH(
+        pressure * 100.,  # Convert hPa to Pa
+        temp_for_dewpoint + 273.15,  # Convert °C to K
+        RH / 100.  # Convert % to fraction
+    ) - 273.15  # Convert K back to °C
+
+    # Recompute RH_derived using fasttemp and newly calculated dewpoint
+    # thermo.calRH expects: pressure (Pa), temperature (K), dewpoint (K)
+    RH_derived = thermo.calRH(
+        pressure * 100.,  # Convert hPa to Pa
+        fasttemp + 273.15,  # Convert °C to K
+        dewpoint + 273.15  # Convert °C to K
+    ) * 100.  # Convert fraction to %
+
+    # Update dataset with recomputed thermodynamic variables
+    conv_ds['dewpoint'].data = dewpoint.data
+    if reason:
+        conv_ds['dewpoint'].attrs['recomputation_reason'] = reason
+
+    conv_ds['RH_derived'].data = RH_derived.data
+    if reason:
+        conv_ds['RH_derived'].attrs['recomputation_reason'] = reason
+
+    return conv_ds, n_fallback
+
+
+def apply_slowtemp_bias_correction(conv_ds, slope, intercept):
+    """
+    Apply bias correction to slow temperature observations using pre-computed
+    linear regression coefficients. Also recomputes dewpoint and RH_derived
+    based on the corrected slowtemp.
+
+    The correction inverts the linear relationship: slowtemp = slope * fasttemp + intercept
+    to obtain: slowtemp_corrected = (slowtemp - intercept) / slope
+
+    For dewpoint calculation, if slowtemp is NaN but fasttemp is available,
+    fasttemp is used as a fallback.
+
+    Parameters
+    ----------
+    conv_ds : xarray.Dataset
+        Conventional dataset with slowtemp, fasttemp, pressure, and RH variables
+    slope : float
+        Linear regression slope from slowtemp vs fasttemp analysis
+    intercept : float
+        Linear regression intercept from slowtemp vs fasttemp analysis
+
+    Returns
+    -------
+    conv_ds : xarray.Dataset
+        Dataset with corrected slowtemp (overwritten), dewpoint, and RH_derived
+    """
+    # Apply bias correction to slowtemp: invert linear relationship
+    # Original relationship: slowtemp = slope * fasttemp + intercept
+    # Corrected: slowtemp_corrected = (slowtemp - intercept) / slope
+    slowtemp_corrected = (conv_ds['slowtemp'] - intercept) / slope
+
+    # Add slope and intercept as attributes
+    slowtemp_corrected.attrs.update(conv_ds['slowtemp'].attrs)
+    slowtemp_corrected.attrs['bias_correction_slope'] = slope
+    slowtemp_corrected.attrs['bias_correction_intercept'] = intercept
+    slowtemp_corrected.attrs['bias_corrected'] = True
+
+    # Overwrite slowtemp with corrected values
+    conv_ds['slowtemp'] = slowtemp_corrected
+
+    # Recompute dewpoint and RH_derived using the reusable function
+    conv_ds, n_fallback = recompute_dewpoint_RH_with_fallback(
+        conv_ds, reason='recomputed_from_bias_corrected_slowtemp'
+    )
+
+    if n_fallback > 0:
+        utils.log(f"  Used fasttemp fallback for {n_fallback} points where slowtemp was NaN")
+
+    return conv_ds
+
+
 def plot_compass_qc_diagnostics(compass_dir_original, winddirabs_original,
                                 cleaned_compass_dir, avg_compass_dir,
                                 winddirabs_new, PIPS_name, deployment_name, output_dir):
@@ -436,6 +639,79 @@ def plot_compass_qc_diagnostics(compass_dir_original, winddirabs_original,
     plt.close(fig)
 
 
+def plot_slowtemp_qc_diagnostics(slowtemp_original, fasttemp_original,
+                                 slowtemp_cleaned, fasttemp_current,
+                                 PIPS_name, deployment_name, output_dir):
+    """
+    Generate diagnostic plots showing before/after slowtemp QC.
+
+    Parameters
+    ----------
+    slowtemp_original : xarray.DataArray
+        Original (unmodified) slow temperature
+    fasttemp_original : xarray.DataArray
+        Original (unmodified) fast temperature
+    slowtemp_cleaned : xarray.DataArray
+        QC'd slow temperature
+    fasttemp_current : xarray.DataArray
+        Current fast temperature (for reference)
+    PIPS_name : str
+        PIPS station name
+    deployment_name : str
+        Deployment name
+    output_dir : str
+        Directory to save plots
+    """
+    fig, axes = plt.subplots(2, 2, figsize=(12, 8))
+    fig.suptitle(f'{PIPS_name} - Slow Temperature QC', fontsize=14)
+
+    # Plot 1: Original slowtemp timeseries
+    ax = axes[0, 0]
+    slowtemp_original.plot(ax=ax, label='Slowtemp (original)', color='blue', lw=0.5)
+    fasttemp_original.plot(ax=ax, label='Fasttemp', color='red', lw=0.5, alpha=0.7)
+    ax.set_title('Original Temperature Data')
+    ax.set_ylabel('Temperature (°C)')
+    ax.grid(True, alpha=0.3)
+    ax.legend(loc='best')
+
+    # Plot 2: QC'd slowtemp timeseries
+    ax = axes[0, 1]
+    slowtemp_cleaned.plot(ax=ax, label='Slowtemp (QC\'d)', color='green', lw=0.5)
+    fasttemp_current.plot(ax=ax, label='Fasttemp', color='red', lw=0.5, alpha=0.7)
+    ax.set_title('QC\'d Temperature Data')
+    ax.set_ylabel('Temperature (°C)')
+    ax.grid(True, alpha=0.3)
+    ax.legend(loc='best')
+
+    # Plot 3: Original temperature difference
+    ax = axes[1, 0]
+    temp_diff_original = slowtemp_original - fasttemp_original
+    temp_diff_original.plot(ax=ax, color='gray', lw=0.5)
+    ax.axhline(0, color='black', ls='--', lw=1)
+    ax.set_title('Original Temperature Difference (Slow - Fast)')
+    ax.set_ylabel('Temperature Difference (°C)')
+    ax.grid(True, alpha=0.3)
+
+    # Plot 4: QC'd temperature difference
+    ax = axes[1, 1]
+    temp_diff_cleaned = slowtemp_cleaned - fasttemp_current
+    temp_diff_cleaned.plot(ax=ax, color='green', lw=0.5)
+    ax.axhline(0, color='black', ls='--', lw=1)
+    ax.set_title('QC\'d Temperature Difference (Slow - Fast)')
+    ax.set_ylabel('Temperature Difference (°C)')
+    ax.grid(True, alpha=0.3)
+
+    plt.tight_layout()
+
+    # Save plot
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    plot_filename = os.path.join(output_dir, f'slowtemp_QC_{deployment_name}_{PIPS_name}.png')
+    plt.savefig(plot_filename, dpi=150, bbox_inches='tight')
+    utils.log(f"Saved slowtemp QC diagnostic plot: {plot_filename}")
+    plt.close(fig)
+
+
 # Parse the command line options
 description = "Calculates various derived parameters from PIPS DSDs (netCDF version)"
 parser = argparse.ArgumentParser(description=description)
@@ -456,13 +732,29 @@ parser.add_argument('--compass-abs-threshold', dest='compass_abs_threshold', typ
 parser.add_argument('--plot-compass-qc', dest='plot_compass_qc', action='store_true',
                     help='Generate diagnostic plots showing before/after compass and wind QC')
 parser.add_argument('--trim-deployment-periods', dest='trim_deployment_periods', action='store_true',
-                    help='Automatically detect and remove deployment/retrieval periods with rapid compass fluctuations')
-parser.add_argument('--trim-window-size', dest='trim_window_size', type=int, default=30,
-                    help='Window size in seconds for detecting compass fluctuations (default: 30)')
-parser.add_argument('--trim-std-threshold', dest='trim_std_threshold', type=float, default=2.0,
-                    help='Std dev threshold in degrees for flagging compass fluctuations (default: 2.0)')
-parser.add_argument('--trim-max-duration', dest='trim_max_duration', type=int, default=120,
-                    help='Maximum duration in seconds to check at start/end (default: 120)')
+                    help='Remove fixed duration from start/end of deployment to exclude deployment/retrieval periods')
+parser.add_argument('--trim-duration', dest='trim_duration', type=float, default=30.0,
+                    help='Duration in seconds to trim from start and end of deployment (default: 30.0)')
+# Commented out: Old automatic detection-based trimming arguments (kept for potential future use)
+# parser.add_argument('--trim-window-size', dest='trim_window_size', type=int, default=30,
+#                     help='Window size in seconds for detecting compass fluctuations (default: 30)')
+# parser.add_argument('--trim-std-threshold', dest='trim_std_threshold', type=float, default=2.0,
+#                     help='Std dev threshold in degrees for flagging compass fluctuations (default: 2.0)')
+# parser.add_argument('--trim-max-duration', dest='trim_max_duration', type=int, default=120,
+#                     help='Maximum duration in seconds to check at start/end (default: 120)')
+parser.add_argument('--slowtemp-qc', dest='slowtemp_qc', action='store_true',
+                    help='Apply quality control to slowtemp by removing observations with large temp differences')
+parser.add_argument('--slowtemp-diff-threshold', dest='slowtemp_diff_threshold', type=float, default=2.0,
+                    help='Maximum allowed temperature difference between slowtemp and fasttemp in °C (default: 2.0)')
+parser.add_argument('--plot-slowtemp-qc', dest='plot_slowtemp_qc', action='store_true',
+                    help='Generate diagnostic plots showing before/after slowtemp QC')
+parser.add_argument('--slowtemp-bias-correction', dest='slowtemp_bias_correction', action='store_true',
+                    help='Apply bias correction to slowtemp using pre-computed slopes and intercepts')
+parser.add_argument('--slowtemp-bias-config', dest='slowtemp_bias_config', type=str, default=None,
+                    help='Path to config file with slowtemp bias correction parameters (default: None)')
+parser.add_argument('--recompute-dewpoint-with-fallback', dest='recompute_dewpoint', action='store_true',
+                    help='Recompute dewpoint and RH_derived for any points where slowtemp is NaN, '
+                         'using fasttemp as fallback (handles manual QC done outside script)')
 
 args = parser.parse_args()
 if args.input_QC_tag:
@@ -535,11 +827,23 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
 
     # Load conventional dataset if compass/wind QC or trimming is requested
     conv_ds = None
-    if (args.compass_qc or args.trim_deployment_periods) and conv_filelist is not None:
+    if (args.compass_qc or args.trim_deployment_periods or args.slowtemp_qc or args.recompute_dewpoint) and conv_filelist is not None:
         conv_file = conv_filelist[index]
         if os.path.exists(conv_file):
             conv_ds = xr.load_dataset(conv_file)
             utils.log(f"Loaded conventional data for {PIPS_name}")
+
+            # Save copies of original compass/wind data for diagnostic plotting
+            # (before any QC or trimming) if plotting is requested
+            if args.plot_compass_qc and 'compass_dir' in conv_ds and 'winddirabs' in conv_ds:
+                compass_dir_original = conv_ds['compass_dir'].copy(deep=True)
+                winddirabs_original = conv_ds['winddirabs'].copy(deep=True)
+
+            # Save copies of original temperature data for diagnostic plotting
+            # (before any QC or trimming) if plotting is requested
+            if args.plot_slowtemp_qc and 'slowtemp' in conv_ds and 'fasttemp' in conv_ds:
+                slowtemp_original = conv_ds['slowtemp'].copy(deep=True)
+                fasttemp_original = conv_ds['fasttemp'].copy(deep=True)
         else:
             utils.log(f"Warning: Conventional file not found: {conv_file}")
 
@@ -614,10 +918,6 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
     if args.compass_qc and conv_ds is not None:
         utils.log(f"Applying compass quality control for {PIPS_name}...")
 
-        # Save copies of original data for diagnostic plotting
-        compass_dir_original = conv_ds['compass_dir'].copy(deep=True)
-        winddirabs_original = conv_ds['winddirabs'].copy(deep=True)
-
         # Apply compass QC to remove outliers using circular statistics and dual threshold
         cleaned_compass_dir, avg_compass_dir, circ_std, n_outliers = apply_compass_qc(
             conv_ds, zscore_threshold=args.compass_zscore_threshold,
@@ -672,29 +972,158 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
             except Exception as e:
                 utils.log(f"Warning: Could not resample winds for {PIPS_name}: {e}")
 
-        # Generate diagnostic plots if requested
-        if args.plot_compass_qc:
-            plot_compass_qc_diagnostics(compass_dir_original, winddirabs_original,
-                                       cleaned_compass_dir, avg_compass_dir,
-                                       winddirabs_new, PIPS_name, deployment_name, plot_dir)
+    # =============================================================================================
+    # SLOW TEMPERATURE QUALITY CONTROL
+    # =============================================================================================
+    if args.slowtemp_qc and conv_ds is not None:
+        utils.log(f"Applying slow temperature quality control for {PIPS_name}...")
+
+        # Check if required temperature variables exist
+        if 'slowtemp' in conv_ds and 'fasttemp' in conv_ds:
+            # Apply slowtemp QC to remove observations with large differences
+            cleaned_slowtemp, n_flagged, mean_diff = apply_slowtemp_qc(
+                conv_ds, diff_threshold=args.slowtemp_diff_threshold)
+
+            n_total = np.sum(~np.isnan(conv_ds['slowtemp'].values))
+            utils.log(f"  Mean difference (slowtemp - fasttemp): {mean_diff:.3f}°C")
+            utils.log(f"  Observations flagged: {n_flagged} ({100*n_flagged/n_total:.2f}%)")
+            utils.log(f"  Threshold used: {args.slowtemp_diff_threshold}°C")
+
+            # Update conventional dataset with cleaned slowtemp
+            conv_ds['slowtemp'] = cleaned_slowtemp
+            conv_ds['slowtemp'].attrs['qc_diff_threshold'] = args.slowtemp_diff_threshold
+            conv_ds['slowtemp'].attrs['n_flagged'] = n_flagged
+            conv_ds['slowtemp'].attrs['mean_diff_before_qc'] = mean_diff
+
+            # Recompute dewpoint and RH_derived for points where slowtemp was set to NaN
+            if n_flagged > 0:
+                utils.log(f"  Recomputing dewpoint/RH_derived for flagged points...")
+                conv_ds, n_fallback = recompute_dewpoint_RH_with_fallback(
+                    conv_ds, reason='recomputed_after_slowtemp_qc'
+                )
+                if n_fallback > 0:
+                    utils.log(f"  Used fasttemp fallback for {n_fallback} points")
+
+            # If parsivel data exists and has slowtemp/dewpoint/RH_derived, update them by resampling
+            if parsivel_combined_ds is not None and 'slowtemp' in parsivel_combined_ds:
+                try:
+                    PSD_datetimes = pips.get_PSD_datetimes(parsivel_combined_ds['VD_matrix'])
+                    sec_offset = PSD_datetimes[0].second
+                    DSD_interval = parsivel_combined_ds.DSD_interval
+                    interval_str = pips.get_interval_str(DSD_interval)
+                    offset_str = pips.get_interval_str(sec_offset)
+
+                    # Resample cleaned slowtemp to parsivel times
+                    slowtemp_resampled = cleaned_slowtemp.resample(
+                        time=interval_str, label='right', closed='right', offset=offset_str
+                    ).mean()
+
+                    # Update parsivel dataset
+                    parsivel_combined_ds['slowtemp'] = slowtemp_resampled
+                    parsivel_combined_ds['slowtemp'].attrs['qc_diff_threshold'] = args.slowtemp_diff_threshold
+
+                    utils.log(f"  Updated parsivel slowtemp (resampled from cleaned data)")
+
+                    # Also resample dewpoint and RH_derived if they were recomputed
+                    if n_flagged > 0:
+                        if 'dewpoint' in parsivel_combined_ds:
+                            dewpoint_resampled = conv_ds['dewpoint'].resample(
+                                time=interval_str, label='right', closed='right', offset=offset_str
+                            ).mean()
+                            parsivel_combined_ds['dewpoint'] = dewpoint_resampled
+                            utils.log(f"  Updated parsivel dewpoint (resampled from recomputed data)")
+
+                        if 'RH_derived' in parsivel_combined_ds:
+                            RH_derived_resampled = conv_ds['RH_derived'].resample(
+                                time=interval_str, label='right', closed='right', offset=offset_str
+                            ).mean()
+                            parsivel_combined_ds['RH_derived'] = RH_derived_resampled
+                            utils.log(f"  Updated parsivel RH_derived (resampled from recomputed data)")
+
+                except Exception as e:
+                    utils.log(f"Warning: Could not resample slowtemp for {PIPS_name}: {e}")
+        else:
+            utils.log(f"Warning: slowtemp or fasttemp not found in {PIPS_name} dataset")
 
     # =============================================================================================
-    # AUTOMATIC DEPLOYMENT/RETRIEVAL PERIOD DETECTION AND TRIMMING
+    # RECOMPUTE DEWPOINT/RH FOR ANY NaN SLOWTEMP VALUES (GENERAL CLEANUP)
+    # =============================================================================================
+    if args.recompute_dewpoint and conv_ds is not None:
+        utils.log(f"Checking for NaN slowtemp values in {PIPS_name}...")
+
+        # Check if required temperature variables exist
+        if 'slowtemp' in conv_ds and 'fasttemp' in conv_ds:
+            # Count how many points have NaN slowtemp but valid fasttemp
+            slowtemp_data = conv_ds['slowtemp'].values
+            fasttemp_data = conv_ds['fasttemp'].values
+            n_nan_slowtemp = np.sum(np.isnan(slowtemp_data) & ~np.isnan(fasttemp_data))
+
+            if n_nan_slowtemp > 0:
+                utils.log(f"  Found {n_nan_slowtemp} points with NaN slowtemp and valid fasttemp")
+                utils.log(f"  Recomputing dewpoint and RH_derived with fasttemp fallback...")
+
+                conv_ds, n_fallback = recompute_dewpoint_RH_with_fallback(
+                    conv_ds, reason='recomputed_with_fasttemp_fallback_for_nan_slowtemp'
+                )
+
+                utils.log(f"  ✓ Recomputed for {n_fallback} points")
+
+                # If parsivel data exists, resample updated dewpoint/RH_derived
+                if parsivel_combined_ds is not None:
+                    try:
+                        PSD_datetimes = pips.get_PSD_datetimes(parsivel_combined_ds['VD_matrix'])
+                        sec_offset = PSD_datetimes[0].second
+                        DSD_interval = parsivel_combined_ds.DSD_interval
+                        interval_str = pips.get_interval_str(DSD_interval)
+                        offset_str = pips.get_interval_str(sec_offset)
+
+                        if 'dewpoint' in parsivel_combined_ds:
+                            dewpoint_resampled = conv_ds['dewpoint'].resample(
+                                time=interval_str, label='right', closed='right', offset=offset_str
+                            ).mean()
+                            parsivel_combined_ds['dewpoint'] = dewpoint_resampled
+                            parsivel_combined_ds['dewpoint'].attrs.update(conv_ds['dewpoint'].attrs)
+
+                        if 'RH_derived' in parsivel_combined_ds:
+                            RH_derived_resampled = conv_ds['RH_derived'].resample(
+                                time=interval_str, label='right', closed='right', offset=offset_str
+                            ).mean()
+                            parsivel_combined_ds['RH_derived'] = RH_derived_resampled
+                            parsivel_combined_ds['RH_derived'].attrs.update(conv_ds['RH_derived'].attrs)
+
+                        utils.log(f"  Updated parsivel dataset with recomputed values")
+
+                    except Exception as e:
+                        utils.log(f"Warning: Could not resample recomputed values for {PIPS_name}: {e}")
+            else:
+                utils.log(f"  No NaN slowtemp values found (all OK)")
+        else:
+            utils.log(f"Warning: slowtemp or fasttemp not found in {PIPS_name} dataset")
+
+    # =============================================================================================
+    # DEPLOYMENT/RETRIEVAL PERIOD TRIMMING
     # =============================================================================================
     if args.trim_deployment_periods and conv_ds is not None:
-        utils.log(f"Detecting deployment/retrieval periods for {PIPS_name}...")
+        utils.log(f"Trimming deployment/retrieval periods for {PIPS_name}...")
 
-        # Detect rapid fluctuations at start and end
-        trim_start, trim_end = detect_deployment_periods(
-            conv_ds['compass_dir'],
-            window_size=args.trim_window_size,
-            std_threshold=args.trim_std_threshold,
-            max_duration=args.trim_max_duration
+        # Trim fixed duration from start and end
+        trim_start, trim_end = trim_fixed_deployment_periods(
+            conv_ds,
+            trim_duration=args.trim_duration
         )
+
+        # Commented out: Old automatic detection-based trimming (kept for potential future use)
+        # # Detect rapid fluctuations at start and end
+        # trim_start, trim_end = detect_deployment_periods(
+        #     conv_ds['compass_dir'],
+        #     window_size=args.trim_window_size,
+        #     std_threshold=args.trim_std_threshold,
+        #     max_duration=args.trim_max_duration
+        # )
 
         # If trimming is needed, apply it to both datasets
         if trim_start is not None or trim_end is not None:
-            utils.log(f"  Trimming datasets for {PIPS_name}...")
+            utils.log(f"  Applying trimming to datasets for {PIPS_name}...")
 
             # Trim both conventional and parsivel datasets
             conv_ds, parsivel_combined_ds = trim_datasets_by_time(
@@ -705,7 +1134,139 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
             conv_ds = update_time_attributes(conv_ds)
             parsivel_combined_ds = update_time_attributes(parsivel_combined_ds)
         else:
-            utils.log(f"  No deployment/retrieval periods detected for {PIPS_name}")
+            utils.log(f"  Dataset too short for trimming {PIPS_name}")
+            # Old message for detection-based approach:
+            # utils.log(f"  No deployment/retrieval periods detected for {PIPS_name}")
+
+    # =============================================================================================
+    # SLOW TEMPERATURE BIAS CORRECTION
+    # =============================================================================================
+    if args.slowtemp_bias_correction and conv_ds is not None:
+        utils.log(f"Applying slow temperature bias correction for {PIPS_name}...")
+
+        # Check if bias correction config was provided
+        if args.slowtemp_bias_config is None:
+            utils.log(f"Warning: --slowtemp-bias-correction specified but no config file provided")
+            utils.log(f"         Use --slowtemp-bias-config to specify path to bias correction config")
+        else:
+            # Import bias correction parameters from config file
+            try:
+                bias_config = utils.import_all_from(args.slowtemp_bias_config)
+                slowtemp_bias_dict = bias_config.slowtemp_bias
+
+                # Get slope and intercept for this PIPS
+                if PIPS_name in slowtemp_bias_dict:
+                    slope, intercept = slowtemp_bias_dict[PIPS_name]
+
+                    # Only apply correction if slope != 1.0 or intercept != 0.0
+                    if slope != 1.0 or intercept != 0.0:
+                        # Check if required variables exist
+                        required_vars = ['slowtemp', 'fasttemp', 'pressure', 'RH', 'dewpoint', 'RH_derived']
+                        if all(var in conv_ds for var in required_vars):
+                            # Calculate pre-correction statistics
+                            slowtemp_orig = conv_ds['slowtemp'].values.copy()
+                            fasttemp_data = conv_ds['fasttemp'].values
+                            valid_mask = ~np.isnan(slowtemp_orig) & ~np.isnan(fasttemp_data)
+                            if np.sum(valid_mask) > 0:
+                                bias_before = np.mean(slowtemp_orig[valid_mask] - fasttemp_data[valid_mask])
+                            else:
+                                bias_before = np.nan
+
+                            # Apply bias correction
+                            conv_ds = apply_slowtemp_bias_correction(conv_ds, slope, intercept)
+
+                            # Calculate post-correction statistics
+                            slowtemp_corrected = conv_ds['slowtemp'].values
+                            valid_mask = ~np.isnan(slowtemp_corrected) & ~np.isnan(fasttemp_data)
+                            if np.sum(valid_mask) > 0:
+                                bias_after = np.mean(slowtemp_corrected[valid_mask] - fasttemp_data[valid_mask])
+                            else:
+                                bias_after = np.nan
+
+                            utils.log(f"  Applied correction: slope={slope:.6f}, intercept={intercept:.6f}")
+                            utils.log(f"  Bias before correction: {bias_before:.4f}°C")
+                            utils.log(f"  Bias after correction: {bias_after:.4f}°C")
+                            utils.log(f"  Recomputed dewpoint and RH_derived from corrected slowtemp")
+
+                            # If parsivel data exists, resample corrected data
+                            if parsivel_combined_ds is not None:
+                                try:
+                                    PSD_datetimes = pips.get_PSD_datetimes(parsivel_combined_ds['VD_matrix'])
+                                    sec_offset = PSD_datetimes[0].second
+                                    DSD_interval = parsivel_combined_ds.DSD_interval
+                                    interval_str = pips.get_interval_str(DSD_interval)
+                                    offset_str = pips.get_interval_str(sec_offset)
+
+                                    # Resample corrected variables to parsivel times
+                                    if 'slowtemp' in parsivel_combined_ds:
+                                        slowtemp_resampled = conv_ds['slowtemp'].resample(
+                                            time=interval_str, label='right', closed='right', offset=offset_str
+                                        ).mean()
+                                        parsivel_combined_ds['slowtemp'] = slowtemp_resampled
+                                        parsivel_combined_ds['slowtemp'].attrs.update(conv_ds['slowtemp'].attrs)
+
+                                    if 'dewpoint' in parsivel_combined_ds:
+                                        dewpoint_resampled = conv_ds['dewpoint'].resample(
+                                            time=interval_str, label='right', closed='right', offset=offset_str
+                                        ).mean()
+                                        parsivel_combined_ds['dewpoint'] = dewpoint_resampled
+                                        parsivel_combined_ds['dewpoint'].attrs.update(conv_ds['dewpoint'].attrs)
+
+                                    if 'RH_derived' in parsivel_combined_ds:
+                                        RH_derived_resampled = conv_ds['RH_derived'].resample(
+                                            time=interval_str, label='right', closed='right', offset=offset_str
+                                        ).mean()
+                                        parsivel_combined_ds['RH_derived'] = RH_derived_resampled
+                                        parsivel_combined_ds['RH_derived'].attrs.update(conv_ds['RH_derived'].attrs)
+
+                                    utils.log(f"  Updated parsivel dataset with corrected thermodynamic variables")
+
+                                except Exception as e:
+                                    utils.log(f"Warning: Could not resample corrected variables for {PIPS_name}: {e}")
+                        else:
+                            missing_vars = [var for var in required_vars if var not in conv_ds]
+                            utils.log(f"Warning: Cannot apply bias correction, missing variables: {missing_vars}")
+                    else:
+                        utils.log(f"  No correction needed for {PIPS_name} (slope=1.0, intercept=0.0)")
+                else:
+                    utils.log(f"Warning: {PIPS_name} not found in bias correction config")
+
+            except Exception as e:
+                utils.log(f"Error loading bias correction config: {e}")
+
+    # =============================================================================================
+    # GENERATE DIAGNOSTIC PLOTS (after all QC and trimming)
+    # =============================================================================================
+    # Generate compass/wind diagnostic plots if plotting was requested and original data was saved
+    # This works for:
+    #   1. Compass QC applied (with or without trimming)
+    #   2. Only trimming applied (shows effect of removing fixed duration from start/end)
+    #   3. Both compass QC and trimming applied
+    if args.plot_compass_qc and 'compass_dir_original' in locals() and 'winddirabs_original' in locals():
+        utils.log(f"Generating compass QC diagnostic plots for {PIPS_name}...")
+
+        # Use the current state of conv_ds, which reflects all operations applied
+        # (compass QC, trimming, or both)
+        final_compass_dir = conv_ds['compass_dir']
+        final_avg_compass_dir = circular_mean_deg(final_compass_dir.values)
+        final_winddirabs = conv_ds['winddirabs']
+
+        plot_compass_qc_diagnostics(compass_dir_original, winddirabs_original,
+                                   final_compass_dir, final_avg_compass_dir,
+                                   final_winddirabs, PIPS_name, deployment_name, plot_dir)
+
+    # Generate slowtemp diagnostic plots if plotting was requested and original data was saved
+    # This works for slowtemp QC applied (with or without trimming)
+    if args.plot_slowtemp_qc and 'slowtemp_original' in locals() and 'fasttemp_original' in locals():
+        utils.log(f"Generating slowtemp QC diagnostic plots for {PIPS_name}...")
+
+        # Use the current state of conv_ds, which reflects all operations applied
+        final_slowtemp = conv_ds['slowtemp']
+        final_fasttemp = conv_ds['fasttemp']
+
+        plot_slowtemp_qc_diagnostics(slowtemp_original, fasttemp_original,
+                                    final_slowtemp, final_fasttemp,
+                                    PIPS_name, deployment_name, plot_dir)
 
     # =============================================================================================
     # SAVE UPDATED DATASETS

@@ -1,0 +1,366 @@
+{
+  "PIPS1B_IOP21_062225": [
+    {
+      "variable": "slowtemp",
+      "start_time": "2025-06-22T23:34:51.372612+00:00",
+      "end_time": "2025-06-23T00:04:12.805003+00:00",
+      "reason": "Sensor malfunction",
+      "flagged_on": "2026-02-03T23:30:24.589995"
+    }
+  ],
+  "_manual_trim": {
+    "PIPS2A_IOP21_062225": {
+      "new_start_time": "2025-06-22T23:00:20.082497+00:00",
+      "new_end_time": null,
+      "reason": "Removed early adjustment period",
+      "trimmed_on": "2026-02-04T20:43:44.126665"
+    },
+    "PIPS3A_IOP21_062225": {
+      "new_start_time": "2025-06-22T23:13:17.556752+00:00",
+      "new_end_time": null,
+      "reason": "Removed early adjustment period",
+      "trimmed_on": "2026-02-04T20:44:10.114880"
+    },
+    "PIPS2A_IOP1_051825": {
+      "new_start_time": "2025-05-19T00:40:46.902785+00:00",
+      "new_end_time": null,
+      "reason": "Removed early adjustment period",
+      "trimmed_on": "2026-02-04T17:04:34.604247"
+    },
+    "PIPS1B_IOP3_052325": {
+      "new_start_time": "2025-05-23T23:02:46.077164+00:00",
+      "new_end_time": null,
+      "reason": "Removed early adjustment period",
+      "trimmed_on": "2026-02-04T18:50:10.013495"
+    },
+    "PIPS3A_IOP3_052325": {
+      "new_start_time": "2025-05-24T01:37:26.341398+00:00",
+      "new_end_time": null,
+      "reason": "Removed early adjustment period",
+      "trimmed_on": "2026-02-04T19:02:19.797831"
+    },
+    "PIPS2A_IOP4_052525": {
+      "new_start_time": "2025-05-25T20:15:55.075860+00:00",
+      "new_end_time": "2025-05-25T22:19:59.833297+00:00",
+      "reason": "Removed early adjustment period",
+      "trimmed_on": "2026-02-04T19:04:30.371955"
+    },
+    "PIPS2B_IOP4_052525": {
+      "new_start_time": null,
+      "new_end_time": "2025-05-25T22:08:16.113890+00:00",
+      "reason": "Removed early adjustment period",
+      "trimmed_on": "2026-02-04T19:07:18.255959"
+    },
+    "PIPS3A_IOP4_052525": {
+      "new_start_time": "2025-05-25T20:19:58.155575+00:00",
+      "new_end_time": null,
+      "reason": "Removed early adjustment period",
+      "trimmed_on": "2026-02-04T19:08:09.533193"
+    },
+    "PIPS3B_IOP4_052525": {
+      "new_start_time": "2025-05-25T20:11:06.281924+00:00",
+      "new_end_time": null,
+      "reason": "Removed early adjustment period",
+      "trimmed_on": "2026-02-04T19:08:31.063037"
+    },
+    "PIPS1A_IOP5_052625": {
+      "new_start_time": "2025-05-26T22:15:19.523140+00:00",
+      "new_end_time": null,
+      "reason": "Removed early adjustment period",
+      "trimmed_on": "2026-02-04T19:48:43.711030"
+    },
+    "PIPS1B_IOP5_052625": {
+      "new_start_time": null,
+      "new_end_time": "2025-05-26T23:25:23.454395+00:00",
+      "reason": "Removed early adjustment period",
+      "trimmed_on": "2026-02-04T19:49:26.009950"
+    },
+    "PIPS2B_IOP5_052625": {
+      "new_start_time": "2025-05-26T22:11:08.402489+00:00",
+      "new_end_time": null,
+      "reason": "Removed early adjustment period",
+      "trimmed_on": "2026-02-04T19:51:08.926044"
+    },
+    "PIPS3A_IOP5_052625": {
+      "new_start_time": "2025-05-26T22:08:01.410236+00:00",
+      "new_end_time": null,
+      "reason": "Removed early adjustment period",
+      "trimmed_on": "2026-02-04T19:51:42.853679"
+    },
+    "PIPS3B_IOP5_052625": {
+      "new_start_time": "2025-05-26T21:59:48.125614+00:00",
+      "new_end_time": null,
+      "reason": "Removed early adjustment period",
+      "trimmed_on": "2026-02-04T19:52:08.685063"
+    },
+    "PIPS3B_IOP7_052925": {
+      "new_start_time": "2025-05-29T21:48:12.108640+00:00",
+      "new_end_time": "2025-05-29T23:31:59.429148+00:00",
+      "reason": "Removed early adjustment period",
+      "trimmed_on": "2026-02-04T19:54:32.349328"
+    },
+    "PIPS1B_IOP10_060425": {
+      "new_start_time": "2025-06-05T00:54:23.476804+00:00",
+      "new_end_time": "2025-06-05T01:53:26.105501+00:00",
+      "reason": "Removed early adjustment period",
+      "trimmed_on": "2026-02-04T20:01:02.210854"
+    },
+    "PIPS2B_IOP10_060425": {
+      "new_start_time": "2025-06-05T00:37:42.806537+00:00",
+      "new_end_time": null,
+      "reason": "Removed early adjustment period",
+      "trimmed_on": "2026-02-04T20:01:48.223013"
+    },
+    "PIPS1B_IOP11_060525": {
+      "new_start_time": "2025-06-05T22:10:53.202010+00:00",
+      "new_end_time": "2025-06-06T00:02:16.580482+00:00",
+      "reason": "Removed early adjustment period",
+      "trimmed_on": "2026-02-04T20:03:18.411971"
+    },
+    "PIPS2B_IOP11_060525": {
+      "new_start_time": "2025-06-05T22:24:04.653793+00:00",
+      "new_end_time": "2025-06-06T00:20:53.107319+00:00",
+      "reason": "Removed early adjustment period",
+      "trimmed_on": "2026-02-04T20:03:59.778323"
+    },
+    "PIPS1B_IOP12_060625": {
+      "new_start_time": "2025-06-06T23:49:17.284735+00:00",
+      "new_end_time": null,
+      "reason": "Removed early adjustment period",
+      "trimmed_on": "2026-02-04T20:08:25.791394"
+    },
+    "PIPS2A_IOP12_060625": {
+      "new_start_time": null,
+      "new_end_time": "2025-06-07T00:52:19.021807+00:00",
+      "reason": "Removed early adjustment period",
+      "trimmed_on": "2026-02-04T20:09:06.080164"
+    },
+    "PIPS3B_IOP12_060625": {
+      "new_start_time": "2025-06-06T23:40:51.239894+00:00",
+      "new_end_time": null,
+      "reason": "Removed early adjustment period",
+      "trimmed_on": "2026-02-04T20:10:10.495102"
+    },
+    "PIPS1A_IOP13_060825": {
+      "new_start_time": "2025-06-08T21:46:36.575252+00:00",
+      "new_end_time": null,
+      "reason": "Removed early adjustment period",
+      "trimmed_on": "2026-02-04T20:12:03.640660"
+    },
+    "PIPS1B_IOP13_060825": {
+      "new_start_time": "2025-06-08T21:31:53.967138+00:00",
+      "new_end_time": null,
+      "reason": "Removed early adjustment period",
+      "trimmed_on": "2026-02-04T20:12:22.429273"
+    },
+    "PIPS2A_IOP13_060825": {
+      "new_start_time": "2025-06-08T21:25:24.133463+00:00",
+      "new_end_time": "2025-06-08T23:03:50.566627+00:00",
+      "reason": "Removed early adjustment period",
+      "trimmed_on": "2026-02-04T20:12:50.179747"
+    },
+    "PIPS2B_IOP13_060825": {
+      "new_start_time": "2025-06-08T21:18:09.185023+00:00",
+      "new_end_time": "2025-06-08T23:10:27.448486+00:00",
+      "reason": "Removed early adjustment period",
+      "trimmed_on": "2026-02-04T20:13:35.345028"
+    },
+    "PIPS3A_IOP13_060825": {
+      "new_start_time": "2025-06-08T21:39:37.806942+00:00",
+      "new_end_time": null,
+      "reason": "Removed early adjustment period",
+      "trimmed_on": "2026-02-04T20:13:54.990470"
+    },
+    "PIPS3B_IOP13_060825": {
+      "new_start_time": null,
+      "new_end_time": "2025-06-08T23:10:21.740832+00:00",
+      "reason": "Removed early adjustment period",
+      "trimmed_on": "2026-02-04T20:14:23.006906"
+    },
+    "PIPS1A_IOP15_061225": {
+      "new_start_time": "2025-06-12T22:34:48.782132+00:00",
+      "new_end_time": null,
+      "reason": "Removed early adjustment period",
+      "trimmed_on": "2026-02-04T20:15:57.278994"
+    },
+    "PIPS1B_IOP15_061225": {
+      "new_start_time": "2025-06-12T22:45:25.937663+00:00",
+      "new_end_time": "2025-06-13T00:06:16.961764+00:00",
+      "reason": "Removed early adjustment period",
+      "trimmed_on": "2026-02-04T20:16:23.580941"
+    },
+    "PIPS2A_IOP15_061225": {
+      "new_start_time": null,
+      "new_end_time": "2025-06-12T23:11:32.419605+00:00",
+      "reason": "Removed early adjustment period",
+      "trimmed_on": "2026-02-04T20:17:13.232637"
+    },
+    "PIPS2B_IOP15_061225": {
+      "new_start_time": null,
+      "new_end_time": "2025-06-12T23:01:25.045681+00:00",
+      "reason": "Removed early adjustment period",
+      "trimmed_on": "2026-02-04T20:17:45.751392"
+    },
+    "PIPS3B_IOP15_061225": {
+      "new_start_time": "2025-06-12T21:53:23.631575+00:00",
+      "new_end_time": "2025-06-12T22:47:22.831317+00:00",
+      "reason": "Removed early adjustment period",
+      "trimmed_on": "2026-02-04T20:18:33.811759"
+    },
+    "PIPS1A_IOP18_061525_D2": {
+      "new_start_time": "2025-06-16T02:02:27.554395+00:00",
+      "new_end_time": null,
+      "reason": "Removed early adjustment period",
+      "trimmed_on": "2026-02-04T20:26:19.444113"
+    },
+    "PIPS1B_IOP18_061525_D2": {
+      "new_start_time": "2025-06-16T02:13:08.318866+00:00",
+      "new_end_time": null,
+      "reason": "Removed early adjustment period",
+      "trimmed_on": "2026-02-04T20:27:10.298896"
+    },
+    "PIPS2A_IOP18_061525_D2": {
+      "new_start_time": "2025-06-16T01:50:02.861802+00:00",
+      "new_end_time": null,
+      "reason": "Removed early adjustment period",
+      "trimmed_on": "2026-02-04T20:27:50.167868"
+    },
+    "PIPS2B_IOP18_061525_D2": {
+      "new_start_time": "2025-06-16T02:04:18.401980+00:00",
+      "new_end_time": null,
+      "reason": "Removed early adjustment period",
+      "trimmed_on": "2026-02-04T20:28:53.087468"
+    },
+    "PIPS3A_IOP18_061525_D2": {
+      "new_start_time": "2025-06-16T01:47:42.209674+00:00",
+      "new_end_time": "2025-06-16T03:20:31.796169+00:00",
+      "reason": "Removed early adjustment period",
+      "trimmed_on": "2026-02-04T20:29:30.427439"
+    },
+    "PIPS1A_IOP19_061725": {
+      "new_start_time": "2025-06-18T00:26:12.683283+00:00",
+      "new_end_time": null,
+      "reason": "Removed early adjustment period",
+      "trimmed_on": "2026-02-04T20:31:56.752545"
+    },
+    "PIPS1B_IOP19_061725": {
+      "new_start_time": "2025-06-18T00:39:24.558811+00:00",
+      "new_end_time": null,
+      "reason": "Removed early adjustment period",
+      "trimmed_on": "2026-02-04T20:32:19.775644"
+    },
+    "PIPS2A_IOP19_061725": {
+      "new_start_time": "2025-06-18T00:07:09.599428+00:00",
+      "new_end_time": "2025-06-18T01:20:44.668993+00:00",
+      "reason": "Removed early adjustment period",
+      "trimmed_on": "2026-02-04T20:33:04.250198"
+    },
+    "PIPS1A_IOP20_062025": {
+      "new_start_time": "2025-06-20T23:25:28.712164+00:00",
+      "new_end_time": null,
+      "reason": "Removed early adjustment period",
+      "trimmed_on": "2026-02-04T20:36:20.570556"
+    },
+    "PIPS1B_IOP20_062025": {
+      "new_start_time": "2025-06-20T23:44:18.568134+00:00",
+      "new_end_time": "2025-06-21T01:54:05.179681+00:00",
+      "reason": "Removed early adjustment period",
+      "trimmed_on": "2026-02-04T20:36:41.069753"
+    },
+    "PIPS2A_IOP20_062025": {
+      "new_start_time": "2025-06-20T23:33:22.788040+00:00",
+      "new_end_time": null,
+      "reason": "Removed early adjustment period",
+      "trimmed_on": "2026-02-04T20:37:02.143600"
+    },
+    "PIPS3A_IOP20_062025": {
+      "new_start_time": "2025-06-20T23:18:28.874825+00:00",
+      "new_end_time": null,
+      "reason": "Removed early adjustment period",
+      "trimmed_on": "2026-02-04T20:37:30.193839"
+    },
+    "PIPS1A_IOP23_062725": {
+      "new_start_time": "2025-06-28T00:10:38.165602+00:00",
+      "new_end_time": null,
+      "reason": "Removed early adjustment period",
+      "trimmed_on": "2026-02-04T20:46:22.996340"
+    }
+  },
+  "PIPS1B_IOP12_060625": [
+    {
+      "variable": "slowtemp",
+      "start_time": "2025-06-07T00:26:19.321079+00:00",
+      "end_time": "2025-06-07T00:26:22.500055+00:00",
+      "reason": "Sensor malfunction",
+      "flagged_on": "2026-02-04T20:06:13.426158"
+    }
+  ],
+  "PIPS2A_IOP18_061525_D1": [
+    {
+      "variable": "slowtemp",
+      "start_time": "2025-06-15T21:09:22.860247+00:00",
+      "end_time": "2025-06-15T21:09:25.324418+00:00",
+      "reason": "Sensor malfunction",
+      "flagged_on": "2026-02-04T20:21:49.677116"
+    },
+    {
+      "variable": "slowtemp",
+      "start_time": "2025-06-15T23:56:26.893173+00:00",
+      "end_time": "2025-06-15T23:56:29.410032+00:00",
+      "reason": "Sensor malfunction",
+      "flagged_on": "2026-02-04T20:22:37.720280"
+    }
+  ],
+  "PIPS1B_IOP18_061525_D2": [
+    {
+      "variable": "slowtemp",
+      "start_time": "2025-06-16T02:12:32.954462+00:00",
+      "end_time": "2025-06-16T02:12:35.114567+00:00",
+      "reason": "Sensor malfunction",
+      "flagged_on": "2026-02-04T20:25:29.998752"
+    }
+  ],
+  "PIPS1B_IOP20_062025": [
+    {
+      "variable": "slowtemp",
+      "start_time": "2025-06-20T23:48:37.850697+00:00",
+      "end_time": "2025-06-20T23:48:40.066616+00:00",
+      "reason": "Sensor malfunction",
+      "flagged_on": "2026-02-04T20:34:38.130225"
+    }
+  ],
+  "PIPS2A_IOP20_062025": [
+    {
+      "variable": "slowtemp",
+      "start_time": "2025-06-21T00:17:14.472882+00:00",
+      "end_time": "2025-06-21T00:22:56.728251+00:00",
+      "reason": "Sensor malfunction",
+      "flagged_on": "2026-02-04T20:35:38.559143"
+    }
+  ],
+  "PIPS2A_IOP21_062225": [
+    {
+      "variable": "slowtemp",
+      "start_time": "2025-06-22T22:58:35.448840+00:00",
+      "end_time": "2025-06-22T22:58:44.986441+00:00",
+      "reason": "Sensor malfunction",
+      "flagged_on": "2026-02-04T20:42:14.030197"
+    },
+    {
+      "variable": "slowtemp",
+      "start_time": "2025-06-23T00:06:53.248557+00:00",
+      "end_time": "2025-06-23T00:07:01.939626+00:00",
+      "reason": "Sensor malfunction",
+      "flagged_on": "2026-02-04T20:42:47.008890"
+    }
+  ],
+  "PIPS1B_IOP23_062725": [
+    {
+      "variable": "slowtemp",
+      "start_time": "2025-06-28T00:57:15.497923+00:00",
+      "end_time": "2025-06-28T01:00:59.068580+00:00",
+      "reason": "Sensor malfunction",
+      "flagged_on": "2026-02-04T20:45:34.403224"
+    }
+  ]
+}

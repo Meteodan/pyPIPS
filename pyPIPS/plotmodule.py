@@ -732,6 +732,94 @@ def plot_temperature_dewpoint_meteogram(plottimes, conv_plot_ds, global_plot_con
     return fig, ax1
 
 
+def plot_fasttemp_meteogram(plottimes, conv_plot_ds, global_plot_config_dict,
+                            xlimits=None, ptype='PIPS', use_plot_date=True):
+    """
+    Plot fasttemp meteogram.
+
+    Parameters:
+        plottimes (list): List of plot times.
+        conv_plot_ds (xarray.Dataset): Dataset containing the plot data.
+        global_plot_config_dict (dict): Global plot configuration dictionary.
+        xlimits (list, optional): List of x-axis limits. Defaults to None.
+        ptype (str, optional): Type of probe. Defaults to 'PIPS'.
+        use_plot_date (bool, optional): Whether to use plot_date. Defaults to True.
+
+    Returns:
+        tuple: Figure and axes objects.
+    """
+    fig = plt.figure(figsize=(8, 3))
+    ax1 = fig.add_subplot(111)
+
+    fields = [conv_plot_ds['fasttemp'].to_numpy()]
+    temp_params['plotmin'] = global_plot_config_dict['T_Td_range'][0]
+    fieldparamdicts = [temp_params]
+    ax1 = plotmeteogram(ax1, [plottimes], fields, fieldparamdicts, use_plot_date=use_plot_date)
+
+    ax1.axhline(0.0, ls=':', color='k')
+
+    axparamdict1 = {
+        'majorxlocator': global_plot_config_dict['majorxlocator'],
+        'majorxformatter': global_plot_config_dict['majorxformatter'],
+        'minorxlocator': global_plot_config_dict['minorxlocator'],
+        'axeslimits': [xlimits, global_plot_config_dict['T_Td_range']],
+        'axeslabels': [global_plot_config_dict['xlabel'], r'Fast Temperature ($^{\circ}$C)']
+    }
+    axparamdicts = [axparamdict1]
+    ax1, = set_meteogram_axes([ax1], axparamdicts)
+
+    return fig, ax1
+
+
+def plot_slowtemp_meteogram(plottimes, conv_plot_ds, global_plot_config_dict,
+                            xlimits=None, ptype='PIPS', use_corrected_vars=True,
+                            use_plot_date=True):
+    """
+    Plot slowtemp meteogram.
+
+    Parameters:
+        plottimes (list): List of plot times.
+        conv_plot_ds (xarray.Dataset): Dataset containing the plot data.
+        global_plot_config_dict (dict): Global plot configuration dictionary.
+        xlimits (list, optional): List of x-axis limits. Defaults to None.
+        ptype (str, optional): Type of probe. Defaults to 'PIPS'.
+        use_corrected_vars (bool, optional): Flag to use corrected variables. Defaults to True.
+        use_plot_date (bool, optional): Whether to use plot_date. Defaults to True.
+
+    Returns:
+        tuple: Figure and axes objects.
+    """
+    # Some fields may have "corrected" versions. Use those if they exist
+    if use_corrected_vars and ptype == 'PIPS':
+        slowtemp_str = 'slowtemp_corrected'
+        if slowtemp_str not in conv_plot_ds.data_vars:
+            slowtemp_str = 'slowtemp'
+    else:
+        slowtemp_str = 'slowtemp'
+
+    fig = plt.figure(figsize=(8, 3))
+    ax1 = fig.add_subplot(111)
+
+    fields = [conv_plot_ds[slowtemp_str].to_numpy()]
+    temp_params['plotmin'] = global_plot_config_dict['T_Td_range'][0]
+    fieldparamdicts = [temp_params]
+    ax1 = plotmeteogram(ax1, [plottimes], fields, fieldparamdicts, use_plot_date=use_plot_date)
+
+    ax1.axhline(0.0, ls=':', color='k')
+
+    axparamdict1 = {
+        'majorxlocator': global_plot_config_dict['majorxlocator'],
+        'majorxformatter': global_plot_config_dict['majorxformatter'],
+        'minorxlocator': global_plot_config_dict['minorxlocator'],
+        'axeslimits': [xlimits, global_plot_config_dict['T_Td_range']],
+        'axeslabels': [global_plot_config_dict['xlabel'], r'Slow Temperature ($^{\circ}$C)']
+    }
+    axparamdicts = [axparamdict1]
+    ax1, = set_meteogram_axes([ax1], axparamdicts)
+
+    return fig, ax1
+
+
 def plot_RH_meteogram(plottimes, conv_plot_ds, global_plot_config_dict, xlimits=None,
                       ptype='PIPS', use_corrected_vars=True, use_plot_date=True):
     """
@@ -765,6 +853,46 @@ def plot_RH_meteogram(plottimes, conv_plot_ds, global_plot_config_dict, xlimits=
         RHstr = 'RH_derived_corrected'
         if RHstr not in conv_plot_ds.data_vars:
             RHstr = 'RH_derived'
+
+    fig = plt.figure(figsize=(8, 3))
+    ax1 = fig.add_subplot(111)
+
+    fields = [conv_plot_ds[RHstr].to_numpy()]
+    fieldparamdicts = [RH_params]
+    ax1 = plotmeteogram(ax1, [plottimes], fields, fieldparamdicts, use_plot_date=use_plot_date)
+
+    axparamdict1 = {
+        'majorxlocator': global_plot_config_dict['majorxlocator'],
+        'majorxformatter': global_plot_config_dict['majorxformatter'],
+        'minorxlocator': global_plot_config_dict['minorxlocator'],
+        'axeslimits': [xlimits, [0., 100.]],
+        'axeslabels': [global_plot_config_dict['xlabel'], 'Relative Humidity (%)']
+    }
+
+    axparamdicts = [axparamdict1]
+    ax1, = set_meteogram_axes([ax1], axparamdicts)
+
+    return fig, ax1
+
+
+def plot_RH_original_meteogram(plottimes, conv_plot_ds, global_plot_config_dict, xlimits=None,
+                                ptype='PIPS', use_plot_date=True):
+    """
+    Plot the meteogram for original relative humidity (RH variable, not RH_derived).
+
+    Parameters:
+        plottimes (list): List of plot times.
+        conv_plot_ds (xarray.Dataset): Dataset containing the plot data.
+        global_plot_config_dict (dict): Dictionary containing global plot configuration parameters.
+        xlimits (list, optional): List of x-axis limits. Defaults to None.
+        ptype (str, optional): Type of probe. Defaults to 'PIPS'.
+        use_plot_date (bool, optional): Whether to use plot_date. Defaults to True.
+
+    Returns:
+        tuple: Tuple containing the figure and axes objects.
+    """
+    # Plot original RH variable (not RH_derived)
+    RHstr = 'RH'
 
     fig = plt.figure(figsize=(8, 3))
     ax1 = fig.add_subplot(111)
