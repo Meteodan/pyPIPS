@@ -13,6 +13,7 @@ set -e  # Exit on any error
 # Default settings - toggle individual analysis steps on/off
 RUN_CSV_TO_NC=1
 RUN_MERGE_REALTIME=1
+RUN_MANUAL_QC=0
 RUN_APPLY_QC=1
 RUN_CALC_DERIVED=1
 RUN_MM_FITS=1
@@ -23,6 +24,8 @@ QC_TAGS="qc roqc hoqc"
 MM_MOMENT_COMBOS="24 234 246 346"
 OUTPUT_TAG=""
 REALTIME_DIR=""
+MANUAL_QC_FILE=""
+WRITE_ALIGNED_TRIM_TIMES=0
 VERBOSE=0
 ENABLE_LOGGING=0
 LOG_DIR=""
@@ -66,18 +69,23 @@ Required Arguments:
 Options:
     --skip-csv2nc       Skip CSV to netCDF conversion
     --skip-merge        Skip real-time/card data merging
+    --skip-manual-qc    Skip manual QC application
     --skip-qc           Skip quality control application
     --skip-derived      Skip derived parameter calculation
     --skip-mm-fits      Skip method of moments fitting
     --enable-radar      Enable radar interpolation (disabled by default)
+    --enable-manual-qc  Enable manual QC application (disabled by default)
+    --write-aligned-trim-times  Write parsivel-aligned trim times back to manual QC JSON (optional)
 
     --qc-tags TAGS      Space-separated QC tags to process (default: "qc")
     --mm-combos COMBOS  Space-separated moment combinations (default: "23 34 246")
     --output-tag TAG    Output file tag to distinguish from originals
     --realtime-dir DIR  Directory containing real-time netCDF files (required for merge step)
+    --manual-qc-file FILE        Manual QC JSON decisions file (required if --enable-manual-qc)
 
     --log-dir DIR       Enable logging and specify directory for log files
     By default, runs: CSV→netCDF → merge realtime → QC → derived params → MM fits
+    Manual QC is optional and runs within the QC step when enabled with --enable-manual-qc
     Radar interpolation is optional and must be enabled with --enable-radar
 
 Examples:
@@ -101,6 +109,9 @@ Examples:
 
     # Analysis with real-time data merging on multiple configs
     $0 "configs/ICECHIP_IOP*.py" --realtime-dir /path/to/realtime/data
+
+    # Enable manual QC (overwrites original files by default)
+    $0 configs/IOP1_2016.py --enable-manual-qc --manual-qc-file configs/manual_qc_decisions.json
 
 Note: When using glob patterns, enclose them in quotes to prevent premature shell expansion.
 
@@ -147,6 +158,10 @@ while [[ $# -gt 0 ]]; do
             RUN_MERGE_REALTIME=0
             shift
             ;;
+        --skip-manual-qc)
+            RUN_MANUAL_QC=0
+            shift
+            ;;
         --skip-qc)
             RUN_APPLY_QC=0
             shift
@@ -161,6 +176,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --enable-radar)
             RUN_RADAR_INTERP=1
+            shift
+            ;;
+        --enable-manual-qc)
+            RUN_MANUAL_QC=1
             shift
             ;;
         --qc-tags)
@@ -178,6 +197,14 @@ while [[ $# -gt 0 ]]; do
         --realtime-dir)
             REALTIME_DIR="$2"
             shift 2
+            ;;
+        --manual-qc-file)
+            MANUAL_QC_FILE="$2"
+            shift 2
+            ;;
+        --write-aligned-trim-times)
+            WRITE_ALIGNED_TRIM_TIMES=1
+            shift
             ;;
         --log-dir)
             ENABLE_LOGGING=1
@@ -246,6 +273,30 @@ if [ $RUN_MERGE_REALTIME -eq 1 ] && [ ! -d "$REALTIME_DIR" ]; then
     exit 1
 fi
 
+# Validate manual QC inputs if enabled
+if [ $RUN_MANUAL_QC -eq 1 ] && [ -z "$MANUAL_QC_FILE" ]; then
+    print_error "--manual-qc-file is required when manual QC is enabled"
+    print_error "Use --skip-manual-qc to disable manual QC or provide --manual-qc-file path"
+    exit 1
+fi
+
+if [ $RUN_MANUAL_QC -eq 1 ] && [ ! -f "$MANUAL_QC_FILE" ]; then
+    print_error "Manual QC file not found: $MANUAL_QC_FILE"
+    exit 1
+fi
+
+if [ $RUN_MANUAL_QC -eq 1 ] && [ $RUN_APPLY_QC -ne 1 ]; then
+    print_error "Manual QC is integrated into apply_QC.py"
+    print_error "Enable QC step or disable manual QC with --skip-manual-qc"
+    exit 1
+fi
+
+if [ $WRITE_ALIGNED_TRIM_TIMES -eq 1 ] && [ $RUN_MANUAL_QC -ne 1 ]; then
+    print_error "--write-aligned-trim-times requires manual QC to be enabled"
+    print_error "Use --enable-manual-qc or remove --write-aligned-trim-times"
+    exit 1
+fi
+
 # Set up logging if enabled
 if [ $ENABLE_LOGGING -eq 1 ]; then
     # Create log directory if it doesn't exist
@@ -276,6 +327,7 @@ echo "Steps to run:"
 [ $RUN_CSV_TO_NC -eq 1 ] && echo "  ✓ CSV to netCDF conversion"
 [ $RUN_MERGE_REALTIME -eq 1 ] && echo "  ✓ Real-time/card data merging"
 [ $RUN_APPLY_QC -eq 1 ] && echo "  ✓ Quality control application"
+[ $RUN_MANUAL_QC -eq 1 ] && echo "  ✓ Manual QC (within QC step)"
 [ $RUN_CALC_DERIVED -eq 1 ] && echo "  ✓ Derived parameter calculation"
 [ $RUN_MM_FITS -eq 1 ] && echo "  ✓ Method of moments fitting"
 [ $RUN_RADAR_INTERP -eq 1 ] && echo "  ✓ Radar interpolation"
@@ -352,7 +404,16 @@ fi
 if [ $RUN_APPLY_QC -eq 1 ] && [ $CONFIG_SUCCESS -eq 1 ]; then
     print_step "Applying quality control filters..."
 
-    cmd="python ${ANALYSIS_DIR}/apply_QC.py $COMMON_ARGS --compass-qc --plot-compass-qc --slowtemp-qc --slowtemp-diff-threshold 5.0 --plot-slowtemp-qc --recompute-dewpoint-with-fallback --output-QC-tags $QC_TAGS $OUTPUT_ARG"
+    MANUAL_QC_ARG=""
+    if [ $RUN_MANUAL_QC -eq 1 ]; then
+        MANUAL_QC_ARG="--manual-qc-file $MANUAL_QC_FILE"
+    fi
+    MANUAL_QC_ALIGN_ARG=""
+    if [ $WRITE_ALIGNED_TRIM_TIMES -eq 1 ]; then
+        MANUAL_QC_ALIGN_ARG="--write-aligned-trim-times"
+    fi
+
+    cmd="python ${ANALYSIS_DIR}/apply_QC.py $COMMON_ARGS --slowtemp-bias-correction --slowtemp-bias-config ../configs/ICECHIP_slowtemp_bias.py --compass-qc --compass-abs-threshold 10.0 --plot-compass-qc --slowtemp-qc --slowtemp-diff-threshold 5.0 --plot-slowtemp-qc --recompute-dewpoint-with-fallback --output-QC-tags $QC_TAGS $OUTPUT_ARG $MANUAL_QC_ARG $MANUAL_QC_ALIGN_ARG"
     [ $VERBOSE -eq 1 ] && echo "Command: $cmd"
 
     if [ $ENABLE_LOGGING -eq 1 ]; then

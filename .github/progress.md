@@ -2,6 +2,95 @@
 
 This file tracks significant development progress, lessons learned, and agent activities for pyPIPS development sessions.
 
+## Session: February 9, 2026 - Manual QC Integrated into apply_QC and Pipeline Updates
+
+### Key Code Updates
+#### Manual QC Integration into apply_QC
+**Problem**: Manual QC required a separate script and step in the workflow, making QC sequencing and automation more complex.
+**Solution**:
+- Integrated manual QC and manual trimming logic into `apply_QC.py` with `--manual-qc-file`.
+- Added optional `--write-aligned-trim-times` to persist parsivel-aligned trim times back to the JSON when requested.
+- Placed manual QC between slowtemp QC and dewpoint recompute to preserve intended ordering.
+**Files Modified**: `analysis_scripts/apply_QC.py`
+
+#### Pipeline Script Simplification
+**Problem**: `run_initial_analysis.sh` still ran a separate manual QC step after QC.
+**Solution**:
+- Removed the standalone manual QC step and passed manual QC options through to `apply_QC.py`.
+- Added `--write-aligned-trim-times` passthrough with guard requiring `--enable-manual-qc`.
+- Updated usage text, options, and step summary to reflect new flow.
+**Files Modified**: `shell_scripts/run_initial_analysis.sh`
+
+#### NetCDF Attribute Type Fix
+**Problem**: NetCDF save failed due to boolean attribute type (`bias_corrected=True`) not supported by netCDF4.
+**Solution**: Switched to integer flag (`bias_corrected=1`) for safe serialization.
+**Files Modified**: `analysis_scripts/apply_QC.py`
+
+### Key Lessons Learned
+#### NetCDF Attribute Types
+**Lesson**: netCDF4 does not accept boolean attribute types; use integer flags for compatibility.
+**Impact**: Prevents `TypeError: illegal data type for attribute` during saves.
+
+### Technical Context for Future Development
+Manual QC is now a first-class option inside `apply_QC.py`, keeping QC ordering consistent and reducing pipeline complexity. The shell workflow reflects this integration and gates trim-time persistence behind an explicit flag.
+
+### Next Development Priorities
+1. Consider adding documentation/examples for `--manual-qc-file` and `--write-aligned-trim-times` usage.
+2. Scan for other boolean attrs that may fail NetCDF serialization.
+
+## Session: February 9, 2026 - Manual QC Save Fix and Agent Instructions
+
+### Key Code Updates
+#### Manual QC Save Permission Fix
+**Problem**: `apply_manual_qc.py` raised permission denied errors when saving, likely due to open file handles from `xarray.open_dataset()`.
+**Solution**:
+- Added an in-memory loader that `open_dataset()` → `load()` → `close()` before modifications.
+- Used the in-memory dataset for both conventional and parsivel paths to avoid file locks.
+- Added explicit `PermissionError` logging during save for clearer diagnostics.
+**Files Modified**: `analysis_scripts/apply_manual_qc.py`
+
+#### Agent Instruction Bootstrap
+**Problem**: Need a lightweight, repo-local instruction entry point for Codex sessions.
+**Solution**: Added a root `AGENTS.md` that directs agents to read `.github/copilot-instructions.md`.
+**Files Modified**: `AGENTS.md`
+
+### Key Lessons Learned
+#### xarray File Handles and Overwrite Behavior
+**Lesson**: When overwriting an input NetCDF file, ensure datasets are fully loaded into memory and the file handle is closed before saving.
+**Impact**: Prevents permission errors and file locking issues in automated QC workflows.
+
+### Technical Context for Future Development
+The manual QC application script now avoids file-handle collisions by operating on in-memory datasets only. The repository also includes a top-level `AGENTS.md` to standardize instruction loading for Codex sessions.
+
+### Next Development Priorities
+1. Consider adding a guard to warn when manual QC overwrites original files without a tag.
+2. Evaluate whether other scripts that overwrite inputs should adopt the same in-memory loading pattern.
+
+## Session: February 7, 2026 - Manual QC Step Integration in Initial Analysis Script
+
+### Key Code Updates
+#### Manual QC Pipeline Step (Post-QC)
+**Problem**: Manual QC application needed to be integrated into the standard initial analysis pipeline, but it should run after automated QC and remain disabled by default.
+**Solution**:
+- Added an optional manual QC step to the workflow with `--enable-manual-qc` and `--manual-qc-file`.
+- Validated the manual QC JSON path when the step is enabled.
+- Positioned the manual QC step after the automated QC step to preserve the intended processing order.
+- Added `--manual-qc-output-tag` to control whether outputs overwrite originals or create tagged files.
+- Updated help text, usage examples, and step summary ordering.
+**Files Modified**: `shell_scripts/run_initial_analysis.sh`
+
+### Key Lessons Learned
+#### Step Ordering Matters for QC Provenance
+**Lesson**: Manual QC should be applied after automated QC to preserve the intended provenance and avoid reprocessing already-adjusted data with automated filters.
+**Impact**: Ensures manual adjustments are the final QC layer and reduces ambiguity in downstream analysis.
+
+### Technical Context for Future Development
+The initial analysis workflow now supports optional, post-QC manual interventions via `analysis_scripts/apply_manual_qc.py`. The step is gated by `--enable-manual-qc` and requires a JSON decisions file, aligning the shell pipeline with the manual QC notebook workflow.
+
+### Next Development Priorities
+1. Consider adding a warning when manual QC overwrites original files (empty output tag).
+2. If manual QC outputs are tagged, clarify downstream script inputs to use tagged outputs.
+
 ## Session: February 4-5, 2026 - Interactive Notebook Optimization for VS Code
 
 ### Key Code Updates

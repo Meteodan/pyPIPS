@@ -3,6 +3,7 @@
 # This script applies quality control to the PIPS DSDs (netCDF version)
 import os
 import argparse
+import json
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -384,8 +385,10 @@ def apply_compass_qc(conv_ds, zscore_threshold=3.0, abs_threshold=20.0):
         # If std is zero, data is perfectly stable - no outliers
         zscores = np.zeros_like(deviations)
 
-    # Dual threshold: flag as outlier only if BOTH conditions are met
-    is_outlier = (np.abs(zscores) > zscore_threshold) & (abs_deviations > abs_threshold)
+    # Dual threshold: flag as outlier if either condition is met
+    cond1 = np.abs(zscores) > zscore_threshold
+    cond2 = abs_deviations > abs_threshold
+    is_outlier = cond1 | cond2
     n_outliers = np.sum(is_outlier)
 
     # Create cleaned version
@@ -441,6 +444,198 @@ def apply_slowtemp_qc(conv_ds, diff_threshold=2.0):
     cleaned_slowtemp.values[is_outlier] = np.nan
 
     return cleaned_slowtemp, n_flagged, mean_diff
+
+
+def apply_manual_qc_to_dataset(ds, qc_entries, verbose=True):
+    """
+    Apply manual QC entries to a dataset.
+
+    Parameters
+    ----------
+    ds : xarray.Dataset
+        Dataset to apply QC to
+    qc_entries : list of dict
+        List of QC entries with 'variable', 'start_time', 'end_time', 'reason'
+    verbose : bool
+        Print QC actions
+
+    Returns
+    -------
+    ds : xarray.Dataset
+        Dataset with QC applied
+    n_flagged_total : int
+        Total number of points flagged across all variables
+    """
+    n_flagged_total = 0
+
+    for entry in qc_entries:
+        variable = entry['variable']
+        start_time = pd.to_datetime(entry['start_time'])
+        if start_time.tz is not None:
+            start_time = start_time.tz_localize(None)
+        end_time = pd.to_datetime(entry['end_time'])
+        if end_time.tz is not None:
+            end_time = end_time.tz_localize(None)
+        reason = entry.get('reason', 'Manual QC')
+
+        if variable not in ds:
+            if verbose:
+                utils.log(f"  Warning: Variable '{variable}' not in dataset, skipping")
+            continue
+
+        ds_times = pd.to_datetime(ds.time.values)
+        if hasattr(ds_times, 'tz') and ds_times.tz is not None:
+            ds_times = ds_times.tz_localize(None)
+
+        time_mask = (ds_times >= start_time) & (ds_times <= end_time)
+        n_flagged = int(time_mask.sum())
+
+        if n_flagged > 0:
+            time_indices = np.where(time_mask)[0]
+            current_data = ds[variable].values.copy()
+            current_data[time_indices] = np.nan
+
+            new_var = xr.DataArray(
+                current_data,
+                coords=ds[variable].coords,
+                dims=ds[variable].dims,
+                attrs=ds[variable].attrs.copy()
+            )
+            new_var.encoding = {}
+
+            ds[variable] = new_var
+
+            if 'manual_qc_applied' not in ds[variable].attrs:
+                ds[variable].attrs['manual_qc_applied'] = []
+
+            qc_info = f"{start_time.isoformat()}_{end_time.isoformat()}: {reason}"
+
+            if isinstance(ds[variable].attrs.get('manual_qc_applied'), list):
+                ds[variable].attrs['manual_qc_applied'].append(qc_info)
+            else:
+                ds[variable].attrs['manual_qc_applied'] = [qc_info]
+
+            ds[variable].attrs['has_manual_qc'] = 1
+
+            n_flagged_total += n_flagged
+
+            if verbose:
+                utils.log(f"  {variable}: Flagged {n_flagged} points from {start_time} to {end_time}")
+                if reason:
+                    utils.log(f"    Reason: {reason}")
+        else:
+            if verbose:
+                utils.log(f"  Warning: No data found in specified time range for {variable}")
+
+    return ds, n_flagged_total
+
+
+def align_times_with_parsivel(parsivel_ds, requested_start, requested_end, verbose=True):
+    """
+    Align requested trim times to parsivel dataset's time grid.
+    Start time rounds UP to next parsivel time, end time rounds DOWN to previous parsivel time.
+    """
+    parsivel_times = pd.to_datetime(parsivel_ds.time.values)
+    if hasattr(parsivel_times, 'tz') and parsivel_times.tz is not None:
+        parsivel_times = parsivel_times.tz_localize(None)
+
+    if requested_start is None:
+        aligned_start = parsivel_times[0]
+    else:
+        valid_starts = parsivel_times[parsivel_times >= requested_start]
+        if len(valid_starts) > 0:
+            aligned_start = valid_starts[0]
+        else:
+            aligned_start = parsivel_times[-1]
+            if verbose:
+                utils.log("    Warning: Requested start time after parsivel end, using last parsivel time")
+
+    if requested_end is None:
+        aligned_end = parsivel_times[-1]
+    else:
+        valid_ends = parsivel_times[parsivel_times <= requested_end]
+        if len(valid_ends) > 0:
+            aligned_end = valid_ends[-1]
+        else:
+            aligned_end = parsivel_times[0]
+            if verbose:
+                utils.log("    Warning: Requested end time before parsivel start, using first parsivel time")
+
+    if verbose and (requested_start is not None or requested_end is not None):
+        if requested_start is not None and aligned_start != requested_start:
+            utils.log(f"    Aligned start: {requested_start} -> {aligned_start} (next parsivel time)")
+        if requested_end is not None and aligned_end != requested_end:
+            utils.log(f"    Aligned end:   {requested_end} -> {aligned_end} (previous parsivel time)")
+
+    return aligned_start, aligned_end
+
+
+def apply_manual_trim_to_dataset(ds, trim_entry, aligned_times=None, verbose=True):
+    """
+    Apply manual trimming to a dataset - trim to new time bounds.
+    Similar to trim_fixed_deployment_periods but with user-specified times.
+    """
+    original_length = len(ds.time)
+    original_start = pd.to_datetime(ds.time.values[0])
+    if hasattr(original_start, 'tz') and original_start.tz is not None:
+        original_start = original_start.tz_localize(None)
+    original_end = pd.to_datetime(ds.time.values[-1])
+    if hasattr(original_end, 'tz') and original_end.tz is not None:
+        original_end = original_end.tz_localize(None)
+
+    reason = trim_entry.get('reason', 'Manual trimming')
+
+    if aligned_times is not None:
+        new_start, new_end = aligned_times
+    else:
+        new_start_time = trim_entry.get('new_start_time')
+        new_end_time = trim_entry.get('new_end_time')
+
+        if new_start_time is None:
+            new_start = original_start
+        else:
+            new_start = pd.to_datetime(new_start_time)
+            if new_start.tz is not None:
+                new_start = new_start.tz_localize(None)
+
+        if new_end_time is None:
+            new_end = original_end
+        else:
+            new_end = pd.to_datetime(new_end_time)
+            if new_end.tz is not None:
+                new_end = new_end.tz_localize(None)
+
+    if verbose:
+        utils.log("  Trimming dataset:")
+        utils.log(f"    Original: {original_start} to {original_end} ({original_length} points)")
+        utils.log(f"    New:      {new_start} to {new_end}")
+        if reason:
+            utils.log(f"    Reason: {reason}")
+
+    ds = ds.sel(time=slice(new_start, new_end))
+    new_length = len(ds.time)
+    n_trimmed = original_length - new_length
+
+    if n_trimmed > 0:
+        ds.attrs['starting_time'] = new_start.strftime('%Y%m%d%H%M%S')
+        ds.attrs['ending_time'] = new_end.strftime('%Y%m%d%H%M%S')
+
+        ds['time'].encoding['units'] = f"seconds since {new_start.strftime('%Y-%m-%d %H:%M:%S')}"
+        ds['time'].encoding['calendar'] = 'proleptic_gregorian'
+
+        if 'manual_trim_applied' not in ds.attrs:
+            ds.attrs['manual_trim_applied'] = f"{new_start.isoformat()}_{new_end.isoformat()}: {reason}"
+        else:
+            ds.attrs['manual_trim_applied'] += f"; {new_start.isoformat()}_{new_end.isoformat()}: {reason}"
+
+        if verbose:
+            utils.log(f"    ✓ Trimmed {n_trimmed} points ({n_trimmed} seconds)")
+            utils.log(f"    New length: {new_length} points")
+    else:
+        if verbose:
+            utils.log("    Warning: No points trimmed (times may be outside dataset range)")
+
+    return ds, n_trimmed
 
 
 def recompute_dewpoint_RH_with_fallback(conv_ds, reason=''):
@@ -549,7 +744,7 @@ def apply_slowtemp_bias_correction(conv_ds, slope, intercept):
     slowtemp_corrected.attrs.update(conv_ds['slowtemp'].attrs)
     slowtemp_corrected.attrs['bias_correction_slope'] = slope
     slowtemp_corrected.attrs['bias_correction_intercept'] = intercept
-    slowtemp_corrected.attrs['bias_corrected'] = True
+    slowtemp_corrected.attrs['bias_corrected'] = 1
 
     # Overwrite slowtemp with corrected values
     conv_ds['slowtemp'] = slowtemp_corrected
@@ -755,6 +950,10 @@ parser.add_argument('--slowtemp-bias-config', dest='slowtemp_bias_config', type=
 parser.add_argument('--recompute-dewpoint-with-fallback', dest='recompute_dewpoint', action='store_true',
                     help='Recompute dewpoint and RH_derived for any points where slowtemp is NaN, '
                          'using fasttemp as fallback (handles manual QC done outside script)')
+parser.add_argument('--manual-qc-file', dest='manual_qc_file', type=str, default=None,
+                    help='Path to manual QC decisions JSON file (optional)')
+parser.add_argument('--write-aligned-trim-times', dest='write_aligned_trim_times', action='store_true',
+                    help='Write parsivel-aligned trim times back to manual QC JSON (optional)')
 
 args = parser.parse_args()
 if args.input_QC_tag:
@@ -782,6 +981,27 @@ try:
 except Exception:
     utils.fatal(
         "Unable to import case configuration parameters! Aborting!")
+
+# Load manual QC decisions if provided
+manual_qc_dict = {}
+manual_trim_dict = {}
+if args.manual_qc_file:
+    utils.log(f"Loading manual QC decisions: {args.manual_qc_file}")
+    try:
+        with open(args.manual_qc_file, 'r') as f:
+            all_data = json.load(f)
+
+        manual_trim_dict = all_data.pop('_manual_trim', {})
+        manual_qc_dict = all_data
+
+        total_qc_entries = sum(len(v) for v in manual_qc_dict.values() if isinstance(v, list))
+        total_trim_entries = len(manual_trim_dict)
+        utils.log(f"  Manual QC entries: {total_qc_entries}")
+        utils.log(f"  Manual trim entries: {total_trim_entries}")
+    except FileNotFoundError:
+        utils.fatal(f"Manual QC file not found: {args.manual_qc_file}")
+    except json.JSONDecodeError as e:
+        utils.fatal(f"Invalid JSON in manual QC file: {e}")
 
 
 # Extract needed lists and variables from PIPS_IO_dict configuration dictionary
@@ -827,7 +1047,8 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
 
     # Load conventional dataset if compass/wind QC or trimming is requested
     conv_ds = None
-    if (args.compass_qc or args.trim_deployment_periods or args.slowtemp_qc or args.recompute_dewpoint) and conv_filelist is not None:
+    if (args.compass_qc or args.trim_deployment_periods or args.slowtemp_qc
+            or args.recompute_dewpoint or args.manual_qc_file) and conv_filelist is not None:
         conv_file = conv_filelist[index]
         if os.path.exists(conv_file):
             conv_ds = xr.load_dataset(conv_file)
@@ -911,6 +1132,90 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
                 ('time',), flagged_times)
             parsivel_combined_ds['flagged_times_{}'.format(output_QC_tag)].attrs['description'] = (
                 'Flagged times from QC: 0=good, 2=severe wind contamination')
+
+    # =============================================================================================
+    # MANUAL QC AND MANUAL TRIMMING (FROM JSON CONFIG)
+    # =============================================================================================
+    if args.manual_qc_file and (conv_ds is not None or parsivel_combined_ds is not None):
+        key = f"{PIPS_name}_{deployment_name}"
+        has_qc_entries = key in manual_qc_dict and len(manual_qc_dict[key]) > 0
+        has_trim_entry = key in manual_trim_dict
+
+        if has_qc_entries or has_trim_entry:
+            utils.log(f"Applying manual QC for {key}...")
+            if has_qc_entries:
+                utils.log(f"  {len(manual_qc_dict[key])} manual QC entries to apply")
+            if has_trim_entry:
+                utils.log("  Manual trimming to apply")
+
+            trim_entry = manual_trim_dict.get(key) if has_trim_entry else None
+            aligned_trim_times = None
+
+            if has_trim_entry and parsivel_combined_ds is not None:
+                requested_start = trim_entry.get('new_start_time')
+                requested_end = trim_entry.get('new_end_time')
+                if requested_start is not None:
+                    requested_start = pd.to_datetime(requested_start)
+                    if requested_start.tz is not None:
+                        requested_start = requested_start.tz_localize(None)
+                if requested_end is not None:
+                    requested_end = pd.to_datetime(requested_end)
+                    if requested_end.tz is not None:
+                        requested_end = requested_end.tz_localize(None)
+
+                aligned_trim_times = align_times_with_parsivel(
+                    parsivel_combined_ds, requested_start, requested_end, verbose=True
+                )
+
+                if args.write_aligned_trim_times and aligned_trim_times is not None:
+                    aligned_start, aligned_end = aligned_trim_times
+                    trim_entry['new_start_time'] = aligned_start.isoformat()
+                    trim_entry['new_end_time'] = aligned_end.isoformat()
+
+                    if 'aligned_to_parsivel' not in trim_entry:
+                        original_reason = trim_entry.get('reason', '')
+                        if original_reason and not original_reason.endswith(')'):
+                            trim_entry['reason'] = f"{original_reason} (aligned to parsivel grid)"
+                        trim_entry['aligned_to_parsivel'] = True
+
+                    try:
+                        output_data = manual_qc_dict.copy()
+                        output_data['_manual_trim'] = manual_trim_dict
+                        with open(args.manual_qc_file, 'w') as f:
+                            json.dump(output_data, f, indent=2)
+                        utils.log(f"  ✓ Updated trim times saved to {args.manual_qc_file}")
+                    except Exception as save_err:
+                        utils.log(f"  Warning: Could not save updated times: {save_err}")
+
+            # Apply to conventional dataset
+            if conv_ds is not None:
+                if has_trim_entry:
+                    conv_ds, n_trimmed = apply_manual_trim_to_dataset(
+                        conv_ds, trim_entry, aligned_times=aligned_trim_times, verbose=True
+                    )
+                    if n_trimmed > 0:
+                        utils.log(f"  Conventional: trimmed {n_trimmed} points")
+                if has_qc_entries:
+                    conv_ds, n_flagged = apply_manual_qc_to_dataset(
+                        conv_ds, manual_qc_dict[key], verbose=True
+                    )
+                    if n_flagged > 0:
+                        utils.log(f"  Conventional: flagged {n_flagged} points")
+
+            # Apply to parsivel dataset
+            if parsivel_combined_ds is not None:
+                if has_trim_entry:
+                    parsivel_combined_ds, n_trimmed = apply_manual_trim_to_dataset(
+                        parsivel_combined_ds, trim_entry, aligned_times=aligned_trim_times, verbose=True
+                    )
+                    if n_trimmed > 0:
+                        utils.log(f"  Parsivel: trimmed {n_trimmed} points")
+                if has_qc_entries:
+                    parsivel_combined_ds, n_flagged = apply_manual_qc_to_dataset(
+                        parsivel_combined_ds, manual_qc_dict[key], verbose=True
+                    )
+                    if n_flagged > 0:
+                        utils.log(f"  Parsivel: flagged {n_flagged} points")
 
     # =============================================================================================
     # COMPASS AND WIND DIRECTION QUALITY CONTROL
