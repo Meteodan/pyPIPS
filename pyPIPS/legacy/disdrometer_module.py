@@ -2,7 +2,7 @@
 # A collection of functions for reading VORTEX 2 disdrometer data
 
 import netCDF4 as netcdf
-import Nio
+# import Nio
 import numpy as np
 from numpy import ma as ma
 import matplotlib.dates as dates

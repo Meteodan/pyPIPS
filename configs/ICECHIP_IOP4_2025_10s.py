@@ -24,8 +24,8 @@ PIPS_IO_dict = {
                           'conventional_raw_IOP4_052525_PIPS2B.nc',
                           'conventional_raw_IOP4_052525_PIPS3A.nc',
                           'conventional_raw_IOP4_052525_PIPS3B.nc'],
-    'start_times': [None] * 6,
-    'end_times': [None] * 6,
+    'start_times': ['20250525200000'] * 6,
+    'end_times': ['20250525225500'] * 6,
     'requested_interval': 10.
 }
 

@@ -4,7 +4,7 @@ import numpy as np
 from scipy.stats import gamma, uniform
 from . import disdrometer_module as dis
 from . import plotmodule as pm
-from . import DSDlib as dsd
+import pyPIPS.DSDlib as dsd
 from shapely.geometry import MultiLineString, LineString
 from datetime import datetime
 import glob
@@ -12,13 +12,15 @@ import os
 from . import radarmodule as radar
 from . import thermolib as thermo
 from .datahandler import getDataHandler
-from . import dualpara as dualpol
-from . import PIPS as pips
+# from . import dualpara as dualpol
+import pyPIPS.dualpara as dualpol
+# from . import PIPS as pips
+import pyPIPS.PIPS as pips
 import pyart as pyart
 import matplotlib.pyplot as plt
 from metpy.plots import ctables
 import matplotlib.ticker as ticker
-from mpl_toolkits.basemap import Basemap
+# from mpl_toolkits.basemap import Basemap
 
 # Some global parameters to make my life easier
 rhoacst = 1.0  # kg m^-3

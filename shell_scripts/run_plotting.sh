@@ -406,7 +406,7 @@ if [ $RUN_DSD_METEOGRAMS -eq 1 ] && [ $CONFIG_SUCCESS -eq 1 ]; then
     for QC_TAG in $QC_TAGS; do
         print_step "  Processing QC tag: $QC_TAG"
 
-        cmd="python ${PLOT_SCRIPT_DIR}/plot_DSD_meteograms_nc.py $CASE_CONFIG_PATH $COMMON_PLOT_ARGS --QC-tag $QC_TAG --image-fmt $IMAGE_FMT"
+        cmd="python ${PLOT_SCRIPT_DIR}/plot_DSD_meteograms_nc.py $CASE_CONFIG_PATH $COMMON_PLOT_ARGS --QC-tag $QC_TAG"
         [ $VERBOSE -eq 1 ] && echo "Command: $cmd"
 
         if [ $ENABLE_LOGGING -eq 1 ]; then

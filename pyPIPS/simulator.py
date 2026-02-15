@@ -16,7 +16,8 @@ import os
 from . import radarmodule as radar
 from . import thermolib as thermo
 from .legacy.datahandler import getDataHandler
-from . import dualpara as dualpol
+# from . import dualpara as dualpol
+import pyPIPS.dualpara as dualpol
 import pyart as pyart
 import matplotlib.pyplot as plt
 from metpy.plots import ctables

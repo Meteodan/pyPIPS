@@ -269,8 +269,8 @@ for index, PIPS_filename, PIPS_name, start_time, end_time, geo_loc, ptype, deplo
         parsivel_combined_ds.attrs['parsivel_angle'] = parsivel_angle
         parsivel_combined_ds.attrs['deployment_name'] = deployment_name
         parsivel_combined_ds.attrs['location'] = str(geo_locs[index])
-        parsivel_combined_ds.attrs['starting_time'] = start_time
-        parsivel_combined_ds.attrs['ending_time'] = end_time
+        parsivel_combined_ds.attrs['starting_time'] = PSD_datetimes[0].strftime('%Y%m%d%H%M%S')
+        parsivel_combined_ds.attrs['ending_time'] = PSD_datetimes[-1].strftime('%Y%m%d%H%M%S')
         parsivel_combined_ds.attrs['DSD_interval'] = DSD_interval
 
         # Dump to netCDF files
@@ -308,8 +308,11 @@ for index, PIPS_filename, PIPS_name, start_time, end_time, geo_loc, ptype, deplo
         conv_ds.attrs['parsivel_angle'] = parsivel_angle
         conv_ds.attrs['deployment_name'] = deployment_name
         conv_ds.attrs['location'] = str(geo_locs[index])
-        conv_ds.attrs['starting_time'] = start_time
-        conv_ds.attrs['ending_time'] = end_time
+        conv_ds_datetimes = pips.get_datetimes(conv_ds)
+        conv_ds_start_time = conv_ds_datetimes[0].strftime('%Y%m%d%H%M%S')
+        conv_ds_end_time = conv_ds_datetimes[-1].strftime('%Y%m%d%H%M%S')
+        conv_ds.attrs['starting_time'] = conv_ds_start_time
+        conv_ds.attrs['ending_time'] = conv_ds_end_time
 
         if conv_filename_nc:
             ncfile_name = conv_filename_nc

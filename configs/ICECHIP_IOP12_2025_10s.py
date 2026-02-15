@@ -24,8 +24,8 @@ PIPS_IO_dict = {
                           'conventional_raw_IOP12_060625_PIPS2B.nc',
                           'conventional_raw_IOP12_060625_PIPS3A.nc',
                           'conventional_raw_IOP12_060625_PIPS3B.nc'],
-    'start_times': [None] * 6,
-    'end_times': [None] * 6,
+    'start_times': ['20250606232500'] * 6,
+    'end_times': ['20250607014000'] * 6,
     'requested_interval': 10.
 }
 
@@ -41,7 +41,7 @@ PIPS_qc_dict = {
 }
 
 radar_config_dict = {
-    'comp_radar': True,
+    'comp_radar': False,
     'calc_dualpol': True,
     'plot_retrieval': False,
     'radar_name': 'KLBB',
