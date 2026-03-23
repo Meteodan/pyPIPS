@@ -1538,16 +1538,16 @@ def plotsweep_pcolor(radar_obj, radar_fields, sweeptime, PIPS_names=None, PIPS_r
 
         ax.set_title(titlestring, fontsize=10)
         # Overlay locations of the PIPS
-
-        for PIPS_name in PIPS_names:
-            # PIPS_names_toplot.append(PIPS_name)
-            # rad_locs_toplot.append(rad_loc_dict[PIPS_name])
-            PIPS_x = PIPS_x_dict[PIPS_name]
-            PIPS_y = PIPS_y_dict[PIPS_name]
-            ax.plot([PIPS_x], [PIPS_y], 'r*', ms=10, alpha=0.5)
-            x_text = text_x_dict[PIPS_name]
-            y_text = text_y_dict[PIPS_name]
-            ax.annotate(PIPS_name, xy=(x_text, y_text))
+        if PIPS_names is not None and PIPS_rad_loc_dict is not None:
+            for PIPS_name in PIPS_names:
+                # PIPS_names_toplot.append(PIPS_name)
+                # rad_locs_toplot.append(rad_loc_dict[PIPS_name])
+                PIPS_x = PIPS_x_dict[PIPS_name]
+                PIPS_y = PIPS_y_dict[PIPS_name]
+                ax.plot([PIPS_x], [PIPS_y], 'r*', ms=10, alpha=0.5)
+                x_text = text_x_dict[PIPS_name]
+                y_text = text_y_dict[PIPS_name]
+                ax.annotate(PIPS_name, xy=(x_text, y_text))
 
         # Overlay roads
         ax.add_feature(cartopy.feature.NaturalEarthFeature('cultural', 'roads', '10m'),
@@ -1563,16 +1563,17 @@ def plotsweep_pcolor(radar_obj, radar_fields, sweeptime, PIPS_names=None, PIPS_r
         fig.colorbar(ci, orientation='vertical', ticks=cbarlevels, cax=cax)
         if cbarlabel is not None:
             cax.set_ylabel(cbarlabel)
-#         formatter = ticker.FuncFormatter(mtokm)
-#         ax.xaxis.set_major_formatter(formatter)
-#         ax.yaxis.set_major_formatter(formatter)
-#         ax.xaxis.set_major_locator(ticker.MultipleLocator(base=axestickintv))
-#         ax.yaxis.set_major_locator(ticker.MultipleLocator(base=axestickintv))
-#         ax.set_xlabel('km')
-#         ax.set_ylabel('km')
-#         ax.set_xlim(xmin, xmax)
-#         ax.set_ylim(ymin, ymax)
-#         ax.set_aspect('equal')
+        # formatter = ticker.FuncFormatter(mtokm)
+        # ax.xaxis.set_major_formatter(formatter)
+        # ax.yaxis.set_major_formatter(formatter)
+        # ax.xaxis.set_major_locator(ticker.MultipleLocator(base=axestickintv))
+        # ax.yaxis.set_major_locator(ticker.MultipleLocator(base=axestickintv))
+        # ax.set_xlabel('km')
+        # ax.set_ylabel('km')
+        # ax.set_xlim(xmin, xmax)
+        # ax.set_ylim(ymin, ymax)
+        # ax.set_aspect('equal')
+        # ax.set_extent([xmin, xmax, ymin, ymax], crs=projection)
 
         gl = ax.gridlines(draw_labels=True, dms=True, x_inline=False, y_inline=False, color="None",
                           crs=ccrs.PlateCarree(), rotate_labels=False)

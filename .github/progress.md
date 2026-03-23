@@ -2,7 +2,104 @@
 
 This file tracks significant development progress, lessons learned, and agent activities for pyPIPS development sessions.
 
-## Session: February 9, 2026 - Manual QC Integrated into apply_QC and Pipeline Updates
+## Session: ~March 18–23, 2026 - Simulator Restructuring, ModelConfig, and Transect Sampling
+
+### Key Code Updates
+
+#### New `pyPIPS/model_config.py` module
+- Created `ModelConfig` dataclass and `make_config()` factory to hold model-native → canonical variable/coordinate name mappings.
+- Pre-built configs for CM1, COMMAS, and WRF (with `open_and_normalize()` to rename dims/vars at load time so all downstream code uses canonical names like `ds['qr']`, `ds['rhoa']`, `ds.coords['xc']`).
+- Added `get_grid_arrays()` helper and spatial unit conversion (auto-detects km → m).
+- **Files**: `pyPIPS/model_config.py` (new, 521 lines)
+
+#### Major `simulator.py` restructuring
+- Preserved old code as `pyPIPS/simulator_legacy.py`.
+- Rewrote to use `ModelConfig`; added many new functions including: `load_model_dataset`, `get_fields_at_time`, `compute_derived_fields`, `read_fields_at_model_times`, `find_transect_grid_intersections`, `get_transect_grid_indices`, `plot_transect_grid_intersections`, `build_composite`, `calc_obs_transect`, `interp_model_to_transect`, `sample_model_PSD_along_transect`.
+- New notebook directory `notebooks/ICECHIP_PIPS_model_comp/` with `pyPIPS_test_PIPS_model_comp.ipynb` driving the PIPS vs. CM1 comparison workflow.
+- **Files**: `pyPIPS/simulator.py`, `pyPIPS/simulator_legacy.py` (new), `notebooks/ICECHIP_PIPS_model_comp/`
+
+#### `sample_model_PSD_along_transect` refinement
+- Removed redundant `sampling_interval` and `Dr` parameters; both derived from existing state.
+- Time index 3-way branch: use provided `time_idx` / fall back to `isel(time=0)` / use `ds` directly when no time dim.
+- Air density fallback: `"rhoa"` → `"rho"` → compute via `thermo.calrho()`; TODO marks future model_config integration.
+- All module-level constants converted to SI (m/m²); fixed `get_Dmax_index`, `create_random_gamma_DSD`, and `calc_empirical_fallspeed` call (`D * 1000.0` for mm input). Confirmed `1.0e-3` on `Nc_bin_ps` is intentional (m⁻⁴ → m⁻³·mm⁻¹).
+- `samplegammaDSD` fix: `calc_lamda_gamma` returns a DataArray; `[n]` indexing yields a 0-d DataArray causing `scipy.stats.gamma.rvs` `ValueError`. Fixed with `float()` on `lamda`/`alpha` and early-return guard for `n=0` or `lamda=0`.
+- Performance: replaced ~3000 per-step `ds.isel()` calls with bulk numpy extraction (`_get_field_numpy` + `_index_field`). User confirmed: "did the trick."
+- **Files**: `pyPIPS/simulator.py`
+
+#### Minor fixes
+- `pyPIPS/PIPS.py`: removed `.to_numpy()` in `calc_empirical_fallspeed` density correction (plain numpy division works directly).
+- `pyPIPS/radarmodule.py`: guarded PIPS overlay loop in `plotsweep_pcolor` with `if PIPS_names is not None and PIPS_rad_loc_dict is not None`.
+
+### Key Lessons Learned
+- `@enable_xarray_wrapper` functions return DataArrays even for scalar inputs; always `float()` before passing to scipy samplers.
+- `ds.isel()` in a tight loop is expensive; pull fields to numpy once and use advanced indexing.
+- Always annotate module-level constants with explicit units — mixed mm/m silently produces wrong results.
+
+### Next Development Priorities
+1. Wire `ModelConfig` into `sample_model_PSD_along_transect` to replace hardcoded CM1 field names
+2. Profile `create_random_gamma_DSD` loop for `joblib.Parallel` feasibility
+3. Check if `dualpol.solve_alpha_iter` accepts array input for vectorization
+
+---
+
+## Session: February 9, 2026 (Continued) - PIPS NetCDF Data I/O Layer Refactoring
+
+### Key Code Updates
+#### Simulator Module Data I/O Layer Refactoring
+**Problem**: The `simulator.py` module still used legacy disdrometer_module CSV reading functions for PIPS data (dis.readCU, dis.readNV2netCDF, dis.readPIPS). PIPS data is now exclusively in netCDF format with separate files for parsivel_combined and conventional data, but the code hadn't been updated.
+
+**Solution**:
+- Created new helper `_load_pips_datasets()` to load parsivel_combined and conventional 1-s netCDF files via xarray
+- Rewrote `get_probe_geolocs_from_files()` to extract lat/lon from netCDF location variables/attributes
+- Completely refactored `read_probe_time_series()` to load DSD from parsivel_combined netCDF and interpolate conventional data to DSD times using xarray's robust `.interp()` method
+- Completely refactored `read_convdata_at_times()` to load conventional 1-s netCDF and resample to target times
+- Removed legacy `_read_dsd_dict_for_probe()` helper that dispatched to old dis module I/O functions
+- Added NotImplementedError for CU/NV2 probe types with message indicating future netCDF pipelines needed
+- Added pandas import for pd.to_datetime() usage
+- All functions maintain backward API compatibility by returning same dict structures as before
+
+**Files Modified**: `pyPIPS/simulator.py`
+- **Lines 606-650**: `get_probe_geolocs_from_files()` – PIPS netCDF-based
+- **Lines 751-763**: `_load_pips_datasets()` – new helper function
+- **Lines 792-873**: `read_probe_time_series()` – uses xarray.interp() for time alignment
+- **Lines 886-963**: `read_convdata_at_times()` – PIPS netCDF-based resampling
+- **Removed**: `_read_dsd_dict_for_probe()` dispatcher function (~30 lines)
+- **Line 24**: Added pandas import
+
+### Technical Context for Future Development
+**PIPS NetCDF Structure**:
+- `parsivel_combined_*.nc`: DSD data (ND_qc, VD_matrix, rainrate_derived_qc, etc.) at resampled interval (default 10s)
+- `conventional_1s.nc`: Wind, temperature, pressure, humidity at 1-second resolution
+- `conventional_resampled_*.nc`: Conventional data pre-resampled to DSD interval (optional, not always used)
+
+**Key Variables**: `ND_qc` (number distribution), `rho` (air density), `rainrate_derived_qc`, `windspd`, `winddirabs`, `slowtemp`, `fasttemp`, `dewpoint`, `pressure`, `compass_dir` (fallback for wind direction)
+
+**Loading Pattern**:
+```python
+parsivel_ds = xr.load_dataset(parsivel_file)
+conv_ds = xr.load_dataset(conventional_file)
+conv_interp = conv_ds.interp(time=parsivel_ds["time"], method="nearest")
+```
+
+**Remaining Legacy disdrometer_module Usage**: The import is retained because other functions in simulator.py (calc_obs_transect, interp_model_to_transect, calc_obs_composite, interp_model_to_composite) still use dis.calc_DSD(), dis.calc_D0_bin(), and dis.assignfallspeed() for DSD calculations. These calculation functions are separate from data I/O and will remain until DSDlib replacements are available.
+
+### Key Lessons Learned
+#### xarray Interpolation for Time Alignment
+**Lesson**: xarray's `.interp()` method with `method="nearest"` provides robust dimension-aware time alignment without manual timestamp conversions or misalignment risks that numpy.interp can introduce.
+**Impact**: Data synchronization between different-resolution datasets becomes simpler, safer, and more maintainable.
+
+#### Modular Data Loading
+**Lesson**: Extracting data loading into dedicated helper functions (`_load_pips_datasets`) makes the main logic cleaner and easier to test independently.
+**Impact**: Future PIPS netCDF pipeline changes (e.g., supporting parsivel_resampled files, alternate variable names) can be localized to the helper.
+
+### Next Development Priorities
+1. Add unit tests for the new PIPS netCDF loading functions (error cases, time alignment edge cases)
+2. Implement CU and NV2 netCDF pipelines when available to re-enable those probe types
+3. Consider adding optional `parsivel_resampled` file loading (if pre-resampled conventional available)
+4. Document PIPS netCDF loading patterns in simulator.py docstrings for contributor reference
+
+
 
 ### Key Code Updates
 #### Manual QC Integration into apply_QC

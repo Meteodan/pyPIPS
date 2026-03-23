@@ -133,3 +133,7 @@ When the user says "Update progress", update the `.github/progress.md` file with
 - Include context that helps new agent sessions understand current state
 - Update existing entries if work continues on same topics
 - Maintain chronological order with most recent sessions at top
+
+## Coding Conventions
+
+In code documentation and comments, use American English spelling (e.g., "meter" instead of "metre") and ensure that all comments reflect the current state of the code to avoid confusion.

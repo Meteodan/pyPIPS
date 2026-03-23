@@ -678,7 +678,7 @@ def calc_empirical_fallspeed(d, correct_rho=False, rho=None):
     # where rho0 = 1.204 kg/m^3 -- that corresponding to a T of 20 C and pressure of 1013 mb.
 
     if correct_rho and rho is not None:
-        v = v[:, None] * (1.204 / rho.to_numpy())**(0.4)
+        v = v[:, None] * (1.204 / rho)**(0.4)
         v = v.squeeze()
         v = np.atleast_1d(v)
         v = v.T
