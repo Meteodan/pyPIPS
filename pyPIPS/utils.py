@@ -5,14 +5,15 @@ Returns
 [type]
     [description]
 """
-import sys
 import functools
-import imp
+import importlib.util
+import re
+import sys
 from datetime import datetime
+
 import numpy as np
 import matplotlib.dates as dates
 import xarray as xr
-import re
 
 logdest = sys.stdout
 
@@ -108,7 +109,12 @@ def import_all_from(module_path):
     """Modified from
        http://grokbase.com/t/python/python-list/1172ahxp0s/from-module-import-using-import
        Loads python file at "module_path" as module and adds contents to global namespace."""
-    mod = imp.load_source('mod', module_path)
+    spec = importlib.util.spec_from_file_location('mod', module_path)
+    if spec is None or spec.loader is None:
+        msg = f'Unable to load module from {module_path}'
+        raise ImportError(msg)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
     return mod
 
 
