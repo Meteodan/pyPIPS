@@ -5,10 +5,12 @@ Returns
 [type]
     [description]
 """
-import sys
 import functools
-import imp
+import importlib.util
+import re
+import sys
 from datetime import datetime
+
 import numpy as np
 import matplotlib.dates as dates
 import xarray as xr
@@ -107,7 +109,12 @@ def import_all_from(module_path):
     """Modified from
        http://grokbase.com/t/python/python-list/1172ahxp0s/from-module-import-using-import
        Loads python file at "module_path" as module and adds contents to global namespace."""
-    mod = imp.load_source('mod', module_path)
+    spec = importlib.util.spec_from_file_location('mod', module_path)
+    if spec is None or spec.loader is None:
+        msg = f'Unable to load module from {module_path}'
+        raise ImportError(msg)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
     return mod
 
 
@@ -358,3 +365,79 @@ def DDMtoDD(DDM, hem):
         sign = -1.
 
     return sign * (degrees + DM / 60.)
+
+
+def interp_along_1D(ds, da1D, dim_to_interp, dim_fixed):
+    """Interpolates 2D+ arrays in a Dataset ds to values given by a 1D DataArray da1D.
+    The DataArray is dimensioned by "dim_fixed" and contains values to which to interpolate along
+    "dim_to_interp" for each label of "dim_fixed".
+    The result for each DataArray in ds (that is dimensioned by at least dim_fixed and
+    dim_to_interp) is to reduce the dimension by one, yielding the interpolated values of that
+    DataArray to the desired points in "dim_to_interp" for each label of "dim_fixed".
+
+    Parameters
+    ----------
+    ds : xr.DataSet
+        The DataSet containing the arrays to interpolate
+    da1D : xr.DataArray
+        1D DataArray containing the points to interpolate to along dimension "dim_to_interp".
+        Dimensioned by dim_fixed.
+    dim_to_interp : str
+        Name of dimension along which to interpolate
+    dim_fixed : str
+        Name of dimension to hold fixed. The interpolation will be done along dim_to_interp for
+        each value in da1D that corresponds to each label of dim_fixed.
+
+    Returns
+    -------
+    xr.DataSet
+        The DataSet containing the interpolated fields.
+    """
+    # First, rename the fixed dimension to 'temp' in da1D
+    da1D = da1D.rename({dim_fixed: 'temp'})
+    # Extract the associated coordinate
+    temp_dim = da1D.coords['temp']
+
+    # Interpolate ds along the fixed dimension using the values in da1D
+    ds_interp = ds.interp({dim_to_interp: da1D, dim_fixed: temp_dim})
+    # Drop the old "fixed_dim" coords, and then rename the "temp" coord to the original
+    # name of the "fixed_dim" coords
+    ds_interp = ds_interp.reset_coords(dim_fixed, drop=True)
+    ds_interp = ds_interp.rename({'temp': dim_fixed})
+
+    return ds_interp
+
+
+# The following are taken from https://stackoverflow.com/questions/
+# 5967500/how-to-correctly-sort-a-string-with-a-number-inside?noredirect=1&lq=1
+def atoi(text):
+    return int(text) if text.isdigit() else text
+
+
+def natural_keys(text):
+    '''
+    alist.sort(key=natural_keys) sorts in human order
+    http://nedbatchelder.com/blog/200712/human_sorting.html
+    (See Toothy's implementation in the comments)
+    '''
+    return [atoi(c) for c in re.split(r'(\d+)', text)]
+
+
+# From https://stackoverflow.com/questions/6618515/sorting-list-based-on-values-from-another-list
+def sortby(X, Y):
+    """Sorts list X by values in list Y"""
+    return [x for _, x in sorted(zip(Y, X), key=lambda pair: pair[0])]
+
+
+# From
+# https://stackoverflow.com/questions/38987/
+# how-to-merge-two-dictionaries-in-a-single-expression?noredirect=1&lq=1
+def merge_dicts(*dict_args):
+    """
+    Given any number of dicts, shallow copy and merge into a new dict,
+    precedence goes to key value pairs in latter dicts.
+    """
+    result = {}
+    for dictionary in dict_args:
+        result.update(dictionary)
+    return result

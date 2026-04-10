@@ -13,6 +13,7 @@ dependencies:
   - h5py
   - h5netcdf
   - ipykernel
+  - ipympl
   - joblib
   - lxml
   - matplotlib
@@ -22,6 +23,7 @@ dependencies:
   - numba
   - numpy
   - pandas
+  - parse
   - pip
   - pylint
   - pysteps
