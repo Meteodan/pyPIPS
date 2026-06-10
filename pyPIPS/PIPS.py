@@ -684,6 +684,28 @@ def calc_empirical_fallspeed(d, correct_rho=False, rho=None):
         v = v.T
     return v
 
+## modified calc_empirical_fallspeed function, but for hail
+## using formula from Milbrandt and Morrison (2013)
+def calc_empirical_fallspeed_hail(d, rhohl, correct_rho=False, rho=None):
+    """Assigns a fall speed for a range of diameters"""
+    
+    #use standard air density rho_0 = 1.225 kg/m^3
+    
+    a_g = 189.02
+    b_g = 0.59048
+    
+    # fall speed without air density term
+    v = a_g*(d**b_g)
+    
+    if correct_rho and rho is not None:
+        v = v[:, None] * ((1.225/rho)**0.5)
+        v = v.squeeze()
+        v = np.atleast_1d(v)
+        v = v.T    
+   
+    return v
+
+
 
 def avgwind(winddirs, windspds, avgintv, gusts=True, gustintv=3, center=True):
     """Given a timeseries of wind directions and speeds, and an interval for averaging,
