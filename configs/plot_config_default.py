@@ -15,7 +15,7 @@ PIPS_plotting_dict = {
     # For meteograms
     'avgwindow': 180.,
     'plot_diagnostics': False,
-    'T_Td_range': (-10., 25.),
+    'T_Td_range': (-10., 35.),
     # For wind plotting
     'avgwind': False,
     'maskbadwind': True,

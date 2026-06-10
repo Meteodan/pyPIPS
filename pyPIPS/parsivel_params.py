@@ -153,6 +153,17 @@ probe_info_ICECHIP_2025_B = {
     }
 }
 
+probe_info_SPOTTR_2026 = {
+    'PIPS2A': {
+        'serialnum': '452783',
+        'parsivel_angle': -45.,
+    },
+    'PIPS2B': {
+        'serialnum': '452538',
+        'parsivel_angle': 45.,
+    }
+}
+
 RB15_RR_min = np.array([0., 0.1, 0.25, 0.5, 1., 2., 200.])
 RB15_RR_max = np.array([0.1, 0.25, 0.5, 1., 2., 200., np.inf])
 

@@ -1,6 +1,7 @@
 # radarmodule.py: A collection of functions to read and plot radar data
 
-import Nio
+# import Nio
+import netCDF4 as netcdf
 import numpy as np
 import matplotlib
 # matplotlib.use('TkAgg')
@@ -121,7 +122,8 @@ def _getsweeptime(path, CFRadial=True):
     """Attempts to read sweep time from the radar file or construct it from the file name."""
     if(CFRadial):
         # print "Opening file: ",path
-        sweepfile_netcdf = Nio.open_file(path)
+        # sweepfile_netcdf = Nio.open_file(path)
+        sweepfile_netcdf = netcdf.Dataset(path, "r")
         sweeptime = sweepfile_netcdf.variables['time_coverage_start'].get_value().tostring()
         radyear = int(sweeptime[:4])
         radmonth = int(sweeptime[5:7])
@@ -436,7 +438,8 @@ def readCFRadial(nexrad, el, radlat, radlon, radalt, file, sweeptime, fieldnames
     fieldlist = []
 
     print("Opening file: ", file)
-    sweepfile_netcdf = Nio.open_file(file)
+    # sweepfile_netcdf = Nio.open_file(file)
+    sweepfile_netcdf = netcdf.Dataset(file, "r")
 
     # Grab the time information from the file
 
@@ -653,7 +656,8 @@ def getncfilelist(platform, filelist, el_req, tolerance=0.5):
     elevations = []
 
     for index, file in enumerate(filelist):
-        sweepfile_netcdf = Nio.open_file(file)
+        # sweepfile_netcdf = Nio.open_file(file)
+        sweepfile_netcdf = netcdf.Dataset(file, "r")
         elevations.append(sweepfile_netcdf.variables[elvarname][0])
 
     elevations = np.array(elevations)
@@ -673,7 +677,8 @@ def readUMXPnc(file, sweeptime, fieldnames, heading=None, correct_attenuation=Tr
     fieldlist = []
 
     print("Opening file: ", file)
-    sweepfile_netcdf = Nio.open_file(file)
+    # sweepfile_netcdf = Nio.open_file(file)
+    sweepfile_netcdf = netcdf.Dataset(file, "r")
 
     # print "Time of sweep = ",sweeptime.strftime(tm.fmt)
 

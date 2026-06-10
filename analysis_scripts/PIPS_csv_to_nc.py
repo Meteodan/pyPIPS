@@ -48,14 +48,14 @@ parser.add_argument('--sort-times', dest='sort_times', action='store_true',
                     help='Sort dataset by time')
 parser.add_argument('--fill-gaps', dest='fill_gaps', action='store_true',
                     help='fill in gaps in time with missing values (NaNs)')
-parser.add_argument('--output-conv', dest='output_conv', action='store_true',
-                    help='output 1-s conventional data to netCDF?')
-parser.add_argument('--output-combined-parsivel', dest='output_combined_parsivel',
+parser.add_argument('--skip-conv', dest='skip_conv', action='store_true',
+                    help='skip output of 1-s conventional data to netCDF')
+parser.add_argument('--skip-combined-parsivel', dest='skip_combined_parsivel',
                     action='store_true',
-                    help='output combined parsivel and conventional data to netCDF?')
+                    help='skip output of combined parsivel and conventional data to netCDF')
 parser.add_argument('--requested-interval', dest='requested_interval', type=float, default=None,
                     help='Requested resampling interval in seconds. Overrides case config file.')
-parser.add_argument('--probe-set', dest='probe_set', default='pre_ICECHIP',
+parser.add_argument('--probe-set', dest='probe_set', default=None,
                     help='Probe set to use for reading PIPS data. Must be one '
                          'of the probe sets in pyPIPS.parsivel_params. By default, pre_ICECHIP')
 # parser.add_argument('--apply-qc', dest='apply_qc', action='store_true', help='apply QC to DSDs?')
@@ -97,6 +97,14 @@ if not args.requested_interval:
 else:
     requested_interval = args.requested_interval
 
+# Determine probe_set: command line overrides config file, fallback to default
+if args.probe_set is not None:
+    # Command line argument was provided
+    probe_set = args.probe_set
+else:
+    # Try to get from config file, otherwise use default
+    probe_set = config.PIPS_IO_dict.get('probe_set', 'pre_ICECHIP')
+
 output_dir = args.output_dir if args.output_dir else PIPS_dir
 if not os.path.exists(output_dir):
     os.makedirs(output_dir)
@@ -119,7 +127,7 @@ for index, PIPS_filename, PIPS_name, start_time, end_time, geo_loc, ptype, deplo
                                                           end_timestamp=end_time, tripips=tripips,
                                                           sort=args.sort_times,
                                                           check_order=args.check_order,
-                                                          probe_set=args.probe_set)
+                                                          probe_set=probe_set)
     vd_matrix_da.attrs['units'] = 'count'
     # We need the disdrometer locations. If they aren't supplied in the input control file, find
     # them from the GPS data
@@ -132,19 +140,21 @@ for index, PIPS_filename, PIPS_name, start_time, end_time, geo_loc, ptype, deplo
     conv_df = pips.calc_thermo(conv_df)
 
     # Figure out the angle of the parsivel disdrometer for each PIPS
-    if args.probe_set == 'pre_ICECHIP':
+    if probe_set == 'pre_ICECHIP':
         parsivel_angle = pp.probe_info_pre_ICECHIP[PIPS_name]['parsivel_angle']
-    elif args.probe_set == 'ICECHIP_2025_A':
+    elif probe_set == 'ICECHIP_2025_A':
         parsivel_angle = pp.probe_info_ICECHIP_2025_A[PIPS_name]['parsivel_angle']
-    elif args.probe_set == 'ICECHIP_2025_B':
+    elif probe_set == 'ICECHIP_2025_B':
         parsivel_angle = pp.probe_info_ICECHIP_2025_B[PIPS_name]['parsivel_angle']
+    elif probe_set == 'SPOTTR_2026':
+        parsivel_angle = pp.probe_info_SPOTTR_2026[PIPS_name]['parsivel_angle']
     else:
         parsivel_angle = pp.probe_info_pre_ICECHIP[PIPS_name]['parsivel_angle']
 
     # Only do the following if we have parsivel data. Need to clean this up to make it more
     # graceful.
 
-    if parsivel_df is not None and vd_matrix_da is not None and args.output_combined_parsivel:
+    if parsivel_df is not None and vd_matrix_da is not None and not args.skip_combined_parsivel:
 
         # if apply_qc:
         #     # Do some QC on the V-D matrix. This will make a copy of the raw matrix. The netCDF
@@ -261,8 +271,8 @@ for index, PIPS_filename, PIPS_name, start_time, end_time, geo_loc, ptype, deplo
         parsivel_combined_ds.attrs['parsivel_angle'] = parsivel_angle
         parsivel_combined_ds.attrs['deployment_name'] = deployment_name
         parsivel_combined_ds.attrs['location'] = str(geo_locs[index])
-        parsivel_combined_ds.attrs['starting_time'] = start_time
-        parsivel_combined_ds.attrs['ending_time'] = end_time
+        parsivel_combined_ds.attrs['starting_time'] = PSD_datetimes[0].strftime('%Y%m%d%H%M%S')
+        parsivel_combined_ds.attrs['ending_time'] = PSD_datetimes[-1].strftime('%Y%m%d%H%M%S')
         parsivel_combined_ds.attrs['DSD_interval'] = DSD_interval
 
         # Dump to netCDF files
@@ -276,7 +286,7 @@ for index, PIPS_filename, PIPS_name, start_time, end_time, geo_loc, ptype, deplo
         print(f"Dumping {ncfile_path}")  # noqa: T201
         parsivel_combined_ds.to_netcdf(ncfile_path)
 
-    if args.output_conv:
+    if not args.skip_conv:
         # Convert conventional data pd.DataFrame to xr.Dataset and add some metadata
         conv_ds = pipsio.conv_df_to_ds(conv_df)
 
@@ -300,8 +310,11 @@ for index, PIPS_filename, PIPS_name, start_time, end_time, geo_loc, ptype, deplo
         conv_ds.attrs['parsivel_angle'] = parsivel_angle
         conv_ds.attrs['deployment_name'] = deployment_name
         conv_ds.attrs['location'] = str(geo_locs[index])
-        conv_ds.attrs['starting_time'] = start_time
-        conv_ds.attrs['ending_time'] = end_time
+        conv_ds_datetimes = pips.get_datetimes(conv_ds)
+        conv_ds_start_time = conv_ds_datetimes[0].strftime('%Y%m%d%H%M%S')
+        conv_ds_end_time = conv_ds_datetimes[-1].strftime('%Y%m%d%H%M%S')
+        conv_ds.attrs['starting_time'] = conv_ds_start_time
+        conv_ds.attrs['ending_time'] = conv_ds_end_time
 
         if conv_filename_nc:
             ncfile_name = conv_filename_nc

@@ -82,7 +82,6 @@ target/
 
 # Other stuff
 *.png
-*.txt
 !requirements*txt
 *.npz
 *.pyc

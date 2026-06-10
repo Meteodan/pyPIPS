@@ -3,10 +3,11 @@
 PIPS_IO_dict = {
     'dataset_name': 'IOP2_051925',
     'deployment_names': ['IOP2_051925'] * 5,
-    'input_txt_dir': '/Users/dawson29/Dropbox/Projects/ICECHIP/obsdata/PIPS_data/IOP2_051925/csv/',
-    'PIPS_dir': '/Users/dawson29/Dropbox/Projects/ICECHIP/obsdata/PIPS_data/IOP2_051925/netcdf/',
-    'plot_dir': '/Users/dawson29/Dropbox/Projects/ICECHIP/obsdata/PIPS_data/IOP2_051925/plots/10s/',
+    'input_txt_dir': '/Users/dawson29/Projects/ICECHIP/obsdata/PIPS_data/IOP2_051925/csv/',
+    'PIPS_dir': '/Users/dawson29/Projects/ICECHIP/obsdata/PIPS_data/IOP2_051925/netcdf/',
+    'plot_dir': '/Users/dawson29/Projects/ICECHIP/obsdata/PIPS_data/IOP2_051925/plots/10s/',
     'PIPS_types': ['PIPS'] * 5,
+    'probe_set': 'ICECHIP_2025_A',
     'PIPS_names': ['PIPS1A', 'PIPS1B', 'PIPS2A', 'PIPS3A', 'PIPS3B'],
     'PIPS_filenames': ['PIPS1A_IOP2_051925_merged.txt', 'PIPS1B_IOP2_051925_merged.txt',
                        'PIPS2A_IOP2_051925_merged.txt',
@@ -21,8 +22,8 @@ PIPS_IO_dict = {
                           'conventional_raw_IOP2_051925_PIPS2A.nc',
                           'conventional_raw_IOP2_051925_PIPS3A.nc',
                           'conventional_raw_IOP2_051925_PIPS3B.nc'],
-    'start_times': [None] * 5,
-    'end_times': [None] * 5,
+    'start_times': ['20250520003000'] * 5,
+    'end_times': ['20250520020000'] * 5,
     'requested_interval': 10.
 }
 

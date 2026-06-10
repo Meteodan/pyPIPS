@@ -304,6 +304,9 @@ def parse_parsivel_telegram(parsivel_telegram, logger_datetime, probe_set='ICECH
     elif probe_set == 'ICECHIP_2025_B':
         valid_serial_nums = [v['serialnum'] for
                              k, v in parsivel_params.probe_info_ICECHIP_2025_B.items()]
+    elif probe_set == 'SPOTTR_2026':
+        valid_serial_nums = [v['serialnum'] for
+                             k, v in parsivel_params.probe_info_SPOTTR_2026.items()]
     else:
         valid_serial_nums = [v['serialnum'] for
                              k, v in parsivel_params.probe_info_pre_ICECHIP.items()]
@@ -407,7 +410,6 @@ def read_PIPS(filename, start_timestamp=None, end_timestamp=None, tripips=False,
                 continue
             if stoptime is not None and record_dict['logger_datetime'] > stoptime:
                 continue
-
             parsivel_dict, vd_matrix = parse_parsivel_telegram(record_dict['parsivel_telegram'],
                                                                record_dict['logger_datetime'],
                                                                probe_set=probe_set)

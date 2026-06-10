@@ -4,7 +4,8 @@
 
 import netCDF4 as netcdf
 import numpy as np
-from cftime import utime
+# from cftime import utime
+import cftime
 from datetime import datetime
 from scipy.interpolate import interp1d
 
@@ -335,7 +336,8 @@ def readsweep(obanfilename, stime, target_elev, timetol):
     print()
     print("COARDS string from file:  ", date_string)
 
-    sec_utime = utime(date_string)
+    # sec_utime = utime(date_string)
+    sec_utime = cftime(date_string)
 
     model_time = datetime(int(stime[0:4]), int(stime[4:6]), int(
         stime[6:8]), int(stime[8:10]), int(stime[10:12]), int(stime[12:14]))

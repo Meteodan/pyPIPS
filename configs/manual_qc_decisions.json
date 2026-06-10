@@ -1,0 +1,496 @@
+{
+  "PIPS1B_IOP21_062225": [
+    {
+      "variable": "slowtemp",
+      "start_time": "2025-06-22T23:34:51.372612+00:00",
+      "end_time": "2025-06-23T00:04:12.805003+00:00",
+      "reason": "Sensor malfunction",
+      "flagged_on": "2026-02-03T23:30:24.589995"
+    }
+  ],
+  "PIPS1B_IOP12_060625": [
+    {
+      "variable": "slowtemp",
+      "start_time": "2025-06-07T00:26:19.321079+00:00",
+      "end_time": "2025-06-07T00:26:22.500055+00:00",
+      "reason": "Sensor malfunction",
+      "flagged_on": "2026-02-04T20:06:13.426158"
+    }
+  ],
+  "PIPS2A_IOP18_061525_D1": [
+    {
+      "variable": "slowtemp",
+      "start_time": "2025-06-15T21:09:22.860247+00:00",
+      "end_time": "2025-06-15T21:09:25.324418+00:00",
+      "reason": "Sensor malfunction",
+      "flagged_on": "2026-02-04T20:21:49.677116"
+    },
+    {
+      "variable": "slowtemp",
+      "start_time": "2025-06-15T23:56:26.893173+00:00",
+      "end_time": "2025-06-15T23:56:29.410032+00:00",
+      "reason": "Sensor malfunction",
+      "flagged_on": "2026-02-04T20:22:37.720280"
+    }
+  ],
+  "PIPS1B_IOP18_061525_D2": [
+    {
+      "variable": "slowtemp",
+      "start_time": "2025-06-16T02:12:32.954462+00:00",
+      "end_time": "2025-06-16T02:12:35.114567+00:00",
+      "reason": "Sensor malfunction",
+      "flagged_on": "2026-02-04T20:25:29.998752"
+    }
+  ],
+  "PIPS1B_IOP20_062025": [
+    {
+      "variable": "slowtemp",
+      "start_time": "2025-06-20T23:48:37.850697+00:00",
+      "end_time": "2025-06-20T23:48:40.066616+00:00",
+      "reason": "Sensor malfunction",
+      "flagged_on": "2026-02-04T20:34:38.130225"
+    }
+  ],
+  "PIPS2A_IOP20_062025": [
+    {
+      "variable": "slowtemp",
+      "start_time": "2025-06-21T00:17:14.472882+00:00",
+      "end_time": "2025-06-21T00:22:56.728251+00:00",
+      "reason": "Sensor malfunction",
+      "flagged_on": "2026-02-04T20:35:38.559143"
+    }
+  ],
+  "PIPS2A_IOP21_062225": [
+    {
+      "variable": "slowtemp",
+      "start_time": "2025-06-22T22:58:35.448840+00:00",
+      "end_time": "2025-06-22T22:58:44.986441+00:00",
+      "reason": "Sensor malfunction",
+      "flagged_on": "2026-02-04T20:42:14.030197"
+    },
+    {
+      "variable": "slowtemp",
+      "start_time": "2025-06-23T00:06:53.248557+00:00",
+      "end_time": "2025-06-23T00:07:01.939626+00:00",
+      "reason": "Sensor malfunction",
+      "flagged_on": "2026-02-04T20:42:47.008890"
+    }
+  ],
+  "PIPS1B_IOP23_062725": [
+    {
+      "variable": "slowtemp",
+      "start_time": "2025-06-28T00:57:15.497923+00:00",
+      "end_time": "2025-06-28T01:00:59.068580+00:00",
+      "reason": "Sensor malfunction",
+      "flagged_on": "2026-02-04T20:45:34.403224"
+    }
+  ],
+  "_manual_trim": {
+    "PIPS2A_IOP21_062225": {
+      "new_start_time": "2025-06-22T23:00:20",
+      "new_end_time": "2025-06-23T01:27:10",
+      "reason": "Removed early adjustment period (aligned to parsivel grid)",
+      "trimmed_on": "2026-02-09T10:59:38.389543",
+      "aligned_to_parsivel": true
+    },
+    "PIPS3A_IOP21_062225": {
+      "new_start_time": "2025-06-22T23:13:19",
+      "new_end_time": "2025-06-23T01:10:59",
+      "reason": "Removed early adjustment period (aligned to parsivel grid)",
+      "trimmed_on": "2026-02-09T11:01:48.509519",
+      "aligned_to_parsivel": true
+    },
+    "PIPS2A_IOP1_051825": {
+      "new_start_time": "2025-05-19T00:40:56",
+      "new_end_time": "2025-05-19T01:08:46",
+      "reason": "Removed early adjustment period (aligned to parsivel grid)",
+      "trimmed_on": "2026-02-04T17:04:34.604247",
+      "aligned_to_parsivel": true
+    },
+    "PIPS1B_IOP3_052325": {
+      "new_start_time": "2025-05-23T23:02:54",
+      "new_end_time": "2025-05-23T23:47:14",
+      "reason": "Removed early adjustment period (aligned to parsivel grid)",
+      "trimmed_on": "2026-02-04T18:50:10.013495",
+      "aligned_to_parsivel": true
+    },
+    "PIPS3A_IOP3_052325": {
+      "new_start_time": "2025-05-23T23:59:19",
+      "new_end_time": "2025-05-24T01:37:19",
+      "reason": "Removed early adjustment period (aligned to parsivel grid)",
+      "trimmed_on": "2026-02-09T11:18:49.826408",
+      "aligned_to_parsivel": true
+    },
+    "PIPS2A_IOP4_052525": {
+      "new_start_time": "2025-05-25T20:16:00",
+      "new_end_time": "2025-05-25T22:19:50",
+      "reason": "Removed early adjustment period (aligned to parsivel grid)",
+      "trimmed_on": "2026-02-04T19:04:30.371955",
+      "aligned_to_parsivel": true
+    },
+    "PIPS2B_IOP4_052525": {
+      "new_start_time": "2025-05-25T20:00:54",
+      "new_end_time": "2025-05-25T22:08:14",
+      "reason": "Removed early adjustment period (aligned to parsivel grid)",
+      "trimmed_on": "2026-02-04T19:07:18.255959",
+      "aligned_to_parsivel": true
+    },
+    "PIPS3A_IOP4_052525": {
+      "new_start_time": "2025-05-25T20:22:19",
+      "new_end_time": "2025-05-25T22:35:49",
+      "reason": "Removed early adjustment period (aligned to parsivel grid)",
+      "trimmed_on": "2026-02-09T11:22:57.293195",
+      "aligned_to_parsivel": true
+    },
+    "PIPS3B_IOP4_052525": {
+      "new_start_time": "2025-05-25T20:11:09",
+      "new_end_time": "2025-05-25T22:41:39",
+      "reason": "Removed early adjustment period (aligned to parsivel grid)",
+      "trimmed_on": "2026-02-04T19:08:31.063037",
+      "aligned_to_parsivel": true
+    },
+    "PIPS1A_IOP5_052625": {
+      "new_start_time": "2025-05-26T22:15:20",
+      "new_end_time": "2025-05-26T23:19:30",
+      "reason": "Removed early adjustment period (aligned to parsivel grid)",
+      "trimmed_on": "2026-02-04T19:48:43.711030",
+      "aligned_to_parsivel": true
+    },
+    "PIPS1B_IOP5_052625": {
+      "new_start_time": "2025-05-26T21:58:34",
+      "new_end_time": "2025-05-26T23:26:04",
+      "reason": "Removed early adjustment period (aligned to parsivel grid)",
+      "trimmed_on": "2026-02-09T11:25:00.312492",
+      "aligned_to_parsivel": true
+    },
+    "PIPS2B_IOP5_052625": {
+      "new_start_time": "2025-05-26T22:12:44",
+      "new_end_time": "2025-05-26T22:59:04",
+      "reason": "Removed early adjustment period (aligned to parsivel grid)",
+      "trimmed_on": "2026-02-09T11:25:52.463553",
+      "aligned_to_parsivel": true
+    },
+    "PIPS3A_IOP5_052625": {
+      "new_start_time": "2025-05-26T22:08:09",
+      "new_end_time": "2025-05-26T23:13:19",
+      "reason": "Removed early adjustment period (aligned to parsivel grid)",
+      "trimmed_on": "2026-02-04T19:51:42.853679",
+      "aligned_to_parsivel": true
+    },
+    "PIPS3B_IOP5_052625": {
+      "new_start_time": "2025-05-26T21:59:49",
+      "new_end_time": "2025-05-26T23:04:59",
+      "reason": "Removed early adjustment period (aligned to parsivel grid)",
+      "trimmed_on": "2026-02-04T19:52:08.685063",
+      "aligned_to_parsivel": true
+    },
+    "PIPS3B_IOP7_052925": {
+      "new_start_time": "2025-05-29T21:48:19",
+      "new_end_time": "2025-05-29T23:31:59",
+      "reason": "Removed early adjustment period (aligned to parsivel grid)",
+      "trimmed_on": "2026-02-04T19:54:32.349328",
+      "aligned_to_parsivel": true
+    },
+    "PIPS1B_IOP10_060425": {
+      "new_start_time": "2025-06-05T00:54:28",
+      "new_end_time": "2025-06-05T01:53:28",
+      "reason": "Removed early adjustment period (aligned to parsivel grid)",
+      "trimmed_on": "2026-02-08T16:15:59.837498",
+      "aligned_to_parsivel": true
+    },
+    "PIPS2B_IOP10_060425": {
+      "new_start_time": "2025-06-05T00:37:48",
+      "new_end_time": "2025-06-05T01:35:48",
+      "reason": "Removed early adjustment period (aligned to parsivel grid)",
+      "trimmed_on": "2026-02-08T16:19:42.605641",
+      "aligned_to_parsivel": true
+    },
+    "PIPS1B_IOP11_060525": {
+      "new_start_time": "2025-06-05T22:10:48",
+      "new_end_time": "2025-06-06T00:02:28",
+      "reason": "Removed early adjustment period (aligned to parsivel grid)",
+      "trimmed_on": "2026-02-08T16:25:09.362111",
+      "aligned_to_parsivel": true
+    },
+    "PIPS2B_IOP11_060525": {
+      "new_start_time": "2025-06-05T22:23:58",
+      "new_end_time": "2025-06-06T00:21:08",
+      "reason": "Removed early adjustment period (aligned to parsivel grid)",
+      "trimmed_on": "2026-02-08T16:41:32.555194",
+      "aligned_to_parsivel": true
+    },
+    "PIPS1B_IOP12_060625": {
+      "new_start_time": "2025-06-06T23:49:28",
+      "new_end_time": "2025-06-07T01:39:58",
+      "reason": "Removed early adjustment period (aligned to parsivel grid)",
+      "trimmed_on": "2026-02-08T16:59:22.434700",
+      "aligned_to_parsivel": true
+    },
+    "PIPS2A_IOP12_060625": {
+      "new_start_time": "2025-06-06T23:33:38",
+      "new_end_time": "2025-06-07T00:51:58",
+      "reason": "Removed early adjustment period (aligned to parsivel grid)",
+      "trimmed_on": "2026-02-08T17:01:27.161881",
+      "aligned_to_parsivel": true
+    },
+    "PIPS3B_IOP12_060625": {
+      "new_start_time": "2025-06-06T23:41:49",
+      "new_end_time": "2025-06-07T01:19:19",
+      "reason": "Removed early adjustment period (aligned to parsivel grid)",
+      "trimmed_on": "2026-02-08T17:09:18.762928",
+      "aligned_to_parsivel": true
+    },
+    "PIPS1A_IOP13_060825": {
+      "new_start_time": "2025-06-08T21:46:39",
+      "new_end_time": "2025-06-08T23:49:39",
+      "reason": "Removed early adjustment period (aligned to parsivel grid)",
+      "trimmed_on": "2026-02-04T20:12:03.640660",
+      "aligned_to_parsivel": true
+    },
+    "PIPS1B_IOP13_060825": {
+      "new_start_time": "2025-06-08T21:31:59",
+      "new_end_time": "2025-06-08T23:34:39",
+      "reason": "Removed early adjustment period (aligned to parsivel grid)",
+      "trimmed_on": "2026-02-04T20:12:22.429273",
+      "aligned_to_parsivel": true
+    },
+    "PIPS2A_IOP13_060825": {
+      "new_start_time": "2025-06-08T21:25:29",
+      "new_end_time": "2025-06-08T23:03:49",
+      "reason": "Removed early adjustment period (aligned to parsivel grid)",
+      "trimmed_on": "2026-02-04T20:12:50.179747",
+      "aligned_to_parsivel": true
+    },
+    "PIPS2B_IOP13_060825": {
+      "new_start_time": "2025-06-08T21:18:19",
+      "new_end_time": "2025-06-08T23:10:19",
+      "reason": "Removed early adjustment period (aligned to parsivel grid)",
+      "trimmed_on": "2026-02-04T20:13:35.345028",
+      "aligned_to_parsivel": true
+    },
+    "PIPS3A_IOP13_060825": {
+      "new_start_time": "2025-06-08T21:39:39",
+      "new_end_time": "2025-06-08T23:42:09",
+      "reason": "Removed early adjustment period (aligned to parsivel grid)",
+      "trimmed_on": "2026-02-04T20:13:54.990470",
+      "aligned_to_parsivel": true
+    },
+    "PIPS3B_IOP13_060825": {
+      "new_start_time": "2025-06-08T21:15:49",
+      "new_end_time": "2025-06-08T23:10:19",
+      "reason": "Removed early adjustment period (aligned to parsivel grid)",
+      "trimmed_on": "2026-02-04T20:14:23.006906",
+      "aligned_to_parsivel": true
+    },
+    "PIPS1A_IOP15_061225": {
+      "new_start_time": "2025-06-12T22:34:59",
+      "new_end_time": "2025-06-12T23:45:59",
+      "reason": "Removed early adjustment period (aligned to parsivel grid)",
+      "trimmed_on": "2026-02-08T17:16:19.406048",
+      "aligned_to_parsivel": true
+    },
+    "PIPS1B_IOP15_061225": {
+      "new_start_time": "2025-06-12T22:45:29",
+      "new_end_time": "2025-06-13T00:06:09",
+      "reason": "Removed early adjustment period (aligned to parsivel grid)",
+      "trimmed_on": "2026-02-04T20:16:23.580941",
+      "aligned_to_parsivel": true
+    },
+    "PIPS2A_IOP15_061225": {
+      "new_start_time": "2025-06-12T22:04:29",
+      "new_end_time": "2025-06-12T23:11:29",
+      "reason": "Removed early adjustment period (aligned to parsivel grid)",
+      "trimmed_on": "2026-02-04T20:17:13.232637",
+      "aligned_to_parsivel": true
+    },
+    "PIPS2B_IOP15_061225": {
+      "new_start_time": "2025-06-12T22:00:39",
+      "new_end_time": "2025-06-12T23:01:19",
+      "reason": "Removed early adjustment period (aligned to parsivel grid)",
+      "trimmed_on": "2026-02-04T20:17:45.751392",
+      "aligned_to_parsivel": true
+    },
+    "PIPS3B_IOP15_061225": {
+      "new_start_time": "2025-06-12T21:53:29",
+      "new_end_time": "2025-06-12T22:47:19",
+      "reason": "Removed early adjustment period (aligned to parsivel grid)",
+      "trimmed_on": "2026-02-04T20:18:33.811759",
+      "aligned_to_parsivel": true
+    },
+    "PIPS1A_IOP18_061525_D2": {
+      "new_start_time": "2025-06-16T02:06:20",
+      "new_end_time": "2025-06-16T02:59:50",
+      "reason": "Removed early adjustment period (aligned to parsivel grid)",
+      "trimmed_on": "2026-02-08T18:35:40.288681",
+      "aligned_to_parsivel": true
+    },
+    "PIPS1B_IOP18_061525_D2": {
+      "new_start_time": "2025-06-16T02:13:50",
+      "new_end_time": "2025-06-16T03:34:20",
+      "reason": "Removed early adjustment period (aligned to parsivel grid)",
+      "trimmed_on": "2026-02-08T18:36:29.473976",
+      "aligned_to_parsivel": true
+    },
+    "PIPS2A_IOP18_061525_D2": {
+      "new_start_time": "2025-06-16T01:53:20",
+      "new_end_time": "2025-06-16T03:20:00",
+      "reason": "Removed early adjustment period (aligned to parsivel grid)",
+      "trimmed_on": "2026-02-08T18:38:30.688919",
+      "aligned_to_parsivel": true
+    },
+    "PIPS2B_IOP18_061525_D2": {
+      "new_start_time": "2025-06-16T02:06:30",
+      "new_end_time": "2025-06-16T03:11:00",
+      "reason": "Removed early adjustment period (aligned to parsivel grid)",
+      "trimmed_on": "2026-02-08T18:40:25.242393",
+      "aligned_to_parsivel": true
+    },
+    "PIPS3A_IOP18_061525_D2": {
+      "new_start_time": "2025-06-16T01:49:49",
+      "new_end_time": "2025-06-16T03:19:59",
+      "reason": "Removed early adjustment period (aligned to parsivel grid)",
+      "trimmed_on": "2026-02-08T18:41:00.026492",
+      "aligned_to_parsivel": true
+    },
+    "PIPS1A_IOP19_061725": {
+      "new_start_time": "2025-06-18T00:26:00",
+      "new_end_time": "2025-06-18T02:48:30",
+      "reason": "Removed early adjustment period (aligned to parsivel grid)",
+      "trimmed_on": "2026-02-08T18:48:28.690207",
+      "aligned_to_parsivel": true
+    },
+    "PIPS1B_IOP19_061725": {
+      "new_start_time": "2025-06-18T00:40:30",
+      "new_end_time": "2025-06-18T02:22:00",
+      "reason": "Removed early adjustment period (aligned to parsivel grid)",
+      "trimmed_on": "2026-02-08T18:49:49.696910",
+      "aligned_to_parsivel": true
+    },
+    "PIPS2A_IOP19_061725": {
+      "new_start_time": "2025-06-18T00:07:40",
+      "new_end_time": "2025-06-18T01:20:40",
+      "reason": "Removed early adjustment period (aligned to parsivel grid)",
+      "trimmed_on": "2026-02-08T18:51:07.401624",
+      "aligned_to_parsivel": true
+    },
+    "PIPS1A_IOP20_062025": {
+      "new_start_time": "2025-06-20T23:25:30",
+      "new_end_time": "2025-06-21T01:24:10",
+      "reason": "Removed early adjustment period (aligned to parsivel grid)",
+      "trimmed_on": "2026-02-04T20:36:20.570556",
+      "aligned_to_parsivel": true
+    },
+    "PIPS1B_IOP20_062025": {
+      "new_start_time": "2025-06-20T23:44:20",
+      "new_end_time": "2025-06-21T01:54:00",
+      "reason": "Removed early adjustment period (aligned to parsivel grid)",
+      "trimmed_on": "2026-02-04T20:36:41.069753",
+      "aligned_to_parsivel": true
+    },
+    "PIPS2A_IOP20_062025": {
+      "new_start_time": "2025-06-20T23:33:30",
+      "new_end_time": "2025-06-21T01:37:10",
+      "reason": "Removed early adjustment period (aligned to parsivel grid)",
+      "trimmed_on": "2026-02-04T20:37:02.143600",
+      "aligned_to_parsivel": true
+    },
+    "PIPS3A_IOP20_062025": {
+      "new_start_time": "2025-06-20T23:18:29",
+      "new_end_time": "2025-06-21T01:09:39",
+      "reason": "Removed early adjustment period (aligned to parsivel grid)",
+      "trimmed_on": "2026-02-04T20:37:30.193839",
+      "aligned_to_parsivel": true
+    },
+    "PIPS1A_IOP23_062725": {
+      "new_start_time": "2025-06-28T00:10:41",
+      "new_end_time": "2025-06-28T01:48:51",
+      "reason": "Removed early adjustment period (aligned to parsivel grid)",
+      "trimmed_on": "2026-02-04T20:46:22.996340",
+      "aligned_to_parsivel": true
+    },
+    "PIPS2A_IOP11_060525": {
+      "new_start_time": "2025-06-05T22:16:08",
+      "new_end_time": "2025-06-06T01:28:48",
+      "reason": "Removed early adjustment period (aligned to parsivel grid)",
+      "trimmed_on": "2026-02-08T16:31:17.036551",
+      "aligned_to_parsivel": true
+    },
+    "PIPS1A_IOP11_060525": {
+      "new_start_time": "2025-06-05T22:29:40",
+      "new_end_time": "2025-06-06T00:35:50",
+      "reason": "Removed early adjustment period (aligned to parsivel grid)",
+      "trimmed_on": "2026-02-08T16:28:49.803250",
+      "aligned_to_parsivel": true
+    },
+    "PIPS3A_IOP11_060525": {
+      "new_start_time": "2025-06-05T22:23:29",
+      "new_end_time": "2025-06-06T00:32:09",
+      "reason": "Removed early adjustment period (aligned to parsivel grid)",
+      "trimmed_on": "2026-02-08T16:43:50.426791",
+      "aligned_to_parsivel": true
+    },
+    "PIPS3B_IOP11_060525": {
+      "new_start_time": "2025-06-05T22:18:08",
+      "new_end_time": "2025-06-06T00:26:58",
+      "reason": "Removed early adjustment period (aligned to parsivel grid)",
+      "trimmed_on": "2026-02-08T16:44:58.594920",
+      "aligned_to_parsivel": true
+    },
+    "PIPS2B_IOP12_060625": {
+      "new_start_time": "2025-06-06T23:39:28",
+      "new_end_time": "2025-06-07T01:30:18",
+      "reason": "Removed early adjustment period (aligned to parsivel grid)",
+      "trimmed_on": "2026-02-08T17:07:08.129744",
+      "aligned_to_parsivel": true
+    },
+    "PIPS1A_IOP21_062225": {
+      "new_start_time": "2025-06-22T23:04:50",
+      "new_end_time": "2025-06-23T01:21:00",
+      "reason": "Removed early adjustment period (aligned to parsivel grid)",
+      "trimmed_on": "2026-02-09T10:57:41.827331",
+      "aligned_to_parsivel": true
+    },
+    "PIPS2A_IOP23_062725": {
+      "new_start_time": "2025-06-28T00:05:30",
+      "new_end_time": "2025-06-28T01:56:20",
+      "reason": "Removed early adjustment period (aligned to parsivel grid)",
+      "trimmed_on": "2026-02-09T11:05:52.306267",
+      "aligned_to_parsivel": true
+    },
+    "PIPS3B_IOP2_051925": {
+      "new_start_time": "2025-05-20T00:32:49",
+      "new_end_time": "2025-05-20T01:28:29",
+      "reason": "Removed early adjustment period (aligned to parsivel grid)",
+      "trimmed_on": "2026-02-09T11:12:52.117853",
+      "aligned_to_parsivel": true
+    },
+    "PIPS1A_IOP3_052325": {
+      "new_start_time": "2025-05-23T23:53:50",
+      "new_end_time": "2025-05-24T01:33:20",
+      "reason": "Removed early adjustment period (aligned to parsivel grid)",
+      "trimmed_on": "2026-02-09T11:14:55.754882",
+      "aligned_to_parsivel": true
+    },
+    "PIPS2B_IOP3_052325": {
+      "new_start_time": "2025-05-23T22:47:14",
+      "new_end_time": "2025-05-24T00:14:54",
+      "reason": "Removed early adjustment period (aligned to parsivel grid)",
+      "trimmed_on": "2026-02-09T11:16:55.533443",
+      "aligned_to_parsivel": true
+    },
+    "PIPS1B_IOP4_052525": {
+      "new_start_time": "2025-05-25T20:23:54",
+      "new_end_time": "2025-05-25T22:50:34",
+      "reason": "Removed early adjustment period (aligned to parsivel grid)",
+      "trimmed_on": "2026-02-09T11:20:50.726200",
+      "aligned_to_parsivel": true
+    },
+    "PIPS2A_IOP9_060325": {
+      "new_start_time": "2025-06-03T20:59:58",
+      "new_end_time": "2025-06-03T21:54:38",
+      "reason": "Removed early adjustment period (aligned to parsivel grid)",
+      "trimmed_on": "2026-02-09T11:28:48.241381",
+      "aligned_to_parsivel": true
+    }
+  }
+}
