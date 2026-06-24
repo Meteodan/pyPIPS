@@ -61,6 +61,7 @@ except ImportError:   # pragma: no cover
 
 rhoacst = 1.0       # kg m^-3 (approximate sea-level air density)
 rhorcst = 1000.0    # kg m^-3 (liquid-water density)
+#rhohlcst = 850.0    # kg m^-3 (hail density)
 cr = rhorcst * np.pi / 6.0
 mur = 1.0 / 3.0     # assumed rain shape parameter (gamma-diameter)
 
@@ -2792,6 +2793,218 @@ def sample_model_PSD_along_transect(
         },
         coords={"sample_time": sampling_times},
     )
+
+
+
+## Modified version of sample_model_PSD_along_transect function, but for hail
+def sample_model_PSD_along_transect_hail(
+    transect_ds: xr.Dataset,
+    ds: xr.Dataset,
+    grid_idx_ds: xr.Dataset,
+    Dmax: float | None = None,
+    level: int = 0,
+) -> xr.Dataset:
+    """
+    Sample the model PSD along a transect using the Parsivel simulator.
+
+    Single-probe, Parsivel-simulator-only replacement for
+    :func:`interp_model_to_transect`.  Model fields are extracted directly
+    from *ds* at each transect grid-cell rather than being read from a
+    pre-built transect Dataset.  The shape parameter *alphar* is derived
+    from the ``zr`` reflectivity field via :func:`dualpara.solve_alpha_iter`.
+
+    Parameters
+    ----------
+    transect_ds : xr.Dataset
+        Output of :func:`find_transect_grid_intersections`.
+        Must have coords ``all_time`` and ``sample_time``.
+    ds : xr.Dataset
+        Normalised model Dataset with canonical field names
+        (``rhoa``, ``qr``, ``ntr``, ``zr``).
+        Scalar fields are expected to have dimensions
+        ``(time, [vertical,] yc, xc)``.
+    grid_idx_ds : xr.Dataset
+        Output of :func:`get_transect_grid_indices`.
+        Variables: ``i_idx``, ``j_idx``, optionally ``time_idx``.
+        Coord: ``all_time``.
+    Dmax : float or None
+        Maximum diameter (m).  Uses the full bin range when ``None``.
+    level : int
+        Vertical level index (0 = lowest model level).
+
+    Returns
+    -------
+    xr.Dataset
+        Variables:
+
+        ``Nc_bin_ps`` – (sample_time, diameter_bin) number concentration
+
+        Coord: ``sample_time``.
+    """
+    Dmax, Dmax_index = get_Dmax_index(Dr, Dmax)
+
+    sampling_times = transect_ds.coords["sample_time"].values
+    all_times = transect_ds.coords["all_time"].values
+
+    # Time deltas between consecutive all_time points (seconds).
+    dt = all_times[1:] - all_times[:-1]
+    # Per-sample-interval durations (seconds), implicit in sampling_times.
+    sampling_dt = sampling_times[1:] - sampling_times[:-1]
+
+    i_idx_arr = grid_idx_ds["i_idx"].values.astype(int)
+    j_idx_arr = grid_idx_ds["j_idx"].values.astype(int)
+    has_time_idx = "time_idx" in grid_idx_ds
+    if has_time_idx:
+        time_idx_arr = grid_idx_ds["time_idx"].values.astype(int)
+
+    ntimes = len(all_times)
+    time_coord = "time"
+
+    # ------------------------------------------------------------------
+    # Extract model scalars for every all_time point using bulk numpy
+    # indexing to avoid per-step xarray overhead.
+    # ------------------------------------------------------------------
+
+    def _get_field_numpy(name: str) -> np.ndarray:
+        """Return a 3-D (time, y, x) or 2-D (y, x) numpy array for *name*."""
+        vals = ds[name].values
+        if vals.ndim == 4:          # (time, level, y, x)
+            return vals[:, level, :, :]
+        if vals.ndim == 3 and time_coord in ds[name].dims:
+            return vals             # (time, y, x)
+        if vals.ndim == 3:          # (level, y, x) — no time dimension
+            return vals[level]      # → (y, x)
+        return vals                 # (y, x)
+
+    def _index_field(arr: np.ndarray, tidx: np.ndarray | int) -> np.ndarray:
+        """Advanced-index *arr* to extract the ntimes-long 1-D transect."""
+        if arr.ndim == 3:
+            return arr[tidx, j_idx_arr, i_idx_arr]
+        # 2-D (y, x) — same spatial location for all times
+        return arr[j_idx_arr, i_idx_arr]
+
+    if has_time_idx:
+        tidx = time_idx_arr
+    elif time_coord in ds.dims:
+        tidx = np.zeros(ntimes, dtype=int)
+    else:
+        tidx = None  # no time dimension
+
+    # TODO: make this more general by leveraging the variable mapping in model_config.py
+    # Right now, this works for CM1 model output.
+    if "rhoa" in ds:
+        rhoa_arr = _index_field(_get_field_numpy("rhoa"), tidx)
+    elif "rho" in ds:
+        rhoa_arr = _index_field(_get_field_numpy("rho"), tidx)
+    else:
+        # Derive air density from pressure, potential temperature, and water vapour.
+        p_arr  = _index_field(_get_field_numpy("prs"), tidx)
+        pt_arr = _index_field(_get_field_numpy("th"),  tidx)
+        qv_arr = _index_field(_get_field_numpy("qv"),  tidx)
+        rhoa_arr = np.array([
+            float(thermo.calrho(p_arr[n], pt_arr[n], qv_arr[n]))
+            for n in range(ntimes)
+        ])
+
+    #qr_arr  = _index_field(_get_field_numpy("qr"),  tidx)
+    #ntr_arr = _index_field(_get_field_numpy("crw"), tidx)
+    #zr_arr  = _index_field(_get_field_numpy("zrw"), tidx)
+    
+    
+    qhl_arr = _index_field(_get_field_numpy("qhl"), tidx)
+    nthl_arr = _index_field(_get_field_numpy("chl"), tidx)
+    zhl_arr  = _index_field(_get_field_numpy("zhl"), tidx)
+    
+    vhl_arr = _index_field(_get_field_numpy("vhl"), tidx)
+    
+    # calculate density of hail
+    rhohl_arr = qhl_arr/vhl_arr
+    rhohlcst=rhohl_arr
+    chl_arr = np.pi / 6. * rhohl_arr
+
+    # ------------------------------------------------------------------
+    # Derive alphahl from reflectivity using the iterative solver.
+    # ------------------------------------------------------------------
+    alphahl_arr = np.array([
+        dualpol.solve_alpha_iter(
+            rhoa_arr[n], mur, qhl_arr[n], nthl_arr[n], zhl_arr[n], rhohlcst[n]
+        ).squeeze()
+        for n in range(ntimes)
+    ])
+    # print("Shape of alphar_arr:", np.shape(alphar_arr))
+
+    # ------------------------------------------------------------------
+    # Derived DSD parameters.
+    # ------------------------------------------------------------------
+    N0hl = dsd.calc_N0_gamma(rhoa_arr, qhl_arr, nthl_arr, chl_arr, alphahl_arr)
+    lamdahl = dsd.calc_lamda_gamma(rhoa_arr, qhl_arr, nthl_arr, chl_arr, alphahl_arr)
+    # print("Shape of rhoa, qr, ntr, zr:", np.shape(rhoa_arr), np.shape(qr_arr), np.shape(ntr_arr), np.shape(zr_arr))
+    # print("Shape of lamdar:", np.shape(lamdar))
+
+    # ------------------------------------------------------------------
+    # Terminal-fall speeds for each all_time point.
+    # calc_empirical_fallspeed_hail with a 1-D rho Series returns (ntimes, nbins).
+    # ------------------------------------------------------------------
+    Vthl = pips.calc_empirical_fallspeed_hail(
+        D * 1000., rhohl=rhohl_arr, correct_rho=True, rho=rhoa_arr
+    )
+    Vthl = Vthl[:, :Dmax_index + 1]
+
+    # ------------------------------------------------------------------
+    # Parsivel simulator: one call per sub-interval between all_times.
+    # ------------------------------------------------------------------
+    pcount_binned_samples = []
+    for n in range(ntimes - 1):
+        # print(f"lamdar[{n}]: {lamdar[n]}")
+        sample_dict = create_random_gamma_DSD(
+            nthl_arr[n], lamdahl[n], alphahl_arr[n], Vthl[n],
+            sampling_length, sampling_width,
+            Dl, D, Dr, Dmax=Dmax,
+            sampling_interval=float(dt[n]),
+            remove_margins=True, rhocorrect=True, rho=rhoa_arr[n],
+        )
+        if sample_dict is not None:
+            pcount_binned_samples.append(sample_dict["pcount_binned"].values)
+        else:
+            pcount_binned_samples.append(np.zeros(Dmax_index + 1))
+
+    pcount_binned_samples = np.array(pcount_binned_samples)  # (ntimes-1, nbins)
+
+    # ------------------------------------------------------------------
+    # Combine sub-interval counts into per-sample-interval concentrations.
+    # ------------------------------------------------------------------
+    nsamples = len(sampling_times)
+    Nc_bin_ps = np.zeros((nsamples, Dmax_index + 1))
+
+    sample_indices = np.searchsorted(all_times, sampling_times, side="left")
+
+    for s, sample_index in enumerate(sample_indices[:-1]):
+        sample_index_end = sample_indices[s + 1]
+        current_slice = slice(sample_index, sample_index_end, None)
+
+        Vthl_mean = (
+            np.sum(Vthl[current_slice, :] * dt[current_slice, None], axis=0)
+            / sampling_dt[s]
+        )
+        _samp_vols_D = calc_sampling_volumes_D(
+            Vthl_mean, Dr, Dmax, sampling_dt[s], sampling_area
+        )
+        pcount_binned_total = np.sum(pcount_binned_samples[current_slice], axis=0)
+        Nc_bin_ps[s + 1, :] = 1.0e-3 * calc_ND(
+            pcount_binned_total, _samp_vols_D, Dr, Dl, Dmax
+        )
+
+    Nc_bin_ps = np.ma.masked_invalid(Nc_bin_ps)
+
+    return xr.Dataset(
+        {
+            "Nc_bin_ps": xr.DataArray(
+                Nc_bin_ps, dims=["sample_time", "diameter_bin"]
+            ),
+        },
+        coords={"sample_time": sampling_times},
+    )
+
 
 
 def calc_model_PSD_along_transect(
