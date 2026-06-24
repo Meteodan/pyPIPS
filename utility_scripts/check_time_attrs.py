@@ -15,7 +15,7 @@ import pyPIPS.PIPS as pips
 if __name__ == "__main__":
     # Read and check time attributes of PIPS netCDF files in a series of subdirectories.
     dry_run = True  # Set to True to only print discrepancies without modifying files
-    basedir = "/Users/dawson29/Dropbox/Projects/ICECHIP/obsdata/PIPS_data"
+    basedir = "/Users/dawson29/Projects/ICECHIP/obsdata/PIPS_data"
     IOP_dirs = glob.glob(os.path.join(basedir, "IOP*"))
     for IOP_dir in IOP_dirs:
         netcdf_dir = os.path.join(IOP_dir, 'netcdf')
