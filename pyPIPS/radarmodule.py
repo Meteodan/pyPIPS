@@ -63,6 +63,7 @@ cmapretrievals = cm.viridis
 REF_plot_dict = {
     'cmap': pyart.config.get_field_colormap('reflectivity'),
     'clevels': np.arange(0.0, 85.0, 5.0),
+    'norm': None,
     'cbint': 5.0,
     'disfmtstr': "{:3.1f} dBZ"
 }
@@ -70,6 +71,7 @@ REF_plot_dict = {
 ZDR_plot_dict = {
     'cmap': pyart.config.get_field_colormap('differential_reflectivity'),
     'clevels': np.arange(0.0, 6.25, 0.25),
+    'norm': None,
     'cbint': 0.5,
     'disfmtstr': "{:3.1f} dB"
 }
@@ -1416,11 +1418,14 @@ def plotsweep_pyART(radar_obj, sweeptime, PIPS_names, PIPS_geo_locs, PIPS_rad_lo
                 break
         field_to_match = field_to_match.replace('_filtered', '')
         field_plot_params = radar_plot_param_matching[field_to_match]
+        norm = field_plot_params.get('norm', None)
 
         # TODO: add colorbar label levels, other arguments
         display.plot_ppi_map(field, 0, title_flag=False, cmap=field_plot_params['cmap'],
+                             norm=norm,
                              vmin=field_plot_params['clevels'][0],
-                             vmax=field_plot_params['clevels'][-1], colorbar_label='',  # ax=ax,
+                             vmax=field_plot_params['clevels'][-1],
+                             colorbar_label='',  # ax=ax,
                              resolution='10m', projection=projection, fig=fig,
                              lat_lines=np.arange(30, 46, 0.1), lon_lines=np.arange(-110, -75, 0.1),
                              raster=True)
@@ -1440,7 +1445,8 @@ def plotsweep_pyART(radar_obj, sweeptime, PIPS_names, PIPS_geo_locs, PIPS_rad_lo
 
 def plotsweep_pcolor(radar_obj, radar_fields, sweeptime, PIPS_names=None, PIPS_rad_loc_dict=None,
                      PIPS_fields=None, bounds=None,  # noqa: ARG001
-                     plot_filtered=False, norm=None, cbarlabel=None, axestickintv=10000.):  # noqa: ARG001
+                     plot_filtered=False, cmap=None, norm=None, cbarlabel=None,
+                     axestickintv=10000.):  # noqa: ARG001
 
     if bounds is None:
         bounds = [-20000.0, 20000.0, -20000.0, 20000.0]
@@ -1525,6 +1531,9 @@ def plotsweep_pcolor(radar_obj, radar_fields, sweeptime, PIPS_names=None, PIPS_r
         field_to_match = field_to_match.replace('_corrected', '')
         field_plot_params = radar_plot_param_matching[field_to_match]
 
+        if cmap is None:
+            cmap = field_plot_params['cmap']
+
         # TODO: add colorbar label levels, other arguments
 
         var = radar_obj.fields[field]['data']
@@ -1532,9 +1541,9 @@ def plotsweep_pcolor(radar_obj, radar_fields, sweeptime, PIPS_names=None, PIPS_r
         if norm is None:
             ci = ax.pcolormesh(xplt, yplt, var.squeeze(), vmin=field_plot_params['clevels'][0],
                                vmax=field_plot_params['clevels'][-1],
-                               cmap=field_plot_params['cmap'], norm=norm)
+                               cmap=cmap)
         else:
-            ci = ax.pcolormesh(xplt, yplt, var.squeeze(), cmap=field_plot_params['cmap'], norm=norm)
+            ci = ax.pcolormesh(xplt, yplt, var.squeeze(), cmap=cmap, norm=norm)
 
         ax.set_title(titlestring, fontsize=10)
         # Overlay locations of the PIPS

@@ -2,6 +2,133 @@
 
 This file tracks significant development progress, lessons learned, and agent activities for pyPIPS development sessions.
 
+## Session: May 24, 2026 - VS Code Environment Alignment and COMMAS Mapping Refresh
+
+### Key Code Updates
+#### Workspace Python Environment Stabilization
+**Problem**: VS Code/Pylance reported unresolved imports (including numpy) because the workspace intermittently targeted a minimal local `.venv` that did not include the scientific stack.
+**Solution**:
+- Verified `.venv` did not contain core packages (`numpy`, `xarray`, `scipy`) while conda environment `pyPIPS` did.
+- Updated workspace Python settings to pin interpreter selection to conda `pyPIPS` and reduce `.venv` analysis interference.
+- Added explicit conda path and environment activation preferences for consistent terminal/tool behavior in VS Code.
+**Files Modified**: `.vscode/settings.json`
+
+#### American English Instruction Scope Tightening
+**Problem**: Some generated text used British spellings because repository guidance was scoped too narrowly to comments/documentation.
+**Solution**:
+- Expanded repository instruction language to require American English across all generated repository text contexts (comments, docstrings, markdown, PR/commit text, and agent/chat output in this repo context).
+**Files Modified**: `.github/copilot-instructions.md`
+
+#### COMMAS Coordinate/Variable Map Correction from NetCDF Header
+**Problem**: `COMMAS_COORD_MAP` and `COMMAS_VAR_MAP` used names that did not match an actual COMMAS file header (case mismatches and outdated variable names), risking failed canonical renaming.
+**Solution**:
+- Ran `ncdump -h` on `/Users/dawson29/Projects/commas_tests_2025/1km/060509/jun05ZVDH3MCCN1imlt2.010800.nc`.
+- Updated coordinate mappings to header-consistent uppercase names (`TIME`, `XC`, `XE`, `YC`, `YE`, `ZC`, `ZE`).
+- Updated variable mappings to file/legacy-consistent names for rain/graupel/hail and shape parameters (`QR`, `CRW`, `ZRW`, `QH`, `CHW`, `QHL`, `CHL`, `RHO`, `ALPHAR_MY`, `ALPHAG_MY`, `ALPHAH_MY`, `DBZ`).
+- Preserved canonical downstream names while correcting native-name bindings.
+**Files Modified**: `pyPIPS/model_config.py`
+
+#### Wrapper Citation Preservation
+**Problem**: A historical citation comment above `enable_xarray_wrapper` was removed during cleanup.
+**Solution**:
+- Restored the Stack Overflow citation comment so provenance is retained in-source.
+**Files Modified**: `pyPIPS/utils.py`
+
+#### Xarray Wrapper Migration and Compatibility Hardening
+**Problem**: Decorator-based xarray wrapping in key DSD/QC paths caused inconsistent type/metadata behavior and chunked-array failures when `apply_ufunc` dask handling was not enabled.
+**Solution**:
+- Removed active `@enable_xarray_wrapper` usage from core DSD and QC functions and migrated those paths to native duck-array/xarray-safe logic.
+- Updated DSD calculations to use xarray-safe masking (`xr.where`) and added a gamma helper bridge (`_gamma_duck`) using `xr.apply_ufunc(..., dask='allowed')` for chunk compatibility.
+- Refactored `parsivel_qc.py` functions to explicit boundary-adapter patterns, including robust numpy/DataArray handling and canonical dimension-order validation/normalization.
+- Updated `enable_xarray_wrapper` in `utils.py` to `dask='allowed'` for remaining compatibility use cases.
+- Re-ran focused regression checks for DSD and QC behavior across numpy, xarray DataArray, and chunked DataArray inputs.
+**Files Modified**: `pyPIPS/DSDlib.py`, `pyPIPS/parsivel_qc.py`, `pyPIPS/utils.py`
+
+### Key Lessons Learned
+#### Environment Mismatch Can Masquerade as Code Problems
+**Lesson**: Many unresolved-import diagnostics are interpreter selection issues rather than dependency definition issues.
+**Impact**: Confirm active interpreter first (and pin it) before chasing false-positive lint or analysis errors.
+
+#### Header-Driven Mapping Is Safer Than Assumption-Driven Mapping
+**Lesson**: For multi-model ingest layers, use `ncdump -h` from representative files to drive map updates, especially for case-sensitive names and microphysics-variable variants.
+**Impact**: Reduces silent rename misses and downstream key errors in canonical workflows.
+
+#### Type Correctness and Metadata Preservation Need Explicit Validation
+**Lesson**: Numeric correctness alone is not enough in xarray-heavy workflows; preserving output type/dims and dask compatibility must be validated directly.
+**Impact**: Prevents subtle regressions where calculations succeed but downstream pipelines break due to lost labels, shape assumptions, or chunk-incompatible operations.
+
+### Technical Context for Future Development
+- `ModelConfig.normalize()` in `pyPIPS/model_config.py` currently renames only fields present in the dataset, so map correctness directly determines canonical-field availability.
+- Current COMMAS mapping is now aligned to this 2025 test-file lineage and legacy COMMAS conventions in `pyPIPS/legacy/commasmodule.py`.
+- Workspace defaults now prefer conda `pyPIPS`; if diagnostics drift again, first verify both status-bar Python selectors still point to the same conda environment.
+- DSD/QC code paths now rely primarily on native duck-array behavior instead of blanket wrapping, with explicit xarray bridges only where needed (for example scipy gamma special-function evaluation).
+
+### Next Development Priorities
+1. Add a lightweight mapping validation test that opens representative CM1/COMMAS/WRF files and asserts required canonical fields are present after normalization.
+2. Consider supporting alternative COMMAS microphysics naming variants via optional map profiles or `extra_var_map` presets.
+3. Document the interpreter/kernal selection expectation in developer docs to reduce future VS Code environment drift.
+4. Add targeted tests for DSD/QC functions asserting numpy/xarray/chunked parity and output metadata invariants.
+
+## Session: May 23, 2026 - ICECHIP Notebook Plotting Helper Refactor and Validation
+
+### Key Code Updates
+#### Model-Relative Plot Generalization
+**Problem**: Notebook plotting logic for model-relative views was too monolithic and difficult to extend for arbitrary filled variables, multiple contour overlays, optional wind vectors at different heights, and reusable PIPS transect overlays.
+**Solution**:
+- Refactored plotting workflow in the ICECHIP comparison notebook into a compact orchestrator plus focused helper utilities.
+- Added a configuration-driven model plot wrapper so filled fields, contour overlays, wind options, axes settings, title behavior, PIPS overlays, and output behavior can be controlled without expanding positional argument complexity.
+- Split title handling from axis-limit/label handling to keep responsibilities clear and reduce branching in one function.
+**Files Modified**: `notebooks/ICECHIP_PIPS_model_comp/pyPIPS_test_PIPS_model_comp.ipynb`
+
+#### Radar-Relative Plot Parity
+**Problem**: Radar-relative sweep plotting needed a parallel helper with similar composability and overlay behavior to the model-relative helper.
+**Solution**:
+- Added a radar wrapper with compact config dictionaries (`radar_plot_kwargs`, `pips_cfg`, `output_cfg`) to mirror model helper ergonomics.
+- Standardized PIPS transect overlay flow between model-relative and radar-relative plotting paths.
+**Files Modified**: `notebooks/ICECHIP_PIPS_model_comp/pyPIPS_test_PIPS_model_comp.ipynb`
+
+#### Whitespace/Layout Improvement Without Breaking Interactivity
+**Problem**: Interactive notebook figures had excessive visible whitespace in widget output.
+**Solution**:
+- Added figure-size and layout finalization controls to reduce excess whitespace while preserving `%matplotlib widget` interactivity.
+- Confirmed approach focuses on canvas sizing/layout rather than disabling interactive rendering behavior.
+**Files Modified**: `notebooks/ICECHIP_PIPS_model_comp/pyPIPS_test_PIPS_model_comp.ipynb`
+
+#### API Migration Bug Fix and Compatibility Sweep
+**Problem**: A stale call path still used legacy keyword arguments (for example `contour_fields`), causing runtime `TypeError` after helper API simplification.
+**Solution**:
+- Updated remaining call site(s) to the new config-style API.
+- Performed notebook-wide keyword scans for legacy argument usage and validated key runtime paths by re-executing representative plotting cells.
+- Confirmed active model dBZ, model Dm43, and radar sweep plotting cells all execute successfully with the new helper signatures.
+**Files Modified**: `notebooks/ICECHIP_PIPS_model_comp/pyPIPS_test_PIPS_model_comp.ipynb`
+
+### Key Lessons Learned
+#### Config-Driven Wrappers Scale Better Than Long Function Signatures
+**Lesson**: For exploratory notebook plotting, compact config dictionaries plus single-responsibility helper functions are easier to maintain than a large positional/keyword API.
+**Impact**: Reduces migration risk, improves readability, and simplifies adding new overlays/plot options.
+
+#### Separate Plot Concerns Explicitly
+**Lesson**: Title generation/application should remain independent from axis limits/labels and layout controls.
+**Impact**: Prevents accidental coupling and makes runtime debugging of visual behavior faster.
+
+#### Widget Whitespace Is Often Canvas/Layout, Not “Extra Data Space”
+**Lesson**: In interactive notebook backends, perceived whitespace often comes from figure size and layout strategy rather than plotted domain bounds.
+**Impact**: Targeted figure/layout settings can improve presentation without sacrificing interactive tools.
+
+#### Notebook Error Outputs Can Be Historical Artifacts
+**Lesson**: Saved notebook outputs may retain old tracebacks even after code is fixed.
+**Impact**: Pair static scans with fresh cell execution before declaring active breakage.
+
+### Technical Context for Future Development
+- The ICECHIP model/radar comparison notebook now uses a decomposed plotting architecture with helper utilities and compact configuration inputs.
+- Core runtime validation path should continue to include at least one radar-relative call and two model-relative calls (base reflectivity-like field and one derived microphysics field) after future refactors.
+- During future API changes, search and migrate all call sites in notebook cells, then re-execute representative cells to distinguish active failures from stale saved outputs.
+
+### Next Development Priorities
+1. Add concise docstrings to notebook helper functions documenting expected config keys and defaults.
+2. Add a lightweight preflight validator for required config keys to fail early with user-friendly messages.
+3. If needed, extract stabilized plotting helpers from notebook cells into a reusable module to reduce notebook drift.
+
 ## Session: ~March 18–23, 2026 - Simulator Restructuring, ModelConfig, and Transect Sampling
 
 ### Key Code Updates

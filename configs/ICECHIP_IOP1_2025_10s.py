@@ -3,9 +3,9 @@
 PIPS_IO_dict = {
     'dataset_name': 'IOP1_051825',
     'deployment_names': ['IOP1_051825'] * 4,
-    'input_txt_dir': '/Users/dawson29/Dropbox/Projects/ICECHIP/obsdata/PIPS_data/IOP1_051825/csv/',
-    'PIPS_dir': '/Users/dawson29/Dropbox/Projects/ICECHIP/obsdata/PIPS_data/IOP1_051825/netcdf/',
-    'plot_dir': '/Users/dawson29/Dropbox/Projects/ICECHIP/obsdata/PIPS_data/IOP1_051825/plots/10s/',
+    'input_txt_dir': '/Users/dawson29/Projects/ICECHIP/obsdata/PIPS_data/IOP1_051825/csv/',
+    'PIPS_dir': '/Users/dawson29/Projects/ICECHIP/obsdata/PIPS_data/IOP1_051825/netcdf/',
+    'plot_dir': '/Users/dawson29/Projects/ICECHIP/obsdata/PIPS_data/IOP1_051825/plots/10s/',
     'PIPS_types': ['PIPS'] * 4,
     'probe_set': 'ICECHIP_2025_A',
     'PIPS_names': ['PIPS1A', 'PIPS2A', 'PIPS3A', 'PIPS3B'],

@@ -16,7 +16,7 @@ from scipy.special import gammaln as gammln
 from . import PIPS
 from . import radarmodule as radar
 from . import thermolib as thermo
-from .utils import enable_xarray_wrapper, first_nonzero, last_nonzero
+from .utils import first_nonzero, last_nonzero
 
 # Some physical constants
 rhol = 1000.  # density of liquid water (kg / m^3)
@@ -27,6 +27,11 @@ gamma3 = gamma_(3.)
 gamma4 = gamma_(4.)
 gamma5 = gamma_(5.)
 gamma7 = gamma_(7.)
+
+
+def _gamma_duck(x):
+    """Evaluate scipy.special.gamma while preserving numpy/xarray duck-array behavior."""
+    return xr.apply_ufunc(gamma_, x, dask='allowed')
 
 
 def calc_Mp(p, lamda, Nt, alpha):
@@ -168,7 +173,6 @@ def calc_Nt_gamma(rhoa, q, N0, cx, alpha):
     return Ntx  # noqa: RET504
 
 
-@enable_xarray_wrapper
 def calc_lamda_gamma(rhoa, q, Ntx, cx, alpha):
     """!
     !-----------------------------------------------------------------------
@@ -188,16 +192,15 @@ def calc_lamda_gamma(rhoa, q, Ntx, cx, alpha):
     !-----------------------------------------------------------------------
     !"""
 
-    gamma1alp = gamma_(1.0 + alpha)
-    gamma4alp = gamma_(4.0 + alpha)
+    gamma1alp = _gamma_duck(1.0 + alpha)
+    gamma4alp = _gamma_duck(4.0 + alpha)
 
     lamda = ((gamma4alp / gamma1alp) * cx * Ntx / (rhoa * q))**(1.0 / 3.0)
-    lamda = np.where(rhoa * q > 0.0, lamda, 0.0)
+    lamda = xr.where(rhoa * q > 0.0, lamda, 0.0)
 
     return lamda  # noqa: RET504
 
 
-@enable_xarray_wrapper
 def calc_N0_gamma(rhoa, q, Ntx, cx, alpha):
     """!
     !-----------------------------------------------------------------------
@@ -224,7 +227,7 @@ def calc_N0_gamma(rhoa, q, Ntx, cx, alpha):
     !-----------------------------------------------------------------------
     !     """
 
-    gamma1alp = gamma_(1.0 + alpha)
+    gamma1alp = _gamma_duck(1.0 + alpha)
 
     lamda = calc_lamda_gamma(rhoa, q, Ntx, cx, alpha)
     lamda = lamda.astype(np.float64)
@@ -233,11 +236,10 @@ def calc_N0_gamma(rhoa, q, Ntx, cx, alpha):
 
     N0 = Ntx * lamda**(0.50 * (1.0 + alpha)) * \
         (1.0 / gamma1alp) * lamda**(0.50 * (1.0 + alpha))
-    N0 = np.where(lamda >= 0.0, N0, 0.0)
+    N0 = xr.where(lamda >= 0.0, N0, 0.0)
     return N0  # noqa: RET504
 
 
-@enable_xarray_wrapper
 def calc_N0_norm_gamma(N0, alpha, lamda):
     """!
     !-----------------------------------------------------------------------
@@ -263,16 +265,15 @@ def calc_N0_norm_gamma(N0, alpha, lamda):
     !  Variable Declarations:
     !-----------------------------------------------------------------------
     !     """
-    gamma4alp = gamma_(4.0 + alpha)
+    gamma4alp = _gamma_duck(4.0 + alpha)
 
     N0_norm = N0 * (((4.0 + alpha) / lamda) **
                     alpha) * gamma4alp * (128.0 / 3.0) / \
         ((4.0 + alpha)**(4.0 + alpha))
-    N0_norm = np.where(lamda >= 0.0, N0_norm, 0.0)
+    N0_norm = xr.where(lamda >= 0.0, N0_norm, 0.0)
     return N0_norm  # noqa: RET504
 
 
-@enable_xarray_wrapper
 def calc_Dm_gamma(rhoa, q, Ntx, cx):
     """!
     !-----------------------------------------------------------------------
@@ -290,12 +291,11 @@ def calc_Dm_gamma(rhoa, q, Ntx, cx):
     !     """
 
     Dm = (rhoa * q / (cx * Ntx))**(1. / 3.)
-    Dm = np.where(Ntx > 0.0, Dm, 0.0)
+    Dm = xr.where(Ntx > 0.0, Dm, 0.0)
 
     return Dm  # noqa: RET504
 
 
-@enable_xarray_wrapper
 def calc_D0_gamma(rhoa, q, Ntx, cx, alpha):
     """!
     !-----------------------------------------------------------------------
@@ -414,7 +414,6 @@ def calc_D0_bin(ND, diameter_dim_name='diameter_bin'):
     return D0  # noqa: RET504
 
 
-@enable_xarray_wrapper
 def diag_alpha(varid_qscalar, Dm):
     """!
     !-----------------------------------------------------------------------
@@ -452,21 +451,20 @@ def diag_alpha(varid_qscalar, Dm):
 
     alpha = c1[nq] * np.tanh(c2[nq] * (1.e3 * Dm - c3[nq])) + c4[nq]
     if nq == 4:
-        alpha = np.where(Dm > 0.008, 1.e3 * Dm - 2.6, alpha)
+        alpha = xr.where(Dm > 0.008, 1.e3 * Dm - 2.6, alpha)
 
-    alpha = np.minimum(alpha, alphaMAX)
+    alpha = xr.where(alpha <= alphaMAX, alpha, alphaMAX)
 
     return alpha  # noqa: RET504
 
 
-@enable_xarray_wrapper
 def solve_alpha(rhoa, cx, q, Ntx, Z):
     """!
     !-----------------------------------------------------------------------
     !  PURPOSE:  Calculates shape parameter alpha
     !-----------------------------------------------------------------------
     !
-    !  AUTHOR: Dan Dawson
+    !  AUTHOR: Dan Dawson, based on a fortran subroutine written by Jason Milbrandt
     !  (02/06/2008)
     !
     !  MODIFICATION HISTORY:
@@ -485,23 +483,22 @@ def solve_alpha(rhoa, cx, q, Ntx, Z):
 
     tmp1 = cx / (rhoa * q)
     g = tmp1 * Z * tmp1 * Ntx
-    g = np.where((q > epsQ) & (Ntx > epsN) & (Z > epsZ), g, -99.0)  # noqa: SIM300
+    g = xr.where((q > epsQ) & (Ntx > epsN) & (Z > epsZ), g, -99.0)  # noqa: SIM300
 
-    a = np.empty_like(q)
-    a = np.where(g == -99.0, 0.0, a)
-    a = np.where(g >= 20.0, 0.0, a)
+    a = 0.0 * g
     g2 = g * g
 
-    a = np.where((g < 20.0) & (g >= 13.31), 3.3638e-3 * g2 - 1.7152e-1 * g + 2.0857e+0, a)
-    a = np.where((g < 13.31) & (g >= 7.123), 1.5900e-2 * g2 - 4.8202e-1 * g + 4.0108e+0, a)
-    a = np.where((g < 7.123) & (g >= 4.200), 1.0730e-1 * g2 - 1.7481e+0 * g + 8.4246e+0, a)
-    a = np.where((g < 4.200) & (g >= 2.946), 5.9070e-1 * g2 - 5.7918e+0 * g + 1.6919e+1, a)
-    a = np.where((g < 2.946) & (g >= 1.793), 4.3966e+0 * g2 - 2.6659e+1 * g + 4.5477e+1, a)
-    a = np.where((g < 1.793) & (g >= 1.405), 4.7552e+1 * g2 - 1.7958e+2 * g + 1.8126e+2, a)
-    a = np.where((g < 1.405) & (g >= 1.230), 3.0889e+2 * g2 - 9.0854e+2 * g + 6.8995e+2, a)
-    a = np.where(g < 1.230, alphaMax, a)
+    a = xr.where((g < 20.0) & (g >= 13.31), 3.3638e-3 * g2 - 1.7152e-1 * g + 2.0857e+0, a)
+    a = xr.where((g < 13.31) & (g >= 7.123), 1.5900e-2 * g2 - 4.8202e-1 * g + 4.0108e+0, a)
+    a = xr.where((g < 7.123) & (g >= 4.200), 1.0730e-1 * g2 - 1.7481e+0 * g + 8.4246e+0, a)
+    a = xr.where((g < 4.200) & (g >= 2.946), 5.9070e-1 * g2 - 5.7918e+0 * g + 1.6919e+1, a)
+    a = xr.where((g < 2.946) & (g >= 1.793), 4.3966e+0 * g2 - 2.6659e+1 * g + 4.5477e+1, a)
+    a = xr.where((g < 1.793) & (g >= 1.405), 4.7552e+1 * g2 - 1.7958e+2 * g + 1.8126e+2, a)
+    a = xr.where((g < 1.405) & (g >= 1.230), 3.0889e+2 * g2 - 9.0854e+2 * g + 6.8995e+2, a)
+    a = xr.where(g < 1.230, alphaMax, a)
 
-    alpha = np.maximum(0., np.minimum(a, alphaMax))
+    alpha = xr.where(a <= alphaMax, a, alphaMax)
+    alpha = xr.where(alpha >= 0., alpha, 0.)
 
     return alpha  # noqa: RET504
 

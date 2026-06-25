@@ -16,10 +16,10 @@ time         : time coordinate (s from simulation start, or numeric time unit
 
 Canonical field names (representative subset)
 ----------------------------------------------
-U, V, W      : wind components (staggered or destaggered, model-dependent)
-TH           : potential temperature (K)
-QV           : water-vapour mixing ratio (kg kg-1)
-P            : total pressure (Pa)
+u, v, w      : wind components (staggered or destaggered, model-dependent)
+th           : potential temperature (K)
+qv           : water-vapour mixing ratio (kg kg-1)
+p            : total pressure (Pa)
 qr           : rain mixing ratio (kg kg-1)
 ntr          : rain total number concentration (m-3)
 zr           : rain reflectivity moment (m6 m-3)
@@ -27,7 +27,7 @@ qh, nth      : hail mixing ratio / number concentration
 qg, ntg      : graupel mixing ratio / number concentration
 rhoa         : air density (kg m-3)
 alphar, alphah, alphag : shape parameters for rain/hail/graupel
-DBZ          : simulated equivalent reflectivity (dBZ)
+dBZ          : simulated equivalent reflectivity (dBZ)
 """
 
 from __future__ import annotations
@@ -107,53 +107,103 @@ CM1_COORD_MAP: dict[str, str] = {
     "time": "time",
 }
 
+# Note, the following assumes the use of the NSSL microphysics scheme in CM1; adjust as needed for
+# your configuration.
+# TODO: add support for multiple microphysics schemes by allowing the user to specify which scheme
+# they are using and adjusting the var_map accordingly. Or have separate var_maps for each scheme
+# and let the user choose which one to use.
 CM1_VAR_MAP: dict[str, str] = {
-    "u": "uinterp",   # wind interpolated to scalar points when available
-    "v": "vinterp",
-    "w": "winterp",
-    "th": "th",
-    "qv": "qv",
-    "p": "prs",       # total pressure in Pa
-    "qr": "qr",
-    "ntr": "nrain",
-    "zr": "zrain",
-    "qh": "qhl",      # hail-liquid; name varies with microphysics scheme
-    "nth": "nhl",
-    "qg": "qice",     # approximate; adjust for your scheme
-    "ntg": "nice",
-    "rhoa": "rho",
-    "DBZ": "dbz",
+    "ugrid": "umove", # u-component of grid motion
+    "vgrid": "vmove", # v-component of grid motion
+    "u": "u",     # wind components; name varies with stagger and microphysics scheme
+    "v": "v",
+    "w": "w",
+    "uprt": "upert", # perturbation u
+    "vprt": "vpert", # perturbation v
+    "wprt": "wpert", # perturbation w
+    "ubase": "u0", # u base state
+    "vbase": "v0", # v base state
+    "us": "uinterp",   # wind interpolated to scalar points when available
+    "vs": "vinterp",
+    "ws": "winterp",
+    "th": "th", # potential temperature; name varies with microphysics scheme
+    "thprt": "thpert", # perturbation potential temperature
+    "thbase": "th0", # potential temperature base state
+    "ccn": "ccn", # cloud condensation nuclei number concentration; name varies with microphysics scheme
+    "qv": "qv", # water-vapor mixing ratio
+    "qvprt": "qvpert", # perturbation water-vapor mixing ratio
+    "qvbase": "qv0", # water-vapor mixing ratio base state
+    "p": "prs", # total pressure in Pa
+    "pprt": "prspert", # perturbation pressure
+    "pbase": "prs0", # pressure base state
+    "qc": "qc", # cloud water mixing ratio; name varies with microphysics scheme
+    "ntc": "ccw", # cloud droplet number concentration; name varies with microphysics scheme
+    "qr": "qr", # rain mixing ratio; name varies with microphysics scheme
+    "ntr": "crw", # rain total number concentration; name varies with microphysics scheme
+    "zr": "zrw", # reflectivity moment for rain; name varies with microphysics scheme
+    "qi": "qi",     # ice mixing ratio; name varies with microphysics scheme
+    "nti": "cci",   # ice number concentration; name varies with microphysics
+    "qs": "qs",     # snow mixing ratio; name varies with microphysics scheme
+    "nts": "csw",   # snow number concentration; name varies with microphysics
+    "qg": "qh",     # graupel mixing ratio; name varies with microphysics scheme
+    "ntg": "chw",   # graupel number concentration; name varies
+    "zg": "zhw", # reflectivity moment for graupel; name varies with microphysics scheme
+    "vg": "vhw", # graupel bulk volume; name varies with microphysics scheme
+    "qh": "qhl",      # hail mixing ratio; name varies with microphysics scheme
+    "nth": "chl", # hail number concentration; name varies with microphysics scheme
+    "zh": "zhl", # reflectivity moment for hail; name varies with microphysics scheme
+    "vh": "vhl", # hail bulk volume; name varies with microphysics scheme
+    "tke": "tke", # turbulent kinetic energy; name varies with microphysics scheme
+    "dBZ": "dbz", # simulated equivalent reflectivity; name varies with microphysics scheme
 }
 
 #: COMMAS netCDF output
 COMMAS_COORD_MAP: dict[str, str] = {
-    "xc": "xc",
-    "yc": "yc",
-    "zc": "zc",
-    "xe": "xe",
-    "ye": "ye",
-    "ze": "ze",
-    "time": "time",
+    "xc": "XC",
+    "yc": "YC",
+    "zc": "ZC",
+    "xe": "XE",
+    "ye": "YE",
+    "ze": "ZE",
+    "time": "TIME",
 }
 
 COMMAS_VAR_MAP: dict[str, str] = {
     "u": "U",
     "v": "V",
     "w": "W",
+    "ubase": "UINIT",
+    "vbase": "VINIT",
+    "wbase": "WINIT",
     "th": "TH",
+    "thbase": "THINIT",
+    "ccn": "CCCN",
     "qv": "QV",
+    "qvbase": "QVINIT",
     "p": "P",
-    "qr": "qr",
-    "ntr": "ntr",
-    "zr": "zr",
-    "qh": "qh",
-    "nth": "nth",
-    "qg": "qg",
-    "ntg": "ntg",
-    "rhoa": "rhoa",
-    "alphar": "alphar",
-    "alphah": "alphah",
-    "alphag": "alphag",
+    "pprt": "PPERT",
+    "pbase": "PINIT",
+    "qc": "QC",
+    "ntc": "CCW",
+    "qr": "QR",
+    "ntr": "CRW",
+    "zr": "ZRW",
+    "qi": "QI",
+    "nti": "CCI",
+    "qs": "QS",
+    "nts": "CSW",
+    "qh": "QHL",
+    "nth": "CHL",
+    "zh": "ZHL",
+    "vh": "VHL",
+    "qg": "QH",
+    "ntg": "CHW",
+    "zg": "ZHW",
+    "vg": "VHW",
+    "rhoa": "RHO",
+    "alphar": "ALPHAR_MY",
+    "alphah": "ALPHAH_MY",
+    "alphag": "ALPHAG_MY",
     "DBZ": "DBZ",
 }
 

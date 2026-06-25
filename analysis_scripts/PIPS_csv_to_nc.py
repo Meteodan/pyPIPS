@@ -146,6 +146,8 @@ for index, PIPS_filename, PIPS_name, start_time, end_time, geo_loc, ptype, deplo
         parsivel_angle = pp.probe_info_ICECHIP_2025_A[PIPS_name]['parsivel_angle']
     elif probe_set == 'ICECHIP_2025_B':
         parsivel_angle = pp.probe_info_ICECHIP_2025_B[PIPS_name]['parsivel_angle']
+    elif probe_set == 'SPOTTR_2026':
+        parsivel_angle = pp.probe_info_SPOTTR_2026[PIPS_name]['parsivel_angle']
     else:
         parsivel_angle = pp.probe_info_pre_ICECHIP[PIPS_name]['parsivel_angle']
 

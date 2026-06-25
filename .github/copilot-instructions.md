@@ -136,4 +136,4 @@ When the user says "Update progress", update the `.github/progress.md` file with
 
 ## Coding Conventions
 
-In code documentation and comments, use American English spelling (e.g., "meter" instead of "metre") and ensure that all comments reflect the current state of the code to avoid confusion.
+Use American English spelling consistently in all generated project text, including code comments, docstrings, markdown, commit and PR text, and agent/chat responses related to this repository (e.g., "meter" instead of "metre"). Ensure that comments and documentation reflect the current state of the code to avoid confusion.

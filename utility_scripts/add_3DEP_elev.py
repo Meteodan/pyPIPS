@@ -42,7 +42,7 @@ def epqs_3dep_elev_m(lat, lon):
 
 if __name__ == "__main__":
     # Add 3DEP elevation data to PIPS netCDF files in a series of subdirectories.
-    basedir = "/Users/dawson29/Dropbox/Projects/ICECHIP/obsdata/PIPS_data"
+    basedir = "/Users/dawson29/Projects/ICECHIP/obsdata/PIPS_data"
     IOP_dirs = glob.glob(os.path.join(basedir, "IOP*"))
     for IOP_dir in IOP_dirs:
         netcdf_dir = os.path.join(IOP_dir, 'netcdf')

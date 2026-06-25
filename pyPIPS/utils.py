@@ -32,25 +32,11 @@ class Bunch(object):
 
 # Modified from https://stackoverflow.com/questions/52043669/
 # decorators-to-pass-numpy-arrays-or-xarray-arrays-to-functions
-# Also see https://realpython.com/primer-on-python-decorators/
-# FIXME: this doesn't work. reverting to original form
-# def enable_xarray_wrapper(_func=None, *, output_core_dims=(())):
-#     def _enable_xarray_wrapper(func):
-#         """Adds an xarray wrapper for a function without core dimensions."""
-#         @functools.wraps(func)
-#         def wrapper(*args, **kwargs):
-#             return xr.apply_ufunc(func, output_core_dims=output_core_dims, *args, kwargs=kwargs)
-#         return wrapper
-
-#     if _func is None:
-#         return _enable_xarray_wrapper
-#     else:
-#         return _enable_xarray_wrapper(_func)
 def enable_xarray_wrapper(func):
-    """Adds an xarray wrapper for a function without core dimensions."""
+    """Compatibility helper for wrapping simple elementwise functions with xarray."""
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
-        return xr.apply_ufunc(func, *args, kwargs=kwargs)
+        return xr.apply_ufunc(func, *args, kwargs=kwargs, dask='allowed')
     return wrapper
 
 
