@@ -15,7 +15,6 @@ PIPS_IO_dict = {
     'PIPS_filenames_nc': ['parsivel_combined_IOP9_060325_PIPS1A_10s.nc',
                           'parsivel_combined_IOP9_060325_PIPS1B_10s.nc',
                           'parsivel_combined_IOP9_060325_PIPS2A_10s.nc',
-                          'parsivel_combined_IOP9_060325_PIPS2B_10s.nc',
                           'parsivel_combined_IOP9_060325_PIPS3A_10s.nc',
                           'parsivel_combined_IOP9_060325_PIPS3B_10s.nc'],
     'conv_filenames_nc': ['conventional_raw_IOP9_060325_PIPS1A.nc',
