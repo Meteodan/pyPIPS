@@ -2013,6 +2013,8 @@ def plot_vel_D(axdict, PSDdict, rho, time_dim='time'):
     diameter_bin_edges = axdict.get('diameter_bin_edges', None)
     fallspeed_bin_edges = axdict.get('fallspeed_bin_edges', None)
     avg_diameter = axdict.get('avg_diameter', None)
+    rain_curve_max_diameter = axdict.get('rain_curve_max_diameter', 9.0)
+    hail_curve_min_diameter = axdict.get('hail_curve_min_diameter', 5.0)
     cblim = axdict.get('cblim', (1, 50))
 
     vd_matrix_da = PSDdict.get('vd_matrix_da', None)
@@ -2033,9 +2035,18 @@ def plot_vel_D(axdict, PSDdict, rho, time_dim='time'):
     # countsplot = np.ma.masked_where(vd_matrix_da <= 0, vd_matrix_da)
     C = ax1.pcolormesh(diameter_bin_edges, fallspeed_bin_edges, countsplot, vmin=cblim[0],
                        vmax=cblim[1], edgecolors='w', linewidths=0.2, cmap=cm.plasma)
-    rainvd = pips.calc_empirical_fallspeed(avg_diameter, correct_rho=True, rho=rho)
+    avg_diameter_mm = np.asarray(avg_diameter)
+    avg_diameter_m = avg_diameter_mm * 1.e-3
+    rainvd = pips.calc_empirical_fallspeed_rain(avg_diameter_mm, correct_rho=True, rho=rho)
+    rain_mask = avg_diameter_mm <= rain_curve_max_diameter
+    hail_mask = avg_diameter_mm >= hail_curve_min_diameter
+    hailvd_350 = pips.calc_empirical_fallspeed_hail(avg_diameter_m, 350.0, correct_rho=True, rho=rho)
+    hailvd_900 = pips.calc_empirical_fallspeed_hail(avg_diameter_m, 900.0, correct_rho=True, rho=rho)
 
-    ax1.plot(avg_diameter, rainvd, c='r')
+    ax1.plot(avg_diameter_mm[rain_mask], np.asarray(rainvd)[rain_mask], c='r')
+    ax1.plot(avg_diameter_mm[hail_mask], np.asarray(hailvd_350)[hail_mask], c='b', ls='--')
+    ax1.plot(avg_diameter_mm[hail_mask], np.asarray(hailvd_900)[hail_mask],
+             c='purple', ls='--')
     # ax1.scatter(X[0:10,20:31],Y[0:10,20:31],c='r',marker='x')
     fig1.colorbar(C)
 
@@ -2071,6 +2082,230 @@ def plot_vel_D(axdict, PSDdict, rho, time_dim='time'):
     ax1.set_ylabel('fall speed (m/s)')
 
     return fig1, ax1
+
+
+def compute_cached_tight_bbox(fig, pad_inches=0.02):
+    """Compute and return a reusable tight bounding box for a figure."""
+    fig.canvas.draw()
+    renderer = fig.canvas.get_renderer()
+    return fig.get_tightbbox(renderer).padded(pad_inches)
+
+
+def init_plot_DSD_state(axdict, PSDdict, PSDfitdict, PSDparamdict, time_dim='time'):
+    """Initialize a reusable DSD figure and artists for fast frame updates."""
+    time_to_plot = axdict.get('time', None)
+    xlim = axdict.get('xlim', (0.0, 9.0))
+    xbin_left = axdict.get('xbin_left', np.empty(0))
+    xbin_right = axdict.get('xbin_right', np.empty(0))
+    xbin_mid = axdict.get('xbin_mid', np.empty(0))
+    interval = axdict.get('interval', 10)
+
+    fig = plt.figure(figsize=(8, 6))
+    ax = fig.add_subplot(111)
+
+    # Initial title and baseline formatting are fixed for all subsequent frames.
+    title = ax.set_title('')
+    ax.set_yscale('log')
+    ax.set_ylim(10.**2.0, 10.**8.5)
+    ax.set_xlim(xlim[0], xlim[1])
+    ax.set_xlabel('D (mm)')
+    ax.set_ylabel(r'N(D) $(m^{-4})$')
+
+    nd_values = np.asarray(PSDdict.get('ND', np.empty(0))) * 1000.0
+    nd_onedrop_values = np.asarray(PSDdict.get('ND_onedrop', np.empty(0))) * 1000.0
+    widths = np.asarray(xbin_right) - np.asarray(xbin_left)
+    bar_bottom = 10.**2.0
+
+    nd_bar = ax.bar(xbin_left, nd_values, widths, bar_bottom, align='edge', log=True,
+                    color='tan', edgecolor='k')
+    nd_onedrop_bar = ax.bar(xbin_left, nd_onedrop_values, widths, bar_bottom, align='edge',
+                            log=True, fill=False, edgecolor='k')
+
+    fit_artists = {}
+    for fitname, ND_tuple in PSDfitdict.items():
+        ND_fit = np.asarray(ND_tuple[0])
+        label = ND_tuple[1]
+        (line,) = ax.plot(xbin_mid, ND_fit, lw=2, label=label, alpha=0.75)
+        fit_artists[fitname] = line
+
+    param_artists = {}
+    ypos = 0.95
+    for paramname, paramtuple in PSDparamdict.items():
+        txt = ax.text(0.50, ypos, '', transform=ax.transAxes)
+        param_artists[paramname] = (txt, paramtuple[1])
+        ypos -= 0.05
+
+    if fit_artists:
+        legend = ax.legend(loc='upper left', numpoints=1, ncol=1, fontsize=8)
+    else:
+        legend = None
+
+    state = {
+        'fig': fig,
+        'ax': ax,
+        'title': title,
+        'bar_bottom': bar_bottom,
+        'nd_bar': nd_bar,
+        'nd_onedrop_bar': nd_onedrop_bar,
+        'fit_artists': fit_artists,
+        'param_artists': param_artists,
+        'legend': legend,
+        'xbin_mid': np.asarray(xbin_mid),
+    }
+    update_plot_DSD_state(state, axdict, PSDdict, PSDfitdict, PSDparamdict, time_dim=time_dim)
+    return state
+
+
+def update_plot_DSD_state(state, axdict, PSDdict, PSDfitdict, PSDparamdict, time_dim='time'):
+    """Update reusable DSD artists for one frame."""
+    time_to_plot = axdict.get('time', None)
+    interval = axdict.get('interval', 10)
+
+    if time_to_plot is not None:
+        if time_dim == 'time':
+            time_to_plot_datetime = pd.to_datetime(time_to_plot).to_pydatetime()
+            time_string = time_to_plot_datetime.strftime(tm.timefmt2)
+        else:
+            time_string = f'{time_to_plot} s'
+        state['title'].set_text(f'{interval:d}-s DSD fits for time {time_string}')
+    else:
+        state['title'].set_text(f'Full deployment DSD ({interval:d} s)')
+
+    nd_values = np.asarray(PSDdict.get('ND', np.empty(0))) * 1000.0
+    nd_onedrop_values = np.asarray(PSDdict.get('ND_onedrop', np.empty(0))) * 1000.0
+
+    for rect, val in zip(state['nd_bar'].patches, nd_values):
+        rect.set_height(float(val))
+    for rect, val in zip(state['nd_onedrop_bar'].patches, nd_onedrop_values):
+        rect.set_height(float(val))
+
+    for fitname, line in state['fit_artists'].items():
+        ND_tuple = PSDfitdict.get(fitname)
+        if ND_tuple is None:
+            line.set_visible(False)
+            continue
+        line.set_data(state['xbin_mid'], np.asarray(ND_tuple[0]))
+        line.set_visible(True)
+
+    for paramname, (txt, label) in state['param_artists'].items():
+        paramtuple = PSDparamdict.get(paramname)
+        if paramtuple is None:
+            txt.set_visible(False)
+            continue
+        txt.set_text(label + f' = {float(paramtuple[0]):2.2f}')
+        txt.set_visible(True)
+
+
+def init_plot_vel_D_state(axdict, PSDdict, rho, time_dim='time'):
+    """Initialize a reusable velocity-diameter figure and artists for fast frame updates."""
+    xlim = axdict.get('xlim', (0.0, 9.0))
+    ylim = axdict.get('ylim', (0.0, 15.0))
+    diameter_bin_edges = axdict.get('diameter_bin_edges', None)
+    fallspeed_bin_edges = axdict.get('fallspeed_bin_edges', None)
+    avg_diameter_mm = axdict.get('avg_diameter', None)
+    avg_diameter_m = avg_diameter_mm * 1.e-3
+    rain_curve_max_diameter = axdict.get('rain_curve_max_diameter', 9.0)
+    hail_curve_min_diameter = axdict.get('hail_curve_min_diameter', 5.0)
+    cblim = axdict.get('cblim', (1, 50))
+    countsplot = np.asarray(PSDdict.get('vd_matrix_da', np.empty(0)))
+
+    fig = plt.figure(figsize=(8, 6))
+    ax = fig.add_subplot(111)
+    title = ax.set_title('')
+
+    mesh = ax.pcolormesh(diameter_bin_edges, fallspeed_bin_edges, countsplot, vmin=cblim[0],
+                         vmax=cblim[1], edgecolors='w', linewidths=0.2, cmap=cm.plasma)
+    rainvd = PSDdict.get('rainvd', None)
+    if rainvd is None:
+        rainvd = pips.calc_empirical_fallspeed_rain(avg_diameter_mm, correct_rho=True, rho=rho)
+    hailvd_350 = PSDdict.get('hailvd_350', None)
+    if hailvd_350 is None:
+        hailvd_350 = pips.calc_empirical_fallspeed_hail(avg_diameter_m, 350.0, correct_rho=True,
+                                                        rho=rho)
+    hailvd_900 = PSDdict.get('hailvd_900', None)
+    if hailvd_900 is None:
+        hailvd_900 = pips.calc_empirical_fallspeed_hail(avg_diameter_m, 900.0, correct_rho=True,
+                                                        rho=rho)
+    rain_mask = np.asarray(avg_diameter_mm) <= rain_curve_max_diameter
+    hail_mask = np.asarray(avg_diameter_mm) >= hail_curve_min_diameter
+    (rain_line,) = ax.plot(
+        np.asarray(avg_diameter_mm)[rain_mask], np.asarray(rainvd)[rain_mask], c='r')
+    (hail_350_line,) = ax.plot(np.asarray(avg_diameter_mm)[hail_mask],
+                               np.asarray(hailvd_350)[hail_mask], c='b', ls='--')
+    (hail_900_line,) = ax.plot(np.asarray(avg_diameter_mm)[hail_mask],
+                               np.asarray(hailvd_900)[hail_mask], c='purple', ls='--')
+    cbar = fig.colorbar(mesh)
+
+    flagged_text = ax.text(0.5, 0.5, 'Flagged for strong wind contamination!',
+                           horizontalalignment='center', verticalalignment='center', color='y',
+                           transform=ax.transAxes, visible=False)
+
+    ax.set_xlim(xlim[0], xlim[1])
+    ax.xaxis.set_major_locator(ticker.MultipleLocator(1.0))
+    ax.set_xlabel('diameter (mm)')
+    ax.set_ylim(ylim[0], ylim[1])
+    ax.yaxis.set_major_locator(ticker.MultipleLocator(1.0))
+    ax.set_ylabel('fall speed (m/s)')
+
+    state = {
+        'fig': fig,
+        'ax': ax,
+        'title': title,
+        'mesh': mesh,
+        'rain_line': rain_line,
+        'hail_350_line': hail_350_line,
+        'hail_900_line': hail_900_line,
+        'cbar': cbar,
+        'flagged_text': flagged_text,
+        'mesh_shape': countsplot.shape,
+        'rain_curve_max_diameter': rain_curve_max_diameter,
+        'hail_curve_min_diameter': hail_curve_min_diameter,
+    }
+    update_plot_vel_D_state(state, axdict, PSDdict, rho, time_dim=time_dim)
+    return state
+
+
+def update_plot_vel_D_state(state, axdict, PSDdict, rho, time_dim='time'):
+    """Update reusable velocity-diameter artists for one frame."""
+    time = axdict.get('time', None)
+    DSD_interval = PSDdict.get('DSD_interval', 10.)
+    flaggedtime = PSDdict.get('flaggedtime', 0)
+    avg_diameter_mm = axdict.get('avg_diameter', None)
+    avg_diameter_m = avg_diameter_mm * 1.e-3
+    rain_curve_max_diameter = state.get('rain_curve_max_diameter', 9.0)
+    hail_curve_min_diameter = state.get('hail_curve_min_diameter', 5.0)
+
+    if time is not None:
+        time_string = time.strftime(tm.timefmt2) if time_dim == 'time' else f'{time} s'
+        state['title'].set_text(
+            f'Fall speed vs. diameter for time {time_string} and interval {int(DSD_interval):d} s')
+    else:
+        state['title'].set_text(
+            f'Fall speed vs. diameter for full deployment ({int(DSD_interval):d} s)')
+
+    countsplot = np.asarray(PSDdict.get('vd_matrix_da', np.empty(0)))
+    state['mesh'].set_array(countsplot.ravel())
+
+    rainvd = PSDdict.get('rainvd', None)
+    if rainvd is None:
+        rainvd = pips.calc_empirical_fallspeed_rain(avg_diameter_mm, correct_rho=True, rho=rho)
+    hailvd_350 = PSDdict.get('hailvd_350', None)
+    if hailvd_350 is None:
+        hailvd_350 = pips.calc_empirical_fallspeed_hail(avg_diameter_m, 350.0, correct_rho=True,
+                                                        rho=rho)
+    hailvd_900 = PSDdict.get('hailvd_900', None)
+    if hailvd_900 is None:
+        hailvd_900 = pips.calc_empirical_fallspeed_hail(avg_diameter_m, 900.0, correct_rho=True,
+                                                        rho=rho)
+    rain_mask = np.asarray(avg_diameter_mm) <= rain_curve_max_diameter
+    hail_mask = np.asarray(avg_diameter_mm) >= hail_curve_min_diameter
+    state['rain_line'].set_data(np.asarray(avg_diameter_mm)[rain_mask], np.asarray(rainvd)[rain_mask])
+    state['hail_350_line'].set_data(np.asarray(avg_diameter_mm)[hail_mask],
+                                    np.asarray(hailvd_350)[hail_mask])
+    state['hail_900_line'].set_data(np.asarray(avg_diameter_mm)[hail_mask],
+                                    np.asarray(hailvd_900)[hail_mask])
+
+    state['flagged_text'].set_visible(flaggedtime > 1)
 
 
 def computecorners(xe, ye, UM=False):

@@ -25,6 +25,62 @@ max_fall_bins = pp.parsivel_parameters['max_fallspeed_bins_mps']
 avg_fall_bins = pp.parsivel_parameters['avg_fallspeed_bins_mps']
 fall_bins_edges = np.append(min_fall_bins, max_fall_bins[-1])
 
+MM2013_hail_fallspeed_coeff = {
+     50: {"a":  62.923, "b": 0.67819},
+    150: {"a":  94.122, "b": 0.63789},
+    250: {"a": 114.740, "b": 0.62197},
+    350: {"a": 131.210, "b": 0.61240},
+    450: {"a": 145.260, "b": 0.60572},
+    550: {"a": 157.710, "b": 0.60066},
+    650: {"a": 168.980, "b": 0.59663},
+    750: {"a": 179.360, "b": 0.59330},
+    850: {"a": 189.020, "b": 0.59048},
+}
+
+# Arrays for interpolation
+MM2013_rho_h = np.array(sorted(MM2013_hail_fallspeed_coeff.keys()), dtype=float)
+MM2013_a_h = np.array([MM2013_hail_fallspeed_coeff[r]["a"] for r in MM2013_rho_h])
+MM2013_b_h = np.array([MM2013_hail_fallspeed_coeff[r]["b"] for r in MM2013_rho_h])
+
+
+def interpolate_MM2013_hail_fallspeed_coefficients(rho_h):
+    """
+    Linearly interpolate hail fall speed coefficients.
+
+    Parameters
+    ----------
+    rho_h : float or array_like
+        Hail bulk density (kg m^-3).
+
+    Returns
+    -------
+    a_h : float or ndarray
+        Interpolated a_h coefficient.
+    b_h : float or ndarray
+        Interpolated b_h coefficient.
+
+    Notes
+    -----
+    Values outside the tabulated density range are clipped to the
+    nearest tabulated value (no extrapolation).
+    """
+    rho_h = np.asarray(rho_h)
+
+    a_h = np.interp(rho_h, MM2013_rho_h, MM2013_a_h)
+    b_h = np.interp(rho_h, MM2013_rho_h, MM2013_b_h)
+
+    return a_h, b_h
+
+
+def _to_numpy_scalar_or_array(value):
+    if isinstance(value, pd.Series):
+        return value.to_numpy()
+    if isinstance(value, xr.DataArray):
+        return value.to_numpy()
+    if isinstance(value, xr.Dataset):
+        return value.to_array().squeeze().to_numpy()
+    return np.asarray(value)
+
 
 def calc_thermo(conv_df, p_var='pressure', T_var='fasttemp', RH_var='RH_derived', suffix=''):
     """[summary]
@@ -633,8 +689,9 @@ def calc_fallspeed_spectrum(diameter_bins, fallspeed_bins,
         [description]
     """
     if not use_measured_fallspeed:
-        fallspeed_spectrum = calc_empirical_fallspeed(diameter_bins, correct_rho=correct_rho,
-                                                      rho=rho)
+        fallspeed_spectrum = calc_empirical_fallspeed_rain(diameter_bins,
+                                                           correct_rho=correct_rho,
+                                                           rho=rho)
         # print('rho', rho)
         # exit
         if time_dim in rho.dims:
@@ -665,11 +722,12 @@ def calc_fallspeed_spectrum(diameter_bins, fallspeed_bins,
 
 
 # @jit
-def calc_empirical_fallspeed(d, correct_rho=False, rho=None):
+def calc_empirical_fallspeed_rain(d, correct_rho=False, rho=None):
     """Assigns a fall speed for a range of diameters based on code
        from David Dowell (originally from Terry Schuur).  It appears that
        the formulas originate from Atlas et al. (1973), but this took a bit of sleuthing!"""
 
+    d = np.asarray(d)
     v = np.where(d < 3.0, 3.78 * d**0.67, 9.65 - 10.3 * np.exp(-0.6 * d))
     v = np.where(d < 0.0, 0.0, v)
 
@@ -678,36 +736,42 @@ def calc_empirical_fallspeed(d, correct_rho=False, rho=None):
     # where rho0 = 1.204 kg/m^3 -- that corresponding to a T of 20 C and pressure of 1013 mb.
 
     if correct_rho and rho is not None:
-        # Check if rho is a DataArray, Dataset or a Series and convert to numpy array if so
-        if isinstance(rho, (pd.Series, xr.DataArray, xr.Dataset)):
-            rho = rho.to_numpy()
-        v = v[:, None] * (1.204 / rho)**(0.4)
-        v = v.squeeze()
-        v = np.atleast_1d(v)
-        v = v.T
+        rho = _to_numpy_scalar_or_array(rho)
+        density_factor = np.power(1.204 / rho, 0.4)
+        if np.ndim(density_factor) > 0 and d.ndim > 0:
+            v = v * density_factor[..., None]
+        else:
+            v = v * density_factor
     return v
+
+
+calc_empirical_fallspeed = calc_empirical_fallspeed_rain
 
 ## modified calc_empirical_fallspeed function, but for hail
 ## using formula from Milbrandt and Morrison (2013)
-def calc_empirical_fallspeed_hail(d, rhohl, correct_rho=False, rho=None):
+def calc_empirical_fallspeed_hail(d, rho_h, correct_rho=False, rho=None):
     """Assigns a fall speed for a range of diameters"""
 
-    #use standard air density rho_0 = 1.225 kg/m^3
+    d = np.asarray(d)
+    rho_h = _to_numpy_scalar_or_array(rho_h)
+    a_h, b_h = interpolate_MM2013_hail_fallspeed_coefficients(rho_h)
 
-    a_g = 189.02
-    b_g = 0.59048
+    time_dependent = np.ndim(rho_h) > 0
+    if correct_rho and rho is not None:
+        rho = _to_numpy_scalar_or_array(rho)
+        time_dependent = time_dependent or np.ndim(rho) > 0
 
-    # fall speed without air density term
-    v = a_g*(d**b_g)
+    if time_dependent and d.ndim > 0:
+        v = np.asarray(a_h)[..., None] * np.power(d, np.asarray(b_h)[..., None])
+    else:
+        v = np.asarray(a_h) * np.power(d, np.asarray(b_h))
 
     if correct_rho and rho is not None:
-        # Check if rho is a DataArray, Dataset or a Series and convert to numpy array if so
-        if isinstance(rho, (pd.Series, xr.DataArray, xr.Dataset)):
-            rho = rho.to_numpy()
-        v = v[:, None] * ((1.225/rho)**0.5)
-        v = v.squeeze()
-        v = np.atleast_1d(v)
-        v = v.T
+        density_factor = np.power(1.225 / rho, 0.5)
+        if np.ndim(density_factor) > 0 and d.ndim > 0:
+            v = v * density_factor[..., None]
+        else:
+            v = v * density_factor
 
     return v
 

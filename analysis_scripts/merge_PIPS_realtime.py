@@ -449,7 +449,10 @@ def main():
     # Set up plot directory if diagnostic plots are requested
     plot_dir = None
     if args.diagnostic_plots:
-        plot_dir = args.plot_dir if args.plot_dir else os.path.join(output_dir, 'plots')
+        plot_dir = args.plot_dir if args.plot_dir else config.PIPS_IO_dict.get('plot_dir', None)
+        if plot_dir is None: # Final fallback to output_dir/plots
+            plot_dir = os.path.join(output_dir, 'plots')
+        plot_dir = os.path.join(plot_dir, "merge_diagnostics")
         if not os.path.exists(plot_dir):
             os.makedirs(plot_dir)
             utils.log(f"Created plot directory: {plot_dir}")

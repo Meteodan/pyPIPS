@@ -2,6 +2,186 @@
 
 This file tracks significant development progress, lessons learned, and agent activities for pyPIPS development sessions.
 
+## Session: July 11, 2026 - Velocity-Diameter Hail Overlay Curves for MM2013 Density Cases
+
+### Key Code Updates
+#### Added Dual Hail Fallspeed Overlays to Velocity-Diameter Plots
+**Problem**: Velocity-diameter plots only showed the rain empirical fallspeed curve, with no hail reference curves for different hail densities.
+**Solution**:
+- Added two hail overlay curves to vel-D plotting for `rho_h = 350 kg m^-3` and `rho_h = 900 kg m^-3`.
+- Applied a hail-curve diameter mask so hail overlays start at 5 mm and extend through the maximum Parsivel diameter bin.
+- Kept existing rain curve behavior in place.
+**Files Modified**: `pyPIPS/plotmodule.py`, `plotting_scripts/plot_vel_D_nc.py`
+
+#### Reusable Plot-State Support for Hail Overlays in Time-Series Rendering
+**Problem**: High-throughput vel-D series plotting relies on reusable artists, so hail overlays needed to be integrated in both init and update paths.
+**Solution**:
+- Added hail line artists (`hail_350_line`, `hail_900_line`) in reusable vel-D state initialization.
+- Updated per-frame state updates to refresh both hail lines along with the rain line and mesh data.
+- Wired `plot_vel_D_nc.py` to precompute rain and hail fallspeed arrays and pass them through `PSDdict` per frame.
+**Files Modified**: `pyPIPS/plotmodule.py`, `plotting_scripts/plot_vel_D_nc.py`
+
+#### Diameter Unit Consistency for Hail Fallspeed Calls
+**Problem**: Hail fallspeed helper usage in plotting needed explicit diameter-unit handling to match hail function expectations.
+**Solution**:
+- Introduced explicit diameter arrays in millimeters and meters (`avg_diameter_mm`, `avg_diameter_m`) within vel-D plotting paths.
+- Used millimeters for rain empirical fallspeed and meters for hail empirical fallspeed in both static and reusable plot flows.
+**Files Modified**: `pyPIPS/plotmodule.py`, `plotting_scripts/plot_vel_D_nc.py`
+
+#### Hail Curve Visual Tuning for Colormap Contrast
+**Problem**: Initial hail curve colors included white, which was hard to read against portions of the plasma colormap.
+**Solution**:
+- Updated hail curve colors to blue (`rho_h = 350`) and purple (`rho_h = 900`) for better visibility.
+**Files Modified**: `pyPIPS/plotmodule.py`
+
+### Key Lessons Learned
+#### Overlay Additions Must Be Applied to Both Static and Reusable Plot Paths
+**Lesson**: In pyPIPS plotting modules, visual features can diverge if updates are made only to one-off plotting functions and not the reusable state/update pair.
+**Impact**: Future visual enhancements should be implemented in both code paths in the same change.
+
+#### Physical-Unit Assumptions Should Be Explicit at Plot Boundaries
+**Lesson**: Plotting code that feeds scientific kernels should convert and name units explicitly (`mm` vs `m`) at the boundary.
+**Impact**: Reduces silent misuse when multiple empirical relations with different unit assumptions are displayed together.
+
+### Technical Context for Future Development
+- Vel-D plots now include three empirical overlays by default: one rain curve and two hail curves for MM2013 density cases.
+- Hail overlays are constrained to `D >= 5 mm` while rain curve masking remains separately configurable.
+- Time-series vel-D plotting uses precomputed overlay arrays and updates line artists in-place for performance consistency.
+
+### Next Development Priorities
+1. Add a compact on-plot legend annotation for rain and hail density curves to improve interpretability in exported images.
+2. Consider exposing hail overlay densities and style settings as plot-config parameters instead of hardcoded constants.
+3. Add a lightweight visual smoke test (single-frame render) to catch overlay regressions in reusable update paths.
+
+## Session: July 11, 2026 - Hail/Rain Fallspeed Shape Handling and MM2013 Hail Integration
+
+### Key Code Updates
+#### MM2013 Hail Fallspeed Coefficient Interpolation by Hail Density
+**Problem**: The hail empirical fallspeed path needed to use hail bulk density directly rather than fixed coefficients, based on the Milbrandt and Morrison (2013) parameter table.
+**Solution**:
+- Added a Milbrandt and Morrison (2013) hail fallspeed coefficient table in `PIPS.py`.
+- Implemented linear interpolation of the `a_h` and `b_h` coefficients as a function of hail bulk density.
+- Updated the hail empirical fallspeed calculation to derive velocities from density-dependent MM2013 coefficients instead of a fixed coefficient pair.
+**Files Modified**: `pyPIPS/PIPS.py`
+
+#### Scalar/Time-Sequence Shape Handling for Empirical Fallspeed Helpers
+**Problem**: `rho_h` and `rho` can each be scalar or time-dimensioned, and the original hail/rain implementations relied on fragile broadcasting plus `squeeze()`/transpose behavior.
+**Solution**:
+- Added a shared scalar-or-array normalization helper for `numpy`, `pandas`, and `xarray` inputs.
+- Refactored `calc_empirical_fallspeed_hail` so scalar and time-sequence combinations produce stable shapes intentionally.
+- Applied the same logic to the rain empirical fallspeed path to keep rain and hail behavior aligned.
+**Files Modified**: `pyPIPS/PIPS.py`
+
+#### Rain Fallspeed Rename with Backward-Compatible Alias
+**Problem**: The rain helper name no longer distinguished it from the hail-specific empirical fallspeed implementation.
+**Solution**:
+- Renamed the rain implementation to `calc_empirical_fallspeed_rain`.
+- Kept `calc_empirical_fallspeed` as a temporary alias for backward compatibility.
+- Updated internal non-measured fallspeed usage in `PIPS.py` to call the rain-specific name directly.
+**Files Modified**: `pyPIPS/PIPS.py`
+
+### Key Lessons Learned
+#### Shape Logic Should Not Be Implicit at the NumPy/Xarray Boundary
+**Lesson**: When functions still straddle NumPy-style kernels and xarray-aware workflows, scalar-versus-time behavior needs to be made explicit or shape drift will leak into downstream code.
+**Impact**: Future xarray migration work should separate pure numerical kernels from input normalization and labeled-array wrappers.
+
+#### Domain-Specific Parameterization Changes Need To Be Logged Alongside Refactors
+**Lesson**: The hail refactor was only part of the story; the more important scientific change was switching hail fallspeeds to MM2013 density-dependent coefficients.
+**Impact**: Progress notes should capture both implementation cleanup and the scientific/algorithmic reason the code path changed.
+
+### Technical Context for Future Development
+- `calc_empirical_fallspeed_hail` now expects hail density as an input and uses MM2013 coefficient interpolation.
+- Rain and hail empirical fallspeed helpers now share the same scalar/time-sequence handling pattern.
+- `calc_empirical_fallspeed_rain` is the preferred explicit rain API; `calc_empirical_fallspeed` remains as a compatibility alias for now.
+- pyPIPS is still in a transition phase where some public helpers accept mixed NumPy/pandas/xarray inputs before a fuller xarray-native interface is in place.
+
+### Next Development Priorities
+1. Add xarray-native wrapper functions for empirical fallspeed calculations that preserve named dimensions and coordinates.
+2. Decide which pyPIPS routines should remain pure NumPy kernels versus xarray-facing APIs.
+3. Replace ad hoc scalar-or-sequence handling in similar helpers with a single consistent boundary pattern.
+
+## Session: July 11, 2026 - Plotting Throughput Optimization and Parallel Workflow Integration
+
+### Key Code Updates
+#### Reusable Figure/Artist Pipeline for High-Volume Plot Loops
+**Problem**: Time-series plotting in DSD and velocity-diameter scripts incurred high overhead from creating/destroying figures and artists on every frame.
+**Solution**:
+- Added reusable plotting state helpers for DSD and vel-D plots so frame loops update artists in-place.
+- Preserved dynamic fit/retrieval overlays while avoiding per-frame artist allocation.
+- Kept one-figure-per-series behavior and closed figures once per series to reduce object churn.
+**Files Modified**: `pyPIPS/plotmodule.py`, `plotting_scripts/plot_DSD_nc.py`, `plotting_scripts/plot_vel_D_nc.py`
+
+#### One-Time Tight Bounding Box Caching
+**Problem**: `savefig(..., bbox_inches='tight')` recomputed layout bounds for each frame, adding significant overhead in long loops.
+**Solution**:
+- Implemented one-time tight-bbox computation and reuse per plot series.
+- Added helper utilities to save with cached bbox while maintaining whitespace trimming behavior.
+**Files Modified**: `pyPIPS/plotmodule.py`, `plotting_scripts/plot_DSD_nc.py`, `plotting_scripts/plot_vel_D_nc.py`
+
+#### Loop Hot-Path Data Access Optimization
+**Problem**: Repeated label-based xarray indexing in inner loops added avoidable overhead.
+**Solution**:
+- Cached core arrays (`ND`, `ND_onedrop`, `Dm`, radar/retrieval arrays, `VD_matrix`, `rho`, counts) as numpy arrays before frame loops.
+- Switched frame extraction to positional indexing inside hot loops.
+**Files Modified**: `plotting_scripts/plot_DSD_nc.py`, `plotting_scripts/plot_vel_D_nc.py`
+
+#### Precomputed Time-Dependent Empirical Fallspeed Curves
+**Problem**: Empirical fallspeed curve computation was repeatedly executed in vel-D update paths.
+**Solution**:
+- Precomputed empirical fallspeed curves for all time steps and passed per-frame curves into reusable update functions.
+- Updated plotting helpers to accept precomputed `rainvd` when available.
+**Files Modified**: `plotting_scripts/plot_vel_D_nc.py`, `pyPIPS/plotmodule.py`
+
+#### Parallel File-Level Plotting and Runtime Summaries
+**Problem**: Large multi-file plotting jobs remained slow in serial execution and lacked built-in timing visibility.
+**Solution**:
+- Added file-level parallel execution support to DSD and vel-D scripts via `--n-workers` and internal `--file-index` dispatch.
+- Added per-file and total runtime summaries to both scripts.
+- Updated shell workflow to expose/passthrough worker count and default to 4 workers for DSD/vel-D plotting.
+**Files Modified**: `plotting_scripts/plot_DSD_nc.py`, `plotting_scripts/plot_vel_D_nc.py`, `shell_scripts/run_plotting.sh`
+
+#### Rain Fallspeed Curve Domain Constraint
+**Problem**: Requested visual behavior was to terminate rain empirical fallspeed curve at 9 mm diameter.
+**Solution**:
+- Added curve masking in legacy and reusable vel-D plot paths so the curve is plotted only for diameter <= 9 mm.
+**Files Modified**: `pyPIPS/plotmodule.py`
+
+#### Runtime Summary Regression Fix
+**Problem**: New timing instrumentation failed because frame variable `time` shadowed the `time` module, causing `Timestamp` attribute errors on `perf_counter`.
+**Solution**:
+- Renamed frame-local variable to `frame_time` in DSD and vel-D scripts.
+- Revalidated script compilation after fix.
+**Files Modified**: `plotting_scripts/plot_DSD_nc.py`, `plotting_scripts/plot_vel_D_nc.py`
+
+### Key Lessons Learned
+#### Savefig/Layout Work Is Often the Dominant Cost in Dense Frame Export Workflows
+**Lesson**: Reusing figure state and caching tight-bbox computations provides immediate throughput gains before deeper algorithmic changes.
+**Impact**: Prioritize rendering and output pipeline efficiencies first for batch plot generation scripts.
+
+#### Not All Micro-Optimizations Produce Obvious User-Perceived Gains Without Timing
+**Lesson**: Additional loop-level optimizations (array caching, curve precompute) may provide incremental benefits that are hard to subjectively detect without built-in timing.
+**Impact**: Keep runtime summaries in scripts to compare optimization steps empirically.
+
+#### File-Level Parallelism Is a Low-Risk Throughput Lever for Independent Plot Jobs
+**Lesson**: Subprocess-per-file parallelization avoids matplotlib/thread-safety issues and scales cleanly for independent netCDF inputs.
+**Impact**: Use worker-count controls in operational shell workflows for large campaign batches.
+
+#### Naming Collisions in Instrumentation Can Break Otherwise Correct Pipelines
+**Lesson**: Avoid variable names that shadow standard modules (for example `time`) when adding diagnostics.
+**Impact**: Include quick compile/test passes after observability changes, not only after feature changes.
+
+### Technical Context for Future Development
+- DSD and vel-D scripts now support `--n-workers` and emit runtime summaries (per file and total).
+- `shell_scripts/run_plotting.sh` now defaults to `N_WORKERS=4` and forwards the worker count to DSD/vel-D scripts.
+- Vel-D rain empirical curve plotting is constrained to diameter <= 9 mm in both classic and reusable plot paths.
+- Reusable plot-state helpers in `pyPIPS/plotmodule.py` are now part of the supported path for high-volume frame plotting.
+
+### Next Development Priorities
+1. Add optional timing breakdowns by stage (data load, prep, render, save) for more targeted optimization.
+2. Evaluate whether parallelism should be extended to additional plotting scripts where work is file-independent.
+3. Add a lightweight regression test or smoke check for CLI parallel dispatch (`--n-workers`, `--file-index`) and timing summary formatting.
+4. Validate DSD fit-overlay behavior under reusable artist updates across representative cases.
+
 ## Session: May 24, 2026 - VS Code Environment Alignment and COMMAS Mapping Refresh
 
 ### Key Code Updates

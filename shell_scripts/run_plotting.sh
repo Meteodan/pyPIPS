@@ -19,27 +19,27 @@ RUN_VEL_D_PLOTS=1
 
 # Default plotting options
 QC_TAGS="qc"
-ND_TAGS="qc"
 PLOT_START_TIME=""
 PLOT_END_TIME=""
 PLOT_DIR=""
 PLOT_CONFIG_PATH="plot_config.py"
 IMAGE_FMT="png"
+N_WORKERS=4
 VERBOSE=0
 ENABLE_LOGGING=0
 LOG_DIR=""
 
 # DSD plot options
-PLOT_RAW=0
+PLOT_RAW=1
 PLOT_FULL=1
-PLOT_SERIES=0
+PLOT_SERIES=1
 PLOT_MM_FITS=0
 
 # Vel-D plot options
-PLOT_VD_RAW=0
+PLOT_VD_RAW=1
 PLOT_VD_QC=1
 PLOT_VD_FULL=1
-PLOT_VD_SERIES=0
+PLOT_VD_SERIES=1
 
 # Radar PPI options
 RADAR_EL_REQ=""
@@ -91,13 +91,13 @@ Options - Script Selection:
     --enable-radar-ppi        Enable radar PPI plots (disabled by default)
 
 Options - General Plotting:
-    --qc-tags TAGS            Space-separated QC tags for DSD meteograms (default: "qc")
-    --nd-tags TAGS            Space-separated ND tags for DSD plots (default: "qc")
+    --qc-tags TAGS            Space-separated QC tags for various plots (default: "qc")
     --plot-start-time TIME    Start time for plots (YYYYmmDDHHMMSS format)
     --plot-end-time TIME      End time for plots (YYYYmmDDHHMMSS format)
     --plot-dir DIR            Directory to store plots (overrides config file)
     --plot-config PATH        Path to plot configuration file (default: plot_config.py)
     --image-fmt FMT           Image format: png, pdf, eps (default: png)
+    --n-workers N             Number of workers for DSD and vel-D plotting (default: 4)
 
 Options - DSD Plot Settings:
     --plot-raw                Include raw (non-QC) DSDs in DSD plots
@@ -204,10 +204,6 @@ while [[ $# -gt 0 ]]; do
             QC_TAGS="$2"
             shift 2
             ;;
-        --nd-tags)
-            ND_TAGS="$2"
-            shift 2
-            ;;
         --plot-start-time)
             PLOT_START_TIME="$2"
             shift 2
@@ -226,6 +222,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --image-fmt)
             IMAGE_FMT="$2"
+            shift 2
+            ;;
+        --n-workers)
+            N_WORKERS="$2"
             shift 2
             ;;
         --plot-raw)
@@ -363,6 +363,7 @@ echo "Plots to generate:"
 [ -n "$PLOT_END_TIME" ] && echo "Plot end time: $PLOT_END_TIME"
 [ -n "$PLOT_DIR" ] && echo "Plot directory: $PLOT_DIR"
 echo "Image format: $IMAGE_FMT"
+echo "Plot workers (DSD/vel-D): $N_WORKERS"
 echo "==============================================="
 echo
 
@@ -437,7 +438,7 @@ fi
 if [ $RUN_DSD_PLOTS -eq 1 ] && [ $CONFIG_SUCCESS -eq 1 ]; then
     print_step "Generating DSD histograms..."
 
-    cmd="python ${PLOT_SCRIPT_DIR}/plot_DSD_nc.py $CASE_CONFIG_PATH $COMMON_PLOT_ARGS --ND-tags $ND_TAGS --image-fmt $IMAGE_FMT"
+    cmd="python ${PLOT_SCRIPT_DIR}/plot_DSD_nc.py $CASE_CONFIG_PATH $COMMON_PLOT_ARGS --QC-tags $QC_TAGS --image-fmt $IMAGE_FMT --n-workers $N_WORKERS"
     [ $PLOT_RAW -eq 1 ] && cmd="$cmd --plot-raw"
     [ $PLOT_FULL -eq 1 ] && cmd="$cmd --plot-full"
     [ $PLOT_SERIES -eq 1 ] && cmd="$cmd --plot-series"
@@ -500,7 +501,7 @@ fi
 if [ $RUN_VEL_D_PLOTS -eq 1 ] && [ $CONFIG_SUCCESS -eq 1 ]; then
     print_step "Generating velocity-diameter plots..."
 
-    cmd="python ${PLOT_SCRIPT_DIR}/plot_vel_D_nc.py $CASE_CONFIG_PATH $COMMON_PLOT_ARGS"
+    cmd="python ${PLOT_SCRIPT_DIR}/plot_vel_D_nc.py $CASE_CONFIG_PATH $COMMON_PLOT_ARGS --n-workers $N_WORKERS"
     [ $PLOT_VD_RAW -eq 1 ] && cmd="$cmd --plot-raw"
     [ $PLOT_VD_QC -eq 1 ] && cmd="$cmd --plot-qc"
     [ $PLOT_VD_FULL -eq 1 ] && cmd="$cmd --plot-full"

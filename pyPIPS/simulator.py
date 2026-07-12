@@ -65,10 +65,11 @@ rhorcst = 1000.0    # kg m^-3 (liquid-water density)
 cr = rhorcst * np.pi / 6.0
 mur = 1.0 / 3.0     # assumed rain shape parameter (gamma-diameter)
 muhl = 1.0 / 3.0     # assumed hail shape parameter (gamma-diameter)
+mug = 1.0 / 3.0     # assumed graupel shape parameter (gamma-diameter)
 
-sampling_area = pp.parsivel_parameters["sensor_area_mm2"] / 1.0e6  # m^2
-sampling_width = pp.parsivel_parameters["sensor_width_mm"] / 1.0e3  # m
-sampling_length = pp.parsivel_parameters["sensor_length_mm"] / 1.0e3  # m
+sampling_area_default = pp.parsivel_parameters["sensor_area_mm2"] / 1.0e6  # m^2
+sampling_width_default = pp.parsivel_parameters["sensor_width_mm"] / 1.0e3  # m
+sampling_length_default = pp.parsivel_parameters["sensor_length_mm"] / 1.0e3  # m
 
 D = pp.parsivel_parameters["avg_diameter_bins_mm"] / 1.0e3  # m
 Dl = pp.parsivel_parameters["min_diameter_bins_mm"] / 1.0e3  # m
@@ -248,11 +249,11 @@ def create_random_gamma_DSD(
         print("Dmax_index =", Dmax_index)
 
     Vtmax = Vt[Dmax_index]
-    _sampling_area = sampling_length * sampling_width
+    sampling_area = sampling_length * sampling_width
     sampling_height = Vtmax * sampling_interval
-    sampling_volume = _sampling_area * sampling_height
+    sampling_volume = sampling_area * sampling_height
     sampling_volumes_D = calc_sampling_volumes_D(
-        Vt, Dr, Dmax, sampling_interval, _sampling_area
+        Vt, Dr, Dmax, sampling_interval, sampling_area
     )
 
     if verbose:
@@ -285,6 +286,12 @@ def create_random_gamma_DSD(
             print("number of particles above the lowest two bins =", low_mask.sum())
         diameter_mask = diameter_mask & low_mask
 
+    # Check that there are still particles left after applying the diameter mask; if not, return None
+    if diameter_mask.sum() <= 0:
+        if verbose:
+            print("No particles left after applying diameter mask; returning None.")
+        return None
+
     diameters = diameters[diameter_mask]
     xpos = xpos[diameter_mask]
     ypos = ypos[diameter_mask]
@@ -292,18 +299,21 @@ def create_random_gamma_DSD(
 
     if verbose:
         print("number within allowable diameter range =", diameter_mask.sum())
-        if diameter_mask.sum() > 0:
-            print(
-                "min/max particle diameter in truncated sample =",
-                diameters.min(), diameters.max(),
-            )
+        print(
+            "min/max particle diameter in truncated sample =",
+            diameters.min(), diameters.max(),
+        )
     if not hail:
         velocities = pips.calc_empirical_fallspeed(
             diameters * 1000.0, correct_rho=rhocorrect, rho=rho
         )
     else:
+        if verbose:
+            print("Calculating hail particle velocities with rhohl =", rhohl)
         velocities = pips.calc_empirical_fallspeed_hail(
             diameters, rhohl, correct_rho=rhocorrect, rho=rho)
+    if verbose:
+        print("min/max particle velocity in sample =", velocities.min(), velocities.max())
     depths = velocities * sampling_interval
     keepers = np.where(zpos.squeeze() - depths <= 0.0)
 
@@ -1942,6 +1952,8 @@ def interp_model_to_transect(
     transect_results: Sequence[xr.Dataset],
     Dr: np.ndarray,
     sampling_interval: float = 60.0,
+    sampling_length: float = sampling_length_default,
+    sampling_width: float = sampling_width_default,
     add_hail: bool = False,
     use_bins_for_interp: bool = False,
     use_Parsivel_simulator: bool = False,
@@ -1983,6 +1995,7 @@ def interp_model_to_transect(
     and (if *use_Parsivel_simulator*) ``ND_ps``, ``D0r_ps``.
     """
     Dmax, Dmax_index = get_Dmax_index(Dr, Dmax)
+    sampling_area = sampling_length * sampling_width
 
     if not use_bins_for_interp and add_hail:
         print(
@@ -2610,6 +2623,9 @@ def sample_model_PSD_along_transect(
     grid_idx_ds: xr.Dataset,
     Dmax: float | None = None,
     level: int = 0,
+    sampling_length: float = sampling_length_default,
+    sampling_width: float = sampling_width_default,
+    verbose: bool = False,
 ) -> xr.Dataset:
     """
     Sample the model PSD along a transect using the Parsivel simulator.
@@ -2648,6 +2664,7 @@ def sample_model_PSD_along_transect(
 
         Coord: ``sample_time``.
     """
+    sampling_area = sampling_length * sampling_width
     Dmax, Dmax_index = get_Dmax_index(Dr, Dmax)
 
     sampling_times = transect_ds.coords["sample_time"].values
@@ -2699,13 +2716,16 @@ def sample_model_PSD_along_transect(
 
     # TODO: make this more general by leveraging the variable mapping in model_config.py
     # Right now, this works for CM1 model output.
+    # EDIT: changed this to use the canonical field names in the model dataset, so it should work
+    # assuming that the model dataset has been "normalized" to have the canonical field names
+    # (rhoa, qr, ntr, zr).
     if "rhoa" in ds:
         rhoa_arr = _index_field(_get_field_numpy("rhoa"), tidx)
     elif "rho" in ds:
         rhoa_arr = _index_field(_get_field_numpy("rho"), tidx)
     else:
         # Derive air density from pressure, potential temperature, and water vapour.
-        p_arr  = _index_field(_get_field_numpy("prs"), tidx)
+        p_arr  = _index_field(_get_field_numpy("p"), tidx)
         pt_arr = _index_field(_get_field_numpy("th"),  tidx)
         qv_arr = _index_field(_get_field_numpy("qv"),  tidx)
         rhoa_arr = np.array([
@@ -2714,8 +2734,8 @@ def sample_model_PSD_along_transect(
         ])
 
     qr_arr  = _index_field(_get_field_numpy("qr"),  tidx)
-    ntr_arr = _index_field(_get_field_numpy("crw"), tidx)
-    zr_arr  = _index_field(_get_field_numpy("zrw"), tidx)
+    ntr_arr = _index_field(_get_field_numpy("ntr"), tidx)
+    zr_arr  = _index_field(_get_field_numpy("zr"), tidx)
 
     # ------------------------------------------------------------------
     # Derive alphar from reflectivity using the iterative solver.
@@ -2757,6 +2777,7 @@ def sample_model_PSD_along_transect(
             Dl, D, Dr, Dmax=Dmax,
             sampling_interval=float(dt[n]),
             remove_margins=True, rhocorrect=True, rho=rhoa_arr[n],
+            verbose=verbose
         )
         if sample_dict is not None:
             pcount_binned_samples.append(sample_dict["pcount_binned"].values)
@@ -2809,6 +2830,9 @@ def sample_model_PSD_along_transect_hail(
     grid_idx_ds: xr.Dataset,
     Dmax: float | None = None,
     level: int = 0,
+    sampling_length: float = sampling_length_default,
+    sampling_width: float = sampling_width_default,
+    verbose: bool = False,
 ) -> xr.Dataset:
     """
     Sample the model PSD along a transect using the Parsivel simulator.
@@ -2848,14 +2872,18 @@ def sample_model_PSD_along_transect_hail(
         Coord: ``sample_time``.
     """
     Dmax, Dmax_index = get_Dmax_index(Dr, Dmax)
+    sampling_area = sampling_length * sampling_width
+    # print("Dmax, Dmax_index, sampling_area:", Dmax, Dmax_index, sampling_area)
 
     sampling_times = transect_ds.coords["sample_time"].values
     all_times = transect_ds.coords["all_time"].values
 
     # Time deltas between consecutive all_time points (seconds).
     dt = all_times[1:] - all_times[:-1]
+    # print("dt:", dt)
     # Per-sample-interval durations (seconds), implicit in sampling_times.
     sampling_dt = sampling_times[1:] - sampling_times[:-1]
+    # print("sampling_dt:", sampling_dt)
 
     i_idx_arr = grid_idx_ds["i_idx"].values.astype(int)
     j_idx_arr = grid_idx_ds["j_idx"].values.astype(int)
@@ -2898,13 +2926,16 @@ def sample_model_PSD_along_transect_hail(
 
     # TODO: make this more general by leveraging the variable mapping in model_config.py
     # Right now, this works for CM1 model output.
+    # EDIT: changed this to use the canonical field names in the model dataset, so it should work
+    # assuming that the model dataset has been "normalized" to have the canonical field names
+    # (rhoa, qr, ntr, zr).
     if "rhoa" in ds:
         rhoa_arr = _index_field(_get_field_numpy("rhoa"), tidx)
     elif "rho" in ds:
         rhoa_arr = _index_field(_get_field_numpy("rho"), tidx)
     else:
         # Derive air density from pressure, potential temperature, and water vapour.
-        p_arr  = _index_field(_get_field_numpy("prs"), tidx)
+        p_arr  = _index_field(_get_field_numpy("p"), tidx)
         pt_arr = _index_field(_get_field_numpy("th"),  tidx)
         qv_arr = _index_field(_get_field_numpy("qv"),  tidx)
         rhoa_arr = np.array([
@@ -2916,14 +2947,16 @@ def sample_model_PSD_along_transect_hail(
     #ntr_arr = _index_field(_get_field_numpy("crw"), tidx)
     #zr_arr  = _index_field(_get_field_numpy("zrw"), tidx)
 
-    qhl_arr = _index_field(_get_field_numpy("qhl"), tidx)
-    nthl_arr = _index_field(_get_field_numpy("chl"), tidx)
-    zhl_arr  = _index_field(_get_field_numpy("zhl"), tidx)
+    qhl_arr = _index_field(_get_field_numpy("qh"), tidx)
+    nthl_arr = _index_field(_get_field_numpy("nth"), tidx)
+    zhl_arr  = _index_field(_get_field_numpy("zh"), tidx)
 
-    vhl_arr = _index_field(_get_field_numpy("vhl"), tidx)
+    vhl_arr = _index_field(_get_field_numpy("vh"), tidx)
 
     # calculate density of hail
     rhohl_arr = qhl_arr / vhl_arr
+    # For safety, set any bad values of rhohl_arr to 900 kg/m^3
+    rhohl_arr = np.where(~np.isfinite(rhohl_arr), 900, rhohl_arr)
     chl_arr = np.pi / 6. * rhohl_arr
 
     # ------------------------------------------------------------------
@@ -2931,7 +2964,7 @@ def sample_model_PSD_along_transect_hail(
     # ------------------------------------------------------------------
     alphahl_arr = np.array([
         dualpol.solve_alpha_iter(
-            rhoa_arr[n], mur, qhl_arr[n], nthl_arr[n], zhl_arr[n], rhohl_arr[n]
+            rhoa_arr[n], muhl, qhl_arr[n], nthl_arr[n], zhl_arr[n], rhohl_arr[n]
         ).squeeze()
         for n in range(ntimes)
     ])
@@ -2950,7 +2983,7 @@ def sample_model_PSD_along_transect_hail(
     # calc_empirical_fallspeed_hail with a 1-D rho Series returns (ntimes, nbins).
     # ------------------------------------------------------------------
     Vthl = pips.calc_empirical_fallspeed_hail(
-        D, rhohl=rhohl_arr, correct_rho=True, rho=rhoa_arr
+        D, rho_h=rhohl_arr, correct_rho=True, rho=rhoa_arr
     )
     Vthl = Vthl[:, :Dmax_index + 1]
 
@@ -2965,10 +2998,12 @@ def sample_model_PSD_along_transect_hail(
             sampling_length, sampling_width,
             Dl, D, Dr, Dmax=Dmax,
             sampling_interval=float(dt[n]),
-            remove_margins=True, rhocorrect=True, rho=rhoa_arr[n], rhohl=rhohl_arr[n], verbose=True
+            remove_margins=True, rhocorrect=True, rho=rhoa_arr[n], rhohl=rhohl_arr[n],
+            verbose=verbose
         )
         if sample_dict is not None:
             pcount_binned_samples.append(sample_dict["pcount_binned"].values)
+            # print("sample_dict['pcount_binned'].values:", sample_dict["pcount_binned"].values)
         else:
             pcount_binned_samples.append(np.zeros(Dmax_index + 1))
 
@@ -2993,10 +3028,14 @@ def sample_model_PSD_along_transect_hail(
         _samp_vols_D = calc_sampling_volumes_D(
             Vthl_mean, Dr, Dmax, sampling_dt[s], sampling_area
         )
+        # print(f"_samp_vols_D: {_samp_vols_D}")
         pcount_binned_total = np.sum(pcount_binned_samples[current_slice], axis=0)
+        # print(f"pcount_binned_total: {pcount_binned_total}")
         Nc_bin_ps[s + 1, :] = 1.0e-3 * calc_ND(
             pcount_binned_total, _samp_vols_D, Dr, Dl, Dmax
         )
+        # print(f"Nc_bin_ps[s + 1, :]: {Nc_bin_ps[s + 1, :]}")
+        # print(f"np.log10(Nc_bin_ps[s + 1, :]): {np.log10(Nc_bin_ps[s + 1, :])}")
 
     Nc_bin_ps = np.ma.masked_invalid(Nc_bin_ps)
 
@@ -3105,12 +3144,15 @@ def calc_model_PSD_along_transect(
         tidx = None
 
     # TODO: leverage model_config variable mapping for field names.
+    # EDIT: changed this to use the canonical field names in the model dataset, so it should work
+    # assuming that the model dataset has been "normalized" to have the canonical field names
+    # (rhoa, qr, ntr, zr).
     if "rhoa" in ds:
         rhoa_arr = _index_field(_get_field_numpy("rhoa"), tidx)
     elif "rho" in ds:
         rhoa_arr = _index_field(_get_field_numpy("rho"), tidx)
     else:
-        p_arr  = _index_field(_get_field_numpy("prs"), tidx)
+        p_arr  = _index_field(_get_field_numpy("p"), tidx)
         pt_arr = _index_field(_get_field_numpy("th"),  tidx)
         qv_arr = _index_field(_get_field_numpy("qv"),  tidx)
         rhoa_arr = np.array([
@@ -3119,8 +3161,8 @@ def calc_model_PSD_along_transect(
         ])
 
     qr_arr  = _index_field(_get_field_numpy("qr"),  tidx)
-    ntr_arr = _index_field(_get_field_numpy("crw"), tidx)
-    zr_arr  = _index_field(_get_field_numpy("zrw"), tidx)
+    ntr_arr = _index_field(_get_field_numpy("ntr"), tidx)
+    zr_arr  = _index_field(_get_field_numpy("zr"), tidx)
 
     # ------------------------------------------------------------------
     # Gamma-distribution parameters from model moments.
@@ -3282,7 +3324,7 @@ def calc_model_PSD_along_transect_hail(
     elif "rho" in ds:
         rhoa_arr = _index_field(_get_field_numpy("rho"), tidx)
     else:
-        p_arr  = _index_field(_get_field_numpy("prs"), tidx)
+        p_arr  = _index_field(_get_field_numpy("p"), tidx)
         pt_arr = _index_field(_get_field_numpy("th"),  tidx)
         qv_arr = _index_field(_get_field_numpy("qv"),  tidx)
         rhoa_arr = np.array([
@@ -3290,14 +3332,13 @@ def calc_model_PSD_along_transect_hail(
             for n in range(ntimes)
         ])
 
-    qhl_arr  = _index_field(_get_field_numpy("qhl"),  tidx)
-    nthl_arr = _index_field(_get_field_numpy("chl"), tidx)
-    zhl_arr  = _index_field(_get_field_numpy("zhl"), tidx)
-    vhl_arr  = _index_field(_get_field_numpy("vhl"), tidx)
+    qhl_arr  = _index_field(_get_field_numpy("qh"), tidx)
+    nthl_arr = _index_field(_get_field_numpy("nth"), tidx)
+    zhl_arr  = _index_field(_get_field_numpy("zh"), tidx)
+    vhl_arr  = _index_field(_get_field_numpy("vh"), tidx)
 
     # calculate density of hail
     rhohl_arr = qhl_arr/vhl_arr
-    rhohlcst=rhohl_arr
     chl_arr = np.pi / 6. * rhohl_arr
 
     # ------------------------------------------------------------------
@@ -3305,7 +3346,7 @@ def calc_model_PSD_along_transect_hail(
     # ------------------------------------------------------------------
     alphahl_arr = np.array([
         dualpol.solve_alpha_iter(
-            rhoa_arr[n], mur, qhl_arr[n], nthl_arr[n], zhl_arr[n], rhohlcst[n]
+            rhoa_arr[n], muhl, qhl_arr[n], nthl_arr[n], zhl_arr[n], rhohl_arr[n]
         ).squeeze()
         for n in range(ntimes)
     ])
@@ -3331,6 +3372,7 @@ def calc_model_PSD_along_transect_hail(
 
     # Replace NaN/inf values (dry cells where qhl≈0) with 0.
     ND_all_times = np.where(np.isfinite(ND_all_times), ND_all_times, 0.0)
+    print("ND_all_times:", ND_all_times)
 
     # ------------------------------------------------------------------
     # Time-weighted average of N(D) into each sample_time interval.
