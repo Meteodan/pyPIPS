@@ -3404,3 +3404,295 @@ def calc_model_PSD_along_transect_hail(
     )
 
 
+
+def sample_model_PSD_along_transect_pressure(
+    transect_ds: xr.Dataset,
+    ds: xr.Dataset,
+    grid_idx_ds: xr.Dataset,
+    Dmax: float | None = None,
+    level: int = 0,
+) -> xr.Dataset:
+    """
+    Sample the model pressure along a transect using the Parsivel simulator.
+    """
+
+    Dmax, Dmax_index = get_Dmax_index(Dr, Dmax)
+
+    sampling_times = transect_ds.coords["sample_time"].values
+    all_times = transect_ds.coords["all_time"].values
+
+    # Time deltas between consecutive all_time points (seconds).
+    dt = all_times[1:] - all_times[:-1]
+    # Per-sample-interval durations (seconds), implicit in sampling_times.
+    sampling_dt = sampling_times[1:] - sampling_times[:-1]
+
+    i_idx_arr = grid_idx_ds["i_idx"].values.astype(int)
+    j_idx_arr = grid_idx_ds["j_idx"].values.astype(int)
+    has_time_idx = "time_idx" in grid_idx_ds
+    if has_time_idx:
+        time_idx_arr = grid_idx_ds["time_idx"].values.astype(int)
+
+    ntimes = len(all_times)
+    time_coord = "time"
+
+    # ------------------------------------------------------------------
+    # Extract model scalars for every all_time point using bulk numpy
+    # indexing to avoid per-step xarray overhead.
+    # ------------------------------------------------------------------
+
+    def _get_field_numpy(name: str) -> np.ndarray:
+        """Return a 3-D (time, y, x) or 2-D (y, x) numpy array for *name*."""
+        vals = ds[name].values
+        if vals.ndim == 4:          # (time, level, y, x)
+            return vals[:, level, :, :]
+        if vals.ndim == 3 and time_coord in ds[name].dims:
+            return vals             # (time, y, x)
+        if vals.ndim == 3:          # (level, y, x) — no time dimension
+            return vals[level]      # → (y, x)
+        return vals                 # (y, x)
+
+    def _index_field(arr: np.ndarray, tidx: np.ndarray | int) -> np.ndarray:
+        """Advanced-index *arr* to extract the ntimes-long 1-D transect."""
+        if arr.ndim == 3:
+            return arr[tidx, j_idx_arr, i_idx_arr]
+        # 2-D (y, x) — same spatial location for all times
+        return arr[j_idx_arr, i_idx_arr]
+
+    if has_time_idx:
+        tidx = time_idx_arr
+    elif time_coord in ds.dims:
+        tidx = np.zeros(ntimes, dtype=int)
+    else:
+        tidx = None  # no time dimension
+
+    p_arr  = _index_field(_get_field_numpy("prs"), tidx)
+
+
+    return xr.Dataset(
+        {
+            "p": xr.DataArray(
+                p_arr, dims=["all_time"]
+            ),
+        },
+        coords={"all_time": all_times},
+    )
+
+def sample_model_PSD_along_transect_theta(
+    transect_ds: xr.Dataset,
+    ds: xr.Dataset,
+    grid_idx_ds: xr.Dataset,
+    Dmax: float | None = None,
+    level: int = 0,
+) -> xr.Dataset:
+    """
+    Sample the model potential temperature along a transect using the Parsivel simulator.
+    """
+
+    Dmax, Dmax_index = get_Dmax_index(Dr, Dmax)
+
+    sampling_times = transect_ds.coords["sample_time"].values
+    all_times = transect_ds.coords["all_time"].values
+
+    # Time deltas between consecutive all_time points (seconds).
+    dt = all_times[1:] - all_times[:-1]
+    # Per-sample-interval durations (seconds), implicit in sampling_times.
+    sampling_dt = sampling_times[1:] - sampling_times[:-1]
+
+    i_idx_arr = grid_idx_ds["i_idx"].values.astype(int)
+    j_idx_arr = grid_idx_ds["j_idx"].values.astype(int)
+    has_time_idx = "time_idx" in grid_idx_ds
+    if has_time_idx:
+        time_idx_arr = grid_idx_ds["time_idx"].values.astype(int)
+
+    ntimes = len(all_times)
+    time_coord = "time"
+
+    # ------------------------------------------------------------------
+    # Extract model scalars for every all_time point using bulk numpy
+    # indexing to avoid per-step xarray overhead.
+    # ------------------------------------------------------------------
+
+    def _get_field_numpy(name: str) -> np.ndarray:
+        """Return a 3-D (time, y, x) or 2-D (y, x) numpy array for *name*."""
+        vals = ds[name].values
+        if vals.ndim == 4:          # (time, level, y, x)
+            return vals[:, level, :, :]
+        if vals.ndim == 3 and time_coord in ds[name].dims:
+            return vals             # (time, y, x)
+        if vals.ndim == 3:          # (level, y, x) — no time dimension
+            return vals[level]      # → (y, x)
+        return vals                 # (y, x)
+
+    def _index_field(arr: np.ndarray, tidx: np.ndarray | int) -> np.ndarray:
+        """Advanced-index *arr* to extract the ntimes-long 1-D transect."""
+        if arr.ndim == 3:
+            return arr[tidx, j_idx_arr, i_idx_arr]
+        # 2-D (y, x) — same spatial location for all times
+        return arr[j_idx_arr, i_idx_arr]
+
+    if has_time_idx:
+        tidx = time_idx_arr
+    elif time_coord in ds.dims:
+        tidx = np.zeros(ntimes, dtype=int)
+    else:
+        tidx = None  # no time dimension
+
+    th_arr  = _index_field(_get_field_numpy("th"), tidx)
+
+
+    return xr.Dataset(
+        {
+            "th": xr.DataArray(
+                th_arr, dims=["all_time"]
+            ),
+        },
+        coords={"all_time": all_times},
+    )
+
+def sample_model_PSD_along_transect_wind(
+    transect_ds: xr.Dataset,
+    ds: xr.Dataset,
+    grid_idx_ds: xr.Dataset,
+    Dmax: float | None = None,
+    level: int = 0,
+) -> xr.Dataset:
+    """
+    Sample the model surface winds along a transect using the Parsivel simulator.
+    """
+
+    Dmax, Dmax_index = get_Dmax_index(Dr, Dmax)
+
+    sampling_times = transect_ds.coords["sample_time"].values
+    all_times = transect_ds.coords["all_time"].values
+
+    # Time deltas between consecutive all_time points (seconds).
+    dt = all_times[1:] - all_times[:-1]
+    # Per-sample-interval durations (seconds), implicit in sampling_times.
+    sampling_dt = sampling_times[1:] - sampling_times[:-1]
+
+    i_idx_arr = grid_idx_ds["i_idx"].values.astype(int)
+    j_idx_arr = grid_idx_ds["j_idx"].values.astype(int)
+    has_time_idx = "time_idx" in grid_idx_ds
+    if has_time_idx:
+        time_idx_arr = grid_idx_ds["time_idx"].values.astype(int)
+
+    ntimes = len(all_times)
+    time_coord = "time"
+
+    # ------------------------------------------------------------------
+    # Extract model scalars for every all_time point using bulk numpy
+    # indexing to avoid per-step xarray overhead.
+    # ------------------------------------------------------------------
+
+    def _get_field_numpy(name: str) -> np.ndarray:
+        """Return a 3-D (time, y, x) or 2-D (y, x) numpy array for *name*."""
+        vals = ds[name].values
+        if vals.ndim == 4:          # (time, level, y, x)
+            return vals[:, level, :, :]
+        if vals.ndim == 3 and time_coord in ds[name].dims:
+            return vals             # (time, y, x)
+        if vals.ndim == 3:          # (level, y, x) — no time dimension
+            return vals[level]      # → (y, x)
+        return vals                 # (y, x)
+
+    def _index_field(arr: np.ndarray, tidx: np.ndarray | int) -> np.ndarray:
+        """Advanced-index *arr* to extract the ntimes-long 1-D transect."""
+        if arr.ndim == 3:
+            return arr[tidx, j_idx_arr, i_idx_arr]
+        # 2-D (y, x) — same spatial location for all times
+        return arr[j_idx_arr, i_idx_arr]
+
+    if has_time_idx:
+        tidx = time_idx_arr
+    elif time_coord in ds.dims:
+        tidx = np.zeros(ntimes, dtype=int)
+    else:
+        tidx = None  # no time dimension
+
+    u  = _index_field(_get_field_numpy("u"), tidx)
+    v  = _index_field(_get_field_numpy("v"), tidx)
+
+
+    return xr.Dataset(
+        {
+            "u": xr.DataArray(
+                u, dims=["all_time"]
+            ),
+            "v": xr.DataArray(
+                v, dims=["all_time"]
+            ),
+        },
+        coords={"all_time": all_times},
+    )
+
+def sample_model_PSD_along_transect_qv(
+    transect_ds: xr.Dataset,
+    ds: xr.Dataset,
+    grid_idx_ds: xr.Dataset,
+    Dmax: float | None = None,
+    level: int = 0,
+) -> xr.Dataset:
+    """
+    Sample the model vapor mixing ratio along a transect using the Parsivel simulator.
+    """
+
+    Dmax, Dmax_index = get_Dmax_index(Dr, Dmax)
+
+    sampling_times = transect_ds.coords["sample_time"].values
+    all_times = transect_ds.coords["all_time"].values
+
+    # Time deltas between consecutive all_time points (seconds).
+    dt = all_times[1:] - all_times[:-1]
+    # Per-sample-interval durations (seconds), implicit in sampling_times.
+    sampling_dt = sampling_times[1:] - sampling_times[:-1]
+
+    i_idx_arr = grid_idx_ds["i_idx"].values.astype(int)
+    j_idx_arr = grid_idx_ds["j_idx"].values.astype(int)
+    has_time_idx = "time_idx" in grid_idx_ds
+    if has_time_idx:
+        time_idx_arr = grid_idx_ds["time_idx"].values.astype(int)
+
+    ntimes = len(all_times)
+    time_coord = "time"
+
+    # ------------------------------------------------------------------
+    # Extract model scalars for every all_time point using bulk numpy
+    # indexing to avoid per-step xarray overhead.
+    # ------------------------------------------------------------------
+
+    def _get_field_numpy(name: str) -> np.ndarray:
+        """Return a 3-D (time, y, x) or 2-D (y, x) numpy array for *name*."""
+        vals = ds[name].values
+        if vals.ndim == 4:          # (time, level, y, x)
+            return vals[:, level, :, :]
+        if vals.ndim == 3 and time_coord in ds[name].dims:
+            return vals             # (time, y, x)
+        if vals.ndim == 3:          # (level, y, x) — no time dimension
+            return vals[level]      # → (y, x)
+        return vals                 # (y, x)
+
+    def _index_field(arr: np.ndarray, tidx: np.ndarray | int) -> np.ndarray:
+        """Advanced-index *arr* to extract the ntimes-long 1-D transect."""
+        if arr.ndim == 3:
+            return arr[tidx, j_idx_arr, i_idx_arr]
+        # 2-D (y, x) — same spatial location for all times
+        return arr[j_idx_arr, i_idx_arr]
+
+    if has_time_idx:
+        tidx = time_idx_arr
+    elif time_coord in ds.dims:
+        tidx = np.zeros(ntimes, dtype=int)
+    else:
+        tidx = None  # no time dimension
+
+    qv  = _index_field(_get_field_numpy("qv"), tidx)
+
+
+    return xr.Dataset(
+        {
+            "qv": xr.DataArray(
+                qv, dims=["all_time"]
+            ),
+        },
+        coords={"all_time": all_times},
+    )

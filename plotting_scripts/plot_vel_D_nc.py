@@ -115,6 +115,7 @@ requested_interval = config.PIPS_IO_dict.get('requested_interval', 10.)
 meteogram_image_dir = os.path.join(plot_dir, 'vel_D')
 if not os.path.exists(meteogram_image_dir):
     os.makedirs(meteogram_image_dir)
+    
 
 # Get a list of the combined parsivel netCDF data files that are present in the PIPS directory
 if PIPS_filenames_nc:
@@ -198,7 +199,7 @@ for index in file_indices:
     deployment_name = parsivel_combined_ds.deployment_name
     vd_matrix_list = []
     tag_list = []
-
+    
     if args.plot_raw:
         vd_matrix_raw = parsivel_combined_ds['VD_matrix']
         vd_matrix_list.append(vd_matrix_raw)
@@ -286,6 +287,7 @@ for index in file_indices:
                 plt.close(vel_d_plot_state['fig'])
 
         if args.plot_full:
+            utils.log("got here")
             vd_matrix_da_full = vd_matrix_da.sum(dim=args.time_dim)
             vd_matrix_da_full = vd_matrix_da_full.where(vd_matrix_da_full > 0.)
             print('Maximum bin drop count: ', vd_matrix_da_full.max())  # noqa: T201

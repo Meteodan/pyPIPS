@@ -21,6 +21,8 @@ from mpl_toolkits.axes_grid1 import ImageGrid, host_subplot, make_axes_locatable
 
 from . import PIPS as pips
 from . import timemodule as tm
+from . import parsivel_qc as p_qc
+from . import parsivel_params as p_p
 
 # Set global font size for axes and colorbar labels, etc.
 
@@ -2034,7 +2036,7 @@ def plot_vel_D(axdict, PSDdict, rho, time_dim='time'):
     countsplot = vd_matrix_da
     # countsplot = np.ma.masked_where(vd_matrix_da <= 0, vd_matrix_da)
     C = ax1.pcolormesh(diameter_bin_edges, fallspeed_bin_edges, countsplot, vmin=cblim[0],
-                       vmax=cblim[1], edgecolors='w', linewidths=0.2, cmap=cm.plasma)
+                       vmax=cblim[1], edgecolors='w', linewidths=0.2, cmap=cm.plasma, zorder=2)
     avg_diameter_mm = np.asarray(avg_diameter)
     avg_diameter_m = avg_diameter_mm * 1.e-3
     rainvd = pips.calc_empirical_fallspeed_rain(avg_diameter_mm, correct_rho=True, rho=rho)
@@ -2056,23 +2058,21 @@ def plot_vel_D(axdict, PSDdict, rho, time_dim='time'):
                  horizontalalignment='center',
                  verticalalignment='center', color='y',
                  transform=ax1.transAxes)
-    # FIXME
-    # if(dis.plot_strongwindQC):
-    #     ax1.scatter(X[dis.strongwindmask], Y[dis.strongwindmask], c='r', marker='x', alpha=1.0)
-    # if(dis.plot_splashingQC):
-    #     ax1.scatter(X[dis.splashmask], Y[dis.splashmask], c='w', marker='o', alpha=0.75)
-    #     # ax1.pcolor(min_diameter,min_fall_bins,ma.masked_array(splashmask,mask=-splashmask),
-    #                  cmap=cm.Reds,alpha=0.1)
-    # if(dis.plot_marginQC):
-    #     ax1.scatter(X[dis.marginmask], Y[dis.marginmask], c='g', marker='x', alpha=0.1)
-    #     # ax1.pcolor(min_diameter,min_fall_bins,ma.masked_array(marginmask,mask=-marginmask),
-    #                  cmap=cm.Reds,alpha=0.1)
-    # if(dis.plot_rainfallspeedQC):
-    #     ax1.scatter(X[dis.fallspeedmask], Y[dis.fallspeedmask], c='k', marker='x', alpha=0.5)
-    #     # ax1.pcolor(min_diameter,min_fall_bins,
-    #                  ma.masked_array(fallspeedmask,mask=-fallspeedmask),cmap=cm.gray,alpha=0.1)
-    # if(dis.plot_rainonlyQC):
-    #     ax1.scatter(X[dis.rainonlymask], Y[dis.rainonlymask], c='g', marker='x', alpha=0.5)
+
+    # splashing drops
+    ax1.pcolormesh(diameter_bin_edges, fallspeed_bin_edges, p_qc.splashingmask, cmap=mpl.colors.ListedColormap([(0., 0., 0., 0.),(1.0, 0.0, 0.0, 0.25)]), zorder=1)
+
+    # margin falls
+    ax1.pcolormesh(diameter_bin_edges, fallspeed_bin_edges, p_qc.marginmask, cmap=mpl.colors.ListedColormap([(0., 0., 0., 0.),(0.0, 0.0, 1.0, 0.25)]), zorder=1)
+
+    # rain only
+    ax1.pcolormesh(diameter_bin_edges, fallspeed_bin_edges, p_qc.rainonlymask, cmap=mpl.colors.ListedColormap([(0., 0., 0., 0.),(0.0, 1.0, 0.0, 0.25)]),alpha=0.25, zorder=1)
+
+    # hail only
+    ax1.pcolormesh(diameter_bin_edges, fallspeed_bin_edges, p_qc.hailonlymask, cmap=mpl.colors.ListedColormap([(0., 0., 0., 0.),(1.0, 0.0, 1.0, 0.25)]),alpha=0.25, zorder=1)
+
+    # fallspeed mask
+    ax1.pcolormesh(diameter_bin_edges, fallspeed_bin_edges, p_qc.get_fallspeed_mask(p_p.parsivel_parameters['avg_diameter_bins_mm'],p_p.parsivel_parameters['avg_fallspeed_bins_mps']), cmap=mpl.colors.ListedColormap([(0., 0., 0., 0.),(0.5, 0.5, 0.5, 0.25)]), zorder=1)
 
     ax1.set_xlim(xlim[0], xlim[1])
     ax1.xaxis.set_major_locator(ticker.MultipleLocator(1.0))
