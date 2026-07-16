@@ -1,4 +1,6 @@
 """Configuration file for the various plotting scripts"""
+
+#pmarmori Bell version
 import matplotlib.dates as dates
 import matplotlib.ticker as ticker
 import matplotlib.colors as colors
@@ -10,8 +12,8 @@ PIPS_plotting_dict = {
     'DSD_param_avg_window': 180.,
     'plot_only_precip': False,
     # For velocity-diameter plots
-    'velocity_range': (0.0, 15.0),
-    'diameter_range': (0.0, 9.0),
+    'velocity_range': (0.0, 22.0),
+    'diameter_range': (0.0, 26.0),
     # For meteograms
     'avgwindow': 180.,
     'plot_diagnostics': False,
