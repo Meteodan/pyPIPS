@@ -2060,19 +2060,31 @@ def plot_vel_D(axdict, PSDdict, rho, time_dim='time'):
                  transform=ax1.transAxes)
 
     # splashing drops
-    ax1.pcolormesh(diameter_bin_edges, fallspeed_bin_edges, p_qc.splashingmask, cmap=mpl.colors.ListedColormap([(0., 0., 0., 0.),(1.0, 0.0, 0.0, 0.25)]), zorder=1)
+    ax1.pcolormesh(diameter_bin_edges, fallspeed_bin_edges, p_qc.splashingmask,
+                   cmap=mpl.colors.ListedColormap([(0., 0., 0., 0.),(1.0, 0.0, 0.0, 0.25)]),
+                   zorder=1)
 
     # margin falls
-    ax1.pcolormesh(diameter_bin_edges, fallspeed_bin_edges, p_qc.marginmask, cmap=mpl.colors.ListedColormap([(0., 0., 0., 0.),(0.0, 0.0, 1.0, 0.25)]), zorder=1)
+    ax1.pcolormesh(diameter_bin_edges, fallspeed_bin_edges, p_qc.marginmask,
+                   cmap=mpl.colors.ListedColormap([(0., 0., 0., 0.),(0.0, 0.0, 1.0, 0.25)]),
+                   zorder=1)
 
     # rain only
-    ax1.pcolormesh(diameter_bin_edges, fallspeed_bin_edges, p_qc.rainonlymask, cmap=mpl.colors.ListedColormap([(0., 0., 0., 0.),(0.0, 1.0, 0.0, 0.25)]),alpha=0.25, zorder=1)
+    ax1.pcolormesh(diameter_bin_edges, fallspeed_bin_edges, p_qc.rainonlymask,
+                   cmap=mpl.colors.ListedColormap([(0., 0., 0., 0.),(0.0, 1.0, 0.0, 0.25)]),
+                   zorder=1)
 
     # hail only
-    ax1.pcolormesh(diameter_bin_edges, fallspeed_bin_edges, p_qc.hailonlymask, cmap=mpl.colors.ListedColormap([(0., 0., 0., 0.),(1.0, 0.0, 1.0, 0.25)]),alpha=0.25, zorder=1)
+    ax1.pcolormesh(diameter_bin_edges, fallspeed_bin_edges, p_qc.hailonlymask,
+                   cmap=mpl.colors.ListedColormap([(0., 0., 0., 0.),(1.0, 0.0, 1.0, 0.25)]),
+                   zorder=1)
 
     # fallspeed mask
-    ax1.pcolormesh(diameter_bin_edges, fallspeed_bin_edges, p_qc.get_fallspeed_mask(p_p.parsivel_parameters['avg_diameter_bins_mm'],p_p.parsivel_parameters['avg_fallspeed_bins_mps']), cmap=mpl.colors.ListedColormap([(0., 0., 0., 0.),(0.5, 0.5, 0.5, 0.25)]), zorder=1)
+    ax1.pcolormesh(diameter_bin_edges, fallspeed_bin_edges,
+                   p_qc.get_fallspeed_mask(p_p.parsivel_parameters['avg_diameter_bins_mm'],
+                                           p_p.parsivel_parameters['avg_fallspeed_bins_mps']),
+                   cmap=mpl.colors.ListedColormap([(0., 0., 0., 0.),(0.5, 0.5, 0.5, 0.25)]),
+                   zorder=1)
 
     ax1.set_xlim(xlim[0], xlim[1])
     ax1.xaxis.set_major_locator(ticker.MultipleLocator(1.0))
@@ -2240,6 +2252,39 @@ def init_plot_vel_D_state(axdict, PSDdict, rho, time_dim='time'):
                            horizontalalignment='center', verticalalignment='center', color='y',
                            transform=ax.transAxes, visible=False)
 
+        # splashing drops
+    splash_mask = \
+        ax.pcolormesh(diameter_bin_edges, fallspeed_bin_edges, p_qc.splashingmask,
+                      cmap=mpl.colors.ListedColormap([(0., 0., 0., 0.),(1.0, 0.0, 0.0, 0.25)]),
+                      zorder=1)
+
+    # margin falls
+    margin_mask = \
+        ax.pcolormesh(diameter_bin_edges, fallspeed_bin_edges, p_qc.marginmask,
+                      cmap=mpl.colors.ListedColormap([(0., 0., 0., 0.),(0.0, 0.0, 1.0, 0.25)]),
+                      zorder=1)
+
+    # rain only
+    rain_only_mask = \
+        ax.pcolormesh(diameter_bin_edges, fallspeed_bin_edges, p_qc.rainonlymask,
+                      cmap=mpl.colors.ListedColormap([(0., 0., 0., 0.),(0.0, 1.0, 0.0, 0.25)]),
+                      zorder=1)
+
+    # hail only
+    hail_only_mask = \
+        ax.pcolormesh(diameter_bin_edges, fallspeed_bin_edges, p_qc.hailonlymask,
+                      cmap=mpl.colors.ListedColormap([(0., 0., 0., 0.),(1.0, 0.0, 1.0, 0.25)]),
+                      zorder=1)
+
+    # fallspeed mask
+    fallspeed_mask = \
+        ax.pcolormesh(diameter_bin_edges, fallspeed_bin_edges,
+                      p_qc.get_fallspeed_mask(p_p.parsivel_parameters['avg_diameter_bins_mm'],
+                      p_p.parsivel_parameters['avg_fallspeed_bins_mps']),
+                      cmap=mpl.colors.ListedColormap([(0., 0., 0., 0.),(0.5, 0.5, 0.5, 0.25)]),
+                      zorder=1)
+
+
     ax.set_xlim(xlim[0], xlim[1])
     ax.xaxis.set_major_locator(ticker.MultipleLocator(1.0))
     ax.set_xlabel('diameter (mm)')
@@ -2260,6 +2305,11 @@ def init_plot_vel_D_state(axdict, PSDdict, rho, time_dim='time'):
         'mesh_shape': countsplot.shape,
         'rain_curve_max_diameter': rain_curve_max_diameter,
         'hail_curve_min_diameter': hail_curve_min_diameter,
+        'splash_mask': splash_mask,
+        'margin_mask': margin_mask,
+        'rain_only_mask': rain_only_mask,
+        'hail_only_mask': hail_only_mask,
+        'fallspeed_mask': fallspeed_mask,
     }
     update_plot_vel_D_state(state, axdict, PSDdict, rho, time_dim=time_dim)
     return state
