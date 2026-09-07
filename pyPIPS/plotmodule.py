@@ -2053,7 +2053,7 @@ def plot_vel_D(axdict, PSDdict, rho, time_dim='time'):
     fig1.colorbar(C)
 
     # FIXME
-    if flaggedtime > 1:
+    if flaggedtime > 0:
         ax1.text(0.5, 0.5, 'Flagged for strong wind contamination!',
                  horizontalalignment='center',
                  verticalalignment='center', color='y',
@@ -2355,7 +2355,7 @@ def update_plot_vel_D_state(state, axdict, PSDdict, rho, time_dim='time'):
     state['hail_900_line'].set_data(np.asarray(avg_diameter_mm)[hail_mask],
                                     np.asarray(hailvd_900)[hail_mask])
 
-    state['flagged_text'].set_visible(flaggedtime > 1)
+    state['flagged_text'].set_visible(flaggedtime > 0)
 
 
 def computecorners(xe, ye, UM=False):

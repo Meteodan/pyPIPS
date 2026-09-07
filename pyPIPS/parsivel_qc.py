@@ -230,8 +230,8 @@ def strongwindQC(countsMatrix):
         if baddrops > 0:
             print("Severe Wind contamination, masking entire PSD!")  # noqa: T201
             counts_arr[t, :] = np.nan
-            flagged_times[t] = 2
-            # flaggedtimes.append(2)
+            flagged_times[t] = 1
+            # flaggedtimes.append(1)
         else:
             flagged_times[t] = 0
             # flaggedtimes.append(0)

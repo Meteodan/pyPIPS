@@ -1131,7 +1131,7 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
             parsivel_combined_ds['flagged_times_{}'.format(output_QC_tag)] = (
                 ('time',), flagged_times)
             parsivel_combined_ds['flagged_times_{}'.format(output_QC_tag)].attrs['description'] = (
-                'Flagged times from QC: 0=good, 2=severe wind contamination')
+                'Flagged times from QC: 0=good, 1=severe wind contamination')
 
     # =============================================================================================
     # MANUAL QC AND MANUAL TRIMMING (FROM JSON CONFIG)
