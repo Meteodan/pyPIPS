@@ -117,6 +117,7 @@ else:
 radar_path_dict = radar.get_radar_paths_between_times(radar_paths, radar_start_timestamp,
                                                       radar_end_timestamp, radar_type=radar_type,
                                                       fname_format=radar_fname_pattern)
+print("radar_path_dict: ", radar_path_dict)  # noqa: T201
 if radar_type == 'XTRRA':
     radar_path_dict = radar.get_radar_paths_single_elevation(radar_path_dict, el_req=el_req,
                                                              radar_type=radar_type)

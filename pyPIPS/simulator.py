@@ -27,6 +27,7 @@ from joblib import Parallel, delayed
 from metpy.plots import ctables
 from scipy.stats import gamma, uniform
 from shapely.geometry import LineString, MultiLineString
+from numpy.random import poisson
 
 from . import DSDlib as dsd
 from . import PIPS as pips
@@ -260,7 +261,12 @@ def create_random_gamma_DSD(
         print("sampling height =", sampling_height)
         print("sampling volume =", sampling_volume)
 
-    n = int(Nt * sampling_volume)
+    # From Anna James, use Poisson distribution to determine number of particles in the sampling
+    # volume, to avoid problems with small (< 1) expected numbers of particles in the sampling
+    # volume, which would always be clipped to zero with just int()
+    # n = int(Nt * sampling_volume)
+    n = int(poisson(Nt * sampling_volume))
+
     if verbose:
         print("number concentration =", Nt)
         print("number of particles in sampling volume =", n)
