@@ -2,6 +2,114 @@
 
 This file tracks significant development progress, lessons learned, and agent activities for pyPIPS development sessions.
 
+## Session: September 7, 2026 - Strong Wind Flag Value Correction and Simulator Poisson Sampling
+
+### Key Code Updates
+#### Strong Wind Contamination Flag Value Standardized to 1
+**Problem**: `strongwindQC` wrote `flagged_times = 2` for wind-contaminated records, but the intended flag value was 1, and downstream consumers tested `flaggedtime > 1`.
+**Solution**:
+- Changed `strongwindQC` to write `1` for severe wind contamination (commented legacy line updated to match).
+- Updated both plotmodule threshold checks from `> 1` to `> 0` (the `plot_vel_D` overlay and `update_plot_vel_D_state` visibility toggle), which would otherwise have stopped displaying the "Flagged for strong wind contamination!" annotation entirely.
+- Updated the `flagged_times_{tag}` `description` attribute written by `apply_QC.py` to `0=good, 1=severe wind contamination`.
+**Files Modified**: `pyPIPS/parsivel_qc.py`, `pyPIPS/plotmodule.py`, `analysis_scripts/apply_QC.py`
+**Note**: NetCDF files written before this change still carry `2` and require reprocessing to match the new convention.
+
+#### Poisson Particle-Count Sampling in Random Gamma DSD Generation
+**Problem**: `create_random_gamma_DSD` computed the number of particles in the sampling volume as `int(Nt * sampling_volume)`. Truncation drove any expected count below 1 to exactly zero, systematically suppressing low-concentration (typically large-diameter) bins in simulated distributions.
+**Solution**:
+- Replaced the truncation with a Poisson draw, `int(poisson(Nt * sampling_volume))`, so sub-unity expected counts produce occasional particles at the correct rate (approach credited to Anna James).
+- Retained the original expression as a comment for provenance and added an explanatory comment on the clipping problem.
+**Files Modified**: `pyPIPS/simulator.py`
+
+#### Radar Comparison Re-enabled for ICECHIP IOP12
+**Problem**: Radar comparison work on IOP12 needed `comp_radar` active, and radar file discovery lacked visibility when path matching failed.
+**Solution**:
+- Set `comp_radar: True` in the IOP12 10 s config.
+- Added a diagnostic print of `radar_path_dict` after `get_radar_paths_between_times()` in `radar_to_PIPS.py`.
+**Files Modified**: `configs/ICECHIP_IOP12_2025_10s.py`, `analysis_scripts/radar_to_PIPS.py`
+
+#### Known Regression Risk: Lost radarmodule.py Changes
+**Problem**: Uncommitted modifications to `pyPIPS/radarmodule.py` were accidentally overwritten and are not recoverable from git history (recorded in commit `e16fe46`).
+**Solution**: None applied; logged here as a known risk rather than silently carried.
+**Impact**: If radar ingest or radar-to-PIPS workflows raise unexpected errors, suspect this loss before investigating deeper causes.
+
+### Key Lessons Learned
+#### Sentinel Values Need a Single Definition Point
+**Lesson**: Changing one QC flag value required four coordinated edits across three modules, because the value was written in `parsivel_qc.py`, compared against magic-number thresholds in two `plotmodule.py` functions, and described in a string literal in `apply_QC.py`.
+**Impact**: QC flag values are a candidate for named constants or an enum in `parsivel_qc.py`, with plotting and I/O code referring to those names instead of literals. Any future flag change should include a repository-wide search for comparisons against the old value.
+
+#### Flag Semantics Are Part of the On-Disk Schema
+**Lesson**: Redefining a flag value invalidates every previously written netCDF file, and nothing in the data announces the mismatch — the `description` attribute is the only record of which convention a file follows.
+**Impact**: Changes to encoded values should be paired with either reprocessing or a reader-side compatibility check, and the QC tag/attribute conventions remain the primary provenance mechanism.
+
+#### Deterministic Truncation Biases Stochastic Sampling
+**Lesson**: Using `int()` on an expected count silently zeroes the entire sub-unity regime instead of sampling it, which matters most for the large-diameter tail where concentrations are naturally low.
+**Impact**: Simulator code paths that convert expected quantities to discrete counts should use an explicit random draw.
+
+### Technical Context for Future Development
+- `flagged_times` convention is now `0 = good, 1 = severe wind contamination`; plotting code tests `> 0`.
+- `pyPIPS/simulator.py` now imports `numpy.random.poisson` and draws particle counts stochastically; simulated results are no longer reproducible without seed control.
+- ICECHIP IOP12 (10 s) is configured for radar comparison against KLBB NEXRAD CFRadial data at 0.5 degree elevation.
+- `pyPIPS/radarmodule.py` may be missing recent work; treat its current state as unverified.
+
+### Next Development Priorities
+1. Reprocess existing netCDF outputs so `flagged_times` uses the new value, or add a reader-side compatibility shim that accepts both `1` and `2`.
+2. Replace QC flag literals with named constants in `parsivel_qc.py` and update plotting/I/O consumers.
+3. Verify `pyPIPS/radarmodule.py` against expected radar workflows and reconstruct the lost changes if failures appear.
+4. Consider seed control for the new Poisson sampling so simulator runs remain reproducible when needed.
+
+## Session: July 12-16, 2026 - QC Mask Overlays for Velocity-Diameter Plots and ICECHIP Config Cleanup
+
+### Key Code Updates
+#### QC Mask Shading Added to Velocity-Diameter Plots
+**Problem**: Vel-D plots gave no visual indication of which diameter/fallspeed bins each QC filter removes. The former scatter-based approach had been commented out and left dead in `plot_vel_D`.
+**Solution** (contributed by Phillip Marmorino, merged in `20bfd6f`):
+- Added five translucent `pcolormesh` overlays for the splashing (red), margin-fall (blue), rain-only (green), hail-only (magenta), and fallspeed (gray) masks.
+- Imported `parsivel_qc` and `parsivel_params` into `plotmodule.py` to access the mask arrays and bin definitions.
+- Raised the main counts mesh to `zorder=2` so mask shading at `zorder=1` renders beneath the data.
+- Removed the dead commented-out QC scatter block.
+**Files Modified**: `pyPIPS/plotmodule.py`
+
+#### QC Overlay Support in the Reusable Plot-State Path
+**Problem**: The overlays were added only to the one-off `plot_vel_D` function, so the optimized reusable-artist path used by high-volume time-series plotting rendered no QC shading at all.
+**Solution**:
+- Created the same five mask meshes in `init_plot_vel_D_state` and stored their handles in the returned state dictionary (`splash_mask`, `margin_mask`, `rain_only_mask`, `hail_only_mask`, `fallspeed_mask`).
+- Reflowed the long `pcolormesh` calls in both paths to respect line-length limits.
+**Files Modified**: `pyPIPS/plotmodule.py`
+**Note**: The masks are static in diameter-fallspeed space, so they need no per-frame refresh; the stored handles exist for future visibility and style control.
+
+#### ICECHIP Config Corrections
+**Problem**: PIPS2B data were bad for several ICECHIP IOPs, and a collaborator merge rewrote the shared IOP12 config with cluster-specific paths and a re-added PIPS2B file.
+**Solution**:
+- Removed the PIPS2B combined parsivel netCDF entry from the IOP 5, 9, 10, 11, 12, and 13 10 s configs.
+- Reverted the shared `ICECHIP_IOP12_2025_10s.py` to its canonical local paths after the merge; cluster-specific variants live in `*_pmarmori.py` copies.
+**Files Modified**: `configs/ICECHIP_IOP5_2025_10s.py`, `configs/ICECHIP_IOP9_2025_10s.py`, `configs/ICECHIP_IOP10_2025_10s.py`, `configs/ICECHIP_IOP11_2025_10s.py`, `configs/ICECHIP_IOP12_2025_10s.py`, `configs/ICECHIP_IOP13_2025_10s.py`
+
+### Key Lessons Learned
+#### The Static/Reusable Plot Path Lesson Repeated Immediately
+**Lesson**: The July 11 session recorded that overlay features must be applied to both the one-off and reusable plot paths. The very next plotting change violated it, requiring a follow-up commit to backfill `init_plot_vel_D_state`.
+**Impact**: Treat the `plot_vel_D` / `init_plot_vel_D_state` / `update_plot_vel_D_state` trio as a single unit of work. The single-frame render smoke test proposed on July 11 would have caught this and remains unimplemented — it is now twice-deferred.
+
+#### Machine-Specific Paths Belong Only in Personal Config Copies
+**Lesson**: Merging a collaborator branch rewrote the shared IOP12 config's `input_txt_dir`, `PIPS_dir`, `plot_dir`, `radar_dir`, and `scatt_dir` to their cluster paths, and also reintroduced a known-bad probe file.
+**Impact**: Keep shared configs canonical and confine environment-specific paths to `*_<user>.py` variants. Review config diffs specifically for path and filename-list changes after any cross-branch merge. `configs/plot_config_default.py` currently carries a "pmarmori Bell version" marker and hail-oriented ranges (velocity 0-22 m/s, diameter 0-26 mm) from the same merge, and is a candidate for reconciliation.
+
+#### Config Filename Lists Are the Bad-Instrument Gate
+**Lesson**: Excluding a malfunctioning probe is done by dropping its file from `PIPS_filenames_nc` rather than by any QC filter, so a config regression can silently reintroduce known-bad data. The exclusion is partial by design: PIPS2B still appears in `PIPS_names`, `PIPS_filenames`, and `conv_filenames_nc`, so only the combined-parsivel stage skips it.
+**Impact**: Probe exclusions should be verified whenever configs are merged or regenerated. Note that this leaves `PIPS_filenames_nc` shorter (5) than the other parallel lists (6); scripts that index parallel lists positionally against the combined-parsivel loop index would misalign, though this is currently harmless because the affected entries (`deployment_names`, `PIPS_types`) hold identical values for all probes.
+
+### Technical Context for Future Development
+- Vel-D plots now show QC mask shading by default in both the classic and reusable paths; there is no config flag to disable it, unlike the historical `plot_*QC` switches.
+- Mask arrays come from module-level attributes in `parsivel_qc.py` (`splashingmask`, `marginmask`, `rainonlymask`, `hailonlymask`) plus `get_fallspeed_mask()`, evaluated against `parsivel_params.parsivel_parameters` bin arrays.
+- Layering convention for vel-D plots: counts mesh at `zorder=2`, QC mask shading at `zorder=1`.
+- PIPS2B is excluded from ICECHIP IOPs 5, 9, 10, 11, 12, and 13 at the config level.
+
+### Next Development Priorities
+1. Implement the single-frame vel-D render smoke test to cover overlay parity between static and reusable paths.
+2. Expose QC mask overlay display as plot-config parameters so shading can be toggled per mask type.
+3. Reconcile `configs/plot_config_default.py` so the shared default is not a personal variant, and decide whether the wider hail ranges should become the project default.
+4. Remove the leftover `utils.log("got here")` debug call in `plotting_scripts/plot_vel_D_nc.py`.
+
 ## Session: July 11, 2026 - Velocity-Diameter Hail Overlay Curves for MM2013 Density Cases
 
 ### Key Code Updates
