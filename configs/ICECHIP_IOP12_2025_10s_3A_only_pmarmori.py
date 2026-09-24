@@ -11,7 +11,7 @@ PIPS_IO_dict = {
     'probe_set': 'ICECHIP_2025_B',
     'PIPS_names': ['PIPS3A'],
     'PIPS_filenames': ['PIPS3A_IOP12_060625_merged.txt'],
-    'PIPS_filenames_nc': ['parsivel_combined_IOP12_060625_PIPS3A_10s.nc'],
+    'PIPS_filenames_nc': ['parsivel_combined_IOP12_060625_PIPS3A_10s_KLBB.nc'],
     'conv_filenames_nc': ['conventional_raw_IOP12_060625_PIPS3A.nc'],
     'start_times': [None] * 1,
     'end_times': [None] * 1,

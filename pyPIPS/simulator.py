@@ -260,7 +260,8 @@ def create_random_gamma_DSD(
         print("sampling height =", sampling_height)
         print("sampling volume =", sampling_volume)
 
-    n = int(Nt * sampling_volume)
+    from numpy.random import poisson
+    n = int(poisson(Nt * sampling_volume))
     if verbose:
         print("number concentration =", Nt)
         print("number of particles in sampling volume =", n)

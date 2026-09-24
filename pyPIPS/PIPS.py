@@ -726,10 +726,24 @@ def calc_empirical_fallspeed_rain(d, correct_rho=False, rho=None):
     """Assigns a fall speed for a range of diameters based on code
        from David Dowell (originally from Terry Schuur).  It appears that
        the formulas originate from Atlas et al. (1973), but this took a bit of sleuthing!"""
-
+    
     d = np.asarray(d)
     v = np.where(d < 3.0, 3.78 * d**0.67, 9.65 - 10.3 * np.exp(-0.6 * d))
     v = np.where(d < 0.0, 0.0, v)
+    
+    #add variance using statistics from IOP12 observations
+    
+    #extra 0 above and below to not change v is d is outside the 0-26 mm range somehow
+    rain_stds = np.array([0,        0,       0, 0.33989988, 0.55137994, 0.66079162,
+       0.66758753, 0.85375777, 0.87814132, 0.85798441, 0.86974097,
+       0.86565451, 0.88683297, 0.97872972, 0.9424084 , 1.02001189,
+       1.14240272, 1.16367897, 1.18052772, 1.34336873, 1.47254255,
+       1.29472781, 1.26338234, 1.65134507,        0,        0,
+              0,       0,        0,        0,        0,
+              0,        0, 0])
+    
+    v = v + np.random.normal(0, rain_stds[np.searchsorted(diameter_edges, d, side = 'right')])   
+
 
     # Correct fall speed based on air density
     # Based on Foote and duToit (1969): v = v0*(rho0/rho)^(0.4)
@@ -765,6 +779,19 @@ def calc_empirical_fallspeed_hail(d, rho_h, correct_rho=False, rho=None):
         v = np.asarray(a_h)[..., None] * np.power(d, np.asarray(b_h)[..., None])
     else:
         v = np.asarray(a_h) * np.power(d, np.asarray(b_h))
+        
+    #add variance using statistics from IOP12 observations
+    
+    #extra 0 above and below to not change v is d is outside the 0-26 mm range somehow
+    hail_stds = np.array([0,       0,        0,        0,        0,        0,
+              0,        0,        0,        0,        0,
+              0,        0,        0,        0,        0,
+              0,        0,        0,        0,        0,
+       1.31111289, 1.38945588, 1.41982338, 3.02495429, 2.99520255,
+       4.3186686 , 2.78564961, 2.60952103, 3.03578655, 2.63986532,
+              0,        0, 0])
+    
+    v = v + np.random.normal(0, hail_stds[np.searchsorted(diameter_edges, d, side = 'right')])   
 
     if correct_rho and rho is not None:
         density_factor = np.power(1.225 / rho, 0.5)

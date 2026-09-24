@@ -2,30 +2,28 @@
 
 PIPS_IO_dict = {
     'dataset_name': 'IOP12_060625',
-    'deployment_names': ['IOP12_060625'] * 6,
+    'deployment_names': ['IOP12_060625'] * 5,
     'input_txt_dir': '/depot/dawson29/data/Projects/ICECHIP/obsdata/PIPS_data/IOP12_060625/csv/',
     'PIPS_dir': '/depot/dawson29/data/Projects/ICECHIP/obsdata/PIPS_data/IOP12_060625/netcdf/',
-    'plot_dir': '/depot/dawson29/data/Projects/ICECHIP/obsdata/PIPS_data/IOP12_060625/plots/10s/',
-    'PIPS_types': ['PIPS'] * 6,
+    'plot_dir': '/home/pmarmori/PIPS_plots/IOP12_060625/plots/10s/',
+    'PIPS_types': ['PIPS'] * 5,
     'probe_set': 'ICECHIP_2025_B',
-    'PIPS_names': ['PIPS1A', 'PIPS1B', 'PIPS2A', 'PIPS2B', 'PIPS3A', 'PIPS3B'],
+    'PIPS_names': ['PIPS1A', 'PIPS1B', 'PIPS2A', 'PIPS3A', 'PIPS3B'],
     'PIPS_filenames': ['PIPS1A_IOP12_060625_merged.txt', 'PIPS1B_IOP12_060625_merged.txt',
-                       'PIPS2A_IOP12_060625_merged.txt', 'PIPS2B_IOP12_060625_merged.txt',
+                       'PIPS2A_IOP12_060625_merged.txt',
                        'PIPS3A_IOP12_060625_merged.txt', 'PIPS3B_IOP12_060625_merged.txt'],
-    'PIPS_filenames_nc': ['parsivel_combined_IOP12_060625_PIPS1A_10s.nc',
-                          'parsivel_combined_IOP12_060625_PIPS1B_10s.nc',
-                          'parsivel_combined_IOP12_060625_PIPS2A_10s.nc',
-                          'parsivel_combined_IOP12_060625_PIPS2B_10s.nc',
-                          'parsivel_combined_IOP12_060625_PIPS3A_10s.nc',
-                          'parsivel_combined_IOP12_060625_PIPS3B_10s.nc'],
+    'PIPS_filenames_nc': ['parsivel_combined_IOP12_060625_PIPS1A_10s_KLBB.nc',
+                          'parsivel_combined_IOP12_060625_PIPS1B_10s_KLBB.nc',
+                          'parsivel_combined_IOP12_060625_PIPS2A_10s_KLBB.nc',
+                          'parsivel_combined_IOP12_060625_PIPS3A_10s_KLBB.nc',
+                          'parsivel_combined_IOP12_060625_PIPS3B_10s_KLBB.nc'],
     'conv_filenames_nc': ['conventional_raw_IOP12_060625_PIPS1A.nc',
                           'conventional_raw_IOP12_060625_PIPS1B.nc',
                           'conventional_raw_IOP12_060625_PIPS2A.nc',
-                          'conventional_raw_IOP12_060625_PIPS2B.nc',
                           'conventional_raw_IOP12_060625_PIPS3A.nc',
                           'conventional_raw_IOP12_060625_PIPS3B.nc'],
-    'start_times': ['20250606232500'] * 6,
-    'end_times': ['20250607014000'] * 6,
+    'start_times': ['20250606232500'] * 5,
+    'end_times': ['20250607014000'] * 5,
     'requested_interval': 10.
 }
 
@@ -41,7 +39,7 @@ PIPS_qc_dict = {
 }
 
 radar_config_dict = {
-    'comp_radar': False,
+    'comp_radar': True,
     'calc_dualpol': True,
     'plot_retrieval': False,
     'radar_name': 'KLBB',

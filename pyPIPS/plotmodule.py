@@ -2060,31 +2060,49 @@ def plot_vel_D(axdict, PSDdict, rho, time_dim='time'):
                  transform=ax1.transAxes)
 
     # splashing drops
-    ax1.pcolormesh(diameter_bin_edges, fallspeed_bin_edges, p_qc.splashingmask,
-                   cmap=mpl.colors.ListedColormap([(0., 0., 0., 0.),(1.0, 0.0, 0.0, 0.25)]),
-                   zorder=1)
+    ax1.pcolormesh(diameter_bin_edges, fallspeed_bin_edges, p_qc.splashingmask, cmap=mpl.colors.ListedColormap([(0., 0., 0., 0.),(1.0, 0.0, 0.0, 0.25)]), zorder=1)
+    
+    plt.text(1, 1, "Splashing", fontsize=12, color="maroon"
+             ,bbox=dict(boxstyle="round",
+                   ec=(0, 0, 0, 0),
+                   fc=(1, 1, 1, 0.75),
+                   ))
 
     # margin falls
-    ax1.pcolormesh(diameter_bin_edges, fallspeed_bin_edges, p_qc.marginmask,
-                   cmap=mpl.colors.ListedColormap([(0., 0., 0., 0.),(0.0, 0.0, 1.0, 0.25)]),
-                   zorder=1)
+    ax1.pcolormesh(diameter_bin_edges, fallspeed_bin_edges, p_qc.marginmask, cmap=mpl.colors.ListedColormap([(0., 0., 0., 0.),(0.0, 0.0, 1.0, 0.25)]), zorder=1)
+    
+    plt.text(3, 18, "Margin\n fallers", fontsize=12, color="blue"
+             ,bbox=dict(boxstyle="round",
+                   ec=(0, 0, 0, 0),
+                   fc=(1, 1, 1, 0.75),
+                   ))    
 
     # rain only
-    ax1.pcolormesh(diameter_bin_edges, fallspeed_bin_edges, p_qc.rainonlymask,
-                   cmap=mpl.colors.ListedColormap([(0., 0., 0., 0.),(0.0, 1.0, 0.0, 0.25)]),
-                   zorder=1)
+    ax1.pcolormesh(diameter_bin_edges, fallspeed_bin_edges, p_qc.rainonlymask, cmap=mpl.colors.ListedColormap([(0., 0., 0., 0.),(0.0, 1.0, 0.0, 0.25)]),alpha=0.25, zorder=1)
+    
+    plt.text(1.5, 6, "Rain", fontsize=12, color="green"
+             ,bbox=dict(boxstyle="round",
+                   ec=(0, 0, 0, 0),
+                   fc=(1, 1, 1, 0.75),
+                   ))    
 
     # hail only
-    ax1.pcolormesh(diameter_bin_edges, fallspeed_bin_edges, p_qc.hailonlymask,
-                   cmap=mpl.colors.ListedColormap([(0., 0., 0., 0.),(1.0, 0.0, 1.0, 0.25)]),
-                   zorder=1)
+    ax1.pcolormesh(diameter_bin_edges, fallspeed_bin_edges, p_qc.hailonlymask, cmap=mpl.colors.ListedColormap([(0., 0., 0., 0.),(1.0, 0.0, 1.0, 0.25)]),alpha=0.25, zorder=1)
+    
+    plt.text(14.5, 11.5, "Hail", fontsize=12, color="purple"
+             ,bbox=dict(boxstyle="round",
+                   ec=(0, 0, 0, 0),
+                   fc=(1, 1, 1, 0.75),
+                   ))    
 
     # fallspeed mask
-    ax1.pcolormesh(diameter_bin_edges, fallspeed_bin_edges,
-                   p_qc.get_fallspeed_mask(p_p.parsivel_parameters['avg_diameter_bins_mm'],
-                                           p_p.parsivel_parameters['avg_fallspeed_bins_mps']),
-                   cmap=mpl.colors.ListedColormap([(0., 0., 0., 0.),(0.5, 0.5, 0.5, 0.25)]),
-                   zorder=1)
+    ax1.pcolormesh(diameter_bin_edges, fallspeed_bin_edges, p_qc.get_fallspeed_mask(p_p.parsivel_parameters['avg_diameter_bins_mm'],p_p.parsivel_parameters['avg_fallspeed_bins_mps']), cmap=mpl.colors.ListedColormap([(0., 0., 0., 0.),(0.5, 0.5, 0.5, 0.25)]), zorder=1)
+    
+    plt.text(13, 1, "Strong winds effects", fontsize=12, color="black"
+             ,bbox=dict(boxstyle="round",
+                   ec=(0, 0, 0, 0),
+                   fc=(1, 1, 1, 0.75),
+                   ))  
 
     ax1.set_xlim(xlim[0], xlim[1])
     ax1.xaxis.set_major_locator(ticker.MultipleLocator(1.0))
