@@ -29,6 +29,102 @@ from pyPIPS import thermolib as thermo
 from pyPIPS import utils
 
 
+# Variables used to decide whether a data record exists at a given time when recomputing
+# `missing_times` after merging. A time is considered missing only if *every* one of these
+# variables is NaN there. These lists are intentionally restricted to directly measured
+# quantities: derived quantities (e.g. qv, rho) and QC'ed quantities (e.g. slowtemp) can be
+# NaN for reasons unrelated to whether the record exists.
+ONESEC_PRESENCE_VARS = ('fasttemp', 'pressure', 'windspd')
+PARSIVEL_PRESENCE_VARS = ('pcount', 'precipintensity', 'parsivel_dBZ', 'VD_matrix', 'ND')
+
+MISSING_TIMES_DESCRIPTION = '1 for missing data'
+
+
+def compute_missing_times(ds, presence_vars, dim='time'):
+    """
+    Recompute the `missing_times` flag from the record availability in a merged dataset.
+
+    The card-derived `missing_times` variable is carried through `combine_first` and
+    `reindex` unchanged, because the real-time datasets contain no such variable. Any gap
+    that the real-time stream fills therefore remains incorrectly flagged as missing unless
+    the flag is recomputed from the merged result, which is what this function does.
+
+    Deriving the flag from the merged data itself (rather than from the union of the source
+    time indices) keeps it consistent with what is actually written to the output file, and
+    is robust to changes in which real-time streams are available.
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        Merged dataset, already reindexed onto the full output time range.
+    presence_vars : sequence of str
+        Names of the variables that indicate a record exists. Names not present in `ds` are
+        skipped.
+    dim : str
+        Name of the time dimension.
+
+    Returns
+    -------
+    missing : xr.DataArray
+        int64 flag along `dim`: 1 where the record is missing, 0 where it is present.
+    used : list of str
+        The variable names that were actually available and used.
+    """
+    present = None
+    used = []
+
+    for varname in presence_vars:
+        if varname not in ds.data_vars:
+            continue
+        da = ds[varname]
+        if dim not in da.dims:
+            continue
+        var_present = da.notnull()
+        # Collapse any non-time dimensions (e.g. diameter_bin, fallspeed_bin): the record
+        # exists if any element along those dimensions is non-NaN.
+        other_dims = [d for d in da.dims if d != dim]
+        if other_dims:
+            var_present = var_present.any(dim=other_dims)
+        present = var_present if present is None else (present | var_present)
+        used.append(varname)
+
+    if present is None:
+        raise ValueError(
+            f"None of the presence variables {tuple(presence_vars)} are available in the "
+            "dataset; cannot recompute missing_times."
+        )
+
+    missing = (~present).astype('int64')
+    missing.attrs['description'] = MISSING_TIMES_DESCRIPTION
+    # Keep this an integer flag on output: without this xarray may attach a NaN _FillValue
+    # and promote the variable to float64.
+    missing.encoding['_FillValue'] = None
+    missing.encoding['dtype'] = 'int64'
+
+    return missing, used
+
+
+def log_missing_times_update(label, old_da, new_da):
+    """Log how many records the recomputed `missing_times` flag changed."""
+    if old_da is None:
+        utils.log(f"{label}: missing_times computed for {int(new_da.sum())} missing records "
+                  f"(no card missing_times available for comparison)")
+        return
+
+    old = np.asarray(old_da.values, dtype='float64')
+    new = np.asarray(new_da.values, dtype='float64')
+    if old.shape != new.shape:
+        utils.log(f"{label}: missing_times recomputed ({int(np.nansum(new))} records flagged "
+                  f"missing); card flag had a different length so no per-record comparison "
+                  f"was made")
+        return
+
+    cleared = int(np.nansum((old == 1) & (new == 0)))
+    added = int(np.nansum((old == 0) & (new == 1)))
+    utils.log(f"{label}: missing_times recomputed -> {int(np.nansum(new))} records flagged "
+              f"missing ({cleared} cleared, {added} newly flagged)")
+
+
 def get_files(file_list, starttime, endtime, ftype='onesec'):
     """
     Find files within specified time range.
@@ -715,6 +811,17 @@ def process_single_pips(PIPS_name, deployment_name, PIPS_dir, realtime_dir, outp
     utils.log("Recomputing thermodynamic parameters...")
     onesec_merged_full_ds = pips.calc_thermo(onesec_merged_full_ds)
 
+    # Recompute missing_times for the merged one-second data. The flag above was inherited
+    # from the card dataset (the real-time datasets carry no missing_times), so without this
+    # step every gap filled from the real-time stream stays flagged as missing.
+    utils.log("Recomputing missing_times for merged one-second data...")
+    onesec_missing_old = onesec_merged_full_ds.get('missing_times', None)
+    onesec_missing, onesec_presence_used = compute_missing_times(
+        onesec_merged_full_ds, ONESEC_PRESENCE_VARS)
+    utils.log(f"  presence determined from: {', '.join(onesec_presence_used)}")
+    log_missing_times_update("  one-second", onesec_missing_old, onesec_missing)
+    onesec_merged_full_ds['missing_times'] = onesec_missing
+
     # Merge parsivel data (notebook approach)
     utils.log("Merging parsivel data...")
     parsivel_combined_card_ds_full = parsivel_combined_card_ds.reindex({'time': all_tensec_times})
@@ -766,8 +873,22 @@ def process_single_pips(PIPS_name, deployment_name, PIPS_dir, realtime_dir, outp
 
     # Update parsivel dataset with resampled conventional data
     for varname in conv_resampled_ds.data_vars:
+        if varname == 'missing_times':
+            # The one-second missing flag does not describe the Parsivel record; the
+            # Parsivel flag is recomputed from the Parsivel data below.
+            continue
         if varname in parsivel_combined_merged_full_ds.data_vars:
             parsivel_combined_merged_full_ds[varname] = conv_resampled_ds[varname]
+
+    # Recompute missing_times for the merged Parsivel data, for the same reason as above.
+    # This is done last so that it reflects the final contents of the output dataset.
+    utils.log("Recomputing missing_times for merged parsivel data...")
+    parsivel_missing_old = parsivel_combined_merged_full_ds.get('missing_times', None)
+    parsivel_missing, parsivel_presence_used = compute_missing_times(
+        parsivel_combined_merged_full_ds, PARSIVEL_PRESENCE_VARS)
+    utils.log(f"  presence determined from: {', '.join(parsivel_presence_used)}")
+    log_missing_times_update("  parsivel", parsivel_missing_old, parsivel_missing)
+    parsivel_combined_merged_full_ds['missing_times'] = parsivel_missing
 
     # Copy attributes (notebook approach)
     utils.log("Copying dataset attributes...")
@@ -776,12 +897,18 @@ def process_single_pips(PIPS_name, deployment_name, PIPS_dir, realtime_dir, outp
     onesec_merged_full_ds.attrs = onesec_card_ds.attrs
     parsivel_combined_merged_full_ds.attrs = parsivel_combined_card_ds.attrs
 
-    # Variable attributes
+    # Variable attributes. missing_times is skipped: it was recomputed above and keeps its
+    # own attributes, and copying the card version's attributes could reattach a float
+    # _FillValue to what is now an integer flag.
     for varname in onesec_merged_full_ds.data_vars:
+        if varname == 'missing_times':
+            continue
         if varname in onesec_card_ds.data_vars:
             onesec_merged_full_ds[varname].attrs = onesec_card_ds[varname].attrs
 
     for varname in parsivel_combined_merged_full_ds.data_vars:
+        if varname == 'missing_times':
+            continue
         if varname in parsivel_combined_card_ds.data_vars:
             parsivel_combined_merged_full_ds[varname].attrs = parsivel_combined_card_ds[varname].attrs
 
