@@ -2,6 +2,92 @@
 
 This file tracks significant development progress, lessons learned, and agent activities for pyPIPS development sessions.
 
+## Session: October 4-6, 2026 - Raindrop Evaporation Rates, Bulk Closures, Rainshaft Model, and Surface Time Integration
+
+### Key Code Updates
+#### New Evaporation Module
+**Problem**: The only evaporation capability was `DSDlib.calc_evap`, a gamma-DSD bulk rate with hardwired constants and no way to compute rates from the observed (binned) PIPS DSDs, assess small-drop sensitivity, or compare bulk-scheme closures.
+**Solution**:
+- Added `pyPIPS/evaporation.py`: single-drop rates (dm/dt, d(D^2)/dt, dD/dt, dD/dz), pluggable fall-speed classes (`AtlasFallSpeed`, `PowerLawFallSpeed`, `FerrierFallSpeed`) with explicit rho0 and density exponent, and selectable ventilation coefficients.
+- Binned rate `evaporation_rate_binned` with per-bin contributions, cumulative small-drop fractions, an optional truncated-gamma extension below the detection limit (default 0.25 mm), and an optional fallback to measured-only rates where the extension is undefined (fit mu <= -2).
+- Gamma closed form (`gammaln`/`gammainc`, power-law and Ferrier fall speeds), quadrature for any fall speed (exact closed form below 3 mm for the Atlas relation), and `moment_tendency_gamma`.
+- `closure_comparison`: one-, two-, and three-moment gamma closures built from observed moments plus stored MM/TMM fits, with ratios to the binned rate. Closures are named after their moment sets (`MM3_N0fixed_mu0`, `MM03_mu0`, `MM03_mu2.5`, `MM03_diag_alpha`, `MM036`, `MM036_solve_alpha`, plus supplied fits such as `MM246`, `TMM246`), with a `closure_description` coordinate.
+- Added `DSDlib.fit_DSD_MM036`: exact method-of-moments fit to M0, M3, M6 (bisection on G(mu) = M3^2/(M0 M6) = (mu+1)(mu+2)(mu+3)/((mu+4)(mu+5)(mu+6))).
+- `number_tendency`: default holds the mean volume diameter constant (dN/N = dq/q), with a Seifert (2008) hook.
+- `thermo_from_parsivel_ds` converts pyPIPS native units and recomputes rho from the chosen T/p/RH variables.
+- Sign convention: E > 0 for evaporation; cooling rate negative (K/s and K/h).
+**Files Modified**: `pyPIPS/evaporation.py` (new)
+
+#### calc_evap Refactored as a Backward-Compatible Wrapper
+**Problem**: `calc_evap` needed to share the new implementation without changing existing results.
+**Solution**:
+- `DSDlib.calc_evap` now calls `evaporation.evaporation_rate_gamma` with the original Milbrandt settings (approximate A term, S = w/w_s, Ferrier constants). Output matches a reference captured before the refactor to ~4e-14.
+- New API defaults to the textbook (Rogers and Yau 1996) form with S = e/e_s; E is 0-2.4% larger than the legacy form. The difference comes from the legacy approximation in A and the saturation-ratio definition.
+**Files Modified**: `pyPIPS/DSDlib.py`, `pyPIPS/tests/data/calc_evap_reference.npz` and generator (new)
+
+#### Surface Time Integration of Evaporative Cooling and Moistening
+**Problem**: The prototype integrators in `notebooks/PERiLS_notebooks/pyPIPS_calc_evap.ipynb` used a Magnus e_s, capped RH, did not distinguish data gaps from dry periods, and were slow.
+**Solution**:
+- `integrate_static` (tendencies from the observed state accumulated) and `integrate_dynamic` (E recomputed each step from the observed DSD and the evolving T and w, RK4 per sample) over a selectable window (default: whole record).
+- Each sample is classified as rain, no rain, or missing; missing samples contribute zero by default or use the last good sample (`missing_fill='last_good'`, optional `max_fill_samples`).
+- Rate functions (`binned_rate_function`, `gamma_rate_function`) run on numpy; closures integrate as an ensemble. About 50x faster than the first xarray version.
+**Files Modified**: `pyPIPS/evaporation.py`
+
+#### Rainshaft Models (Under Review; Phases 2-3 on Hold)
+**Problem**: Estimating evaporation aloft needs a model connecting a DSD aloft to the surface.
+**Solution**:
+- `pyPIPS/rainshaft.py`: Lagrangian bin rainshaft (steady, evaporation-only, conserved number flux per class, D^2 integration, conservative remap to Parsivel bins, optional quasi-steady feedback over an exposure time), `bulk_rainshaft` (1/2/3-moment, upwind sedimentation run to steady state), `ThermoProfile` (user-supplied or well-mixed-from-surface assumption), and radar starting conditions from `<radar>_at_PIPS`.
+**Files Modified**: `pyPIPS/rainshaft.py` (new)
+
+#### Scripts
+**Solution**:
+- `analysis_scripts/calc_evap_PIPS.py` writes separate `evap_<deployment>_<PIPS>_<N>s.nc` files: binned/extended/closure rates, small-drop diagnostics, static and dynamic integrations, optional rainshaft; provenance in attributes.
+- `plotting_scripts/plot_evap_timeseries_nc.py`: surface time series, integration figure, rainshaft sections.
+**Files Modified**: `analysis_scripts/calc_evap_PIPS.py` (new), `plotting_scripts/plot_evap_timeseries_nc.py` (new)
+
+#### Stale pt/qv/rho After Thermodynamic QC
+**Problem**: `apply_QC.py` overwrote `slowtemp`, `dewpoint`, and `RH_derived` in place but never recomputed `pt`, `qv`, or `rho`.
+**Solution**:
+- Added `recompute_derived_thermo` and `resample_conv_vars_to_parsivel`; pt/qv/rho are recomputed once after any thermo QC step that changed their inputs, with a `recomputation_reason` attribute.
+- `ND` and its QC variants deliberately still use the original rho (documented as a known issue).
+**Files Modified**: `analysis_scripts/apply_QC.py`
+
+#### Tests and Known Issues
+**Solution**:
+- First real test suite: `test_calc_evap_regression.py`, `test_evaporation.py`, `test_evaporation_integration.py`, `test_rainshaft.py` (156 tests). pytest installed in the `pyPIPS` conda env.
+- `docs/KNOWN_ISSUES.md` lists bugs found during inventory but not fixed (radar_to_PIPS `--input-tag`, lookup-table `Dm` vs `Dm43`, retrieval K^2 inconsistency, fall-speed density-correction conventions, ND using pre-QC rho, and others).
+**Files Modified**: `pyPIPS/tests/*` (new), `docs/KNOWN_ISSUES.md` (new)
+
+### Key Lessons Learned
+#### Literature Attributions Need the Domain Expert
+**Lesson**: An agent-drafted closure option ("fixed_until_small", attributed to LIMA) misread the source; LIMA transfers rain to cloud below the threshold. Dan removed it.
+**Impact**: Attribute only what has been verified; flag uncertain attributions with `TODO(Dan)` rather than encoding them as options.
+
+#### "Closures" from Observed Moments Are Method-of-Moments Fits
+**Lesson**: Applied to observed PIPS moments, the bulk closures are MM fits with particular moment sets (M3 with fixed N0/mu; M0+M3 with fixed or diagnosed mu; M0+M3+M6) and differ from the existing MM/TMM fits only in which moments and constraints are used. Verified on 2090 PERiLS IOP2 2022 rain samples: each closure reproduces its constraining moments to ~1e-14 and matches an independent MM solver to ~1e-15, as do the existing MM246 fits. The exception is `DSDlib.solve_alpha`, a piecewise-polynomial approximation of the MM036 relation clipped to mu in [0, 40]: M6 errors median 0.3% (max 38%), effect on E median 0.06% (up to 15% where the exact mu < 0). Hence the separate `MM036` (exact) and `MM036_solve_alpha` closures.
+**Impact**: The comparison measures how well a scheme's moment set and shape assumption reproduce the low-order moments that control evaporation, given perfect knowledge of those moments. It does not include errors in the moments a model would predict. TMM fits match truncated moments, so they do not reproduce the full-spectrum binned moments.
+
+#### Integration Window and Advection Dominate Comparisons with Observations
+**Lesson**: Integrated ΔT changed by a factor of ~4 between whole-deployment and rain-onset windows (ICECHIP IOP12), and gust fronts produce changes evaporation cannot explain.
+**Impact**: Compare rates in regimes where advection should be small (e.g., the PERiLS IOP2 2022 leading stratiform region, where evaporation-only cooling was ~70-140% of the observed rate at all four probes; observed moistening was 2-3x the computed value).
+
+#### Moment Fits Can Fail Numerically
+**Lesson**: MM246 produced mu ~65-72 with N0 overflowing to inf; TMM246 produced mu <= -2 (divergent small-drop integral) at ~15-27% of rain times.
+**Impact**: Non-finite rates are treated as missing; the extension fallback exists for full series.
+
+### Technical Context for Future Development
+- Run tests with `/Users/dawson29/mambaforge/envs/pyPIPS/bin/python -m pytest`.
+- Fall-speed density corrections differ across pyPIPS (1.204/0.4, 1.225/0.5, 1.204/0.5); the new classes make them explicit and preserve each existing default.
+- Older PERiLS files lack units attributes on `fasttemp` and `pressure`; `thermo_from_parsivel_ds` assumes deg C and hPa with a warning.
+- PIPS2A and PIPS3B share identical `location` attributes in the PERiLS IOP2 2022 files (worth checking).
+- Example: `python analysis_scripts/calc_evap_PIPS.py configs/PERiLS_IOP2_2022_laptop_10s.py --QC-tags qc roqc`.
+
+### Next Development Priorities
+1. Dan to review the rainshaft model before Phase 2 (radar columns/retrievals, sounding I/O) and Phase 3 (sounding-evolution infrastructure) resume.
+2. Remaining `TODO(Dan)` items: ventilation and transport-coefficient sources, Srivastava and Coen (1992) method, Seifert (2008) mu(D_mv) and number tendency, Marshall-Palmer N0 citation, drift correction, APA entries.
+3. Consider using the config `start_times`/`end_times` as default integration windows.
+4. Address `docs/KNOWN_ISSUES.md` items, including recomputing ND with post-QC rho workflow-wide.
+
 ## Session: September 7, 2026 - Strong Wind Flag Value Correction and Simulator Poisson Sampling
 
 ### Key Code Updates

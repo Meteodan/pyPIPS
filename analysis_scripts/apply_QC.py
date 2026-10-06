@@ -760,6 +760,87 @@ def apply_slowtemp_bias_correction(conv_ds, slope, intercept):
     return conv_ds
 
 
+# Conventional variables that feed (directly or through RH_derived) the derived thermodynamic
+# variables pt, qv, and rho computed by pips.calc_thermo
+THERMO_INPUT_VARS = ['fasttemp', 'slowtemp', 'pressure', 'RH', 'RH_derived', 'dewpoint']
+DERIVED_THERMO_VARS = ['pt', 'qv', 'rho']
+
+
+def recompute_derived_thermo(conv_ds, reason=''):
+    """
+    Recompute pt, qv, and rho after thermodynamic QC has modified their inputs.
+
+    Uses pips.calc_thermo with its default inputs (pressure, fasttemp, RH_derived), which is the
+    same combination used to produce these variables originally in PIPS_csv_to_nc.py. Existing
+    attributes (e.g., units) are preserved.
+
+    Parameters
+    ----------
+    conv_ds : xarray.Dataset
+        Conventional dataset with pressure (hPa), fasttemp (deg C), and RH_derived (%)
+    reason : str, optional
+        Reason for recomputation (added to variable attributes)
+
+    Returns
+    -------
+    conv_ds : xarray.Dataset
+        Dataset with recomputed pt, qv, and rho
+    recomputed : bool
+        True if the variables were recomputed
+    """
+    required_vars = ['pressure', 'fasttemp', 'RH_derived']
+    missing_vars = [var for var in required_vars if var not in conv_ds]
+    if missing_vars:
+        utils.log(f"  Warning: Cannot recompute pt/qv/rho, missing variables: {missing_vars}")
+        return conv_ds, False
+
+    old_attrs = {var: dict(conv_ds[var].attrs) for var in DERIVED_THERMO_VARS if var in conv_ds}
+    conv_ds = pips.calc_thermo(conv_ds)
+    for var in DERIVED_THERMO_VARS:
+        conv_ds[var].attrs.update(old_attrs.get(var, {}))
+        if reason:
+            conv_ds[var].attrs['recomputation_reason'] = reason
+
+    return conv_ds, True
+
+
+def resample_conv_vars_to_parsivel(conv_ds, parsivel_combined_ds, var_names):
+    """
+    Resample 1-s conventional variables onto the parsivel DSD times and overwrite them in the
+    parsivel combined dataset, carrying over their attributes. Uses the same right-labeled,
+    right-closed resampling as the other thermodynamic QC steps in this script.
+
+    Parameters
+    ----------
+    conv_ds : xarray.Dataset
+        Conventional (1-s) dataset
+    parsivel_combined_ds : xarray.Dataset
+        Parsivel combined dataset to update
+    var_names : list of str
+        Variables to resample (only those present in both datasets are updated)
+
+    Returns
+    -------
+    parsivel_combined_ds : xarray.Dataset
+        Updated parsivel combined dataset
+    """
+    PSD_datetimes = pips.get_PSD_datetimes(parsivel_combined_ds['VD_matrix'])
+    sec_offset = PSD_datetimes[0].second
+    DSD_interval = parsivel_combined_ds.DSD_interval
+    interval_str = pips.get_interval_str(DSD_interval)
+    offset_str = pips.get_interval_str(sec_offset)
+
+    for var in var_names:
+        if var in conv_ds and var in parsivel_combined_ds:
+            var_resampled = conv_ds[var].resample(
+                time=interval_str, label='right', closed='right', offset=offset_str
+            ).mean()
+            parsivel_combined_ds[var] = var_resampled
+            parsivel_combined_ds[var].attrs.update(conv_ds[var].attrs)
+
+    return parsivel_combined_ds
+
+
 def plot_compass_qc_diagnostics(compass_dir_original, winddirabs_original,
                                 cleaned_compass_dir, avg_compass_dir,
                                 winddirabs_new, PIPS_name, deployment_name, output_dir):
@@ -1047,6 +1128,8 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
 
     # Load conventional dataset if compass/wind QC or trimming is requested
     conv_ds = None
+    # Thermodynamic QC steps that modified inputs to pt/qv/rho (triggers their recomputation)
+    thermo_modified_reasons = []
     if (args.compass_qc or args.trim_deployment_periods or args.slowtemp_qc
             or args.recompute_dewpoint or args.manual_qc_file) and conv_filelist is not None:
         conv_file = conv_filelist[index]
@@ -1201,6 +1284,9 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
                     )
                     if n_flagged > 0:
                         utils.log(f"  Conventional: flagged {n_flagged} points")
+                        manual_vars = {entry['variable'] for entry in manual_qc_dict[key]}
+                        if manual_vars & set(THERMO_INPUT_VARS):
+                            thermo_modified_reasons.append('manual_qc')
 
             # Apply to parsivel dataset
             if parsivel_combined_ds is not None:
@@ -1306,6 +1392,7 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
                 conv_ds, n_fallback = recompute_dewpoint_RH_with_fallback(
                     conv_ds, reason='recomputed_after_slowtemp_qc'
                 )
+                thermo_modified_reasons.append('slowtemp_qc')
                 if n_fallback > 0:
                     utils.log(f"  Used fasttemp fallback for {n_fallback} points")
 
@@ -1370,6 +1457,7 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
                 conv_ds, n_fallback = recompute_dewpoint_RH_with_fallback(
                     conv_ds, reason='recomputed_with_fasttemp_fallback_for_nan_slowtemp'
                 )
+                thermo_modified_reasons.append('dewpoint_fasttemp_fallback')
 
                 utils.log(f"  ✓ Recomputed for {n_fallback} points")
 
@@ -1479,6 +1567,7 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
 
                             # Apply bias correction
                             conv_ds = apply_slowtemp_bias_correction(conv_ds, slope, intercept)
+                            thermo_modified_reasons.append('slowtemp_bias_correction')
 
                             # Calculate post-correction statistics
                             slowtemp_corrected = conv_ds['slowtemp'].values
@@ -1538,6 +1627,26 @@ for index, parsivel_combined_file in enumerate(parsivel_combined_filelist):
 
             except Exception as e:
                 utils.log(f"Error loading bias correction config: {e}")
+
+    # =============================================================================================
+    # RECOMPUTE DERIVED THERMODYNAMIC VARIABLES (pt, qv, rho) AFTER THERMODYNAMIC QC
+    # =============================================================================================
+    # The QC steps above modify slowtemp, dewpoint, and RH_derived (and manual QC may modify any
+    # conventional variable), but pt, qv, and rho were computed from the original values in
+    # PIPS_csv_to_nc.py. Recompute them once here so that they are consistent with the QC'ed
+    # inputs. NOTE: ND and its QC variants are NOT recomputed; they keep the fall-speed density
+    # correction based on the original rho (see docs/KNOWN_ISSUES.md).
+    if thermo_modified_reasons and conv_ds is not None:
+        reason = 'recomputed_after_' + '+'.join(dict.fromkeys(thermo_modified_reasons))
+        utils.log(f"Recomputing pt, qv, and rho for {PIPS_name} ({reason})...")
+        conv_ds, recomputed = recompute_derived_thermo(conv_ds, reason=reason)
+        if recomputed and parsivel_combined_ds is not None:
+            try:
+                parsivel_combined_ds = resample_conv_vars_to_parsivel(
+                    conv_ds, parsivel_combined_ds, DERIVED_THERMO_VARS)
+                utils.log("  Updated parsivel pt, qv, and rho (resampled from recomputed data)")
+            except Exception as e:
+                utils.log(f"Warning: Could not resample recomputed pt/qv/rho for {PIPS_name}: {e}")
 
     # =============================================================================================
     # GENERATE DIAGNOSTIC PLOTS (after all QC and trimming)

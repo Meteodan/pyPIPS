@@ -505,70 +505,51 @@ def solve_alpha(rhoa, cx, q, Ntx, Z):
 
 def calc_evap(rho, T, p, RH, N0, lamda, mu):
     """Computes bulk evaporation rate given the thermodynamic state of the air and gamma
-       distribution parameters.  Much of this code was adapted from Jason Milbrandt's microphysics
-       code.  Note, all thermodynamic variables are assumed to be in SI units. TODO: refactor this
-       !"""
+       distribution parameters.  Originally adapted from Jason Milbrandt's microphysics code.
 
-    # Thermodynamic constants
+       This is now a backward-compatible wrapper around
+       pyPIPS.evaporation.evaporation_rate_gamma(), configured to reproduce the original
+       implementation exactly: the Milbrandt form of the thermodynamic denominator (ABw), the
+       saturation ratio from mixing ratios (w/w_s), Ferrier (1994) ventilation coefficients
+       (0.78, 0.30), and the Ferrier (1994) rain fall-speed constants (a = 4854, b = 1, f = 195)
+       with a (1.225/rho)^0.5 density correction. New code should use pyPIPS.evaporation
+       directly; see that module for how these choices differ from its defaults.
 
-    Rv = thermo.Rv
-    cp = thermo.cp
-    Lv = thermo.Lv
+    Parameters
+    ----------
+    rho : array_like
+        Air density (kg m^-3)
+    T : array_like
+        Temperature (K)
+    p : array_like
+        Pressure (Pa)
+    RH : array_like
+        Relative humidity (percent)
+    N0 : array_like
+        Gamma intercept parameter (m^-(4+mu))
+    lamda : array_like
+        Gamma slope parameter (m^-1)
+    mu : array_like
+        Gamma shape parameter
 
-    # Correction for fallspeeds at different pressures
-    rho_ref = 1.225
-    gamma_factor = np.sqrt(rho_ref / rho)
+    Returns
+    -------
+    (array_like, array_like)
+        QREVP: rain mixing-ratio tendency (kg kg^-1 s^-1), NEGATIVE for evaporation.
+        COOL_RATE: latent cooling rate (Lv/cp) * QREVP (K s^-1), negative for cooling.
+        Note the opposite sign convention from pyPIPS.evaporation, where E > 0 for evaporation.
+    """
+    from . import evaporation as evap  # Imported here to avoid a circular import
 
-    # Calculate a bunch of quantities in the ventilation coefficient for the bulk evaporation rate
-    # Ventilation coefficients (Ferrier 1994)
-    Avx = 0.78
-    Bvx = 0.30
-    afr = 4854.0
-    # constants in fallspeed relation for rain from Ferrier 1994
-    bfr = 1.0
-    ffr = 195.0
+    E = evap.evaporation_rate_gamma(
+        N0, lamda, mu, T, p, RH / 100.0, rho=rho,
+        fall_speed=evap.FerrierFallSpeed(a=4854.0, b=1.0, f=195.0, rho0=1.225, exponent=0.5),
+        ventilation='ferrier1994', thermo_form='milbrandt', saturation_definition='mixing_ratio')
 
-    Cdiff = (2.2157e-5 + 0.0155e-5 * (T - 273.15)) * 1e5 / p
-
-    # Dynamic viscosity
-    # MUdyn = 1.72e-5 * (393. / (T + 120.)) * (T / 273.16)**1.5
-    MUdyn = 1.7153e-5 + 0.005e-5 * (T - 273.15)
-    # Kinematic viscosity
-    MUkin = MUdyn / rho
-    # Scorer parameter to the one-third power
-    ScTHRD = (MUkin / Cdiff)**(1. / 3.)
-
-    GR16 = gamma_(2. + mu)
-    GR17 = gamma_(2.5 + mu + 0.5 * bfr)
-
-    cexr5 = 2. + mu
-    cexr6 = 2.5 + mu + 0.5 * bfr
-
-    # Now we can calculate the bulk ventilation coefficient for rain (Woohoo!)
-    VENTr = Avx * GR16 / (lamda**cexr5) + Bvx * ScTHRD * \
-        np.sqrt(gamma_factor * afr / MUkin) * GR17 / (lamda + 0.5 * ffr)**cexr6
-
-    # Calculate the thermodynamic function in the denominator of the bulk evaporation rate
-    # Thermal conductivity of air
-    Ka = 2.3971e-2 + 0.0078e-2 * (T - 273.15)
-
-    # Calculate saturation mixing ratio
-    QSS = thermo.calqvs(p, T)
-
-    ABw = (Lv**2.) / (Ka * Rv * T**2.) + 1. / (rho * QSS * Cdiff)
-
-    # Calculate saturation deficit S
-    RH_frac = RH / 100.0
-
-    # Calculate water vapor mixing ratio
-    qv = thermo.calw(RH_frac, p, T)
-    S = qv / QSS - 1.0
-
-    # With the above quantities, we can calculate the bulk evaporation rate (Yay!)
-    QREVP = (1. / rho) * 2. * np.pi * S * N0 * VENTr / ABw
+    QREVP = -E / rho
 
     # With QREVP we can calculate the latent cooling rate
-    COOL_RATE = (Lv / cp) * QREVP
+    COOL_RATE = (thermo.Lv / thermo.cp) * QREVP
 
     return QREVP, COOL_RATE
 
@@ -955,6 +936,53 @@ def fit_DSD_MM234(M2, M3, M4):
     lamda = (M3 * (mu + 4.)) / M4
     # lamda = np.ma.masked_invalid(lamda)
     N0 = (M3 * lamda**(mu + 4.)) / (gamma_(mu + 4.))
+
+    return N0, lamda, mu
+
+
+def fit_DSD_MM036(M0, M3, M6, mu_min=-0.999, mu_max=1000., n_iter=200):
+    """Uses the Method-of-Moments to fit a gamma distribution using M0, M3, and M6.
+
+    These are the moments predicted by three-moment bulk schemes (N_t, q_r, and Z). The shape
+    parameter solves G(mu) = M3^2 / (M0 M6) exactly, where
+    G(mu) = (mu+1)(mu+2)(mu+3) / ((mu+4)(mu+5)(mu+6)) increases monotonically for mu > -1, by
+    bisection on [mu_min, mu_max]. (solve_alpha() approximates the same relation with piecewise
+    polynomials and clips mu to [0, 40].) Where G lies outside [G(mu_min), G(mu_max)], mu is NaN.
+
+    Parameters
+    ----------
+    M0 : array_like
+        The zeroth moment of the distribution
+    M3 : array_like
+        The third moment of the distribution
+    M6 : array_like
+        The sixth moment of the distribution
+
+    Returns
+    -------
+    3-tuple of array_like
+        The intercept, slope, and shape parameters of the fitted gamma distribution.
+    """
+    def G_of(mu):
+        return (mu + 1.) * (mu + 2.) * (mu + 3.) / ((mu + 4.) * (mu + 5.) * (mu + 6.))
+
+    with np.errstate(divide='ignore', invalid='ignore'):
+        G = M3**2. / (M0 * M6)
+    G_np = np.asarray(G, dtype=float)
+    lo = np.full(G_np.shape, mu_min)
+    hi = np.full(G_np.shape, mu_max)
+    for _ in range(n_iter):
+        mid = 0.5 * (lo + hi)
+        below = G_of(mid) < G_np
+        lo = np.where(below, mid, lo)
+        hi = np.where(below, hi, mid)
+    mu_np = 0.5 * (lo + hi)
+    mu_np = np.where((G_np > G_of(mu_min)) & (G_np < G_of(mu_max)), mu_np, np.nan)
+    mu = G.copy(data=mu_np) if isinstance(G, xr.DataArray) else mu_np
+
+    with np.errstate(divide='ignore', invalid='ignore', over='ignore'):
+        lamda = np.exp((np.log(M0) + gammln(mu + 4.) - np.log(M3) - gammln(mu + 1.)) / 3.)
+        N0 = np.exp(np.log(M0) + (mu + 1.) * np.log(lamda) - gammln(mu + 1.))
 
     return N0, lamda, mu
 
