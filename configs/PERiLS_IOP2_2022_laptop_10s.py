@@ -18,8 +18,8 @@ PIPS_IO_dict = {
                           'conventional_raw_IOP2_033022_PIPS1B.nc',
                           'conventional_raw_IOP2_033022_PIPS2A.nc',
                           'conventional_raw_IOP2_033022_PIPS3B.nc'],
-    'start_times': [None] * 4,
-    'end_times': [None] * 4,
+    'start_times': ['20220330234000'] * 4,
+    'end_times': ['20220331014500'] * 4,
     'requested_interval': 10.
 }
 
